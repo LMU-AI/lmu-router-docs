@@ -1,0 +1,147 @@
+---
+title: 常见问题
+description: 灵眸 API 使用过程中常见报错、Token 用量、模型切换、Claude Code / Codex CLI 排障指南与解决方案汇总。
+---
+
+
+## 问题 1：断流超时错误
+
+**错误信息：**
+```
+stream disconnected before completion: error sending request for url
+(https://clawapi.fulitimes.com/responses)
+```
+
+**原因：** 典型的断流现象，通常由以下原因导致：
+- 被 Cloudflare (CF) 拦截
+- 魔法梯子不稳定，自动切换 IP 导致连接丢失断流
+
+**解决方案：** 重新开关魔法，检查网络环境。
+
+<Callout type="info" title="提示">
+
+我们的服务器在国外，走 CF 加速线路。使用优质稳定的魔法梯子速度会更快。当然，国内也能访问使用。
+
+</Callout>
+
+---
+
+## 问题 2：429 重试错误
+
+**错误信息：**
+```
+exceeded retry limit, last status: 429 Too Many Requests
+```
+
+**原因：** 当日额度已用完。
+
+**解决方案：**
+1. 查看「我的订阅」，确认当日额度是否已用完
+2. 如需增量，前往购买**不同规格**的套餐，然后在后台 API 密钥中切换到新套餐的分组
+
+<Callout type="warn" title="注意区分续期和增量">
+
+- **不要购买相同套餐**——相同套餐是续期，不是增量
+- 如需增量请购买不同套餐（如从天卡切换到月卡）
+
+</Callout>
+
+---
+
+## 问题 3：401 密钥不正确
+
+**错误信息：**
+```
+unexpected status 401 Unauthorized: Incorrect API key provided
+```
+
+**原因：** 请求还是走的 OpenAI 官方，没有走我们的中转站。
+
+**解决方案：**
+1. 确认已正确创建或替换 `config.toml` 和 `auth.json` 两个文件
+2. 重启 IDE 工具（VS Code / Cursor 等）重新加载配置文件
+3. 若之前使用官方或其他平台登录过，请先退出账号再进行配置
+
+<Callout type="info" title="遇见报错怎么办">
+
+截图错误信息翻译查看，可以快速定位原因。
+
+</Callout>
+
+---
+
+## 问题 4：脚本禁止运行（Windows）
+
+**错误信息：**
+```
+codex：无法加载文件，因为在此系统上禁止运行脚本。
+```
+
+**解决方案：** 在终端运行以下命令，然后重新打开新终端：
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+---
+
+## 问题 5：Node.js 未找到（Windows）
+
+**错误信息：** `CODEX` 无法识别为 cmdlet 等错误
+
+**原因：** Node.js 未安装或环境变量配置有问题。
+
+**解决方案：** 重新下载安装 Node.js 20+，安装完成后重新打开终端。
+
+---
+
+## 问题 6：503 No available accounts（环境变量覆盖密钥）
+
+**错误信息：**
+```
+Error code: 503 - {'error': {'message': 'No available accounts: no available accounts', 'type': 'api_error'}}
+```
+
+**原因：** 你的 `~/.zshrc`（或 `~/.bashrc`）中配置了 `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` 等环境变量，Shell 启动后这些变量会全局生效，覆盖掉 IDE 工具（Cursor、VS Code 等）里配置的 API Key，导致请求使用了错误的密钥。
+
+**解决方案（二选一）：**
+
+**方案 A：直接移除 `.zshrc` 中的相关环境变量**
+
+打开 `~/.zshrc`，删除以下几行：
+```bash
+export ANTHROPIC_AUTH_TOKEN="..."
+export ANTHROPIC_BASE_URL="..."
+export ANTHROPIC_MODEL="..."
+```
+然后执行 `source ~/.zshrc` 使修改生效，重启 IDE 工具。
+
+**方案 B：将变量移到独立文件，仅在运行 Claude Code CLI 时加载**
+
+1. 新建文件 `~/.claude_env`，将三行变量写入其中：
+```bash
+export ANTHROPIC_AUTH_TOKEN="sk-你的灵眸API密钥"
+export ANTHROPIC_BASE_URL="https://clawapi.fulitimes.com"
+export ANTHROPIC_MODEL="你使用的模型"
+```
+
+2. 从 `~/.zshrc` 中删除这三行。
+
+3. 启动 Claude Code 时手动加载：
+```bash
+source ~/.claude_env && claude
+```
+
+这样 IDE 工具正常使用配置文件中的密钥，Claude Code CLI 使用环境变量，互不干扰。
+
+---
+
+## 仍有问题？
+
+安装配置过程中如有特殊环境还是无法解决，可联系客服：
+- 添加客服微信
+- 联系咸鱼客服
+
+> 客服远程协助时间：**下午两点以后**（上午客服在岗帮忙忙远程解决复杂配置环境）
+>
+> 需要远程的宝子们请自行先下载**网易 UU 远程**，发给客服即可在下午两点会进行技术指导和远程协助。

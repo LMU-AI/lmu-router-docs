@@ -1,0 +1,49 @@
+---
+title: Cherry Studio
+description: 在 Cherry Studio 中接入灵眸 API，配置 Claude / Codex 等模型渠道，国内网络直连使用。
+---
+
+
+Cherry Studio 是一款支持多模型的 AI 桌面客户端。
+
+---
+
+## 下载安装
+
+- **电脑版官网**：[https://www.cherry-ai.com/](https://www.cherry-ai.com/)
+- **手机版（安卓 & 苹果）**：[https://github.com/CherryHQ/cherry-studio-app/releases](https://github.com/CherryHQ/cherry-studio-app/releases)
+  - 安卓：下载 `.apk` 文件
+  - 苹果：下载 `.ipa` 文件
+
+手机版安装方式和电脑版差不多，仔细看一下就找到了。
+
+---
+
+## 配置步骤
+
+### 第1步：添加提供商
+
+进入 Cherry Studio 设置，点击「添加提供商」：
+
+1. **提供商名称**：随意填写（如 `GMN`）
+2. **提供商类型**：下拉选择 **`OpenAI-Response`**（选第二个，不是第一个 OpenAI）
+
+### 第2步：填写 API 信息
+
+- **API 密钥**：填入后台生成的 `sk-` 开头的密钥
+- **API 地址**：填入我们中转站的请求地址
+
+```
+https://clawapi.fulitimes.com
+```
+
+### 第3步：获取模型列表
+
+先点击「管理」获取模型列表，加载完成后可用模型就会出现在列表中。
+
+---
+
+## 注意事项
+
+- 添加提供商时**务必选择 OpenAI-Response 类型**，不要选 OpenAI
+- API 地址填写中转站地址，不要填 OpenAI 官方地址

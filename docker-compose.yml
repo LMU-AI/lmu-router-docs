@@ -1,0 +1,11 @@
+services:
+  limao-docs:
+    image: submit2mxh/lmu-router-docs:latest
+    container_name: limao-docs
+    restart: unless-stopped
+    ports:
+      - "3004:3000"
+    environment:
+      NODE_ENV: production
+      PORT: 3000
+      HOSTNAME: 0.0.0.0

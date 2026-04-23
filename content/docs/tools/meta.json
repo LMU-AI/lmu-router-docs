@@ -1,0 +1,15 @@
+{
+  "title": "工具配置",
+  "pages": [
+    "cc-switch",
+    "claude-code",
+    "codex-cli-windows",
+    "codex-cli-mac",
+    "codex-cli-server",
+    "vscode-plugin",
+    "codex-app",
+    "opencode",
+    "cherry",
+    "kilo-code-idea"
+  ]
+}

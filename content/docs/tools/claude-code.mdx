@@ -1,0 +1,284 @@
+---
+title: Claude Code 配置
+description: 在 Claude Code CLI 中接入灵眸 API：settings.json 配置、指定模型、国产大模型调用与常见报错排查。
+---
+
+
+Claude Code 是 Anthropic 官方推出的 AI 编程智能体，可在终端中直接使用自然语言完成代码编写、调试、重构等任务。
+
+<Callout type="info" title="更快的方式：CC Switch 一键导入">
+
+如果你不想手动编辑 `settings.json`，可使用 [**CC Switch 一键导入**](./cc-switch)：在灵眸后台密钥列表点击「导入到 CCS」按钮，即可自动完成 Base URL 与密钥配置。
+
+</Callout>
+
+---
+
+## 第一步：安装 Node.js
+
+> 如果已安装可跳过，检查命令：`node -v`
+
+需要 **Node.js 18+** 版本，下载地址：[https://nodejs.org/en/download](https://nodejs.org/en/download)
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+# 安装完成后验证
+node -v
+# 显示版本号（如 v24.4.1）表示安装成功
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+# 安装时注意勾选 "Automatically install the necessary tools"
+# 安装完成后重新打开 PowerShell 验证
+node -v
+```
+
+</Tab>
+</Tabs>
+
+<Callout type="info">
+
+如果之前安装过但版本过低或环境变量有问题，重新下载安装后重新打开终端即可。
+
+</Callout>
+
+---
+
+## 第二步：安装 Claude Code
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+npm install -g @anthropic-ai/claude-code
+```
+
+</Tab>
+</Tabs>
+
+验证安装：
+
+```bash
+claude --version
+```
+
+<Callout type="info" title="网络问题？切换国内镜像源">
+
+```bash
+npm config set registry https://registry.npmmirror.com
+npm install -g @anthropic-ai/claude-code
+```
+
+</Callout>
+
+---
+
+## 第三步：配置灵眸 API
+
+Claude Code 通过 `settings.json` 配置自定义 API 端点。
+
+### 配置文件位置
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+~/.claude/settings.json
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+C:\Users\你的用户名\.claude\settings.json
+```
+
+</Tab>
+</Tabs>
+
+### 创建配置文件
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+mkdir -p ~/.claude && touch ~/.claude/settings.json
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+mkdir "$env:USERPROFILE\.claude" -Force
+New-Item "$env:USERPROFILE\.claude\settings.json" -Force
+```
+
+</Tab>
+</Tabs>
+
+### 写入配置内容
+
+用文本编辑器打开 `settings.json`，写入以下内容（将密钥替换为你的）：
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://clawapi.fulitimes.com",
+    "ANTHROPIC_AUTH_TOKEN": "sk-你的灵眸API密钥",
+    "API_TIMEOUT_MS": "3000000"
+  }
+}
+```
+
+<Callout type="warn" title="注意">
+
+- `ANTHROPIC_AUTH_TOKEN` 填写你在灵眸后台生成的 API Key（`sk-` 开头）
+- 不要填写 Anthropic 官方的 API Key
+- 若之前配置过官方 Key，请先清除旧配置再重新写入
+
+</Callout>
+
+---
+
+## 使用国产模型（可选）
+
+灵眸支持国产大模型（如通义千问 Qwen 系列）。通过在 `settings.json` 中指定 `model`，**每次启动 Claude Code 无需手动 `/model` 切换**，直接使用指定模型。
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://clawapi.fulitimes.com",
+    "ANTHROPIC_AUTH_TOKEN": "sk-你的灵眸API密钥",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  },
+  "model": "qwen3.6-plus",
+  "effortLevel": "medium"
+}
+```
+
+**字段说明：**
+
+| 字段 | 说明 |
+|------|------|
+| `model` | 默认使用的模型名称，启动时自动加载，无需每次手动切换 |
+| `effortLevel` | 推理强度：`low` / `medium` / `high`，国产模型建议用 `medium` |
+| `CLAUDE_CODE_ATTRIBUTION_HEADER` | 设为 `"0"` 可关闭请求头中的来源标识，兼容性更好 |
+
+<Callout type="info" title="支持的国产模型（示例）">
+
+- `qwen3.6-plus` — 通义千问 3.6 Plus
+- `qwen3-235b-a22b` — 通义千问 3 旗舰版
+
+具体可用模型以灵眸后台「可用模型」列表为准。
+
+</Callout>
+
+<Callout type="info" title="国产模型 vs Claude 官方模型">
+
+| | 国产模型 | Claude 官方模型 |
+|---|---|---|
+| 费用 | 更低 | 较高 |
+| 中文理解 | 优秀 | 良好 |
+| 代码能力 | 优秀 | 优秀 |
+| 默认模型设置 | ✅ 支持 | ✅ 支持 |
+
+</Callout>
+
+---
+
+## 第四步：启动 Claude Code
+
+在项目目录下打开终端，运行：
+
+```bash
+claude
+```
+
+### 免审批模式（推荐）
+
+```bash
+claude --dangerously-skip-permissions
+```
+
+> 此模式下 Claude Code 无需每步确认即可自动执行命令，适合在项目目录中使用。
+
+---
+
+## 验证配置
+
+启动后在 Claude Code 交互界面输入：
+
+```
+/status
+```
+
+将显示当前的：
+- 模型名称
+- API Base URL（应显示 `https://clawapi.fulitimes.com`）
+- API Key 状态
+
+确认 Base URL 正确即说明配置成功。
+
+---
+
+## 常见问题
+
+### 报错 401 Unauthorized
+
+**原因：** API Key 不正确，或请求仍走的是 Anthropic 官方。
+
+**解决：**
+1. 确认 `settings.json` 中 `ANTHROPIC_AUTH_TOKEN` 填的是灵眸后台的密钥
+2. 检查是否有 Shell 环境变量覆盖了配置
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+echo $ANTHROPIC_BASE_URL
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+echo $env:ANTHROPIC_BASE_URL
+```
+
+</Tab>
+</Tabs>
+
+3. 重新打开终端后再启动 Claude Code
+
+### 报错 stream disconnected / 断流
+
+**原因：** 网络不稳定或代理 IP 切换导致连接中断。
+
+**解决：** 重新开关魔法梯子，使用稳定的节点。
+
+### 响应超时
+
+**原因：** 默认超时时间较短。
+
+**解决：** 确认 `API_TIMEOUT_MS` 已设置为 `3000000`（50分钟），避免长任务超时中断。
+
+---
+
+## 使用技巧
+
+- 在项目根目录启动 Claude Code，它会自动读取项目结构
+- 使用 `claude "帮我重构这个函数"` 直接传入指令
+- `Ctrl+C` 中断当前任务，`/exit` 退出
+- 输入 `?` 或 `/help` 查看所有可用命令

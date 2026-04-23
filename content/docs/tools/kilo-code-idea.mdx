@@ -1,0 +1,39 @@
+---
+title: IDEA Kilo Code
+description: 在 IntelliJ IDEA 中使用 Kilo Code 插件接入灵眸 API，获得 Claude / Codex 级别的智能补全与重构能力。
+---
+
+
+在 IntelliJ IDEA 中通过安装第三方插件 **Kilo Code** 来使用 Codex。
+
+---
+
+## 安装插件
+
+1. 打开 IntelliJ IDEA，进入 **Settings → Plugins → Marketplace**
+2. 搜索 **Kilo Code**，找到插件后点击安装
+3. 安装完成后重启 IDEA
+
+---
+
+## 配置插件
+
+安装完成后，在 Kilo Code 的设置界面中：
+
+1. **API Provider（提供商类型）**：下拉选择 **`OpenAI Compatible (Responses)`**（必须选这个）
+2. **Base URL**：填入我们中转站的请求地址
+
+```
+https://clawapi.fulitimes.com
+```
+
+3. **API Key**：填入后台生成的 `sk-` 开头的密钥
+4. **Model**：填入要使用的模型名称（如 `gpt-5.4`）
+
+---
+
+## 注意事项
+
+- Provider 类型必须选 **OpenAI Compatible (Responses)**，不要选其他选项
+- Base URL 填写中转站地址
+- 配置完成后保存设置，Kilo Code 即可正常使用

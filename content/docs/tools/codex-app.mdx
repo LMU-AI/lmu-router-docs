@@ -1,0 +1,125 @@
+---
+title: Codex App 桌面客户端
+description: 在 Codex App 桌面客户端中配置灵眸 API base URL 与密钥，Windows / Mac 全平台可用。
+---
+
+
+如果你不想安装 Codex CLI，只需使用 **CODEX APP 桌面客户端**，可参考此方法。
+
+<Callout type="warn" title="注意">
+
+- 如果之前登录过自己的账号，请先在 CODEX APP 里面**退出当前账号**，然后再进行重新配置
+- 更换 API 之后，历史对话记录会不存在（因为账号类型的历史对话都是保存在 GPT 账号的空间里，本地是没有的）
+- **更换 API 登陆之后以后所有的历史对话记录都会保存在本地，不会丢失！**
+
+</Callout>
+
+---
+
+## 第一步：创建配置文件
+
+配置文件位置：
+- **Mac/Linux**：`~` 用户目录下的 `.codex` 文件夹
+- **Windows**：`C:\users\你的用户名\.codex\`
+
+如果文件夹已经存在，建议先删掉里面的 `auth.json` 和 `config.toml`，再重新创建，避免旧配置干扰。
+
+**使用终端命令创建文件夹：**
+
+```bash
+# Mac/Linux
+rm -rf ~/.codex && mkdir ~/.codex
+```
+
+在 `.codex` 文件夹里创建两个文件：
+
+### auth.json
+
+存放你的 API 密钥：
+
+```json
+{
+  "OPENAI_API_KEY": "这里填入后台生成的sk-开头的密钥"
+}
+```
+
+### config.toml
+
+配置服务提供商：
+
+```toml
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+disable_response_storage = true
+sandbox_mode = "danger-full-access"
+windows_wsl_setup_acknowledged = true
+approval_policy = "never"
+profile = "auto-max"
+file_opener = "vscode"
+model_provider = "codex"
+web_search = "cached"
+suppress_unstable_features_warning = true
+
+[history]
+persistence = "save-all"
+
+[tui]
+notifications = true
+
+[shell_environment_policy]
+inherit = "all"
+ignore_default_excludes = false
+
+[sandbox_workspace_write]
+network_access = true
+
+[features]
+plan_tool = true
+apply_patch_freeform = true
+view_image_tool = true
+unified_exec = false
+streamable_shell = false
+rmcp_client = true
+elevated_windows_sandbox = true
+
+[profiles.auto-max]
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+
+[profiles.review]
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[notice]
+hide_gpt5_1_migration_prompt = true
+
+[model_providers.codex]
+name = "codex"
+base_url = "https://clawapi.fulitimes.com"
+wire_api = "responses"
+requires_openai_auth = true
+```
+
+<Callout type="info">
+
+一般都在用户目录下的 `.codex` 文件夹内。如果在用户目录下找不到 `.codex` 文件夹，可以手动创建该文件夹，和手动创建 `config.toml` 和 `auth.json` 即可。
+
+如果手动创建不了 `.codex` 文件夹，请参考 [Codex CLI Mac/Linux 配置教程](./codex-cli-mac) 的第3.1节，使用 CCMAN 工具配置，重启 CODEX APP 也是一样的。
+
+</Callout>
+
+---
+
+## 第二步：重新打开 CODEX APP
+
+保存配置文件后，重新打开 CODEX APP 就能够自动登陆使用了。
+
+---
+
+## 常见报错
+
+**报错 401 密钥不正确：**
+
+原因：请求还是走的 OpenAI 官方，没有请求我们中转站，或者没有重启工具重新加载配置文件。
+
+解决：请再次按教程创建或替换 `config.toml` 和 `auth.json` 这两个文件，重新打开 APP 即可。

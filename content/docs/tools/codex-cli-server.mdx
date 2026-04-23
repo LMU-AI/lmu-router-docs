@@ -1,0 +1,65 @@
+---
+title: Codex CLI（服务器）
+description: 在 WSL2 / SSH 远程服务器环境下部署 Codex CLI 并接入灵眸 API 的完整教程。
+---
+
+
+适用于在 WSL2 或 SSH 远程服务器环境下配置 Codex CLI。
+
+---
+
+## 配置步骤
+
+### 第1步：安装 Node.js 环境（使用 volta）
+
+在服务器终端输入：
+
+```bash
+curl https://get.volta.sh | bash
+```
+
+### 第2步：安装 Node 20
+
+<Callout type="warn" title="注意">
+
+安装 volta 环境成功后，**必须新建一个终端窗口**再输入以下命令：
+
+</Callout>
+
+```bash
+volta install node@20
+```
+
+### 第3步：安装 ccman
+
+```bash
+volta install ccman
+```
+
+### 第4步：安装 Codex CLI
+
+```bash
+volta install @openai/codex
+```
+
+### 第5步：运行 ccman 一键配置
+
+```bash
+ccman gmn1
+```
+
+启动后按提示操作：
+1. **选择要配置的工具**（空格键选择，回车确认）
+2. **输入 API Key**：填入后台生成的 `sk-` 开头的密钥
+
+### 第6步：启动 Codex CLI
+
+```bash
+codex --dangerously-bypass-approvals-and-sandbox
+```
+
+或：
+
+```bash
+codex --yolo
+```

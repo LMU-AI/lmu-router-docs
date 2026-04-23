@@ -1,0 +1,164 @@
+---
+title: VS Code / Cursor / Trae
+description: 在 VS Code、Cursor、Trae 等编辑器中接入灵眸 API 插件，通过 OpenAI 兼容接口使用 Claude / Codex。
+---
+
+
+---
+
+## 常见报错说明
+
+**报错：配置后发现 401 提示密钥不正确**
+
+原因：请求走的还是 OpenAI 官方，没有请求我们的中转站，或者没有重启工具重新加载配置文件。
+
+解决：请再次按教程**创建或替换** `config.toml` 和 `auth.json` 两个文件，然后重启 IDE 工具。
+
+<Callout type="info" title="遇见报错">
+
+截图错误信息进行翻译，自己就能知道是什么原因报错了！
+
+</Callout>
+
+---
+
+## 配置方案
+
+### 第1步：创建/覆盖配置文件
+
+配置文件位置：
+- **Mac/Linux**：`~/.codex/` 目录
+- **Windows**：`C:\users\你的用户名\.codex\` 目录
+
+<Callout type="warn" title="Windows 注意">
+
+若之前使用官方或其他平台登录过，请先退出账号登录，再进行配置！
+
+</Callout>
+
+如果没有 `.codex` 文件夹，使用终端命令创建：
+
+```bash
+# Mac/Linux
+rm -rf ~/.codex && mkdir ~/.codex
+```
+
+```powershell
+# Windows（在终端执行）
+rm -rf C:\users\你的用户名\.codex
+mkdir C:\users\你的用户名\.codex
+```
+
+### 第2步：写入 config.toml
+
+在 `.codex` 目录下创建或覆盖 `config.toml`：
+
+```toml
+model_provider = "OpenAI"
+model = "gpt-5.4"
+review_model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+disable_response_storage = true
+network_access = "enabled"
+windows_wsl_setup_acknowledged = true
+model_context_window = 1000000
+model_auto_compact_token_limit = 900000
+
+[model_providers.OpenAI]
+name = "OpenAI"
+base_url = "https://clawapi.fulitimes.com"
+wire_api = "responses"
+requires_openai_auth = true
+```
+
+### 第3步：写入 auth.json
+
+在 `.codex` 目录下创建或覆盖 `auth.json`：
+
+```json
+{
+  "OPENAI_API_KEY": "这里填入后台生成的sk-开头的密钥"
+}
+```
+
+配置完成后，打开 VS Code、Cursor、Trae，里面的 Codex 插件就能自动登录。
+
+---
+
+## Visual Studio Code 插件安装教程
+
+### 安装插件
+
+1. 打开 VS Code，先选择任意项目文件夹进入工作区（**不然会提示弹窗要求你打开项目文件夹！**）
+2. 点击左侧插件扩展界面（Extensions 图标）
+3. 搜索 **Codex**，找到 OpenAI 官方插件「Codex – OpenAI's coding agent」点击安装
+4. 安装完成后，左侧栏会出现 Codex 入口（如没有则在界面右上角找）
+
+### 退出旧账号
+
+<Callout type="warn" title="重要">
+
+若之前使用官方或其他平台登录过，请先退出登录，再进行配置！
+
+</Callout>
+
+1. 点击 Codex 面板右上角的设置图标
+2. 点击「**Log out**」退出登录
+
+### 完成配置
+
+配置好 `config.toml` 和 `auth.json` 后，重新打开 Codex 插件，点击「**Continue**」完成登录流程。
+
+<Callout type="info" title="关于模型显示">
+
+GPT-5.3 的模型不会在下拉列表展示，鼠标移动到「自定义」可以看到当前正在使用的模型。
+
+也可以在后台「使用记录」中查看实际的请求模型。
+
+</Callout>
+
+---
+
+## Trae 原生模型配置
+
+除 Codex 插件外，[Trae](https://www.trae.ai/) 编辑器本身支持直接添加自定义 AI 模型，无需插件，配置更简单。**同时支持 Claude 官方模型与国产大模型（GLM、Qwen 等）**。
+
+### 配置步骤
+
+1. 打开 Trae，进入 **设置 → 模型 → 添加模型**
+2. **服务商** 选择 **Anthropic**
+3. **模型** 选择 **自定义模型**（下拉最下方），在下方「**模型 ID**」输入框中填写模型名（见下方常用模型表）
+4. **自定义请求地址** 填写：
+   ```
+   https://clawapi.fulitimes.com/v1/messages
+   ```
+5. **API 密钥** 填写你在灵眸后台生成的密钥（`sk-` 开头）
+6. 点击「确认」保存，切换到该模型即可使用
+
+### 配置国产模型示例（GLM-5.1）
+
+下图以 **GLM-5.1** 为例，演示自定义模型的填写方式。注意「模型」下拉需选「**自定义模型**」，再手动输入模型 ID；请求地址固定为 `https://clawapi.fulitimes.com/v1/messages`：
+
+![Trae 配置 GLM-5 等国产模型，服务商选 Anthropic、模型选自定义模型、自定义请求地址以 /v1/messages 结尾](/images/tools/trae/trae-config-glm.png)
+
+<Callout type="info" title="常用模型参考">
+
+**Claude 官方模型：**
+
+| 模型 ID | 说明 |
+|------|------|
+| `claude-opus-4-7` | Claude Opus 4.7（旗舰版） |
+| `claude-opus-4-6` | Claude Opus 4.6 |
+| `claude-sonnet-4-6` | Claude Sonnet 4.6（均衡版） |
+
+**国产大模型（需选「自定义模型」手动输入 ID）：**
+
+| 模型 ID | 说明 |
+|------|------|
+| `glm-5.1` | 智谱 GLM-5.1 |
+| `qwen3.6-plus` | 通义千问 3.6 Plus |
+| `qwen3-235b-a22b` | 通义千问 3 旗舰版 |
+
+具体可用模型以灵眸后台「可用模型」列表为准。
+
+</Callout>

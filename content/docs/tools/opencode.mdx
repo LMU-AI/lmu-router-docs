@@ -1,0 +1,100 @@
+---
+title: OpenCode
+description: 在 OpenCode 中配置灵眸 API 作为 OpenAI 兼容后端，接入 Claude、Codex 等模型使用。
+---
+
+
+OpenCode 按照官方文档安装即可，官网有很详细的教程：
+
+- 官方文档：[https://opencode.ai/docs/](https://opencode.ai/docs/)
+
+---
+
+## 配置模型
+
+安装完成后，编辑配置文件 `~/.config/opencode/opencode.json`，添加以下内容：
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "gmn": {
+      "npm": "@ai-sdk/openai",
+      "name": "gmn",
+      "options": {
+        "baseURL": "https://clawapi.fulitimes.com/v1"
+      },
+      "models": {
+        "gpt-5.3-codex": {
+          "name": "GPT-5.3-codex",
+          "thinking": true,
+          "modalities": {
+            "input": ["text", "image", "pdf"],
+            "output": ["text"]
+          },
+          "limit": {
+            "context": 400000,
+            "output": 128000
+          },
+          "options": {
+            "store": false,
+            "reasoningEffort": "xhigh",
+            "textVerbosity": "high",
+            "reasoningSummary": "auto",
+            "include": ["reasoning.encrypted_content"]
+          }
+        },
+        "gpt-5.2-codex": {
+          "name": "GPT-5.2 Codex",
+          "options": {
+            "include": ["reasoning.encrypted_content"],
+            "store": false
+          }
+        }
+      }
+    }
+  }
+}
+```
+
+---
+
+## 配置密钥
+
+### 方式一：使用命令行（推荐）
+
+```bash
+# 登录或更新某个供应商的 Key
+opencode auth login
+
+# 查看当前已配置的所有供应商和 Key 状态
+opencode auth list
+
+# 删除指定供应商的 Key
+opencode auth logout <供应商名称>
+```
+
+### 方式二：手动编辑配置文件
+
+在 `~/.local/share/opencode/auth.json` 中添加对应供应商的 API Key：
+
+```json
+{
+  "供应商名称": {
+    "type": "api",
+    "key": "你的API密钥"
+  }
+}
+```
+
+<Callout type="warn" title="注意">
+
+`auth.json` 中的供应商名称必须与 `opencode.json` 中的供应商名称**完全一致**。
+
+</Callout>
+
+---
+
+## 小技巧
+
+在 OpenCode 中按 `Ctrl + T` 可切换不同的推理强度（variants）。

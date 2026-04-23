@@ -1,0 +1,178 @@
+---
+title: Codex CLI（Mac/Linux）
+description: Mac 与 Linux 下安装并配置 Codex CLI，通过灵眸 API 接入 OpenAI Codex / Claude 模型。
+---
+
+
+配置方案分为**工具配置（方案1）**和**手动配置（方案2）**，推荐使用方案1。
+
+---
+
+## 方案1：使用 ccman 工具配置（推荐）
+
+使用 Mac 或 Linux 的终端进行安装和配置。
+
+### 第1步：安装 Node.js
+
+需要 **Node.js 20+** 版本，下载地址：[https://nodejs.org/en/download](https://nodejs.org/en/download)
+
+一路点下一步安装完毕后，在终端验证：
+
+```bash
+node --version
+# 显示版本号（如 v23.7.0）表示安装成功
+```
+
+### 第2步：安装 ccman
+
+ccman 是我们自己开发的开源中转服务商配置软件：
+
+```bash
+npm i -g ccman
+```
+
+如遇安装失败（网络问题或没有魔法），切换国内镜像源：
+
+```bash
+npm config set registry https://registry.npmmirror.com
+npm i -g ccman
+```
+
+验证安装：
+
+```bash
+ccman --version
+```
+
+### 第3步：安装 Codex CLI
+
+```bash
+npm i -g @openai/codex
+```
+
+如遇网络问题，先切换镜像源：
+
+```bash
+npm config set registry https://registry.npmmirror.com
+npm i -g @openai/codex
+```
+
+验证安装：
+
+```bash
+codex --version
+# 显示版本号表示安装成功
+```
+
+### 第4步：运行 ccman 一键配置
+
+```bash
+ccman gmn1
+```
+
+启动后按提示操作：
+1. **选择要配置的工具**（空格键选择）：默认选中 `Codex` 和 `OpenCode`，按需选择
+2. **输入 API Key**：填入后台生成的 `sk-` 开头的密钥（注意选择正确的套餐分组）
+
+### 第5步：启动 Codex CLI
+
+```bash
+codex --dangerously-bypass-approvals-and-sandbox
+```
+
+或者简写：
+
+```bash
+codex --yolo
+```
+
+> 这是免安全审批的启动命令，不需要逐条批准自动执行。
+
+启动成功后，界面显示当前使用模型为 `gpt-5.3-codex xhigh`。
+
+<Callout type="info" title="关于模型切换">
+
+目前默认使用 gpt-5.3-codex xhigh，修改后也无法自由切换模型。如不小心切换，可修改 `~/.codex/config.toml` 中的 `model` 字段改回 `gpt-5.4`，重启终端即可恢复。
+
+</Callout>
+
+---
+
+## 方案2：手动配置
+
+> 如果已经安装了 Codex CLI，可直接参考此方案；若没安装，请先参考方案1安装。
+
+编辑配置文件（没有就新建，存在则覆盖）：
+
+- **Mac/Linux 路径**：`~/.codex/`
+
+在该目录下创建/覆盖以下两个文件：
+
+### config.toml
+
+```toml
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+disable_response_storage = true
+sandbox_mode = "danger-full-access"
+windows_wsl_setup_acknowledged = true
+approval_policy = "never"
+profile = "auto-max"
+file_opener = "vscode"
+model_provider = "codex"
+web_search = "cached"
+suppress_unstable_features_warning = true
+
+[history]
+persistence = "save-all"
+
+[tui]
+notifications = true
+
+[shell_environment_policy]
+inherit = "all"
+ignore_default_excludes = false
+
+[sandbox_workspace_write]
+network_access = true
+
+[features]
+plan_tool = true
+apply_patch_freeform = true
+view_image_tool = true
+unified_exec = false
+streamable_shell = false
+rmcp_client = true
+elevated_windows_sandbox = true
+
+[profiles.auto-max]
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+
+[profiles.review]
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[notice]
+hide_gpt5_1_migration_prompt = true
+
+[model_providers.codex]
+name = "codex"
+base_url = "https://clawapi.fulitimes.com"
+wire_api = "responses"
+requires_openai_auth = true
+```
+
+### auth.json
+
+```json
+{
+  "OPENAI_API_KEY": "这里填入后台生成的sk-开头的密钥"
+}
+```
+
+保存后重新打开终端，输入以下命令启动即可自动登录：
+
+```bash
+codex --dangerously-bypass-approvals-and-sandbox
+```

@@ -1,0 +1,196 @@
+---
+title: Codex CLI（Windows）
+description: Windows 下安装与配置 Codex CLI，通过灵眸 API 接入 OpenAI Codex 模型的一步步指南。
+---
+
+
+配置方案分为**工具配置（方案1）**和**手动配置（方案2）**，推荐使用方案1。
+
+---
+
+## 方案1：使用 ccman 工具配置（推荐）
+
+### 第1步：安装 Windows Terminal
+
+Windows 下使用 Codex CLI 建议使用 **Windows Terminal** 代替 CMD，支持多开窗口更方便。
+
+- GitHub 下载（需魔法）：[https://github.com/microsoft/terminal/releases/tag/v1.23.20211.0](https://github.com/microsoft/terminal/releases/tag/v1.23.20211.0)
+- 国内免魔法网盘下载：[https://www.ilanzou.com/s/MzWnpE05](https://www.ilanzou.com/s/MzWnpE05)
+
+下载 `Microsoft.WindowsTerminal_1.23.20211.0_x64.zip`，解压后双击 `WindowsTerminal.exe` 启动，建议发送到桌面快捷方式。
+
+### 第2步：安装 Node.js
+
+> 如果已安装可跳过，检查命令：`node -v`
+
+需要 **Node.js 20+** 版本，下载地址：[https://nodejs.org/en/download](https://nodejs.org/en/download)
+
+安装时注意勾选 **"Automatically install the necessary tools"**。
+
+安装完成后在终端验证：
+
+```bash
+node -v
+# 显示版本号（如 v24.4.1）表示安装成功
+```
+
+<Callout type="info" title="特殊情况">
+
+如果没有安装 `node.js` 或之前安装过但配置环境有问题，需重新下载安装一次，重新打开终端即可。
+
+</Callout>
+
+**如遇脚本禁止运行错误，执行以下命令：**
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+### 第3步：安装 ccman
+
+ccman 是我们自己开发的开源中转服务商配置软件：
+
+```bash
+npm i -g ccman
+```
+
+如遇安装失败（网络问题或没有魔法），切换国内镜像源：
+
+```bash
+npm config set registry https://registry.npmmirror.com
+npm i -g ccman
+```
+
+验证安装：
+
+```bash
+ccman --version
+# 显示版本号表示安装成功
+```
+
+### 第4步：安装 Codex CLI
+
+```bash
+npm i -g @openai/codex
+```
+
+同样如遇网络问题，先切换镜像源再安装：
+
+```bash
+npm config set registry https://registry.npmmirror.com
+npm i -g @openai/codex
+```
+
+验证安装：
+
+```bash
+codex --version
+# 显示版本号表示安装成功
+```
+
+### 第5步：运行 ccman 一键配置
+
+```bash
+ccman gmn1
+```
+
+启动后按提示操作：
+1. **选择要配置的工具**（空格键选择）：默认选中 `Codex` 和 `OpenCode`，按需选择
+2. **输入 API Key**：填入后台生成的 `sk-` 开头的密钥（注意选择正确的套餐分组）
+
+配置完成后即可使用！
+
+### 第6步：启动 Codex CLI
+
+```bash
+codex --dangerously-bypass-approvals-and-sandbox
+```
+
+或者简写：
+
+```bash
+codex --yolo
+```
+
+> 这是免安全审批的启动命令，不需要逐条批准自动执行。
+
+---
+
+## 方案2：手动配置
+
+> 如果已经安装了 Codex CLI，可直接参考手动配置；如果没有安装，请先参考方案1安装 Codex CLI。
+
+编辑配置文件（没有就新建，存在则覆盖）：
+
+- Windows 路径：`C:\users\你的用户名\.codex\`
+
+在该目录下创建/覆盖以下两个文件：
+
+### config.toml
+
+```toml
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+disable_response_storage = true
+sandbox_mode = "danger-full-access"
+windows_wsl_setup_acknowledged = true
+approval_policy = "never"
+profile = "auto-max"
+file_opener = "vscode"
+model_provider = "codex"
+web_search = "cached"
+suppress_unstable_features_warning = true
+
+[history]
+persistence = "save-all"
+
+[tui]
+notifications = true
+
+[shell_environment_policy]
+inherit = "all"
+ignore_default_excludes = false
+
+[sandbox_workspace_write]
+network_access = true
+
+[features]
+plan_tool = true
+apply_patch_freeform = true
+view_image_tool = true
+unified_exec = false
+streamable_shell = false
+rmcp_client = true
+elevated_windows_sandbox = true
+
+[profiles.auto-max]
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+
+[profiles.review]
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[notice]
+hide_gpt5_1_migration_prompt = true
+
+[model_providers.codex]
+name = "codex"
+base_url = "https://clawapi.fulitimes.com"
+wire_api = "responses"
+requires_openai_auth = true
+```
+
+### auth.json
+
+```json
+{
+  "OPENAI_API_KEY": "这里填入后台生成的sk-开头的密钥"
+}
+```
+
+保存后重新打开终端，输入启动命令即可自动登录 Codex CLI：
+
+```bash
+codex --dangerously-bypass-approvals-and-sandbox
+```
