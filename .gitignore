@@ -5,3 +5,6 @@ out/
 *.local
 .env
 .env.*
+.DS_Store
+**/.DS_Store
+*.tsbuildinfo
