@@ -1,0 +1,75 @@
+---
+title: 模型广场
+description: 灵眸 API 全部可用模型清单（国产大模型 / Claude / OpenAI 系列），点击模型名一键复制，方便配置工具时直接粘贴使用。
+---
+
+下方为灵眸 API 当前支持的所有模型名称，**点击任意卡片即可一键复制模型 ID**，可直接粘贴到 `settings.json`、`config.toml` 或工具的模型选择框中。
+
+<Callout type="info" title="如何使用模型名">
+
+将复制到的模型 ID 填入对应工具的配置项即可：
+
+- **Claude Code** → `settings.json` 中的 `"model"` 字段
+- **Codex CLI** → `~/.codex/config.toml` 中的 `model = "..."`
+- **Cherry Studio / VS Code 插件** → 模型选择下拉框中粘贴
+
+</Callout>
+
+---
+
+## 国产模型
+
+中文理解优秀、价格更低，适合日常编码、文档撰写与对话场景。
+
+<ModelGrid>
+  <ModelCard name="qwen3.6-plus" description="通义千问 3.6 Plus" badge="新" />
+  <ModelCard name="qwen3.5-plus" description="通义千问 3.5 Plus" />
+  <ModelCard name="qwen3-max-2026-01-23" description="通义千问 3 Max 旗舰版" />
+  <ModelCard name="qwen3-coder-plus" description="通义千问 3 Coder Plus" />
+  <ModelCard name="qwen3-coder-next" description="通义千问 3 Coder Next" />
+  <ModelCard name="deepseek-v3.2" description="DeepSeek V3.2" />
+  <ModelCard name="MiniMax-M2.7" description="MiniMax M2.7" badge="新" />
+  <ModelCard name="MiniMax-M2.7-highspeed" description="MiniMax M2.7 高速版" />
+  <ModelCard name="MiniMax-M2.5" description="MiniMax M2.5" />
+  <ModelCard name="glm-5.1" description="智谱 GLM-5.1" badge="新" />
+  <ModelCard name="glm-5" description="智谱 GLM-5" />
+  <ModelCard name="kimi-k2.6" description="Kimi K2.6" badge="新" />
+  <ModelCard name="kimi-k2.5" description="Kimi K2.5" />
+</ModelGrid>
+
+---
+
+## Claude 模型
+
+Anthropic 官方模型，代码与长文本能力出众，是 Claude Code 的默认选择。
+
+<ModelGrid>
+  <ModelCard name="claude-opus-4-7" description="Claude Opus 4.7 — 旗舰" badge="新" />
+  <ModelCard name="claude-opus-4-6" description="Claude Opus 4.6" />
+  <ModelCard name="claude-opus-4-5" description="Claude Opus 4.5" />
+  <ModelCard name="claude-sonnet-4-6" description="Claude Sonnet 4.6 — 平衡" badge="新" />
+  <ModelCard name="claude-sonnet-4-5" description="Claude Sonnet 4.5 — 平衡" />
+  <ModelCard name="claude-haiku-4-5" description="Claude Haiku 4.5 — 高速" />
+</ModelGrid>
+
+---
+
+## OpenAI 模型
+
+OpenAI GPT-5 系列，适用于 Codex CLI、Codex App 与各类支持 OpenAI 协议的工具。
+
+<ModelGrid>
+  <ModelCard name="gpt-5.5" description="GPT-5.5" badge="新" />
+  <ModelCard name="gpt-5.4" description="GPT-5.4" />
+  <ModelCard name="gpt-5.3-codex" description="GPT-5.3 Codex" />
+  <ModelCard name="gpt-5.2" description="GPT-5.2" />
+</ModelGrid>
+
+---
+
+<Callout type="warn" title="提示">
+
+- 实际可用模型以灵眸后台「可用模型」页面为准，套餐不同可调用范围可能存在差异。
+- 如对模型选择有疑问，可参考 [套餐说明](./plans) 或前往 [常见问题](./faq) 查阅。
+
+</Callout>

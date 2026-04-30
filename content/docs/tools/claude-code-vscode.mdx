@@ -1,0 +1,117 @@
+---
+title: Claude Code 插件（VS Code / Cursor / Trae / Antigravity）
+description: 在 VS Code 及 Cursor、Trae、Antigravity 等基于 VS Code 的编辑器中安装 Claude Code for VS Code 官方插件接入灵眸 API，与 Claude Code CLI 共享同一套 settings.json 配置。
+---
+
+VS Code 官方插件 **Claude Code for VS Code** 让你在编辑器侧边栏直接使用 Claude Code，不必切换到终端。它和 Claude Code CLI **共享同一个配置文件**，CLI 配过的密钥 / Base URL 插件直接生效，无需重复设置。
+
+<Callout type="info" title="同样适用于 Cursor / Trae / Antigravity 等编辑器">
+
+只要是基于 VS Code 内核的编辑器（**Cursor、Trae、Antigravity** 等），都可以**在内置扩展商店里搜索同一个 `Claude Code for VS Code` 插件**进行安装与配置，步骤与 VS Code 完全一致。
+
+本页所有截图与命令均以 VS Code 为例，Cursor / Trae / Antigravity 用户照搬即可。
+
+</Callout>
+
+---
+
+## 安装插件
+
+1. 打开 VS Code（或 Cursor / Trae / Antigravity），进入扩展面板（快捷键 `Cmd+Shift+X` / `Ctrl+Shift+X`）
+2. 搜索 **`Claude Code for VS Code`**，认准 Anthropic 官方发布
+3. 点击 **Install** 安装，安装完成后会在侧边栏出现 Claude 图标
+
+<Callout type="warn" title="Cursor / Trae / Antigravity 的提示">
+
+部分 VS Code 衍生编辑器使用的是私有扩展商店（如 Open VSX），如果搜不到 `Claude Code for VS Code`：
+
+1. 进入 VS Code 官方扩展市场页面下载 `.vsix` 安装包
+2. 在编辑器扩展面板右上角 `…` 菜单选择 **Install from VSIX**
+
+</Callout>
+
+---
+
+## 配置灵眸 API
+
+<Callout type="info" title="如果你已配置过 Claude Code CLI，可直接跳过本节">
+
+插件读取的是 `~/.claude/settings.json`，与 CLI 完全一致。**你在 [Claude Code CLI 配置](./claude-code) 中写好的密钥与 Base URL，插件会自动复用，无需任何额外操作。**
+
+这也意味着：**VS Code、Cursor、Trae、Antigravity 之间也共享同一份配置** —— 在任一编辑器里改一次，其它编辑器与 CLI 全部生效。
+
+</Callout>
+
+如果是首次配置，按以下步骤创建配置文件：
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+mkdir -p ~/.claude && touch ~/.claude/settings.json
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+mkdir "$env:USERPROFILE\.claude" -Force
+New-Item "$env:USERPROFILE\.claude\settings.json" -Force
+```
+
+</Tab>
+</Tabs>
+
+写入以下内容（将密钥替换为你的）：
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://clawapi.fulitimes.com",
+    "ANTHROPIC_AUTH_TOKEN": "sk-你的灵眸API密钥",
+    "API_TIMEOUT_MS": "3000000"
+  }
+}
+```
+
+详细说明（含国产模型默认设置、`effortLevel` 调节等）请参考 [Claude Code CLI 配置](./claude-code)，**所有配置项通用**。
+
+---
+
+## 启动插件
+
+1. 在编辑器中按 `Cmd+Shift+P` / `Ctrl+Shift+P` 打开命令面板
+2. 输入 **`Claude Code: Open`** 或直接点击侧边栏 Claude 图标
+3. 在打开的对话面板中即可与 Claude Code 对话、生成代码、自动改文件
+
+<Callout type="info" title="一套配置，处处可用">
+
+- 在终端运行 `claude` → 使用 Claude Code CLI
+- 在 **VS Code / Cursor / Trae / Antigravity** 侧边栏点击 Claude 图标 → 使用插件
+
+**它们读取的是同一个 `~/.claude/settings.json`**，密钥、Base URL、模型、超时设置一处修改全部生效。
+
+</Callout>
+
+---
+
+## 常见问题
+
+### 插件提示 401 / Unauthorized
+
+跟 CLI 排查思路一致 —— 大多是 Shell 环境变量 `ANTHROPIC_BASE_URL` / `ANTHROPIC_API_KEY` 覆盖了 `settings.json`。请参考 [Claude Code CLI 配置 → 常见问题](./claude-code#常见问题) 排查。
+
+### 想用国产模型 / 切换默认模型
+
+在 `settings.json` 中加上 `"model": "qwen3.6-plus"` 即可，CLI 与所有 VS Code 系编辑器都会自动使用该模型。可用模型列表见 [模型广场](../guide/models)。
+
+### Cursor / Trae / Antigravity 内搜不到插件
+
+参考上文「Cursor / Trae / Antigravity 的提示」用 VSIX 离线安装即可。
+
+### 插件 vs CLI 选哪个？
+
+- 习惯在编辑器内编码 → 用插件，所有上下文都在编辑器里
+- 跨编辑器使用、写脚本、批量任务 → 用 CLI，更灵活
+
+两者**没有功能优劣之分**，按习惯选即可。

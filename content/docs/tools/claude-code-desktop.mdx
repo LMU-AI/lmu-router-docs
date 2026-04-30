@@ -1,0 +1,105 @@
+---
+title: Claude Code 桌面版
+description: 在 Claude Code for Desktop 桌面客户端中接入灵眸 API：开启 Developer Mode 后通过 Configure Third-Party Inference 完成第三方端点配置。
+---
+
+**Claude Code for Desktop** 是 Anthropic 官方推出的桌面客户端，新版本起支持自定义第三方推理端点，可直接接入灵眸 API。无需手动编辑 `settings.json`，全程在 GUI 中完成。
+
+<Callout type="info" title="哪个适合我？">
+
+- 想在终端使用 → [Claude Code CLI](./claude-code)
+- 想在 VS Code 内使用 → [VS Code 插件](./claude-code-vscode)
+- **想用独立桌面 App** → 本页
+
+三者使用同一把灵眸 API Key，按习惯选择即可。
+
+</Callout>
+
+---
+
+## 第一步：下载最新版本
+
+<Callout type="warn">
+
+**必须使用最新版本**，旧版桌面客户端不支持自定义第三方端点（即没有 `Configure Third-Party Inference` 选项）。
+
+</Callout>
+
+前往 [Claude 官网下载页](https://claude.ai/download) 下载并安装对应平台的客户端，安装完成后启动应用。
+
+---
+
+## 第二步：开启 Developer Mode
+
+第三方端点配置入口默认隐藏，需要先打开开发者模式。
+
+1. 顶部菜单栏点击 **Help**
+2. 选择 **Troubleshooting**
+3. 点击 **Enable Developer Mode**
+
+开启成功后，**顶部菜单栏会新增一项 `Developer` 菜单**。
+
+---
+
+## 第三步：配置灵眸 API
+
+1. 点击顶部菜单栏 **Developer**
+2. 选择 **`Configure Third-Party Inference …`**
+3. 在弹出的配置面板中填写：
+
+| 字段 | 取值 |
+|------|------|
+| **Base URL / Endpoint** | `https://clawapi.fulitimes.com` |
+| **API Key** | 灵眸后台生成的 `sk-` 开头密钥 |
+| **Model**（可选） | 例如 `claude-opus-4-6`、`qwen3.6-plus` |
+
+4. 保存后**重启客户端**生效
+
+<Callout type="info">
+
+Base URL 填写 **`https://clawapi.fulitimes.com`**（不带 `/v1` 后缀），桌面版与 CLI 走的都是 Anthropic 协议。
+
+</Callout>
+
+---
+
+## 验证配置
+
+打开任意会话向 Claude 发送一句话，若能正常返回回复即说明配置成功。如果想确认请求确实走了灵眸：
+
+- 灵眸后台 **API 密钥 → 用量统计** 页面会即时记录到本次请求
+- 客户端右下角的状态指示通常会显示当前模型
+
+---
+
+## 切换模型 / 使用国产模型
+
+如要使用国产模型（Qwen、DeepSeek、GLM、Kimi 等），在 `Configure Third-Party Inference` 的 **Model** 字段填入对应模型 ID 即可，例如：
+
+- `qwen3.6-plus`
+- `deepseek-v3.2`
+- `glm-5.1`
+
+完整可用模型清单见 [模型广场](../guide/models)，可一键复制 ID。
+
+---
+
+## 常见问题
+
+### 找不到 `Configure Third-Party Inference` 选项
+
+桌面版本太旧，前往官网下载最新版重新安装即可。该选项是较新版本才加入的功能。
+
+### Developer 菜单没有出现
+
+确认 `Help → Troubleshooting → Enable Developer Mode` 已勾选；若仍未出现，**完全关闭并重启客户端**（Mac 上需要在 Dock 右键 Quit，不只是关闭窗口）。
+
+### 提示 401 / Unauthorized
+
+- 检查 API Key 是否复制完整（`sk-` 开头）
+- 确认 Base URL 是 `https://clawapi.fulitimes.com`，**不要带 `/v1`**
+- 灵眸后台确认密钥所属分组有可用额度
+
+### 想恢复使用 Anthropic 官方接口
+
+`Developer → Configure Third-Party Inference` 中清空配置或选择默认即可恢复。
