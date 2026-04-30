@@ -8,6 +8,12 @@ description: 三步上手灵眸 AI API：注册账号、兑换套餐、创建 AP
 
 **QQ群：1044817922**
 
+<div style={{ maxWidth: 220 }}>
+
+![灵眸售后 QQ 群二维码 1044817922](/images/tools/qq-qrimg/customer-service-qr.png)
+
+</div>
+
 ---
 
 ## 第一步：注册账号
@@ -35,13 +41,33 @@ description: 三步上手灵眸 AI API：注册账号、兑换套餐、创建 AP
 
 **API 请求地址：**
 
+根据你使用的工具或模型，选择对应协议的请求地址：
+
+**Anthropic 协议**（适用于 Claude Code、Cherry Studio、Trae、Kilo Code 接 Claude / 国产模型等）：
+
 ```
 https://clawapi.fulitimes.com
 ```
 
-记住这两样东西，后续所有工具配置都需要用到：
-- **API Key**：你在后台生成的 `sk-` 开头的密钥
-- **API 地址**：`https://clawapi.fulitimes.com`
+**OpenAI 协议**（适用于 Codex CLI、Codex App、VS Code/Cursor 接 GPT、Kilo Code 接 OpenAI 模型等）：
+
+```
+https://clawapi.fulitimes.com/v1
+```
+
+<Callout type="warn" title="两者区别">
+
+- **Anthropic 协议** 不带 `/v1` 后缀
+- **OpenAI 协议** 必须带 `/v1` 后缀
+
+填错协议会导致 401 / 404 报错，请按工具文档对号入座。
+
+</Callout>
+
+记住这几样东西，后续所有工具配置都需要用到：
+- **API Key**：你在后台生成的 `sk-` 开头的密钥（两种协议通用）
+- **Anthropic 协议地址**：`https://clawapi.fulitimes.com`
+- **OpenAI 协议地址**：`https://clawapi.fulitimes.com/v1`
 
 ---
 

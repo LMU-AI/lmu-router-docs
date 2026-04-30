@@ -1,8 +1,7 @@
 ---
 title: Cherry Studio
-description: 在 Cherry Studio 中接入灵眸 API，配置 Claude / Codex 等模型渠道，国内网络直连使用。
+description: 在 Cherry Studio 中接入灵眸 API，配置 Claude / 国产 / OpenAI 等模型渠道，国内网络直连使用。
 ---
-
 
 Cherry Studio 是一款支持多模型的 AI 桌面客户端。
 
@@ -19,31 +18,73 @@ Cherry Studio 是一款支持多模型的 AI 桌面客户端。
 
 ---
 
-## 配置步骤
+## 两种协议说明
+
+灵眸支持两种接入协议，按模型类型选择：
+
+| 协议 | 适用模型 |
+|------|----------|
+| **Anthropic** | Claude 系列模型、国产模型（DeepSeek、Qwen 等） |
+| **OpenAI-Response** | OpenAI 系列模型（GPT-4、GPT-5 等） |
+
+---
+
+## 方式一：Anthropic 协议（Claude 及国产模型）
 
 ### 第1步：添加提供商
 
-进入 Cherry Studio 设置，点击「添加提供商」：
+进入 Cherry Studio 设置 → 点击「添加提供商」：
 
-1. **提供商名称**：随意填写（如 `GMN`）
-2. **提供商类型**：下拉选择 **`OpenAI-Response`**（选第二个，不是第一个 OpenAI）
+1. **提供商名称**：随意填写（如 `LMU AI·灵眸`）
+2. **提供商类型**：下拉选择 **`Anthropic`**
+
+![添加 Anthropic 提供商](/images/tools/cherry-studio/c-studio-1.png)
 
 ### 第2步：填写 API 信息
 
-- **API 密钥**：填入后台生成的 `sk-` 开头的密钥
-- **API 地址**：填入我们中转站的请求地址
+- **API Key**：填入后台生成的 `sk-` 开头的密钥
+- **API Host**：填入中转站请求地址
 
 ```
 https://clawapi.fulitimes.com
 ```
 
-### 第3步：获取模型列表
+点击「Fetch model list」获取可用模型列表，Claude 系列及国产模型会自动加载。
 
-先点击「管理」获取模型列表，加载完成后可用模型就会出现在列表中。
+![Anthropic 配置完成](/images/tools/cherry-studio/c-studio-2.png)
+
+---
+
+## 方式二：OpenAI-Response 协议（OpenAI 模型）
+
+### 第1步：添加提供商
+
+进入 Cherry Studio 设置 → 点击「添加提供商」：
+
+1. **提供商名称**：随意填写（如 `LMU AI·灵眸`）
+2. **提供商类型**：下拉选择 **`OpenAI-Response`**（选第二个，不是第一个 OpenAI）
+
+### 第2步：填写 API 信息
+
+- **API Key**：填入后台生成的 `sk-` 开头的密钥
+- **API Host**：填入中转站请求地址
+
+```
+https://clawapi.fulitimes.com
+```
+
+点击「Fetch model list」获取可用模型列表，GPT 系列模型会自动加载。
+
+![OpenAI-Response 配置完成](/images/tools/cherry-studio/c-studio-3.png)
+
+配置完成后即可在对话界面选择模型使用：
+
+![对话界面效果](/images/tools/cherry-studio/c-studio-4.png)
 
 ---
 
 ## 注意事项
 
-- 添加提供商时**务必选择 OpenAI-Response 类型**，不要选 OpenAI
-- API 地址填写中转站地址，不要填 OpenAI 官方地址
+- 同一个 API Key 和 API Host 可以同时用于两种协议，按需添加两个提供商即可
+- OpenAI-Response 类型务必选第二个，不要选第一个 OpenAI
+- API 地址填写中转站地址，不要填 OpenAI 或 Anthropic 官方地址

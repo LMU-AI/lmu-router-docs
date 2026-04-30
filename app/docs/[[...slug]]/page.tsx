@@ -6,6 +6,7 @@ import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
 import { Callout } from 'fumadocs-ui/components/callout';
 import type { Metadata } from 'next';
 import { CtaFooter } from '@/components/cta-footer';
+import { ModelCard, ModelGrid } from '@/components/model-card';
 import { SITE_NAME, SITE_URL } from '@/lib/site';
 
 function buildCanonicalPath(slug?: string[]): string {
@@ -67,7 +68,16 @@ export default async function Page({
         <DocsTitle>{page.data.title}</DocsTitle>
         <DocsDescription>{page.data.description}</DocsDescription>
         <DocsBody>
-          <MDX components={{ ...defaultMdxComponents, Tabs, Tab, Callout }} />
+          <MDX
+            components={{
+              ...defaultMdxComponents,
+              Tabs,
+              Tab,
+              Callout,
+              ModelCard,
+              ModelGrid,
+            }}
+          />
           <CtaFooter />
         </DocsBody>
       </DocsPage>

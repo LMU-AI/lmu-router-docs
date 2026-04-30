@@ -3,6 +3,8 @@
   "pages": [
     "cc-switch",
     "claude-code",
+    "claude-code-vscode",
+    "claude-code-desktop",
     "codex-cli-windows",
     "codex-cli-mac",
     "codex-cli-server",
