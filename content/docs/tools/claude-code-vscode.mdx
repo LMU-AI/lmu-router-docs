@@ -1,6 +1,19 @@
 ---
 title: Claude Code 插件（VS Code / Cursor / Trae / Antigravity）
 description: 在 VS Code 及 Cursor、Trae、Antigravity 等基于 VS Code 的编辑器中安装 Claude Code for VS Code 官方插件接入灵眸 API，与 Claude Code CLI 共享同一套 settings.json 配置。
+ogDescription: VS Code / Cursor / Trae / Antigravity 安装 Claude Code 插件 + 灵眸 API：免代理使用 Claude 4，与 CLI 共享 settings.json。
+keywords:
+  - Claude Code VS Code 插件
+  - Claude Code Cursor
+  - Claude Code Trae
+  - Claude Code Antigravity
+  - VS Code Claude 插件
+  - Cursor 接入 Claude
+  - Trae 接入 Claude
+  - Claude IDE 中转
+  - Anthropic VS Code
+alternateNames:
+  - Claude Code VS Code / Cursor / Trae 接入灵眸
 ---
 
 VS Code 官方插件 **Claude Code for VS Code** 让你在编辑器侧边栏直接使用 Claude Code，不必切换到终端。它和 Claude Code CLI **共享同一个配置文件**，CLI 配过的密钥 / Base URL 插件直接生效，无需重复设置。
@@ -67,7 +80,7 @@ New-Item "$env:USERPROFILE\.claude\settings.json" -Force
 ```json
 {
   "env": {
-    "ANTHROPIC_BASE_URL": "https://clawapi.fulitimes.com",
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
     "ANTHROPIC_AUTH_TOKEN": "sk-你的灵眸API密钥",
     "API_TIMEOUT_MS": "3000000"
   }

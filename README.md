@@ -3,7 +3,7 @@
 > 灵眸 AI API 官方用户文档，支持 Claude Code、Codex CLI、Cursor、VS Code、OpenCode、Cherry Studio、Kilo Code 等主流 AI 编程工具的接入配置。
 
 **文档站：** [https://docs.fulitimes.com](https://docs.fulitimes.com)
-**注册地址：** [https://clawapi.fulitimes.com/register?ref=vJaWWr4T](https://clawapi.fulitimes.com/register?ref=vJaWWr4T)
+**注册地址：** [https://api.lmuai.com/register?ref=vJaWWr4T](https://api.lmuai.com/register?ref=vJaWWr4T)
 
 ---
 
@@ -17,7 +17,7 @@
 - 兼容 OpenAI API 格式，零改造接入各类工具
 - 国内可用，走 Cloudflare CDN 加速线路
 
-[立即注册 →](https://clawapi.fulitimes.com/register?ref=vJaWWr4T)
+[立即注册 →](https://api.lmuai.com/register?ref=vJaWWr4T)
 
 ---
 
@@ -40,10 +40,10 @@
 
 ## 快速开始
 
-1. [注册账号](https://clawapi.fulitimes.com/register?ref=vJaWWr4T) — 填写邮箱和密码
+1. [注册账号](https://api.lmuai.com/register?ref=vJaWWr4T) — 填写邮箱和密码
 2. 登录后点击「**兑换**」— 输入购买时的兑换码
 3. 点击「**API 密钥**」→「创建密钥」— 选择对应套餐分组
-4. 记下 `sk-` 开头的 API Key 和 API 地址 `https://clawapi.fulitimes.com`
+4. 记下 `sk-` 开头的 API Key 和 API 地址 `https://api.lmuai.com`
 5. 按工具教程完成配置，即可使用
 
 详细步骤：[快速开始文档](https://docs.fulitimes.com/docs/guide/getting-started)
@@ -114,6 +114,6 @@ docker-compose up -d
 
 ## 相关链接
 
-- [灵眸 API 平台](https://clawapi.fulitimes.com/register?ref=vJaWWr4T)
-- [注册账号](https://clawapi.fulitimes.com/register?ref=vJaWWr4T)
+- [灵眸 API 平台](https://api.lmuai.com/register?ref=vJaWWr4T)
+- [注册账号](https://api.lmuai.com/register?ref=vJaWWr4T)
 - [文档站](https://docs.fulitimes.com)

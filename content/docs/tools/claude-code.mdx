@@ -1,6 +1,21 @@
 ---
 title: Claude Code CLI
 description: 在 Claude Code CLI 中接入灵眸 API：settings.json 配置、指定模型、国产大模型调用与常见报错排查。
+ogDescription: Claude Code CLI 国内接入指南：通过灵眸 AI 配置 settings.json 中的 ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN，免代理使用 Claude 4 Opus / Sonnet 与国产大模型。
+keywords:
+  - Claude Code CLI
+  - Claude Code 国内使用
+  - Claude Code 中转
+  - Claude Code settings.json
+  - ANTHROPIC_BASE_URL
+  - ANTHROPIC_AUTH_TOKEN
+  - Claude Code 配置
+  - Claude Code 报错
+  - Claude Code 国产模型
+  - Claude Code 免代理
+alternateNames:
+  - Claude Code 命令行接入灵眸
+  - Claude Code CLI 中转配置
 ---
 
 
@@ -135,7 +150,7 @@ New-Item "$env:USERPROFILE\.claude\settings.json" -Force
 ```json
 {
   "env": {
-    "ANTHROPIC_BASE_URL": "https://clawapi.fulitimes.com",
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
     "ANTHROPIC_AUTH_TOKEN": "sk-你的灵眸API密钥",
     "API_TIMEOUT_MS": "3000000"
   }
@@ -159,7 +174,7 @@ New-Item "$env:USERPROFILE\.claude\settings.json" -Force
 ```json
 {
   "env": {
-    "ANTHROPIC_BASE_URL": "https://clawapi.fulitimes.com",
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
     "ANTHROPIC_AUTH_TOKEN": "sk-你的灵眸API密钥",
     "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
   },
@@ -226,7 +241,7 @@ claude --dangerously-skip-permissions
 
 将显示当前的：
 - 模型名称
-- API Base URL（应显示 `https://clawapi.fulitimes.com`）
+- API Base URL（应显示 `https://api.lmuai.com`）
 - API Key 状态
 
 确认 Base URL 正确即说明配置成功。

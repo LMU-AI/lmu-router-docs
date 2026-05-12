@@ -1,0 +1,105 @@
+---
+title: Hermes Agent
+description: 在 Hermes Agent 中配置灵眸 AI，使用自定义 base_url 和模型。
+ogDescription: Hermes Agent 接入灵眸 AI：自定义 base_url 与模型，让 Hermes Agent 通过灵眸调用 Claude / GPT / Gemini。
+keywords:
+  - Hermes Agent
+  - Hermes Agent 配置
+  - Hermes 接入 Claude
+  - Hermes Agent 国内
+  - Hermes base url
+  - AI Agent 中转
+alternateNames:
+  - Hermes Agent 接入灵眸
+---
+
+## 前置准备
+
+开始之前，请确保你已经：
+
+1. 注册并充值了灵眸 AI 账号（[快速开始](../guide/getting-started)）
+2. 拥有一个 `sk-` 开头的 API 密钥
+3. 已安装 Hermes Agent（[GitHub](https://github.com/nousresearch/hermes-agent)）
+
+## 配置灵眸模型
+
+### 方式一：一行命令创建配置
+
+打开终端，执行以下命令：
+
+```bash
+mkdir -p ~/.hermes
+cat > ~/.hermes/config.yaml << 'EOF'
+providers:
+  lumai:
+    name: lumai
+    base_url: https://api.lmuai.com/v1
+    api_key: 你的API密钥
+    model: glm-5.1
+
+model:
+  provider: lumai
+  model: glm-5.1
+EOF
+```
+
+<Callout type="warn" title="注意">
+
+将 `你的API密钥` 替换为你在灵眸后台创建的 `sk-` 开头的实际密钥。
+
+</Callout>
+
+### 方式二：手动编辑配置文件
+
+如果 `~/.hermes/config.yaml` 已存在，用编辑器打开它：
+
+```bash
+hermes config edit
+```
+
+在文件中添加或修改以下内容：
+
+```yaml
+providers:
+  lumai:
+    name: lumai
+    base_url: https://api.lmuai.com/v1
+    api_key: sk-你的实际密钥
+    model: glm-5.1
+
+model:
+  provider: lumai
+  model: glm-5.1
+```
+
+保存并退出。
+
+## 可用模型
+
+在 `model` 字段中，你可以替换为灵眸支持的任意模型名称。完整模型列表请前往 [模型广场](../guide/models) 查看。
+
+## 验证配置
+
+运行以下命令，测试是否配置成功：
+
+```bash
+hermes chat -q '你好，请用一句话回复' -Q
+```
+
+如果收到 AI 的回复，说明配置成功。
+
+## 常见问题
+
+### 报错 401 Unauthorized
+
+API 密钥填写错误或已过期。请到灵眸后台确认密钥状态。
+
+### 报错 404 Not Found
+
+`base_url` 填写有误。Hermes 使用 OpenAI 协议，地址必须带 `/v1` 后缀：
+
+```
+https://api.lmuai.com/v1    ✅ 正确
+https://api.lmuai.com       ❌ 错误
+```
+

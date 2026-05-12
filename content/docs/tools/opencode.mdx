@@ -1,6 +1,17 @@
 ---
 title: OpenCode
-description: 在 OpenCode 中配置灵眸 API 作为 OpenAI 兼容后端，接入 Claude、Codex 等模型使用。
+description: 在 OpenCode 中配置灵眸 API 作为 OpenAI / Anthropic 兼容后端，接入 Claude、Codex、GLM 等模型使用。
+ogDescription: OpenCode 接入灵眸 AI：一份配置同时启用 Claude / GPT / Codex / GLM，OpenAI 与 Anthropic 协议双兼容。
+keywords:
+  - OpenCode
+  - OpenCode 配置
+  - OpenCode Claude
+  - OpenCode 国内
+  - OpenCode Anthropic 兼容
+  - OpenCode GLM
+  - OpenCode Codex
+alternateNames:
+  - OpenCode 接入灵眸
 ---
 
 
@@ -12,50 +23,94 @@ OpenCode 按照官方文档安装即可，官网有很详细的教程：
 
 ## 配置模型
 
-安装完成后，编辑配置文件 `~/.config/opencode/opencode.json`，添加以下内容：
+安装完成后，编辑配置文件 `~/.config/opencode/opencode.json`。OpenCode 支持两种协议接入上游服务，选择与你的供应商一致的那种即可。
+
+### 协议选择
+
+| 协议 | `npm` | `baseURL` 写法 | 适用场景 |
+| --- | --- | --- | --- |
+| OpenAI 协议 | `@ai-sdk/openai` | 以 `/v1` 结尾，如 `https://xxx.com/v1` | GPT、Codex 及大多数 OpenAI 兼容服务 |
+| Anthropic 协议 | `@ai-sdk/anthropic` | 也以 `/v1` 结尾，如 `https://xxx.com/v1` | Claude 原生协议、以及声明使用 Anthropic 协议的国产模型（如 GLM 等） |
+
+<Callout type="warn" title="baseURL 容易踩的坑">
+
+无论 OpenAI 还是 Anthropic 协议，`baseURL` **都需要写到 `/v1` 这一级**。SDK 只会在其后拼接具体端点（如 `/chat/completions` 或 `/messages`），漏掉 `/v1` 时请求会被静默丢弃 —— 表现为模型不报错但返回空内容。
+
+</Callout>
+
+### 示例一：OpenAI 协议
+
+最小可用配置（一个供应商下可以同时配置多个模型）：
 
 ```json
 {
   "$schema": "https://opencode.ai/config.json",
   "provider": {
-    "gmn": {
-      "npm": "@ai-sdk/openai",
-      "name": "gmn",
+    "openai": {
       "options": {
-        "baseURL": "https://clawapi.fulitimes.com/v1"
+        "baseURL": "https://api.lmuai.com/v1"
       },
       "models": {
-        "gpt-5.3-codex": {
-          "name": "GPT-5.3-codex",
-          "thinking": true,
-          "modalities": {
-            "input": ["text", "image", "pdf"],
-            "output": ["text"]
-          },
-          "limit": {
-            "context": 400000,
-            "output": 128000
-          },
-          "options": {
-            "store": false,
-            "reasoningEffort": "xhigh",
-            "textVerbosity": "high",
-            "reasoningSummary": "auto",
-            "include": ["reasoning.encrypted_content"]
-          }
-        },
-        "gpt-5.2-codex": {
-          "name": "GPT-5.2 Codex",
-          "options": {
-            "include": ["reasoning.encrypted_content"],
-            "store": false
-          }
+        "gpt-5.5": { "name": "GPT-5.5" },
+        "gpt-5.4": { "name": "GPT-5.4" }
+      }
+    }
+  }
+}
+```
+
+<Callout type="info" title="为什么 provider id 用 `openai`？">
+
+OpenCode 把 `openai` 作为**内置 provider id** 识别，会自动加载 `@ai-sdk/openai` 并走 `/v1/responses` 端点（支持推理模型的完整能力）。因此接入 OpenAI 协议的服务时，把 provider id 命名为 `openai` 并通过 `baseURL` 指向自己的网关即可，无需手动写 `npm` 字段。
+
+</Callout>
+
+如果需要细化某个模型的能力声明（上下文长度、推理强度变体等），在对应模型条目里追加字段即可：
+
+```json
+"gpt-5.5": {
+  "name": "GPT-5.5",
+  "limit": { "context": 1050000, "output": 128000 },
+  "options": { "store": false },
+  "variants": { "low": {}, "medium": {}, "high": {}, "xhigh": {} }
+}
+```
+
+其中 `variants` 定义了可切换的推理强度，运行时在 OpenCode 中按 `Ctrl + T` 切换。
+
+### 示例二：Anthropic 协议（国产模型常见）
+
+部分国产模型（如 GLM）虽然由国内厂商提供，但其接口遵循的是 **Anthropic 协议**，需要使用 `@ai-sdk/anthropic`：
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "lmuai": {
+      "npm": "@ai-sdk/anthropic",
+      "name": "lmuai",
+      "options": {
+        "baseURL": "https://api.lmuai.com/v1"
+      },
+      "models": {
+        "glm-5.1": {
+          "name": "GLM-5.1"
         }
       }
     }
   }
 }
 ```
+
+<Callout type="info" title="如何判断协议类型？">
+
+查看供应商文档中的请求示例：
+- 端点是 `/v1/chat/completions` → OpenAI 协议
+- 端点是 `/v1/messages`，请求头带 `anthropic-version` → Anthropic 协议
+
+</Callout>
+
+如果你需要同时使用两种协议的多个供应商，把它们都写在 `provider` 下即可，互不影响。例如灵眸同时提供 GPT 系列（OpenAI 协议）和 GLM 系列（Anthropic 协议），可以分别配置 `openai` 和 `lmuai` 两个 provider 共用一个网关。
 
 ---
 
@@ -91,7 +146,28 @@ opencode auth logout <供应商名称>
 
 `auth.json` 中的供应商名称必须与 `opencode.json` 中的供应商名称**完全一致**。
 
+不要把 `apiKey` 写在 `opencode.json` 的 `options` 里 —— OpenCode 不会读取那里的密钥，必须走 `auth.json` 或 `opencode auth login`。
+
 </Callout>
+
+---
+
+## 验证配置
+
+配置完成后用一条命令快速验证：
+
+```bash
+opencode run --model 供应商名称/模型名 "你好"
+```
+
+例如 `opencode run --model lmuai/glm-5.1 "你好"`。能看到正常回复即配置成功。
+
+如果没有任何输出（既不报错也不回复），通常是以下两种问题之一：
+
+1. **baseURL 缺少 `/v1`** —— 见上文「协议选择」段的提示。
+2. **密钥未配置在 `auth.json`** —— 检查 `opencode auth list` 是否能看到对应供应商。
+
+需要更多调试信息时加上 `--print-logs --log-level INFO`。
 
 ---
 

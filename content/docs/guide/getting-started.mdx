@@ -1,6 +1,31 @@
 ---
 title: 快速开始
 description: 三步上手灵眸 AI API：注册账号、订阅套餐或充值、创建 API 密钥，然后接入 Claude Code、Codex CLI、Cursor 等工具。
+ogDescription: 灵眸 AI 三步上手：注册 → 订阅/充值 → 创建 API 密钥，几分钟内即可在 Claude Code、Codex CLI、Cursor 等工具中使用 Claude / GPT / Gemini，国内直连免代理。
+keywords:
+  - 灵眸 AI 注册
+  - Claude API 申请
+  - Claude API 密钥
+  - Claude API key 获取
+  - Claude Code 配置
+  - Claude Code 国内使用
+  - Codex CLI 接入
+  - Cursor 接入 Claude
+  - AI API 快速开始
+  - Claude API 充值
+  - Claude API 订阅
+  - Anthropic API key
+alternateNames:
+  - 灵眸 AI 入门指南
+  - Claude API 快速接入
+  - Claude / Codex / Cursor 配置教程
+faq:
+  - q: 如何获取灵眸 API 密钥？
+    a: 注册灵眸账号 → 完成订阅或充值 → 在控制台「API 密钥」页面创建一个新的 key，即可在 Claude Code / Codex CLI / Cursor 等工具中粘贴使用。
+  - q: 国内能直接使用吗，需要科学上网吗？
+    a: 不需要。灵眸接入网关部署在中国国内，国内网络可直接调用，无需 VPN 或代理。
+  - q: 第一次使用应该订阅还是充值？
+    a: 如果是稳定日常开发，推荐订阅月度套餐获得更优单价；如果只是临时使用或评估，按量充值更灵活。
 ---
 
 
@@ -18,7 +43,7 @@ description: 三步上手灵眸 AI API：注册账号、订阅套餐或充值、
 
 ## 第一步：注册账号
 
-访问注册地址：[https://clawapi.fulitimes.com/register?ref=vJaWWr4T](https://clawapi.fulitimes.com/register?ref=vJaWWr4T)
+访问注册地址：[https://api.lmuai.com/register?ref=vJaWWr4T](https://api.lmuai.com/register?ref=vJaWWr4T)
 
 输入邮箱和密码完成注册。
 
@@ -46,13 +71,13 @@ description: 三步上手灵眸 AI API：注册账号、订阅套餐或充值、
 **Anthropic 协议**（适用于 Claude Code、Cherry Studio、Trae、Kilo Code 接 Claude / 国产模型等）：
 
 ```
-https://clawapi.fulitimes.com
+https://api.lmuai.com
 ```
 
 **OpenAI 协议**（适用于 Codex CLI、Codex App、VS Code/Cursor 接 GPT、Kilo Code 接 OpenAI 模型等）：
 
 ```
-https://clawapi.fulitimes.com/v1
+https://api.lmuai.com/v1
 ```
 
 <Callout type="warn" title="两者区别">
@@ -66,8 +91,8 @@ https://clawapi.fulitimes.com/v1
 
 记住这几样东西，后续所有工具配置都需要用到：
 - **API Key**：你在后台生成的 `sk-` 开头的密钥（两种协议通用）
-- **Anthropic 协议地址**：`https://clawapi.fulitimes.com`
-- **OpenAI 协议地址**：`https://clawapi.fulitimes.com/v1`
+- **Anthropic 协议地址**：`https://api.lmuai.com`
+- **OpenAI 协议地址**：`https://api.lmuai.com/v1`
 
 ---
 
@@ -87,3 +112,4 @@ https://clawapi.fulitimes.com/v1
 | OpenCode | [OpenCode 教程](../tools/opencode) |
 | Cherry Studio | [Cherry 教程](../tools/cherry) |
 | IntelliJ IDEA (Kilo Code) | [Kilo Code 教程](../tools/kilo-code-idea) |
+| Hermes Agent | [Hermes 教程](../tools/hermes) |

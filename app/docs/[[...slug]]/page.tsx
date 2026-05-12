@@ -7,6 +7,7 @@ import { Callout } from 'fumadocs-ui/components/callout';
 import type { Metadata } from 'next';
 import { CtaFooter } from '@/components/cta-footer';
 import { ModelCard, ModelGrid } from '@/components/model-card';
+import { Mermaid } from '@/components/mermaid';
 import { SITE_NAME, SITE_URL } from '@/lib/site';
 
 function buildCanonicalPath(slug?: string[]): string {
@@ -45,6 +46,10 @@ export default async function Page({
     ],
   };
 
+  const keywords = page.data.keywords ?? [];
+  const alternateNames = page.data.alternateNames ?? [];
+  const faq = page.data.faq ?? [];
+
   const articleJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'TechArticle',
@@ -60,7 +65,22 @@ export default async function Page({
     },
     author: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
     publisher: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
+    ...(keywords.length > 0 ? { keywords: keywords.join(', ') } : {}),
+    ...(alternateNames.length > 0 ? { alternateName: alternateNames } : {}),
   };
+
+  const faqJsonLd =
+    faq.length > 0
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'FAQPage',
+          mainEntity: faq.map((item) => ({
+            '@type': 'Question',
+            name: item.q,
+            acceptedAnswer: { '@type': 'Answer', text: item.a },
+          })),
+        }
+      : null;
 
   return (
     <>
@@ -76,6 +96,7 @@ export default async function Page({
               Callout,
               ModelCard,
               ModelGrid,
+              Mermaid,
             }}
           />
           <CtaFooter />
@@ -89,6 +110,12 @@ export default async function Page({
         type="application/ld+json"
         dangerouslySetInnerHTML={{ __html: JSON.stringify(articleJsonLd) }}
       />
+      {faqJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
     </>
   );
 }
@@ -107,10 +134,12 @@ export async function generateMetadata({
   if (!page) notFound();
 
   const canonicalPath = buildCanonicalPath(slug);
+  const ogDescription = page.data.ogDescription ?? page.data.description;
 
   return {
     title: page.data.title,
     description: page.data.description,
+    keywords: page.data.keywords,
     alternates: { canonical: canonicalPath },
     openGraph: {
       type: 'article',
@@ -118,12 +147,12 @@ export async function generateMetadata({
       siteName: SITE_NAME,
       url: canonicalPath,
       title: page.data.title,
-      description: page.data.description,
+      description: ogDescription,
     },
     twitter: {
       card: 'summary_large_image',
       title: page.data.title,
-      description: page.data.description,
+      description: ogDescription,
     },
   };
 }
