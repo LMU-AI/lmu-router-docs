@@ -1,7 +1,7 @@
 ---
 title: Claude Code 桌面版
 description: 在 Claude Code for Desktop 桌面客户端中接入灵眸 API：开启 Developer Mode 后通过 Configure Third-Party Inference 完成第三方端点配置。
-ogDescription: Claude Code 桌面版国内接入：开启 Developer Mode → Configure Third-Party Inference → 填入灵眸 base URL 与 API key，免代理使用 Claude 4。
+ogDescription: Claude Code 桌面版国内接入：开启 Developer Mode → Configure Third-Party Inference → 填入灵眸 base URL 与 API key 即可使用 Claude 4（桌面客户端需可访问外网的网络代理）。
 keywords:
   - Claude Code 桌面版
   - Claude Code for Desktop
@@ -27,6 +27,14 @@ alternateNames:
 
 </Callout>
 
+<Callout type="warn" title="桌面版需要可访问外网的网络环境">
+
+与 CLI 不同，**Claude Code 桌面客户端本身需要能正常访问海外网络**：下载页和客户端的登录、激活、版本校验等流程都会直连 Anthropic 官方服务器。
+
+因此即便你已经把 Base URL 指向灵眸，仍需开启**可访问外网的网络代理（俗称「魔法」/ 科学上网）**，否则会卡在下载或启动阶段。配置完灵眸后，模型对话本身走的是灵眸节点，但客户端的基础联网能力依旧依赖外网代理。
+
+</Callout>
+
 ---
 
 ## 第一步：下载最新版本
@@ -38,6 +46,8 @@ alternateNames:
 </Callout>
 
 前往 [Claude 官网下载页](https://claude.ai/download) 下载并安装对应平台的客户端，安装完成后启动应用。
+
+> 下载页位于海外，**需先开启外网代理（魔法）** 才能正常打开和下载安装包。
 
 ---
 
@@ -57,19 +67,28 @@ alternateNames:
 
 1. 点击顶部菜单栏 **Developer**
 2. 选择 **`Configure Third-Party Inference …`**
-3. 在弹出的配置面板中填写：
+3. 在弹出的配置面板（**Connection → Gateway**）中填写：
 
 | 字段 | 取值 |
 |------|------|
-| **Base URL / Endpoint** | `https://api.lmuai.com` |
-| **API Key** | 灵眸后台生成的 `sk-` 开头密钥 |
-| **Model**（可选） | 例如 `claude-opus-4-6`、`qwen3.6-plus` |
+| **Credential kind** | `Static API key` |
+| **Gateway base URL** | `https://api.lmuai.com` |
+| **Gateway API key** | 灵眸后台生成的 `sk-` 开头密钥 |
+| **Gateway auth scheme** | `bearer` |
 
-4. 保存后**重启客户端**生效
+![Claude Code 桌面版 Configure third-party inference 面板填写灵眸 Gateway base URL 与 API key](/images/tools/claude-desktop/claude-code-desktop.png)
+
+4. 点击右下角 **`Apply locally`** 保存，随后**重启客户端**生效
 
 <Callout type="info">
 
 Base URL 填写 **`https://api.lmuai.com`**（不带 `/v1` 后缀），桌面版与 CLI 走的都是 Anthropic 协议。
+
+</Callout>
+
+<Callout type="warn">
+
+配置面板出现前，客户端需要先完成联网登录/激活，这一步**必须开启外网代理（魔法）**。建议在打开客户端、进行配置的全过程都保持代理可用。
 
 </Callout>
 
@@ -111,6 +130,10 @@ Base URL 填写 **`https://api.lmuai.com`**（不带 `/v1` 后缀），桌面版
 - 检查 API Key 是否复制完整（`sk-` 开头）
 - 确认 Base URL 是 `https://api.lmuai.com`，**不要带 `/v1`**
 - 灵眸后台确认密钥所属分组有可用额度
+
+### 卡在下载 / 登录 / 启动界面
+
+桌面客户端的下载与基础联网（登录、激活、版本校验）都需要直连海外服务器。请确认**外网代理（魔法）已开启且工作正常**，再重新打开客户端。这一限制与是否配置灵眸 Base URL 无关。
 
 ### 想恢复使用 Anthropic 官方接口
 

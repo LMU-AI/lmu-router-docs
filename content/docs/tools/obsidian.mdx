@@ -1,0 +1,219 @@
+---
+title: Obsidian
+description: 在 Obsidian 笔记软件中接入灵眸 API：通过 Claudian、Copilot 两款插件配置 Claude API，免代理在知识库中使用 Claude 与国产大模型。
+ogDescription: Obsidian 接入灵眸 AI 指南：Claudian 插件复用 Claude Code 配置、Copilot 插件添加自定义模型，在笔记与知识库中直接使用 Claude / GPT / 国产大模型。
+keywords:
+  - Obsidian Claude API
+  - Obsidian AI 插件
+  - Obsidian 接入 Claude
+  - Obsidian 使用 Claude API
+  - Claudian
+  - Claudian 配置
+  - Claudian Obsidian 插件
+  - Obsidian Copilot
+  - Obsidian Copilot 配置
+  - Obsidian Claude Code
+  - Obsidian 国产模型
+alternateNames:
+  - Obsidian 接入灵眸
+  - Obsidian 配置 Claude API
+---
+
+Obsidian 是一款基于本地 Markdown 文件的知识管理与笔记软件，常用于搭建个人知识库、双向链接笔记和「第二大脑」。通过社区插件，你可以在笔记中直接调用 Claude API 完成 AI 写作、内容整理、知识库问答与代码生成。
+
+本文介绍两款主流插件接入灵眸 API 的方法，按需选择其一即可：
+
+| 插件 | 内核 | 适合人群 |
+|------|------|----------|
+| **Claudian** | Claude Code CLI | 已在用 Claude Code，想在笔记中直接调用 AI Agent |
+| **Copilot** | 直连 API | 想要轻量对话、知识库问答，无需安装命令行工具 |
+
+---
+
+## 准备工作：开启社区插件
+
+两款插件都属于社区插件，安装前需先开启社区插件功能。
+
+打开 Obsidian → 左上角菜单 **Obsidian → Settings**（或快捷键 `Cmd/Ctrl + ,`），进入 **Community plugins**，点击 **Turn on community plugins**：
+
+![打开 Obsidian 设置并开启社区插件](/images/tools/obsidian/copilot/1.png)
+
+开启后，在 **Community plugins** 页面点击右侧 **Browse** 按钮即可进入插件市场：
+
+![Community plugins 页面点击 Browse 进入插件市场](/images/tools/obsidian/copilot/2.png)
+
+---
+
+## Claudian 插件：在 Obsidian 中使用 Claude API
+
+[Claudian](https://github.com/YishenTu/claudian) 把 Claude Code、Codex 等 AI 编程 Agent 嵌入 Obsidian 侧边栏，你的整个 vault 就是 Agent 的工作目录，支持文件读写、搜索、@mention、斜杠命令等能力。
+
+Claudian 的 Claude 模式底层调用 **Claude Code CLI**，因此需先安装该命令行工具，再用下面任意一种方式接入灵眸 API。
+
+### 第1步：安装 Claude Code CLI
+
+Claudian 会调用本机的 `claude` 命令，因此需先安装 Claude Code CLI：安装 Node.js 后运行 `npm install -g @anthropic-ai/claude-code`（详细步骤见 [Claude Code CLI 配置指南](./claude-code)）。
+
+<Callout type="info">
+
+这一步只需完成安装，**灵眸 API 的接入配置在第 3 步进行**。
+
+</Callout>
+
+### 第2步：安装 Claudian 插件
+
+在插件市场（**Browse**）中搜索 **Claudian**，点击 **Install** 安装，安装完成后点击 **Enable** 启用。
+
+<Callout type="info" title="搜索不到 Claudian？">
+
+若插件市场暂未收录 Claudian，可通过 **BRAT** 插件从 GitHub 安装：先在 Browse 中安装并启用 `Obsidian42 - BRAT`，再运行命令 **BRAT: Add a beta plugin for testing**，填入仓库地址 `https://github.com/YishenTu/claudian` 即可。
+
+</Callout>
+
+### 第3步：配置灵眸 API（二选一）
+
+进入 **Settings → Claudian → Claude** 标签页，用下面任意一种方式填入灵眸的 Base URL 与密钥。
+
+<Tabs items={['方式 A：复用 Claude Code 配置', '方式 B：在插件内直接填写']}>
+<Tab value="方式 A：复用 Claude Code 配置">
+
+适合已配置过 Claude Code CLI 的用户。先在 `~/.claude/settings.json` 中写入灵眸配置：
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
+    "ANTHROPIC_AUTH_TOKEN": "sk-你的灵眸API密钥",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  }
+}
+```
+
+再在 Claude 标签页打开 **Load user Claude settings** 开关，Claudian 即会加载该文件，Base URL、密钥与模型设置全部生效。
+
+![Claudian 设置 Claude 标签页开启 Load user Claude settings 开关](/images/tools/obsidian/claudian/9.png)
+
+</Tab>
+<Tab value="方式 B：在插件内直接填写">
+
+无需创建 `~/.claude/settings.json`，直接在插件设置里填环境变量。
+
+在 Claude 标签页向下滚动到 **Environment** 区域，在 **Custom variables** 文本框中逐行粘贴（密钥替换为你自己的）：
+
+```
+ANTHROPIC_BASE_URL: https://api.lmuai.com
+ANTHROPIC_AUTH_TOKEN: sk-你的灵眸API密钥
+ANTHROPIC_MODEL: claude-haiku-4-5
+CLAUDE_CODE_USE_BEDROCK=1
+CLAUDE_CODE_ATTRIBUTION_HEADER: 0
+```
+
+![Claudian 设置 Environment 区域的 Custom variables 填写环境变量](/images/tools/obsidian/claudian/11.png)
+
+- `ANTHROPIC_MODEL` 为默认模型，可替换为其他灵眸模型 ID
+- 此方式无需再开启 **Load user Claude settings**
+- 点击 **Snippets** 旁的 **+** 可把当前环境变量保存为快照，方便日后切换
+
+</Tab>
+</Tabs>
+
+**其他可选设置：**
+
+| 设置项 | 说明 |
+|--------|------|
+| **Claude CLI path** | 留空自动检测。若提示 `Claude CLI not found`，在终端运行 `which claude`（Windows 用 `where claude`），把输出路径粘进来 |
+| **Safe mode** | 权限模式，建议保持 `acceptEdits` |
+| **Custom models** | 把灵眸的模型 ID 逐行填入，即可在模型选择器中出现，例如 `qwen3.6-plus`、`claude-opus-4-7` |
+
+### 第4步：开始使用
+
+点击左侧边栏的 Claudian 图标（或用命令面板）打开聊天侧栏，在底部选择模型后，即可在笔记旁边与 AI 对话、让它读写 vault 中的文档：
+
+![在 Obsidian 中使用 Claudian 聊天侧栏](/images/tools/obsidian/claudian/10.png)
+
+<Callout type="info" title="使用国产模型">
+
+灵眸支持通义千问 Qwen、DeepSeek、GLM 等国产模型。把模型 ID 填入第 3 步的配置即可切换：方式 A 在 settings.json 加 `"model": "qwen3.6-plus"`，方式 B 改 `ANTHROPIC_MODEL` 的值。在 **Custom models** 中逐行填入模型 ID 还能让它们出现在模型选择器里。完整模型 ID 见 [模型广场](../guide/models)。
+
+</Callout>
+
+---
+
+## Copilot 插件：在 Obsidian 中使用 Claude API
+
+[Copilot](https://github.com/logancyang/obsidian-copilot) 是 Obsidian 上人气最高的 AI 助手插件，支持对话、知识库问答（QA）、笔记总结等。它可以添加自定义模型，**无需安装命令行工具即可直连灵眸 API**。
+
+### 第1步：安装 Copilot 插件
+
+在插件市场（**Browse**）中搜索 **Copilot**，选择作者为 **Logan Yang** 的 **Copilot**（第一个结果），点击 **Install** 安装并 **Enable** 启用：
+
+![在插件市场搜索 Copilot 并选择 Logan Yang 版本](/images/tools/obsidian/copilot/3.png)
+
+### 第2步：添加自定义模型
+
+进入 **Settings → Copilot → Model** 标签页，点击右上角 **+ Add Model**：
+
+![Copilot 设置 Model 标签页点击 Add Model](/images/tools/obsidian/copilot/4.png)
+
+在 **Add Custom Chat Model** 弹窗中填写以下信息：
+
+| 字段 | 取值 |
+|------|------|
+| **Model Name** | 灵眸的模型 ID，如 `claude-sonnet-4-6` |
+| **Display Name** | 显示名称，可与 Model Name 相同 |
+| **Provider** | 选择 `Anthropic` |
+| **Base URL** | `https://api.lmuai.com` |
+| **API Key** | 灵眸后台生成的 `sk-` 开头密钥 |
+| **Model Capabilities** | 按模型能力勾选，Claude 系列可勾 `Reasoning` |
+
+填写完成后点击 **Test** 验证，出现绿色对勾即连接成功，再点击 **Add Model** 保存：
+
+![Add Custom Chat Model 弹窗填写 Anthropic 协议配置](/images/tools/obsidian/copilot/6.png)
+
+### 第3步：添加 OpenAI 模型（可选）
+
+如需使用 GPT 系列模型，再点一次 **+ Add Model**，**Provider** 改选 `OpenAI`，其余填法相同：
+
+| 字段 | 取值 |
+|------|------|
+| **Model Name** | OpenAI 模型 ID，如 `gpt-5.5` |
+| **Provider** | 选择 `OpenAI` |
+| **Base URL** | `https://api.lmuai.com` |
+| **API Key** | 灵眸后台生成的 `sk-` 开头密钥 |
+
+![Add Custom Chat Model 弹窗填写 OpenAI 协议配置](/images/tools/obsidian/copilot/7.png)
+
+### 第4步：选择模型开始使用
+
+打开 Copilot 聊天面板，在顶部模型下拉框中选择刚添加的模型，即可开始对话与笔记问答。
+
+<Callout type="info" title="模型 ID 在哪查？">
+
+Model Name 必须填写灵眸支持的准确模型 ID。前往 [模型广场](../guide/models) 可查看全部可用模型并一键复制。
+
+</Callout>
+
+---
+
+## 常见问题
+
+### 报错 401 / Unauthorized
+
+API Key 不正确，或仍在请求官方地址。请确认：
+
+- Claudian：检查第 3 步填写的 `ANTHROPIC_AUTH_TOKEN` 是灵眸密钥；方式 A 还需确认没有被 Shell 环境变量覆盖（排查方法见 [Claude Code 常见问题](./claude-code#常见问题)）
+- Copilot：Base URL 为 `https://api.lmuai.com`，API Key 为灵眸 `sk-` 开头密钥，未填成 Anthropic / OpenAI 官方密钥
+
+### Copilot 添加模型时报 CORS 错误
+
+在 **Add Custom Chat Model** 弹窗中勾选 **CORS** 选项后再点 **Test**，可绕过浏览器的跨域限制。
+
+### Claudian 提示 Claude CLI not found
+
+插件未能自动定位 Claude Code。在终端运行 `which claude`（Windows 用 `where claude`），将输出的路径填入 **Settings → Claudian → Claude → Claude CLI path**。
+
+### 响应超时或断流
+
+- 确认 `API_TIMEOUT_MS` 已设为 `3000000`，避免长任务超时
+- 关闭魔法 / VPN / 系统代理，灵眸为国内直连，直连即最快最稳定

@@ -1,0 +1,216 @@
+---
+title: 接入协议
+description: 灵眸只支持两种接入协议——Anthropic 协议（不带 /v1）与 OpenAI 协议（带 /v1）。一张表选对 Base URL，避免 401 / 404 报错。
+ogDescription: 灵眸 AI 接入协议速查：Anthropic 协议 https://api.lmuai.com、OpenAI 协议 https://api.lmuai.com/v1，一个 API Key 通用，Claude Code、Codex CLI、Cursor、Cherry Studio 等工具按协议对号入座。
+keywords:
+  - 灵眸 Base URL
+  - 灵眸接入协议
+  - Anthropic 协议
+  - OpenAI 协议
+  - api.lmuai.com
+  - api.lmuai.com/v1
+  - Claude Code Base URL
+  - Codex CLI Base URL
+  - Anthropic SDK base_url
+  - OpenAI SDK base_url
+  - Claude Max 分组
+  - 中转站协议路由
+alternateNames:
+  - 灵眸 AI 协议接入说明
+  - Claude / GPT 中转 Base URL
+  - 灵眸 API 端点速查
+faq:
+  - q: 灵眸支持哪些协议？
+    a: 仅支持两种——Anthropic 协议（Base URL https://api.lmuai.com，不带 /v1）和 OpenAI 协议（Base URL https://api.lmuai.com/v1，带 /v1）。两套端点共用同一个 API Key，按工具协议对号入座即可。
+  - q: Anthropic 和 OpenAI 协议地址有什么区别？
+    a: Anthropic SDK 习惯 base_url 不带 /v1，所以填 https://api.lmuai.com；OpenAI SDK 习惯 base_url 带 /v1，所以填 https://api.lmuai.com/v1。填反了会出现 401 / 404 报错。
+  - q: Claude Max 分组为什么只支持 Anthropic 协议？
+    a: Claude Max 分组仅供 Claude Code 使用，Claude Code 走的是 Anthropic 协议，所以这个分组不支持 OpenAI 协议端点。其余分组两种协议都可使用，由后台根据分组 platform 字段自动派发到对应上游。
+---
+
+
+灵眸**只有两种**接入协议，按工具客户端协议对号入座即可。两套端点**共用同一个 API Key**（同一份余额扣费）。
+
+<Callout type="info" title="先理清两件事">
+
+- **「用哪种协议」**：由客户端 / SDK 决定。Anthropic SDK 走 `/v1/messages`，OpenAI SDK 走 `/v1/chat/completions`、`/v1/responses`。
+- **「能调哪些模型」**：由你的 API Key 所属**分组**（即你的订阅 / 充值套餐对应的上游账号）决定，**和你选哪种协议是两件独立的事**。
+
+也就是说：选错协议会直接 401 / 404；选对协议但模型不在你分组的可用范围内，会返回模型不可用类的错误。
+
+</Callout>
+
+<Callout type="warn" title="最常见的报错来自填错协议">
+
+- **Anthropic 协议** 的 Base URL **不带** `/v1` 后缀
+- **OpenAI 协议** 的 Base URL **必须带** `/v1` 后缀
+
+填错会直接导致 401 / 404，把这一页存为书签，配置任何工具前先来这里对一眼。
+
+</Callout>
+
+---
+
+## 一眼对号入座
+
+| 协议 | Base URL | 典型工具 |
+|------|----------|----------|
+| **Anthropic 协议** | `https://api.lmuai.com` | Claude Code（CLI / 桌面版 / VS Code 插件）、官方 `anthropic` SDK、Cherry Studio、Kilo Code 接 Claude / 国产模型、所有兼容 Anthropic 协议的客户端 |
+| **OpenAI 协议** | `https://api.lmuai.com/v1` | Codex CLI、Codex App、Cursor / Cline / Roo Code / OpenCode、官方 `openai` SDK、VS Code 插件接 GPT、Kilo Code 接 OpenAI 模型、所有兼容 OpenAI 协议的客户端 |
+
+鉴权两套协议都用同一个 `sk-` 开头的密钥：
+
+- Anthropic 协议：`Authorization: Bearer <YOUR_API_KEY>` 或 `x-api-key: <YOUR_API_KEY>`
+- OpenAI 协议：`Authorization: Bearer <YOUR_API_KEY>`
+
+---
+
+## Anthropic 协议接入
+
+**Base URL：** `https://api.lmuai.com`（**不带** `/v1`）
+
+**端点：**
+
+- `POST /v1/messages` — 消息对话
+- `POST /v1/messages/count_tokens` — token 计数
+- `GET /v1/models` — 可用模型列表
+
+**Python SDK 示例：**
+
+```python
+from anthropic import Anthropic
+
+client = Anthropic(
+    base_url="https://api.lmuai.com",
+    api_key="sk-xxxxxxxx",
+)
+
+resp = client.messages.create(
+    model="claude-sonnet-4-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "你好"}],
+)
+print(resp.content[0].text)
+```
+
+**curl 示例：**
+
+```bash
+curl -X POST https://api.lmuai.com/v1/messages \
+  -H "Authorization: Bearer sk-xxxxxxxx" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-sonnet-4-5",
+    "max_tokens": 1024,
+    "messages": [{"role":"user","content":"你好"}]
+  }'
+```
+
+<Callout type="info" title="为什么 SDK 配的是不带 /v1，curl 又带 /v1？">
+
+Anthropic 官方 SDK 的 `base_url` 习惯就是不带 `/v1`，SDK 内部会自动拼接 `/v1/messages` 等路径。而你手写 curl 时则要写完整路径 `/v1/messages`。两种写法对应同一个端点。
+
+</Callout>
+
+---
+
+## OpenAI 协议接入
+
+**Base URL：** `https://api.lmuai.com/v1`（**带** `/v1`）
+
+**端点：**
+
+- `POST /chat/completions` — 标准 Chat Completions API
+- `POST /responses` — OpenAI Responses API（含 `/responses/{id}` 子路径）
+- `POST /images/generations`、`POST /images/edits` — 图片生成 / 编辑
+
+**Python SDK 示例：**
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://api.lmuai.com/v1",
+    api_key="sk-xxxxxxxx",
+)
+
+resp = client.chat.completions.create(
+    model="gpt-5",
+    messages=[{"role": "user", "content": "你好"}],
+)
+print(resp.choices[0].message.content)
+```
+
+**curl 示例：**
+
+```bash
+curl -X POST https://api.lmuai.com/v1/chat/completions \
+  -H "Authorization: Bearer sk-xxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-5",
+    "messages": [{"role":"user","content":"你好"}]
+  }'
+```
+
+---
+
+## 协议和可用模型是两件事
+
+你的 Key 能调哪些模型，**完全由所属分组挂载的上游账号决定**，和你用哪种协议调用无关：
+
+| 你的分组挂的上游 | 实际能调的模型 |
+|------|------|
+| 仅 OpenAI 账号 | 仅 GPT 系列 |
+| 仅 Claude 账号 | 仅 Claude 系列（即便你用 OpenAI 协议调用，后端会做协议转换，但模型范围不变） |
+| 仅国产模型上游（如 GLM / Kimi 等） | 仅对应的国产模型 |
+| 后台配置了模型路由（多上游分组） | 按模型名分流到不同上游，可跨品牌——具体范围以分组配置为准 |
+
+所以：
+
+- 选「Anthropic 协议」**不**等于「只能调 Claude」，选「OpenAI 协议」**也不**等于「只能调 GPT」——协议是入站格式，模型范围由分组决定。
+- 想知道当前 Key 实际能调哪些模型，去后台「**API 密钥**」详情或「**可用模型**」页面查看分组对应的模型清单。
+
+---
+
+## 关于 Claude Max 分组
+
+<Callout type="warn" title="Claude Max 分组仅支持 Anthropic 协议">
+
+**Claude Max 分组只供 Claude Code 使用**，所以它只能走 **Anthropic 协议**（`https://api.lmuai.com`）。
+
+如果你用的是 Claude Max 套餐分组下的密钥：
+
+- ✅ 可以在 Claude Code（CLI / 桌面版 / VS Code 插件）中使用
+- ❌ **不能**用在 Codex CLI、Cursor、Cherry Studio 等任何走 OpenAI 协议的工具上
+- ❌ **不能**填入 `https://api.lmuai.com/v1`
+
+需要在 OpenAI 协议工具中使用，请改用按量充值 / 普通订阅分组的密钥（具体可用模型仍以你购买的套餐分组为准）。
+
+</Callout>
+
+---
+
+## 排错速查
+
+| 现象 | 通常原因 | 处理 |
+|------|----------|------|
+| `401 Unauthorized` | Base URL 填错协议 / 密钥写错 / IDE 没重启 | 核对 Base URL 是否与工具协议匹配；重启 IDE 重新加载配置 |
+| `404 Not Found` | OpenAI 协议地址漏写 `/v1`，或 Anthropic 协议地址多写了 `/v1` | 按上表重新填 Base URL |
+| 模型不可用 / `No available accounts` | 调用了不在你分组可用范围内的模型（如用 Claude Max 分组调 GPT） | 在后台「可用模型」页确认你分组实际包含的模型，或切换到包含目标模型的分组 |
+| `429 Too Many Requests` | 当日额度用完 | 参考 [常见问题](./faq#问题-2429-重试错误) |
+
+更多排错请参见 [常见问题](./faq)。
+
+---
+
+## 下一步
+
+确认好协议和 Base URL 后，挑选你要用的工具：
+
+- [CC Switch（一键导入，推荐 Claude Code 用户）](../tools/cc-switch)
+- [Claude Code CLI](../tools/claude-code) · [桌面版](../tools/claude-code-desktop) · [VS Code 插件](../tools/claude-code-vscode)
+- [Codex CLI · Windows](../tools/codex-cli-windows) · [Mac/Linux](../tools/codex-cli-mac) · [服务器](../tools/codex-cli-server)
+- [Codex App 桌面版](../tools/codex-app) · [VS Code / Cursor / Trae 插件](../tools/vscode-plugin)
+- [OpenCode](../tools/opencode) · [Cherry Studio](../tools/cherry) · [IDEA Kilo Code](../tools/kilo-code-idea) · [Hermes Agent](../tools/hermes)

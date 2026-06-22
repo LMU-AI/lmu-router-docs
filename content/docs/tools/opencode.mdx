@@ -110,7 +110,41 @@ OpenCode 把 `openai` 作为**内置 provider id** 识别，会自动加载 `@ai
 
 </Callout>
 
-如果你需要同时使用两种协议的多个供应商，把它们都写在 `provider` 下即可，互不影响。例如灵眸同时提供 GPT 系列（OpenAI 协议）和 GLM 系列（Anthropic 协议），可以分别配置 `openai` 和 `lmuai` 两个 provider 共用一个网关。
+### 示例三：Claude 原生模型
+
+如果要接入 **Claude 原生模型**（如 `claude-sonnet-4-6`），provider id 必须使用内置的 `anthropic`，不能自定义名称：
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "anthropic": {
+      "npm": "@ai-sdk/anthropic",
+      "options": {
+        "baseURL": "https://api.lmuai.com/v1"
+      }
+    }
+  }
+}
+```
+
+验证：
+
+```bash
+opencode run --model anthropic/claude-sonnet-4-6 "你好"
+```
+
+<Callout type="warn" title="Claude 模型为什么不能用自定义 provider id？">
+
+和 `openai` 一样，`anthropic` 是 OpenCode 的**内置 provider id**，OpenCode 在它下面预置了 Claude 全系列模型（`claude-sonnet-4-6` 等）的定义。
+
+因此 `opencode run --model anthropic/claude-sonnet-4-6 "你好"` 能跑通；但如果把 provider id 改成自定义名（如 `lmuai/claude-sonnet-4-6`），OpenCode 找不到该模型定义，会无法测通。
+
+一句话：**接 Claude 原生模型用 `anthropic`，接 GLM 等自定义模型才用自定义 provider id（如 `lmuai`）。**
+
+</Callout>
+
+如果你需要同时使用多种协议、多个供应商，把它们都写在 `provider` 下即可，互不影响。例如灵眸同时提供 GPT 系列（`openai`）、Claude 系列（`anthropic`）和 GLM 系列（`lmuai`，Anthropic 协议），三个 provider 可共用一个网关。
 
 ---
 

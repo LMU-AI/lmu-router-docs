@@ -3,6 +3,7 @@
   "pages": [
     "cc-switch",
     "claude-code",
+    "claude-code-gpt",
     "claude-code-vscode",
     "claude-code-desktop",
     "codex-cli-windows",
@@ -13,6 +14,7 @@
     "opencode",
     "cherry",
     "kilo-code-idea",
+    "obsidian",
     "hermes"
   ]
 }

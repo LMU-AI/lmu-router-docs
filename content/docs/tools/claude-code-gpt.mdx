@@ -1,0 +1,167 @@
+---
+title: Claude Code 配置 GPT 模型
+description: 在 Claude Code 中通过灵眸 API 使用 GPT 模型（如 gpt-5.5）：套餐前提、完整 settings.json、最简配置与 /model 切换方式。
+ogDescription: Claude Code 使用灵眸 API 配置 GPT-5.5 / GPT-5.4 / GPT-5.4 Mini 模型指南：支持完整默认模型映射，也支持最简 settings.json 后通过 /model gpt-5.5 手动切换。
+keywords:
+  - Claude Code GPT
+  - Claude Code GPT-5.5
+  - Claude Code settings.json
+  - Claude Code OpenAI 模型
+  - gpt-5.5
+  - 灵眸 API GPT
+  - ANTHROPIC_DEFAULT_OPUS_MODEL
+  - ANTHROPIC_AUTH_TOKEN
+alternateNames:
+  - Claude Code 使用 GPT 模型
+  - Claude Code 配置 gpt-5.5
+  - Claude Code 接入灵眸 GPT 套餐
+---
+
+Claude Code 可以通过灵眸 API 调用 GPT 模型，例如 `gpt-5.5`、`gpt-5.4`、`gpt-5.4-mini`。
+
+<Callout type="warn" title="使用前提">
+
+需要满足以下任一条件：
+
+- 已订阅 **GPT 套餐**
+- 使用按量计费，并且在灵眸后台选择了 **GPT 分组**
+
+如果当前套餐或分组不包含 GPT 模型，配置完成后仍可能出现无权限或模型不可用的报错。
+
+</Callout>
+
+---
+
+## 配置文件位置
+
+Claude Code 的配置文件为 `settings.json`。
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+~/.claude/settings.json
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+C:\Users\你的用户名\.claude\settings.json
+```
+
+</Tab>
+</Tabs>
+
+---
+
+## 方式一：完整配置（推荐）
+
+完整配置会把 Claude Code 内部的 Opus / Sonnet / Haiku 默认模型分别映射到 GPT 模型。配置完成后，启动 Claude Code 即可默认使用对应 GPT 模型。
+
+用文本编辑器打开 `settings.json`，写入以下内容（将密钥替换为你自己的灵眸 API Key）：
+
+```json
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "sk-你的灵眸API密钥",
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "gpt-5.4-mini",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME": "gpt-5.4-mini",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "gpt-5.5",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "gpt-5.5",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "gpt-5.4",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "gpt-5.4"
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "model": "opus"
+}
+```
+
+**字段说明：**
+
+| 字段 | 说明 |
+|------|------|
+| `ANTHROPIC_AUTH_TOKEN` | 灵眸 API Key，填写你自己的 `sk-` 开头密钥 |
+| `ANTHROPIC_BASE_URL` | 灵眸 API 地址，Claude Code 场景填写 `https://api.lmuai.com`，不要带 `/v1` |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL` / `ANTHROPIC_DEFAULT_OPUS_MODEL_NAME` | 将 Claude Code 的 Opus 默认模型映射为 `gpt-5.5` |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL` / `ANTHROPIC_DEFAULT_SONNET_MODEL_NAME` | 将 Sonnet 默认模型映射为 `gpt-5.4` |
+| `ANTHROPIC_DEFAULT_HAIKU_MODEL` / `ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME` | 将 Haiku 默认模型映射为 `gpt-5.4-mini` |
+| `model` | Claude Code 启动时选择的模型档位；这里用 `opus`，会对应到上方的 `gpt-5.5` |
+
+<Callout type="info" title="模型映射关系">
+
+使用上述完整配置后：
+
+- Claude Code 选择 `opus` → 实际调用 `gpt-5.5`
+- Claude Code 选择 `sonnet` → 实际调用 `gpt-5.4`
+- Claude Code 选择 `haiku` → 实际调用 `gpt-5.4-mini`
+
+</Callout>
+
+---
+
+## 方式二：最简配置
+
+如果只想先配置密钥和 Base URL，也可以使用最简配置：
+
+```json
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "sk-你的灵眸API密钥",
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com"
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "model": "opus"
+}
+```
+
+最简配置不会提前把 `opus` 映射成 `gpt-5.5`。启动 Claude Code 后，需要在 Claude Code 中手动执行：
+
+```bash
+/model gpt-5.5
+```
+
+之后当前会话会切换到 `gpt-5.5`。
+
+<Callout type="info" title="什么时候用最简配置？">
+
+如果你经常在不同 GPT 模型之间切换，可以使用最简配置，然后每次启动后通过 `/model 模型名` 指定，例如 `/model gpt-5.5`。
+
+如果你希望每次启动都默认使用 `gpt-5.5`，建议使用上面的完整配置。
+
+</Callout>
+
+---
+
+## 常见问题
+
+### Base URL 要不要带 `/v1`？
+
+Claude Code 使用 Anthropic 协议接入灵眸 API，填写：
+
+```text
+https://api.lmuai.com
+```
+
+不要填写 `https://api.lmuai.com/v1`。
+
+### 可以直接把 `model` 写成 `gpt-5.5` 吗？
+
+更推荐两种方式之一：
+
+- 使用完整配置，把 `ANTHROPIC_DEFAULT_OPUS_MODEL` 映射到 `gpt-5.5`，并保留 `"model": "opus"`
+- 使用最简配置，启动后执行 `/model gpt-5.5`
+
+这样更符合 Claude Code 的模型档位配置方式，切换和回退也更清晰。
+
+### 配置后仍不能使用怎么办？
+
+请检查：
+
+1. API Key 是否为灵眸后台生成的密钥
+2. `ANTHROPIC_BASE_URL` 是否为 `https://api.lmuai.com`
+3. 是否已订阅 GPT 套餐，或按量计费时是否选择了 GPT 分组
+4. 模型名是否拼写正确，例如 `gpt-5.5`
+
+如需查看当前支持的模型，可参考 [模型广场](../guide/models)。

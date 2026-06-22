@@ -152,7 +152,8 @@ New-Item "$env:USERPROFILE\.claude\settings.json" -Force
   "env": {
     "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
     "ANTHROPIC_AUTH_TOKEN": "sk-你的灵眸API密钥",
-    "API_TIMEOUT_MS": "3000000"
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
   }
 }
 ```
@@ -162,6 +163,7 @@ New-Item "$env:USERPROFILE\.claude\settings.json" -Force
 - `ANTHROPIC_AUTH_TOKEN` 填写你在灵眸后台生成的 API Key（`sk-` 开头）
 - 不要填写 Anthropic 官方的 API Key
 - 若之前配置过官方 Key，请先清除旧配置再重新写入
+- `CLAUDE_CODE_ATTRIBUTION_HEADER` 设为 `"0"` 可关闭请求中附带的来源标识，有利于缓存命中、提高 Token 利用率
 
 </Callout>
 
@@ -189,7 +191,7 @@ New-Item "$env:USERPROFILE\.claude\settings.json" -Force
 |------|------|
 | `model` | 默认使用的模型名称，启动时自动加载，无需每次手动切换 |
 | `effortLevel` | 推理强度：`low` / `medium` / `high`，国产模型建议用 `medium` |
-| `CLAUDE_CODE_ATTRIBUTION_HEADER` | 设为 `"0"` 可关闭请求头中的来源标识，兼容性更好 |
+| `CLAUDE_CODE_ATTRIBUTION_HEADER` | 设为 `"0"` 可关闭请求中附带的来源标识，有利于缓存命中、提高 Token 利用率，兼容性更好 |
 
 <Callout type="info" title="支持的国产模型（示例）">
 
@@ -279,9 +281,9 @@ echo $env:ANTHROPIC_BASE_URL
 
 ### 报错 stream disconnected / 断流
 
-**原因：** 网络不稳定或代理 IP 切换导致连接中断。
+**原因：** 本地网络不稳定，或开启了魔法 / VPN / 系统代理——代理自动切换 IP 会导致连接中断。
 
-**解决：** 重新开关魔法梯子，使用稳定的节点。
+**解决：** 关闭魔法 / VPN / 系统代理后重试。灵眸为国内直连，无需魔法，直连即最快最稳定。
 
 ### 响应超时
 
