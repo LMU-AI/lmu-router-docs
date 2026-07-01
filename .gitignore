@@ -8,3 +8,4 @@ out/
 .DS_Store
 **/.DS_Store
 *.tsbuildinfo
+.idea/
