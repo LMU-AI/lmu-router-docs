@@ -1,0 +1,126 @@
+# =============================================================================
+# Docker build & push -> Docker Hub (submit2mxh/lmu-router-docs)
+# -----------------------------------------------------------------------------
+# 触发：给「指定分支」上的提交打任意 tag 后推送 tag 即触发；镜像 tag = 完整 tag 名。
+#   - git tag 本身不属于任何分支，只指向某个 commit；
+#   - 因此先用 guard job 校验该 tag 指向的 commit 是否在 TARGET_BRANCH 上，
+#     不在则跳过构建（避免在别的分支打 tag 也误触发发布）。
+#
+# 需要在仓库 Settings → Secrets and variables → Actions 配置：
+#   DOCKERHUB_USERNAME  能向 submit2mxh 命名空间推送的 Docker Hub 账号
+#   DOCKERHUB_TOKEN     该账号的 Access Token（Read/Write）
+# =============================================================================
+name: Docker Build & Push
+
+on:
+  push:
+    tags:
+      - '*'             # 任意 tag 都触发
+  workflow_dispatch:    # 也允许在 Actions 页面手动触发
+    inputs:
+      ref:
+        description: '要构建的 tag 或分支（手动触发时使用）'
+        required: true
+        type: string
+
+env:
+  IMAGE: submit2mxh/lmu-router-docs   # 目标镜像：https://hub.docker.com/r/submit2mxh/lmu-router-docs
+  TARGET_BRANCH: main                 # 「指定分支」：只有该分支上的 commit 打 tag 才会发布
+  PLATFORMS: linux/amd64,linux/arm64
+
+permissions:
+  contents: read
+
+jobs:
+  # ---------------------------------------------------------------------------
+  # 1) 校验 tag 指向的 commit 是否在指定分支上
+  # ---------------------------------------------------------------------------
+  guard:
+    runs-on: ubuntu-latest
+    outputs:
+      proceed: ${{ steps.check.outputs.proceed }}
+    steps:
+      - name: Checkout (full history)
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Verify commit is on ${{ env.TARGET_BRANCH }}
+        id: check
+        run: |
+          set -euo pipefail
+          git fetch origin "${TARGET_BRANCH}" --depth=0 || git fetch origin "${TARGET_BRANCH}"
+          SHA="$(git rev-parse HEAD)"
+          echo "Tagged commit: ${SHA}"
+
+          if git merge-base --is-ancestor "${SHA}" "origin/${TARGET_BRANCH}"; then
+            echo "commit 在 ${TARGET_BRANCH} 上，继续构建"
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "commit 不在 ${TARGET_BRANCH} 上，跳过发布"
+            echo "proceed=false" >> "$GITHUB_OUTPUT"
+          fi
+
+  # ---------------------------------------------------------------------------
+  # 2) 构建并推送镜像
+  # ---------------------------------------------------------------------------
+  build-and-push:
+    needs: guard
+    if: ${{ needs.guard.outputs.proceed == 'true' }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+          ref: ${{ github.event.inputs.ref || github.ref }}
+
+      - name: Set up QEMU
+        uses: docker/setup-qemu-action@v3
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v3
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v3
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Derive image tags & labels
+        id: meta
+        uses: docker/metadata-action@v5
+        with:
+          images: ${{ env.IMAGE }}
+          tags: |
+            # 直接用完整 git tag 名作镜像 tag，不做任何截取（保留 v / 前缀等）。
+            # 例：v0.1.0 -> v0.1.0；release-2026-07 -> release-2026-07。
+            type=ref,event=tag
+            type=raw,value=latest
+          flavor: |
+            latest=false       # latest 由上面的 raw 规则显式控制
+
+      - name: Build & push
+        uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: ${{ env.PLATFORMS }}
+          push: true
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
+          provenance: false
+          # Registry 缓存：存到 Docker Hub 同仓库的 buildcache tag，跨 run 稳定复用。
+          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
+          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
+
+      - name: Summary
+        run: |
+          {
+            echo "### Pushed to Docker Hub"
+            echo ""
+            echo '```'
+            echo "${{ steps.meta.outputs.tags }}"
+            echo '```'
+          } >> "$GITHUB_STEP_SUMMARY"
