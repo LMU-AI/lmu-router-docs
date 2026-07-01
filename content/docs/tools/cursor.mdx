@@ -1,38 +1,66 @@
 ---
-title: Cursor 原生 API 配置
-description: 在 Cursor 编辑器中通过 "Override OpenAI Base URL" 接入灵眸 API：仅 Chat / Plan 面板（Cmd/Ctrl+L）可用 Claude、GPT、GLM、Qwen 等模型；Composer / Tab 自动补全 / Inline Edit 等 Cursor 原生功能仍走官方后端。
-ogDescription: Cursor 接入灵眸 AI：在 Settings → Models 里开启 Override OpenAI Base URL、填入 https://api.lmuai.com/v1 和灵眸 sk- 密钥即可在 Chat / Plan 面板使用 Claude Opus / Sonnet、GPT-5、GLM、Qwen 等模型；想让 Composer 等 Agent 功能也走灵眸请改装 Codex 或 Claude Code 插件。
+title: Cursor 接入第三方 API 配置
+description: Cursor 如何配置第三方 API（灵眸中转）完整教程：Settings → Models → 开启 Override OpenAI Base URL → 填入 https://api.lmuai.com/v1 与 sk- 密钥，即可在 Chat / Plan 面板使用 Claude、GPT-5、GLM、Qwen 等模型；Composer / Tab 自动补全等 Cursor 原生 Agent 功能仍走官方后端。
+ogDescription: Cursor 如何配置第三方 API 图文教程 —— Settings → Models → Override OpenAI Base URL + 灵眸 API 地址 + sk- 密钥，即可在 Cursor Chat 面板直连 Claude Opus / Sonnet、GPT-5、智谱 GLM、通义千问 Qwen、DeepSeek 等模型，国内免代理；附 Verify 校验、路由冲突、Composer 限制等踩坑说明。
 keywords:
-  - Cursor
+  - Cursor 如何配置第三方 API
+  - Cursor 第三方 API
+  - Cursor 第三方 API 配置
+  - Cursor 第三方 API 教程
+  - Cursor 配置第三方 API
+  - Cursor 接入第三方 API
+  - Cursor 第三方中转
+  - Cursor 中转 API
+  - Cursor 中转 API 配置
+  - Cursor 中转站
+  - Cursor 中转站教程
+  - Cursor OpenAI 兼容 API
+  - Cursor OpenAI 兼容
   - Cursor API 配置
   - Cursor 自定义 API
-  - Cursor 第三方 API
-  - Cursor 中转 API
+  - Cursor 自定义模型
+  - Cursor 自定义 API Key
+  - Cursor Override OpenAI Base URL
+  - Cursor Override OpenAI 教程
+  - Cursor BYOK
+  - Cursor BYOK 教程
+  - Cursor 使用自己的 API
+  - Cursor 接自建 API
   - Cursor Claude
   - Cursor 接入 Claude
   - Cursor 配置 Claude
   - Cursor GPT
-  - Cursor Override OpenAI Base URL
-  - Cursor OpenAI 兼容
-  - Cursor 自定义模型
+  - Cursor GPT-5
   - Cursor GLM
   - Cursor Qwen
   - Cursor DeepSeek
+  - Cursor Kimi
   - Cursor 国产模型
+  - Cursor 中文 AI
   - Cursor 灵眸
-  - Cursor BYOK
-  - Cursor 免代理
   - Cursor Chat 面板
-  - Cursor 原生 API 配置
-  - Cursor 中转站
   - Cursor Composer 中转
+  - Cursor Composer 第三方
+  - Cursor 免代理
+  - Cursor 免订阅
 alternateNames:
-  - Cursor 接入灵眸 AI
-  - Cursor 配置第三方中转 API
+  - Cursor 如何配置第三方 API
+  - Cursor 如何接入第三方 API
+  - Cursor 怎么用第三方 API
+  - Cursor 配置自定义 API 教程
   - Cursor Override OpenAI Base URL 教程
-  - Cursor 使用 Claude / GLM 中转
+  - Cursor 使用第三方中转站教程
+  - Cursor 接入灵眸 AI
+  - Cursor 用 Claude / GLM / Qwen 中转
+  - Cursor BYOK 自带 API Key 配置
   - Cursor 自定义 OpenAI 兼容接口
 faq:
+  - q: Cursor 如何配置第三方 API？
+    a: 步骤如下 —— 打开 Settings（Cmd/Ctrl + Shift + J）→ 左侧 Models → 关闭内置默认模型 → Add Model 输入自定义模型 ID（如 `claude-opus-4-8`、`gpt-5.4`、`glm-5.1`）→ 打开 OpenAI API Key 并填入 `sk-` 开头密钥 → 打开 Override OpenAI Base URL 并填 `https://api.lmuai.com/v1` → 点 Verify 校验 → 按 Cmd/Ctrl + L 打开 Chat 面板切换到该模型使用。注意：**仅 Chat / Plan 面板走第三方 API**，Composer / Tab 自动补全等 Cursor 原生功能仍走官方后端。
+  - q: Cursor 支持哪种第三方 API 协议？
+    a: 只支持 **OpenAI 兼容协议**（`/v1/chat/completions`），通过 Settings → Models 的 Override OpenAI Base URL 覆盖。目前没有原生「Override Anthropic Base URL」开关；想在 Chat 面板用 Claude 系列模型，请把 Claude 模型 ID 作为自定义模型添加走 OpenAI 兼容接口，灵眸后端会做 OpenAI ↔ Anthropic 协议转换。
+  - q: Cursor 用第三方中转站会不会更省钱？
+    a: 通常更省。中转站按 token 实际用量计费，重度用户（尤其是高频 Opus / GPT-5 的场景）比 Cursor Pro 月度订阅更划算；此外一把 Key 可以同时用 Claude / GPT / GLM / Qwen / DeepSeek。要注意 Cursor 的 Composer / Tab 自动补全无法走第三方 API，这两个功能仍占用 Cursor 订阅配额。
   - q: Cursor 能用第三方中转 API 吗？
     a: 能，但**只对 Chat / Plan 面板生效**。Cursor 的 Settings → Models 里有「Override OpenAI Base URL」开关，开启后 Chat / Plan 面板（Cmd/Ctrl + L）的请求会走第三方中转；Composer / Tab 自动补全 / Apply / Inline Edit 等 Cursor 原生 Agent 功能仍锁在 Cursor 官方后端，不受影响。
   - q: 想在 Cursor 里用 Claude / GLM / Qwen 怎么办？
