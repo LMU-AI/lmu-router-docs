@@ -1,20 +1,24 @@
 {
   "title": "工具配置",
   "pages": [
-    "cc-switch",
+    "---Claude Code---",
     "claude-code",
-    "claude-code-gpt",
-    "claude-code-vscode",
     "claude-code-desktop",
-    "codex-cli-windows",
+    "claude-code-vscode",
+    "claude-code-gpt",
+    "---Codex---",
     "codex-cli-mac",
+    "codex-cli-windows",
     "codex-cli-server",
-    "vscode-plugin",
     "codex-app",
+    "---第三方工具与客户端---",
+    "cc-switch",
     "opencode",
     "cherry",
+    "chatbox",
+    "hermes",
+    "vscode-plugin",
     "kilo-code-idea",
-    "obsidian",
-    "hermes"
+    "obsidian"
   ]
 }

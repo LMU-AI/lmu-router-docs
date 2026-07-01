@@ -1,0 +1,389 @@
+---
+title: 导出 Usage 使用明细
+description: 灵眸 AI 使用明细 API 导出指南：账号登录获取 JWT，再调用 /api/v1/usage 拉取与控制台 /usage 页面一致的完整 token 使用明细，支持分页、日期范围、模型过滤，含 Bash / Python / Node.js 示例。
+ogDescription: 灵眸 AI 提供使用明细对外 API：账号密码登录拿 JWT，调用 /api/v1/usage 自动化导出所有 Claude / GPT / Gemini / 国产模型的请求明细、token 消耗与费用，免手动下载 CSV。
+keywords:
+  - Claude API 使用明细
+  - Claude API usage 导出
+  - 灵眸 AI 用量 API
+  - GPT API usage 接口
+  - usage 明细自动化
+  - AI API 账单导出
+  - sub2api usage
+---
+
+# 导出 Usage 使用明细
+
+通过账号密码登录获取 JWT,再用 JWT 调用 `/api/v1/usage` 拉取**与控制台 `/usage` 页面一致的完整 token 使用明细表**。
+
+适合长期跑脚本自动化导出、对账、入企业 BI,无需每次手动下载 CSV。
+
+<Callout type="info">
+**为什么不能用 `sk-...` API Key 直接拉?** Key 仅供网关业务调用(/v1/messages 等),不开放账号级别的明细查询 —— 这是有意的安全设计:Key 一旦泄露不希望整本账单被脱。账号级数据必须用账号鉴权(JWT)。
+</Callout>
+
+---
+
+## 1. 接口总览
+
+| 项 | 值 |
+|---|---|
+| Base URL | `https://api.lmuai.com` |
+| 鉴权方式 | `Authorization: Bearer <access_token>`(账号登录拿到的 JWT) |
+| Access token 有效期 | **86400 秒(24 小时)**,可用 refresh_token 续期 |
+| 返回格式 | JSON;`code: 0` 表示成功,失败时 `code != 0` 配合 `message` 字段 |
+| 推荐场景 | 自动化导出账单、入企业 BI、对账脚本 |
+
+---
+
+## 2. 第一步:登录获取 JWT
+
+### `POST /api/v1/auth/login`
+
+```http
+POST /api/v1/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+  "email": "your@email.com",
+  "password": "your-password"
+}
+```
+
+**响应**(节选):
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "access_token": "eyJhbGc...",
+    "refresh_token": "rt_756a220ffa...",
+    "expires_in": 86400,
+    "token_type": "Bearer",
+    "user": { "id": 3, "email": "...", "balance": 1575.13 }
+  }
+}
+```
+
+后续所有请求带上 `Authorization: Bearer <access_token>` 即可。
+
+---
+
+## 3. 第二步:拉取使用明细
+
+### `GET /api/v1/usage`
+
+```http
+GET /api/v1/usage?page=1&page_size=200&start_date=2026-06-01&end_date=2026-06-23&timezone=Asia/Shanghai
+Authorization: Bearer <access_token>
+```
+
+### Query 参数
+
+| 参数 | 类型 | 必填 | 默认 | 说明 |
+|---|---|---|---|---|
+| `page` | int | 否 | 1 | 页码,从 1 开始 |
+| `page_size` | int | 否 | 20 | 每页条数,推荐 200(超大值会被截断) |
+| `start_date` | string | 否 | — | 起始日期 `YYYY-MM-DD`,按 `timezone` 解析 |
+| `end_date` | string | 否 | — | 结束日期(含当天) |
+| `timezone` | string | 否 | UTC | 日期参数解析时区,如 `Asia/Shanghai`;**强烈建议传**,否则边界与本地不一致 |
+| `api_key_id` | int | 否 | — | 只看某条 Key 的明细(必须属于当前用户) |
+| `model` | string | 否 | — | 按模型 ID 过滤(如 `claude-sonnet-4-5`) |
+| `stream` | bool | 否 | — | `true` 仅流式,`false` 仅非流式 |
+| `billing_type` | int | 否 | — | 计费类型枚举(详见下文) |
+| `sort_by` | string | 否 | `created_at` | 排序字段 |
+| `sort_order` | string | 否 | `desc` | `asc` 或 `desc` |
+
+### 响应结构
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "items": [ { /* UsageLog */ }, ... ],
+    "total": 30423,
+    "page": 1,
+    "page_size": 200,
+    "pages": 153
+  }
+}
+```
+
+<Callout type="warn">
+**分页字段在 `data` 顶层,不在外层 envelope**。明细数组在 `data.items`,不是 `data` 直接是数组。
+</Callout>
+
+### 单条记录字段映射
+
+完全对应控制台 `/usage` 页面的每一列:
+
+| 控制台列 | JSON 字段 | 类型 | 说明 |
+|---|---|---|---|
+| **模型** | `model` | string | 实际计费的模型 ID |
+| **推理强度** | `reasoning_effort` | string \| null | `low` / `medium` / `high` / `xhigh` / `max` |
+| **入站端点** | `inbound_endpoint` | string \| null | 客户端调用的 path,如 `/v1/messages` |
+| **上游端点** | `upstream_endpoint` | string \| null | 上游归一化 path |
+| **请求类型** | `request_type` | string | `chat` / `stream` / `responses` / `messages` 等 |
+| **流式** | `stream` | bool | 是否流式 |
+| **计费模式** | `billing_mode` | string | `token` / `per_request` / `image` / `subscription` |
+| **计费类型** | `billing_type` | int | 计费类型枚举 |
+| **倍率** | `rate_multiplier` | float | 该次请求生效的渠道倍率 |
+| **输入 Token** | `input_tokens` | int | |
+| **输出 Token** | `output_tokens` | int | |
+| **缓存创建** | `cache_creation_tokens` | int | 全部缓存写 |
+| **缓存创建 5m** | `cache_creation_5m_tokens` | int | Anthropic ephemeral 5 分钟档 |
+| **缓存创建 1h** | `cache_creation_1h_tokens` | int | Anthropic 1 小时档 |
+| **缓存读** | `cache_read_tokens` | int | |
+| **输入费用** | `input_cost` | float | USD |
+| **输出费用** | `output_cost` | float | USD |
+| **缓存创建费用** | `cache_creation_cost` | float | USD |
+| **缓存读费用** | `cache_read_cost` | float | USD |
+| **原价合计** | `total_cost` | float | USD,未乘倍率 |
+| **实扣费用** | `actual_cost` | float | **= total_cost × rate_multiplier**,实际从余额扣的 |
+| **首 Token 延迟** | `first_token_ms` | int \| null | TTFT,流式有效 |
+| **总耗时** | `duration_ms` | int \| null | |
+| **时间** | `created_at` | ISO8601 | 服务端落库时间 |
+| **请求 ID** | `request_id` | string | 用于排错追踪 |
+| **图像生成** | `image_count` / `image_size` / `image_output_tokens` / `image_output_cost` | — | 仅多模态请求填充 |
+| **API Key** | `api_key_id` + 嵌套 `api_key` 对象 | int + obj | |
+| **分组** | `group_id` + 嵌套 `group` 对象 | int + obj | |
+
+<Callout type="warn">
+单条记录会带上嵌套的 `user` / `api_key` / `group` 对象(每行约 +1KB)。**`api_key` 对象包含 Key 全文,请在脚本日志/截图/CSV 中务必脱敏**;批量导出时若不需要嵌套对象,可在客户端用 `jq` 或字段映射只保留所需字段。
+</Callout>
+
+### 计费类型枚举(billing_type)
+
+| 值 | 含义 |
+|---|---|
+| `0` | 按 token 计费(绝大多数请求) |
+| `1` | 订阅扣额度 |
+
+`billing_mode` 字段是字符串版本,描述具体定价模型(`token` / `per_request` / `image` / `subscription` 等),可读性更好,推荐用它做分类。
+
+---
+
+## 4. Token 续期
+
+Access token 24 小时过期。两种续期方式:
+
+### 用 refresh_token 续期(推荐脚本场景)
+
+```http
+POST /api/v1/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "rt_756a220ffa..."
+}
+```
+
+返回新的 `access_token`(通常也会轮换 `refresh_token`)。Refresh token 有效期 30 天。
+
+### 重新登录
+
+简单粗暴,适合一次性脚本:每次跑前重新调 `/auth/login`。
+
+---
+
+## 5. 代码示例
+
+### Bash + curl + jq
+
+```bash
+#!/usr/bin/env bash
+set -e
+
+EMAIL="${EMAIL:?set EMAIL env}"
+PASSWORD="${PASSWORD:?set PASSWORD env}"
+BASE="https://api.lmuai.com"
+
+JWT=$(curl -s -X POST "$BASE/api/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" \
+  | jq -r '.data.access_token')
+
+[ -n "$JWT" ] && [ "$JWT" != "null" ] || { echo "login failed" >&2; exit 1; }
+
+START="2026-06-01"; END="2026-06-30"; TZ="Asia/Shanghai"; PAGE_SIZE=200
+
+# 取第 1 页拿 total
+META=$(curl -s "$BASE/api/v1/usage?page=1&page_size=$PAGE_SIZE&start_date=$START&end_date=$END&timezone=$TZ" \
+  -H "Authorization: Bearer $JWT")
+PAGES=$(echo "$META" | jq -r '.data.pages')
+
+# CSV 表头
+echo "created_at,model,request_type,input_tokens,output_tokens,cache_read_tokens,total_cost,actual_cost,duration_ms" > usage.csv
+
+# 写第 1 页
+echo "$META" | jq -r '.data.items[] | [.created_at, .model, .request_type, .input_tokens, .output_tokens, .cache_read_tokens, .total_cost, .actual_cost, .duration_ms] | @csv' >> usage.csv
+
+# 拉剩余页
+for ((p=2; p<=PAGES; p++)); do
+  curl -s "$BASE/api/v1/usage?page=$p&page_size=$PAGE_SIZE&start_date=$START&end_date=$END&timezone=$TZ" \
+    -H "Authorization: Bearer $JWT" \
+    | jq -r '.data.items[] | [.created_at, .model, .request_type, .input_tokens, .output_tokens, .cache_read_tokens, .total_cost, .actual_cost, .duration_ms] | @csv' >> usage.csv
+done
+
+echo "saved $(wc -l < usage.csv) lines to usage.csv"
+```
+
+### Python
+
+```python
+import os, csv, requests
+
+BASE = "https://api.lmuai.com"
+EMAIL = os.environ["EMAIL"]
+PASSWORD = os.environ["PASSWORD"]
+
+def login() -> str:
+    r = requests.post(f"{BASE}/api/v1/auth/login",
+                      json={"email": EMAIL, "password": PASSWORD},
+                      timeout=15)
+    r.raise_for_status()
+    data = r.json()
+    if data["code"] != 0:
+        raise RuntimeError(data.get("message", "login failed"))
+    return data["data"]["access_token"]
+
+def fetch_usage(jwt: str, **params):
+    """Yield each row from paginated /usage endpoint."""
+    page = 1
+    while True:
+        r = requests.get(f"{BASE}/api/v1/usage",
+                         headers={"Authorization": f"Bearer {jwt}"},
+                         params={**params, "page": page, "page_size": 200},
+                         timeout=30)
+        r.raise_for_status()
+        d = r.json()["data"]
+        for row in d.get("items", []):
+            yield row
+        if page >= d.get("pages", 1):
+            return
+        page += 1
+
+if __name__ == "__main__":
+    jwt = login()
+    cols = ["created_at","model","request_type","input_tokens","output_tokens",
+            "cache_read_tokens","total_cost","actual_cost","duration_ms"]
+    with open("usage.csv", "w", newline="") as f:
+        w = csv.writer(f); w.writerow(cols)
+        for row in fetch_usage(jwt, start_date="2026-06-01", end_date="2026-06-30",
+                               timezone="Asia/Shanghai"):
+            w.writerow([row.get(c) for c in cols])
+    print("done")
+```
+
+### Node.js
+
+```js
+import fs from 'node:fs'
+
+const BASE = 'https://api.lmuai.com'
+const { EMAIL, PASSWORD } = process.env
+
+async function login() {
+  const r = await fetch(`${BASE}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: EMAIL, password: PASSWORD }),
+  })
+  const j = await r.json()
+  if (j.code !== 0) throw new Error(j.message || 'login failed')
+  return j.data.access_token
+}
+
+async function* fetchUsage(jwt, params) {
+  for (let page = 1; ; page++) {
+    const q = new URLSearchParams({ ...params, page, page_size: '200' })
+    const r = await fetch(`${BASE}/api/v1/usage?${q}`, {
+      headers: { Authorization: `Bearer ${jwt}` },
+    })
+    const j = await r.json()
+    for (const row of j.data.items) yield row
+    if (page >= j.data.pages) return
+  }
+}
+
+const jwt = await login()
+const cols = ['created_at','model','request_type','input_tokens','output_tokens',
+              'cache_read_tokens','total_cost','actual_cost','duration_ms']
+const out = fs.createWriteStream('usage.csv')
+out.write(cols.join(',') + '\n')
+for await (const row of fetchUsage(jwt, {
+  start_date: '2026-06-01', end_date: '2026-06-30', timezone: 'Asia/Shanghai',
+})) {
+  out.write(cols.map(c => JSON.stringify(row[c] ?? '')).join(',') + '\n')
+}
+console.log('done')
+```
+
+---
+
+## 6. 实战注意事项
+
+1. **批量翻页加间隔** —— 连续翻 N 页建议 `sleep(0.1~0.3s)`,避免触发限流。
+2. **time 范围一次别拉太久** —— 跨数月、几百万条会很慢。按月切片更稳。
+3. **`page_size` 推荐 200** —— 服务端会截断超大值。
+4. **节省带宽** —— 嵌套 `user` / `api_key` / `group` 对象较大,若只要明细行,客户端用 `jq` 过滤。
+5. **常见错误**:
+   - `401` JWT 过期 → 用 `refresh_token` 续 或 重新登录
+   - `403` 越权(如查别人 Key 的 `api_key_id`)→ 检查 Key 是否属于当前用户
+   - `400` 参数错(如 `start_date` 格式)→ 检查 `YYYY-MM-DD` + `timezone` 合法
+
+---
+
+## 7. 安全建议(必读)
+
+<Callout type="warn">
+**账号密码 + JWT 等同于完整账户访问权限**。脚本化导出前,请确保:
+</Callout>
+
+| 项 | 建议 |
+|---|---|
+| 凭据管理 | **绝不要**把 password / access_token / refresh_token 提交到 git 或 CI 日志;用环境变量、密钥管理服务、`.env`(加 `.gitignore`) |
+| 账户安全 | 强烈建议开启 **TOTP 二次验证**(账户设置中开启)。本接口在登录环节支持 TOTP 校验 |
+| 定期轮换 | 定期更换账号密码;refresh_token 失效后立刻轮换 |
+| 异常监控 | 留意账户的"上次登录时间 / IP",发现陌生设备立即改密 |
+| 字段脱敏 | 响应中嵌套的 `api_key.key`(sk-... 全文)、`user.email`、`refresh_token` 都属敏感字段,**输出/日志/CSV 前务必脱敏** |
+| 最小权限 | 如能拆分,**给导出脚本用单独的子账号**(若组织有多账户结构),避免主账号长期暴露 |
+| 错误重试 | 不要在登录失败时无限重试 —— 容易触发风控,建议指数退避 |
+
+---
+
+## 8. 字段速查表
+
+便于做 CSV 列映射:
+
+| 中文 | 字段名 | 单位 |
+|---|---|---|
+| 模型 | `model` | — |
+| 推理强度 | `reasoning_effort` | — |
+| 入站端点 | `inbound_endpoint` | path |
+| 上游端点 | `upstream_endpoint` | path |
+| 请求类型 | `request_type` | enum |
+| 是否流式 | `stream` | bool |
+| 计费模式 | `billing_mode` | enum |
+| 计费类型 | `billing_type` | int |
+| 倍率 | `rate_multiplier` | float |
+| 输入 token | `input_tokens` | int |
+| 输出 token | `output_tokens` | int |
+| 缓存读 token | `cache_read_tokens` | int |
+| 缓存写 token | `cache_creation_tokens` | int |
+| 缓存写 5m | `cache_creation_5m_tokens` | int |
+| 缓存写 1h | `cache_creation_1h_tokens` | int |
+| 输入费用 | `input_cost` | USD |
+| 输出费用 | `output_cost` | USD |
+| 缓存创建费用 | `cache_creation_cost` | USD |
+| 缓存读费用 | `cache_read_cost` | USD |
+| 原价合计 | `total_cost` | USD |
+| 实扣费用 | `actual_cost` | USD |
+| 首 Token | `first_token_ms` | ms |
+| 总耗时 | `duration_ms` | ms |
+| 时间 | `created_at` | ISO8601 |
+| 请求 ID | `request_id` | string |
+| 分组 | `group_id` / `group.name` | int / string |
+| API Key | `api_key_id` / `api_key.name` | int / string |

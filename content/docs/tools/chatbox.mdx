@@ -1,0 +1,227 @@
+---
+title: Chatbox
+description: Chatbox 全平台（Windows / macOS / Linux / iOS / Android / Web）接入灵眸 API：一份配置调用 Claude 4.x / GPT-5 / DeepSeek / Qwen / GLM，Anthropic 与 OpenAI 双协议兼容，国内直连免代理。
+ogDescription: Chatbox 接入灵眸 AI：桌面与手机全平台 AI 对话客户端通过 Anthropic 或 OpenAI Responses 兼容协议调用 Claude Opus 4.8 / Sonnet 4.6 / GPT-5.5 / DeepSeek / Qwen / GLM 等模型，同一把 Key 双协议共用，国内直连、免代理、支持流式输出。
+keywords:
+  - Chatbox
+  - Chatbox Claude
+  - Chatbox GPT
+  - Chatbox GPT-5
+  - Chatbox Claude 4.8
+  - Chatbox 配置 API
+  - Chatbox 添加模型
+  - Chatbox 国内使用
+  - Chatbox 免代理
+  - Chatbox 直连
+  - Chatbox 自定义 API
+  - Chatbox 自定义提供方
+  - Chatbox Anthropic 兼容
+  - Chatbox OpenAI Responses
+  - Chatbox API 中转
+  - Chatbox API Host
+  - Chatbox iOS
+  - Chatbox Android
+  - Chatbox macOS
+  - Chatbox 手机版
+  - Chatbox DeepSeek
+  - Chatbox GLM
+  - Chatbox Qwen
+  - Chatbox Kimi
+  - Chatbox 401 403
+alternateNames:
+  - Chatbox 接入灵眸 AI
+  - Chatbox 配置 Claude API
+  - Chatbox 全平台接入教程
+  - Chatbox 国内直连 Claude
+  - Chatbox 手机版 API 配置
+faq:
+  - q: Chatbox 的 API Host 要不要带 /v1？
+    a: 不要。Chatbox 的「API Host」字段一律填到域名为止 `https://api.lmuai.com`，Chatbox 会自动拼接 `/v1`——Anthropic 协议拼出 `/v1/messages`、OpenAI Responses 协议拼出 `/v1/responses`。若 Host 里多写了 `/v1`，会出现 `/v1/v1/...` 这种 404 路径。
+  - q: OpenAI 协议为什么要选 Responses 而不是普通的 OpenAI API Compatible？
+    a: Chatbox 的「OpenAI API Compatible」走的是旧的 `/chat/completions` 接口；灵眸的 OpenAI 协议采用更新的 Responses API（`/v1/responses`），因此需要选 **OpenAI Responses API Compatible**，API Path 填 `/responses`。
+  - q: Chatbox 模型列表里没有 Claude 4.8 或 GPT-5.5 怎么办？
+    a: Chatbox 内置的预设模型列表更新有延迟，新模型需要在提供商配置里手动「添加模型」，输入对应模型 ID（如 `claude-opus-4-8`、`claude-sonnet-4-6`、`gpt-5.5`）即可。完整可用模型见模型广场。
+  - q: 改完配置不生效？
+    a: 保存后建议重启一次 Chatbox 客户端，或在对话界面重新选择一次模型。手机版切换网络后有时也需要重启一次。
+  - q: 报错 401 / 403 怎么排查？
+    a: 依次检查：(1) API Key 是不是灵眸后台生成的 `sk-` 开头密钥（不是 Anthropic / OpenAI 官方 Key）；(2) API Host 是不是填对（两种协议都填 `https://api.lmuai.com`，都不带 `/v1`）；(3) OpenAI 协议另外检查 API Mode 是否为 `OpenAI Responses API Compatible`、API Path 是否为 `/responses`；(4) 当前套餐 / 计费分组是否包含所调用的模型。
+  - q: 一把 Key 可以在 Chatbox 里同时用 Claude 和 GPT 吗？
+    a: 可以。灵眸的 API Key 同时支持 Anthropic 与 OpenAI 两种协议，两边 API Host 都是 `https://api.lmuai.com`，只是 API Mode 与 API Path 不同。分别添加两个提供商、都填同一把 Key 即可，Claude / 国产模型走 Anthropic 协议，GPT 系列走 OpenAI Responses 协议。
+  - q: Chatbox 手机版（iOS / Android）怎么配置灵眸？
+    a: 打开 Chatbox → 左上角 ☰ 菜单 → 设置 → 模型提供方 → 添加，之后填写方式与桌面版完全一致：Anthropic 协议 API Host 填 `https://api.lmuai.com`，Key 填后台的 `sk-` 开头密钥，即可在手机上直连使用 Claude / DeepSeek / Qwen / GLM 等模型。
+  - q: Chatbox 接入灵眸需要科学上网吗？
+    a: 不需要。灵眸 API 域名 `api.lmuai.com` 国内直连，Chatbox 桌面版和手机版都无需任何代理即可使用。
+---
+
+Chatbox 是一款支持多模型的 AI 对话客户端，覆盖 Windows / macOS / Linux / iOS / Android / Web 全平台。
+
+---
+
+## 下载安装
+
+- **官网**：[https://chatboxai.app](https://chatboxai.app)
+- 选择对应平台版本下载安装即可，无需注册账号即可使用 BYOK（自带 Key）模式
+
+---
+
+## 两种协议说明
+
+灵眸支持两种接入协议，按模型类型选择：
+
+| 协议 | 适用模型 | API Host | API Path |
+|------|----------|----------|----------|
+| **Claude API（Anthropic 兼容）** | Claude 系列模型、国产模型（DeepSeek、Qwen、GLM、Kimi 等） | `https://api.lmuai.com` | 默认即可 |
+| **OpenAI Responses API Compatible** | OpenAI 系列模型（GPT-5、GPT-4.1 等） | `https://api.lmuai.com` | `/responses` |
+
+<Callout type="info" title="API Host 都不带 /v1">
+
+Chatbox 在请求时会自动拼接路径，所以 **API Host 一律填到域名为止，不要带 `/v1`**。例如 OpenAI Responses 协议最终会拼成 `https://api.lmuai.com/v1/responses`。
+
+</Callout>
+
+---
+
+## 进入添加提供方入口
+
+两种协议的配置都从同一个入口进入：
+
+<Tabs items={['桌面版', '手机版']}>
+<Tab value="桌面版">
+
+打开 Chatbox → **左下角「设置」** → 进入「模型提供方（Model Provider）」→ 点击底部「添加」。
+
+![Chatbox 桌面版添加提供方](/images/tools/chatbox-max/chatbox-max.png)
+
+</Tab>
+<Tab value="手机版">
+
+打开 Chatbox → 点击 **左上角菜单图标 ☰** 打开侧边栏 → 点击「设置」→ 进入「模型提供方（Model Provider）」→ 点击底部「添加」。
+
+![Chatbox 手机版添加提供方](/images/tools/chatbox-phone/chatbox-phone.png)
+
+</Tab>
+</Tabs>
+
+---
+
+## 方式一：Anthropic 协议（Claude 及国产模型）
+
+### 第1步：新建提供方
+
+按上方入口打开新建提供方窗口后：
+
+1. **API 模式**：选择 **`Claude API（Anthropic 兼容）`**
+2. **名称**：随意填写（如 `LMU AI·灵眸`）
+
+### 第2步：填写 API 信息
+
+- **API 域名 / API Host**：填入灵眸 API 地址（**不带** `/v1`）
+
+  ```
+  https://api.lmuai.com
+  ```
+
+- **API 密钥 / API Key**：填入后台生成的 `sk-` 开头的密钥
+
+### 第3步：添加模型
+
+Chatbox 默认列表里可能没有最新模型，需要手动添加。在提供商设置页找到「模型」区域 → 点击「新建」/「添加模型」，输入模型 ID，例如：
+
+- `claude-opus-4-8`
+- `claude-sonnet-4-6`
+- `claude-haiku-4-5`
+- `deepseek-v4-pro`
+- `qwen3.7-max`
+- `kimi-k2.6`
+
+完整可用模型清单见 [模型广场](../guide/models)。
+
+---
+
+## 方式二：OpenAI 协议（GPT 模型）
+
+<Callout type="warn" title="使用前提">
+
+需要满足以下任一条件：
+
+- 已订阅 **GPT 套餐**
+- 使用按量计费，并且在灵眸后台选择了 **GPT 分组**
+
+</Callout>
+
+### 第1步：新建提供方
+
+按上方入口打开新建提供方窗口后：
+
+1. **API 模式（API Mode）**：选择 **`OpenAI Responses API Compatible`**（不是 `OpenAI API Compatible`）
+2. **名称（Name）**：随意填写（如 `LMUAI-GPT`）
+
+### 第2步：填写 API 信息
+
+| 字段 | 取值 |
+|------|------|
+| API 密钥（API Key） | 后台生成的 `sk-` 开头的密钥 |
+| API 域名（API Host） | `https://api.lmuai.com` |
+| API 路径（API Path） | `/responses` |
+
+Chatbox 会自动把 Host、`/v1` 和 Path 拼接成完整请求地址 `https://api.lmuai.com/v1/responses`，界面下方也会实时显示拼出来的完整 URL。
+
+按上面填写完成后，界面如下：
+
+![Chatbox 桌面版配置 GPT 提供方示例](/images/tools/chatbox-max/chatbox-mac-gpt.png)
+
+### 第3步：添加模型
+
+在「模型」区域点击「新建」，输入模型 ID：
+
+- `gpt-5.5`
+- `gpt-5.4`
+- `gpt-5.4-mini`
+- `gpt-5.2`
+
+---
+
+## 使用
+
+回到主界面，点击顶部模型选择框，切换到你刚刚添加的提供商和模型即可开始对话。
+
+<Callout type="info" title="同一个 Key 可以两种协议都用">
+
+灵眸的 API Key 同时支持 Anthropic 和 OpenAI 两种协议，两边的 API Host 都是 `https://api.lmuai.com`，只是 API Mode 和 API Path 不同。如果你既想用 Claude / 国产模型，又想用 GPT，按上面方式各添加一个提供商即可，密钥可以填同一个。
+
+</Callout>
+
+---
+
+## 常见问题
+
+### API Host 要不要带 `/v1`？
+
+**不要**。Chatbox 的「API Host」字段一律填到域名为止：`https://api.lmuai.com`。
+
+Chatbox 会自己拼接 `/v1`：
+
+- Anthropic 协议：拼出 `https://api.lmuai.com/v1/messages`
+- OpenAI Responses 协议：Path 填 `/responses`，拼出 `https://api.lmuai.com/v1/responses`
+
+如果你在 Host 里多写了 `/v1`，就会出现 `…/v1/v1/...` 这种 404 路径。
+
+### OpenAI 协议为什么选「Responses」而不是普通「OpenAI API Compatible」？
+
+Chatbox 的「OpenAI API Compatible」走的是旧的 `/chat/completions` 接口；灵眸的 OpenAI 协议采用更新的 **Responses API**（`/v1/responses`），所以这里要选 **OpenAI Responses API Compatible**，API Path 填 `/responses`。
+
+### Chatbox 模型列表里没有 Claude 4.8 / GPT-5.5？
+
+Chatbox 内置的预设模型列表更新有延迟，新模型需要手动在提供商配置里「添加模型」，输入对应模型 ID 即可。可用模型见 [模型广场](../guide/models)。
+
+### 改了配置不生效？
+
+保存后建议**重启一次 Chatbox 客户端**，或在对话界面重新选择一次模型。
+
+### 报错 401 / 403？
+
+依次检查：
+
+1. API Key 是否是灵眸后台生成的 `sk-` 开头密钥（不是 Anthropic / OpenAI 官方的 Key）
+2. API Host 是否填错（两种协议都填 `https://api.lmuai.com`，**都不带** `/v1`；OpenAI 协议另外检查 API Mode 是不是 `OpenAI Responses API Compatible`、API Path 是不是 `/responses`）
+3. 当前套餐 / 计费分组是否包含你调用的那个模型
