@@ -56,7 +56,7 @@ export default function OpengraphImage() {
             opacity: 0.8,
           }}
         >
-          docs.fulitimes.com
+          docs.lmuai.com
         </div>
       </div>
     ),

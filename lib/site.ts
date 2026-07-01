@@ -1,4 +1,4 @@
-export const SITE_URL = 'https://docs.fulitimes.com';
+export const SITE_URL = 'https://docs.lmuai.com';
 export const SITE_NAME = '灵眸文档';
 export const SITE_SHORT_NAME = '灵眸';
 export const SITE_DESCRIPTION =
