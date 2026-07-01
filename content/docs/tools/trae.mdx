@@ -1,0 +1,136 @@
+---
+title: Trae 原生模型配置
+description: Trae 编辑器不装插件、直接添加自定义 AI 模型接入灵眸 API：通过 Anthropic 协议一键使用 Claude 4.x、智谱 GLM、通义千问 Qwen 等模型，比 Codex 插件配置更简单。
+ogDescription: Trae 接入灵眸 AI：无需 Codex 插件，用 Trae 自带「添加自定义模型」功能通过 Anthropic 协议直连 Claude Opus / Sonnet、GLM、Qwen、DeepSeek 等模型，服务商选 Anthropic、请求地址填 /v1/messages 即可完成配置。
+keywords:
+  - Trae
+  - Trae Claude
+  - Trae 接入 Claude
+  - Trae 配置 Claude API
+  - Trae Claude 4
+  - Trae 自定义模型
+  - Trae 添加模型
+  - Trae 添加 AI 模型
+  - Trae Anthropic
+  - Trae Anthropic 协议
+  - Trae GLM
+  - Trae 智谱
+  - Trae 通义千问
+  - Trae Qwen
+  - Trae DeepSeek
+  - Trae Kimi
+  - Trae 国产模型
+  - Trae 灵眸
+  - Trae API 配置
+  - Trae 编辑器 AI
+  - Trae 免代理
+  - Trae 免插件
+alternateNames:
+  - Trae 接入灵眸 AI
+  - Trae 编辑器 Claude 配置
+  - Trae 添加 Claude / GLM 模型
+  - Trae 原生 AI 模型接入
+  - Trae 自定义模型配置教程
+faq:
+  - q: Trae 支持自定义 AI 模型吗？
+    a: 支持。Trae 编辑器自带「添加自定义模型」功能，可以直接通过 Anthropic 协议接入 Claude 官方模型与国产大模型（GLM、Qwen、DeepSeek、Kimi 等），无需安装任何插件。
+  - q: Trae 用原生方式和装 Codex 插件方式有什么区别？
+    a: Codex 插件走 OpenAI 协议、需要手写 config.toml 与 auth.json 文件；Trae 原生方式走 Anthropic 协议，只需要 GUI 里填服务商 / 地址 / Key。想用 Claude 或国产模型选原生方式更简单；想用 GPT / Codex 系列则用插件方式。两种方式可以共存。
+  - q: Trae 里怎么用 Claude Opus 4？
+    a: 设置 → 模型 → 添加模型 → 服务商选 Anthropic → 模型选「自定义模型」→ 模型 ID 填 `claude-opus-4-8`（或 `claude-opus-4-7`）→ 自定义请求地址填 `https://api.lmuai.com/v1/messages` → API 密钥填灵眸后台生成的 `sk-` 开头密钥。
+  - q: Trae 能用 GLM / Qwen 等国产大模型吗？
+    a: 可以。灵眸的国产大模型统一走 Anthropic 协议，配置方式与 Claude 完全一致，只需要把模型 ID 换成 `glm-5.1`、`qwen3.6-plus`、`deepseek-v4-pro` 等即可，服务商仍选 Anthropic、请求地址仍是 `/v1/messages`。
+  - q: 请求地址结尾为什么要带 /v1/messages？
+    a: Trae 的「自定义请求地址」需要填**完整端点**（不像 Chatbox 等工具会自动拼路径）。Anthropic 协议对话端点固定是 `/v1/messages`，所以完整地址是 `https://api.lmuai.com/v1/messages`。
+  - q: Trae 添加模型后不生效 / 报错怎么办？
+    a: 依次检查：(1) 服务商是否选了 **Anthropic**（不是 OpenAI）；(2) 模型下拉是否选了「自定义模型」再手动输入了模型 ID；(3) 请求地址是否以 `/v1/messages` 结尾；(4) API Key 是否是灵眸后台生成的 `sk-` 开头密钥。仍有问题保存后重启一次 Trae。
+  - q: Trae 需要科学上网吗？
+    a: 不需要。灵眸 API 域名 `api.lmuai.com` 国内直连，Trae 原生方式配置好即可正常使用，无需任何代理。
+---
+
+[Trae](https://www.trae.ai/) 编辑器本身支持直接添加自定义 AI 模型，**无需安装任何插件**，配置比 Codex 插件方式更简单。**同时支持 Claude 官方模型与国产大模型（GLM、Qwen、DeepSeek、Kimi 等）**。
+
+<Callout type="info" title="原生方式 vs Codex 插件方式怎么选？">
+
+- **想用 Claude / 国产模型** → 本页的原生方式（Anthropic 协议、GUI 里点几下）
+- **想用 GPT-5 / Codex 系列** → 见 [Codex 官方插件](./vscode-plugin)（OpenAI 协议、手写配置文件）
+
+两种方式可以共存，想同时使用两类模型的话两个都配即可。
+
+</Callout>
+
+---
+
+## 配置步骤
+
+1. 打开 Trae，进入 **设置 → 模型 → 添加模型**
+2. **服务商** 选择 **Anthropic**
+3. **模型** 选择 **自定义模型**（下拉最下方），在下方「**模型 ID**」输入框中填写模型名（见下方常用模型表）
+4. **自定义请求地址** 填写：
+   ```
+   https://api.lmuai.com/v1/messages
+   ```
+5. **API 密钥** 填写你在灵眸后台生成的密钥（`sk-` 开头）
+6. 点击「确认」保存，切换到该模型即可使用
+
+---
+
+## 配置国产模型示例（GLM-5.1）
+
+下图以 **GLM-5.1** 为例，演示自定义模型的填写方式。注意「模型」下拉需选「**自定义模型**」，再手动输入模型 ID；请求地址固定为 `https://api.lmuai.com/v1/messages`：
+
+![Trae 配置 GLM-5 等国产模型，服务商选 Anthropic、模型选自定义模型、自定义请求地址以 /v1/messages 结尾](/images/tools/trae/trae-config-glm.png)
+
+---
+
+## 常用模型参考
+
+**Claude 官方模型**
+
+| 模型 ID | 说明 |
+|------|------|
+| `claude-opus-4-8` | Claude Opus 4.8（旗舰版） |
+| `claude-opus-4-7` | Claude Opus 4.7 |
+| `claude-sonnet-5` | Claude Sonnet 5（平衡） |
+| `claude-sonnet-4-6` | Claude Sonnet 4.6（平衡） |
+| `claude-haiku-4-5` | Claude Haiku 4.5（高速） |
+
+**国产大模型**（需选「自定义模型」手动输入 ID）
+
+| 模型 ID | 说明 |
+|------|------|
+| `glm-5.1` | 智谱 GLM-5.1 |
+| `qwen3.7-max` | 通义千问 3.7 Max |
+| `qwen3.6-plus` | 通义千问 3.6 Plus |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k2.6` | Kimi K2.6 |
+
+具体可用模型以灵眸后台「可用模型」列表为准，完整清单见 [模型广场](../guide/models)。
+
+---
+
+## 常见问题
+
+### 该选原生方式还是 Codex 插件？
+
+- **原生方式（本页）**：走 Anthropic 协议、GUI 里点几下就好，适合想用 **Claude / GLM / Qwen** 等模型的用户
+- **[Codex 插件方式](./vscode-plugin)**：走 OpenAI 协议、需要手写配置文件，适合想用 **GPT / Codex** 系列的用户
+
+两种方式可以共存 —— 想同时用两类模型的话，两个都配即可。
+
+### 请求地址结尾为什么要带 `/v1/messages`？
+
+Trae 的「自定义请求地址」需要填**完整端点**（不像 Chatbox 等工具会自动拼路径）。Anthropic 协议对话端点固定是 `/v1/messages`，所以完整地址是 `https://api.lmuai.com/v1/messages`。
+
+### 模型 ID 从哪里查？
+
+完整可用列表见 [模型广场](../guide/models)。点任意卡片即可复制模型 ID，直接粘贴到 Trae 的「模型 ID」输入框。
+
+### 添加后没反应 / 报错？
+
+- 服务商是否选了 **Anthropic**（不是 OpenAI）
+- 模型下拉是否选了「自定义模型」再手动输入的模型 ID
+- 请求地址是否以 `/v1/messages` 结尾
+- API Key 是否是灵眸后台生成的 `sk-` 开头密钥
+
+保存后重启一次 Trae 客户端。

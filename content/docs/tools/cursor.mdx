@@ -1,0 +1,168 @@
+---
+title: Cursor 原生 API 配置
+description: 在 Cursor 编辑器中通过 "Override OpenAI Base URL" 接入灵眸 API：仅 Chat / Plan 面板（Cmd/Ctrl+L）可用 Claude、GPT、GLM、Qwen 等模型；Composer / Tab 自动补全 / Inline Edit 等 Cursor 原生功能仍走官方后端。
+ogDescription: Cursor 接入灵眸 AI：在 Settings → Models 里开启 Override OpenAI Base URL、填入 https://api.lmuai.com/v1 和灵眸 sk- 密钥即可在 Chat / Plan 面板使用 Claude Opus / Sonnet、GPT-5、GLM、Qwen 等模型；想让 Composer 等 Agent 功能也走灵眸请改装 Codex 或 Claude Code 插件。
+keywords:
+  - Cursor
+  - Cursor API 配置
+  - Cursor 自定义 API
+  - Cursor 第三方 API
+  - Cursor 中转 API
+  - Cursor Claude
+  - Cursor 接入 Claude
+  - Cursor 配置 Claude
+  - Cursor GPT
+  - Cursor Override OpenAI Base URL
+  - Cursor OpenAI 兼容
+  - Cursor 自定义模型
+  - Cursor GLM
+  - Cursor Qwen
+  - Cursor DeepSeek
+  - Cursor 国产模型
+  - Cursor 灵眸
+  - Cursor BYOK
+  - Cursor 免代理
+  - Cursor Chat 面板
+  - Cursor 原生 API 配置
+  - Cursor 中转站
+  - Cursor Composer 中转
+alternateNames:
+  - Cursor 接入灵眸 AI
+  - Cursor 配置第三方中转 API
+  - Cursor Override OpenAI Base URL 教程
+  - Cursor 使用 Claude / GLM 中转
+  - Cursor 自定义 OpenAI 兼容接口
+faq:
+  - q: Cursor 能用第三方中转 API 吗？
+    a: 能，但**只对 Chat / Plan 面板生效**。Cursor 的 Settings → Models 里有「Override OpenAI Base URL」开关，开启后 Chat / Plan 面板（Cmd/Ctrl + L）的请求会走第三方中转；Composer / Tab 自动补全 / Apply / Inline Edit 等 Cursor 原生 Agent 功能仍锁在 Cursor 官方后端，不受影响。
+  - q: 想在 Cursor 里用 Claude / GLM / Qwen 怎么办？
+    a: 打开 Settings → Models（Cmd/Ctrl + Shift + J）→ 添加自定义模型（模型 ID 填 `claude-opus-4-8` / `claude-sonnet-4-6` / `glm-5.1` 等）→ 开启 Override OpenAI Base URL → Base URL 填 `https://api.lmuai.com/v1` → API Key 填灵眸后台生成的 `sk-` 开头密钥。
+  - q: 开启 Override OpenAI Base URL 之后 Cursor 内置的 Claude 3.5 突然用不了？
+    a: 这是 Cursor 已知的路由冲突——开启 OpenAI Base URL 覆盖后 Cursor 内置的 Anthropic 分支会被打断。想在 Chat 面板继续用 Claude，把 Claude 模型 ID（如 `claude-opus-4-8`）作为自定义模型添加即可，灵眸后端会做 OpenAI ↔ Anthropic 的协议转换。
+  - q: Cursor 里 Composer / Tab 自动补全能走灵眸吗？
+    a: 不能。Cursor 的 Composer、Tab 自动补全、Apply、Inline Edit 等核心 Agent 功能锁在 Cursor 官方后端，第三方中转无法接管。想要"全能力"体验用灵眸，请在 Cursor 里改装 [Codex 官方插件](./vscode-plugin) 或 [Claude Code for VS Code 插件](./claude-code-vscode)（Cursor 兼容 VS Code 插件市场）。
+  - q: 添加模型时 Verify 校验失败？
+    a: 常见——非 OpenAI 官方模型名（如 `claude-opus-4-8`、`glm-5.1`）通不过 Cursor 的连接验证。变通做法：先加一个 `gpt-4` 之类 OpenAI 官方名过 Verify（确认 Base URL + Key 联通），再单独添加要用的自定义模型 ID，Verify 会给警告但**实际运行没问题**。
+  - q: Base URL 要不要带 `/v1`？
+    a: 要带。填 `https://api.lmuai.com/v1`，Cursor 会自动拼 `/chat/completions`，最终请求 `https://api.lmuai.com/v1/chat/completions`。漏 `/v1` 会 404。
+  - q: Cursor 用灵眸需要科学上网吗？
+    a: Chat 面板配置了灵眸的部分不需要——`api.lmuai.com` 国内直连。但 Cursor 的账号登录、Composer、Tab 自动补全走 Cursor 官方后端，那部分在国内可能仍需要网络优化。
+---
+
+Cursor 支持通过 **Override OpenAI Base URL** 把 Chat / Plan 面板的请求指向第三方中转 API。本页说明如何用这一原生方式接入灵眸。
+
+<Callout type="warn" title="重要限制：只对 Chat / Plan 面板生效">
+
+Cursor 的 Override OpenAI Base URL **只影响 Chat / Plan 面板**（Cmd/Ctrl + L 打开的对话）。Cursor 的核心 Agent 功能 —— **Composer、Tab 自动补全、Apply、Inline Edit** —— 都锁在 Cursor 官方后端，无法通过第三方中转接管。
+
+如果你需要在 Cursor 里获得"全能力"的 Agent 体验（含 Composer 类），请改装（Cursor 兼容 VS Code 插件市场）：
+
+- [Codex 官方插件](./vscode-plugin) —— 用 Codex Agent 走灵眸 OpenAI 协议
+- [Claude Code for VS Code 插件](./claude-code-vscode) —— 用 Claude Code Agent 走灵眸 Anthropic 协议
+
+</Callout>
+
+---
+
+## 配置步骤
+
+### 第 1 步：打开 Cursor Settings
+
+按 **Cmd + Shift + J**（macOS）或 **Ctrl + Shift + J**（Windows / Linux）打开 Settings，左侧栏点 **Models**。
+
+### 第 2 步：关闭默认模型（推荐）
+
+Cursor 内置了很多默认模型（GPT-4 / Claude-3.5 等），保留启用会与自定义路由冲突。在 Models 页的模型列表里把它们全部**关掉**（左侧开关置灰）。
+
+### 第 3 步：添加自定义模型
+
+点 **Add Model**，输入你要用的灵眸模型 ID，例如：
+
+- `claude-opus-4-8`
+- `claude-sonnet-5`
+- `claude-sonnet-4-6`
+- `gpt-5.5`
+- `gpt-5.4`
+- `glm-5.1`
+- `qwen3.7-max`
+- `deepseek-v4-pro`
+
+**每个模型都要 Add 一次**。完整可用模型见 [模型广场](../guide/models)。
+
+### 第 4 步：开启 Override OpenAI Base URL
+
+滚到 Models 页的 **OpenAI API Key** 区域：
+
+1. 打开 **OpenAI API Key** 开关
+2. 在 API Key 输入框粘贴灵眸后台的密钥（`sk-` 开头）
+3. 打开 **Override OpenAI Base URL** 开关
+4. Base URL 填：
+   ```
+   https://api.lmuai.com/v1
+   ```
+5. 点击 **Verify** 校验连接
+
+<Callout type="info" title="Verify 校验失败也不代表配错">
+
+Cursor 的 Verify 会用你填的**模型名**去校验一次，非 OpenAI 官方名（`claude-opus-4-8`、`glm-5.1` 等）会通不过。变通做法：**先添加一个 `gpt-4` 过 Verify**（确认 Base URL + Key 联通），再单独添加要用的自定义模型 ID，Verify 会给警告但实际运行没问题。
+
+</Callout>
+
+### 第 5 步：切换模型使用
+
+按 **Cmd/Ctrl + L** 打开 Chat 面板 → 顶部模型下拉里选择第 3 步添加的自定义模型 → 开始对话，请求即会走灵眸。
+
+---
+
+## 常用模型 ID
+
+| 模型 ID | 说明 |
+|------|------|
+| `claude-opus-4-8` | Claude Opus 4.8（旗舰） |
+| `claude-sonnet-5` | Claude Sonnet 5（平衡） |
+| `claude-sonnet-4-6` | Claude Sonnet 4.6（平衡） |
+| `claude-haiku-4-5` | Claude Haiku 4.5（高速） |
+| `gpt-5.5` | GPT-5.5 |
+| `gpt-5.4` | GPT-5.4 |
+| `glm-5.1` | 智谱 GLM-5.1 |
+| `qwen3.7-max` | 通义千问 3.7 Max |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k2.6` | Kimi K2.6 |
+
+完整清单见 [模型广场](../guide/models)。
+
+---
+
+## 常见问题
+
+### 想让 Composer / Tab 自动补全也走灵眸？
+
+原生 Override OpenAI Base URL 做不到，这些 Cursor 核心功能锁在官方后端。想全部走灵眸，请用：
+
+- [Codex 官方插件](./vscode-plugin) —— OpenAI 协议 Agent
+- [Claude Code for VS Code 插件](./claude-code-vscode) —— Anthropic 协议 Agent
+
+Cursor 兼容 VS Code 插件市场，两个插件都可以直接在 Cursor 里安装。
+
+### Base URL 要不要带 `/v1`？
+
+**要带**。填 `https://api.lmuai.com/v1`。Cursor 会自动拼 `/chat/completions`，最终请求 `https://api.lmuai.com/v1/chat/completions`。漏 `/v1` 会 404。
+
+### 开启 Override 后内置 Claude 3.5 突然报错？
+
+这是 Cursor 已知的路由冲突 —— 开启 OpenAI Base URL 覆盖会打断 Anthropic 分支。想在 Chat 面板继续用 Claude，把 Claude 模型 ID（`claude-opus-4-8` 等）作为自定义模型添加即可，灵眸后端会做 OpenAI ↔ Anthropic 协议转换。
+
+### 报错 401 / 403？
+
+依次检查：
+
+1. **API Key** 是不是灵眸后台生成的 `sk-` 开头密钥（不是 OpenAI 官方 Key）
+2. **Base URL** 是不是 `https://api.lmuai.com/v1`（**必须带 `/v1`**）
+3. **模型 ID** 是不是灵眸支持的模型（见 [模型广场](../guide/models)）
+4. 当前套餐 / 计费分组是否包含所调用的模型
+
+### 用 BYOK 会不会影响 Cursor 订阅？
+
+- BYOK 走的量**不消耗** Cursor 的月度快速请求配额
+- Composer / Tab 自动补全等核心功能**仍消耗** Cursor 订阅配额（因为它们没走 BYOK）
+- 想彻底不用 Cursor 订阅，见上文改装 Codex / Claude Code 插件的方案

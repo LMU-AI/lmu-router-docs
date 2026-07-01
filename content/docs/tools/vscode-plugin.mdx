@@ -15,6 +15,14 @@ alternateNames:
 ---
 
 
+<Callout type="info" title="如果你用 Trae 编辑器">
+
+想用 **Claude 或国产模型（GLM / Qwen 等）** 的话，Trae 有更简单的原生方式（不装插件、GUI 里点几下即可），见 [Trae 原生模型配置](./trae)。
+
+本页 Codex 插件方式适合想用 **GPT / Codex** 系列的用户。
+
+</Callout>
+
 ---
 
 ## 常见报错说明
@@ -130,46 +138,6 @@ GPT-5.3 的模型不会在下拉列表展示，鼠标移动到「自定义」可
 
 ---
 
-## Trae 原生模型配置
+## 想用 Claude 或国产模型？
 
-除 Codex 插件外，[Trae](https://www.trae.ai/) 编辑器本身支持直接添加自定义 AI 模型，无需插件，配置更简单。**同时支持 Claude 官方模型与国产大模型（GLM、Qwen 等）**。
-
-### 配置步骤
-
-1. 打开 Trae，进入 **设置 → 模型 → 添加模型**
-2. **服务商** 选择 **Anthropic**
-3. **模型** 选择 **自定义模型**（下拉最下方），在下方「**模型 ID**」输入框中填写模型名（见下方常用模型表）
-4. **自定义请求地址** 填写：
-   ```
-   https://api.lmuai.com/v1/messages
-   ```
-5. **API 密钥** 填写你在灵眸后台生成的密钥（`sk-` 开头）
-6. 点击「确认」保存，切换到该模型即可使用
-
-### 配置国产模型示例（GLM-5.1）
-
-下图以 **GLM-5.1** 为例，演示自定义模型的填写方式。注意「模型」下拉需选「**自定义模型**」，再手动输入模型 ID；请求地址固定为 `https://api.lmuai.com/v1/messages`：
-
-![Trae 配置 GLM-5 等国产模型，服务商选 Anthropic、模型选自定义模型、自定义请求地址以 /v1/messages 结尾](/images/tools/trae/trae-config-glm.png)
-
-<Callout type="info" title="常用模型参考">
-
-**Claude 官方模型：**
-
-| 模型 ID | 说明 |
-|------|------|
-| `claude-opus-4-7` | Claude Opus 4.7（旗舰版） |
-| `claude-opus-4-6` | Claude Opus 4.6 |
-| `claude-sonnet-4-6` | Claude Sonnet 4.6（均衡版） |
-
-**国产大模型（需选「自定义模型」手动输入 ID）：**
-
-| 模型 ID | 说明 |
-|------|------|
-| `glm-5.1` | 智谱 GLM-5.1 |
-| `qwen3.6-plus` | 通义千问 3.6 Plus |
-| `qwen3-235b-a22b` | 通义千问 3 旗舰版 |
-
-具体可用模型以灵眸后台「可用模型」列表为准。
-
-</Callout>
+如果你只用 Trae 且目标是 **Claude / GLM / Qwen** 等模型，不用装 Codex 插件 —— 用 [Trae 原生模型配置](./trae)（Anthropic 协议、GUI 直接填几项）更简单。
