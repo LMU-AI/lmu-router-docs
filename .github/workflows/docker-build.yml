@@ -98,8 +98,8 @@ jobs:
             # 例：v0.1.0 -> v0.1.0；release-2026-07 -> release-2026-07。
             type=ref,event=tag
             type=raw,value=latest
-          flavor: |
-            latest=false       # latest 由上面的 raw 规则显式控制
+          # latest 由上面的 raw 规则显式控制，禁用自动 latest
+          flavor: latest=false
 
       - name: Build & push
         uses: docker/build-push-action@v7
