@@ -1,21 +1,32 @@
 ---
 title: Claude Code CLI
-description: 在 Claude Code CLI 中接入灵眸 API：settings.json 配置、指定模型、国产大模型调用与常见报错排查。
-ogDescription: Claude Code CLI 国内接入指南：通过灵眸 AI 配置 settings.json 中的 ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN，免代理使用 Claude 4 Opus / Sonnet 与国产大模型。
+description: Claude Code CLI 接入灵眸 API 完整指南：settings.json 配置、指定模型、国产大模型调用、启用 Claude Opus 4.8 / Sonnet 5 的 1M 上下文（`[1M]` 后缀）与常见报错排查。
+ogDescription: Claude Code CLI 国内接入指南：通过灵眸 AI 配置 settings.json 中的 ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN，免代理使用 Claude 4 Opus / Sonnet 与国产大模型；一并说明如何用 ANTHROPIC_DEFAULT_OPUS_MODEL / ANTHROPIC_DEFAULT_SONNET_MODEL + `[1M]` 后缀启用 1M token 长上下文。
 keywords:
   - Claude Code CLI
   - Claude Code 国内使用
   - Claude Code 中转
   - Claude Code settings.json
+  - Claude Code 1M 上下文
+  - Claude Code 长上下文
+  - Claude Code 1M token
+  - claude-opus-4-8 1M
+  - claude-opus-4-7 1M
+  - claude-sonnet-5 1M
   - ANTHROPIC_BASE_URL
   - ANTHROPIC_AUTH_TOKEN
+  - ANTHROPIC_DEFAULT_OPUS_MODEL
+  - ANTHROPIC_DEFAULT_SONNET_MODEL
   - Claude Code 配置
   - Claude Code 报错
   - Claude Code 国产模型
   - Claude Code 免代理
+  - Claude Code /model 命令
 alternateNames:
   - Claude Code 命令行接入灵眸
   - Claude Code CLI 中转配置
+  - Claude Code 启用 1M 上下文
+  - Claude Code 1M token 配置教程
 ---
 
 
@@ -164,6 +175,63 @@ New-Item "$env:USERPROFILE\.claude\settings.json" -Force
 - 不要填写 Anthropic 官方的 API Key
 - 若之前配置过官方 Key，请先清除旧配置再重新写入
 - `CLAUDE_CODE_ATTRIBUTION_HEADER` 设为 `"0"` 可关闭请求中附带的来源标识，有利于缓存命中、提高 Token 利用率
+
+</Callout>
+
+---
+
+## Claude Code 启用 1M 上下文（可选）
+
+Claude Opus 4.8 / Sonnet 5 支持 **1M token 长上下文窗口**（默认为 200K），适合处理超长仓库、大段日志、跨多文件重构等场景。在模型 ID 后加 `[1M]` 后缀即可启用。
+
+### 方式 A：手动 /model 切换（推荐临时使用）
+
+**保留最简 settings.json**（只有 `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN`），启动 Claude Code 后直接在对话框输入：
+
+```
+/model claude-opus-4-8[1M]
+```
+
+或：
+
+```
+/model claude-sonnet-5[1M]
+```
+
+即可切到 1M 版本，无需改任何配置文件。当次会话生效，退出后自动恢复。
+
+### 方式 B：settings.json 里常驻默认（推荐日常长时间使用）
+
+在 `settings.json` 的 `env` 段追加两条，让 `/model opus` / `/model sonnet` 默认就走 1M 版本：
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
+    "ANTHROPIC_AUTH_TOKEN": "sk-你的灵眸API密钥",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8[1M]",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5[1M]",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  }
+}
+```
+
+保存后重启 Claude Code，在 `/model` 命令里选 opus / sonnet 时会自动使用 1M 版本。
+
+**字段说明**
+
+| 字段 | 作用 |
+|------|------|
+| `ANTHROPIC_DEFAULT_OPUS_MODEL` | Claude Code 里选 `opus` 时实际发送的模型 ID |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL` | 同上，对应 `sonnet` |
+| `[1M]` 后缀 | 启用该模型的 1M token 长上下文模式；不带则走默认 200K |
+
+<Callout type="warn" title="使用注意">
+
+- **计费不同**：1M 上下文模式按 Anthropic 分档定价，每 token 单价通常**高于默认 200K 模式**，长文本任务开销会显著上涨，非必要不常开
+- **仅部分模型支持**：`claude-opus-4-8`、`claude-opus-4-7`、`claude-sonnet-5` 等 Opus / Sonnet 主线模型支持 `[1M]` 后缀；Haiku 系列以及更旧的模型不支持。具体以 [模型广场](../guide/models) 的可用清单为准
+- **偶尔用一次**选方式 A、**常态化使用**选方式 B —— 两种方式二选一即可
 
 </Callout>
 
