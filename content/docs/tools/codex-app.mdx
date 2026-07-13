@@ -126,6 +126,19 @@ requires_openai_auth = true
 
 ---
 
+## 启用 1M 上下文（可选）
+
+`gpt-5.4` 支持 1M token 长上下文，但默认不开启。在上面 `config.toml` 的**顶层**（任意 `[section]` 之前）追加两行，重启 CODEX APP 即可：
+
+```toml
+model_context_window = 1000000
+model_auto_compact_token_limit = 900000
+```
+
+字段含义、验证方法与注意事项详见 [Codex 启用 1M 上下文](./codex-cli-mac#codex-启用-1m-上下文可选)。
+
+---
+
 ## 常见报错
 
 **报错 401 密钥不正确：**

@@ -1,7 +1,7 @@
 ---
 title: Codex CLI（Mac/Linux）
-description: Mac 与 Linux 下安装并配置 Codex CLI，通过灵眸 API 接入 OpenAI Codex / Claude 模型。
-ogDescription: Mac / Linux 安装 Codex CLI 并接入灵眸 AI：免代理使用 OpenAI Codex、GPT、Claude，零障碍国内开发体验。
+description: Mac 与 Linux 下安装并配置 Codex CLI，通过灵眸 API 接入 OpenAI Codex / Claude 模型；含 config.toml 配置 model_context_window 启用 1M token 长上下文的完整教程。
+ogDescription: Mac / Linux 安装 Codex CLI 并接入灵眸 AI：免代理使用 OpenAI Codex、GPT、Claude；两行 config.toml 配置（model_context_window / model_auto_compact_token_limit）即可开启 1M 长上下文。
 keywords:
   - Codex CLI Mac
   - Codex CLI Linux
@@ -10,8 +10,16 @@ keywords:
   - OpenAI Codex 中转
   - Codex CLI 配置
   - Codex base url
+  - Codex 1M 上下文
+  - Codex 长上下文
+  - Codex 1M token
+  - model_context_window
+  - model_auto_compact_token_limit
+  - gpt-5.4 1M 上下文
 alternateNames:
   - Codex CLI Mac Linux 接入灵眸
+  - Codex 启用 1M 上下文
+  - Codex 1M token 配置教程
 ---
 
 
@@ -186,3 +194,46 @@ requires_openai_auth = true
 ```bash
 codex --dangerously-bypass-approvals-and-sandbox
 ```
+
+---
+
+## Codex 启用 1M 上下文（可选）
+
+`gpt-5.4` 支持 **1M token 长上下文窗口**（默认仅 272K），适合超大仓库梳理、长日志分析、跨多文件重构等场景。Codex 默认**不开启** 1M 窗口，需要在 `config.toml` 中显式声明。
+
+### 配置方法：config.toml 追加两行
+
+编辑 `~/.codex/config.toml`，在文件**顶层**（任意 `[section]` 之前，例如紧跟 `model = "gpt-5.4"` 之后）追加：
+
+```toml
+model_context_window = 1000000
+model_auto_compact_token_limit = 900000
+```
+
+保存后重新打开终端、重新进入 Codex 即生效。
+
+**字段说明**
+
+| 字段 | 作用 |
+|------|------|
+| `model_context_window` | 声明当前模型可用的上下文窗口 token 数，`1000000` 即 1M；不配置时使用模型默认值（272K） |
+| `model_auto_compact_token_limit` | 触发自动压缩历史（auto-compact）的 token 阈值，建议设为窗口的 90%（1M 对应 `900000`）；超过窗口 90% 的取值会被 Codex 钳制，写更大没有意义 |
+
+### 验证是否生效
+
+重新进入 Codex 后输入 `/status`，查看 `context window` 是否显示为 1M 左右（部分版本显示约 950K，是 Codex 预留了 5% 安全余量）。也可以用 `/statusline` 把上下文用量加到状态栏实时观察。
+
+### 使用 CC Switch 的用户
+
+如果你用 [CC Switch](./cc-switch) 管理 Codex 配置，在其 Codex 配置编辑器中加入同样两行并应用即可，效果一致：
+
+![CC Switch 中为 Codex 配置 model_context_window = 1000000 与 model_auto_compact_token_limit = 900000 开启 1M token 长上下文](/images/tools/codex/codex-ccs.png)
+
+<Callout type="warn" title="使用注意">
+
+- **必须写在顶层**：这两个字段写进 `[profiles.xxx]` 段不会生效（Codex 已知限制）；也请写在用户级 `~/.codex/config.toml`，项目级 `.codex/config.toml` 可能被忽略
+- **模型支持**：`gpt-5.4`、`gpt-5.5` 走 API 通道支持 1M；`gpt-5.3-codex` 等模型窗口上限为 272K，配置写再大也不会突破模型本身的上限
+- **消耗更大**：上下文越长，单次请求消耗的 token 越多；超过 272K 的部分按长上下文分档计费、单价更高，非超长任务不建议常开
+- **版本差异**：个别新版本 Codex 会优先从模型目录（model catalog）读取窗口大小，若 `/status` 仍显示旧值，先升级到最新版（`npm i -g @openai/codex@latest`）再试
+
+</Callout>
