@@ -1,12 +1,14 @@
 ---
 title: 接入协议
-description: 灵眸只支持两种接入协议——Anthropic 协议（不带 /v1）与 OpenAI 协议（带 /v1）。一张表选对 Base URL，避免 401 / 404 报错。
-ogDescription: 灵眸 AI 接入协议速查：Anthropic 协议 https://api.lmuai.com、OpenAI 协议 https://api.lmuai.com/v1，一个 API Key 通用，Claude Code、Codex CLI、Cursor、Cherry Studio 等工具按协议对号入座。
+description: 灵眸支持 Anthropic、OpenAI Compatible 与 Gemini 原生三种入站协议。一张表选对 Base URL 和端点，避免 400 / 401 / 404 报错。
+ogDescription: 灵眸 AI 接入协议速查：Anthropic 协议、OpenAI Compatible 协议与 Gemini 原生 v1beta 协议共用灵眸 API Key，按客户端和模型场景选择正确端点。
 keywords:
   - 灵眸 Base URL
   - 灵眸接入协议
   - Anthropic 协议
   - OpenAI 协议
+  - Gemini 原生协议
+  - Gemini v1beta
   - api.lmuai.com
   - api.lmuai.com/v1
   - Claude Code Base URL
@@ -21,7 +23,7 @@ alternateNames:
   - 灵眸 API 端点速查
 faq:
   - q: 灵眸支持哪些协议？
-    a: 仅支持两种——Anthropic 协议（Base URL https://api.lmuai.com，不带 /v1）和 OpenAI 协议（Base URL https://api.lmuai.com/v1，带 /v1）。两套端点共用同一个 API Key，按工具协议对号入座即可。
+    a: 支持 Anthropic、OpenAI Compatible 与 Gemini 原生 v1beta 三种入站协议。三类端点共用灵眸 API Key，但 API Key 所属分组必须支持所请求的模型和平台。
   - q: Anthropic 和 OpenAI 协议地址有什么区别？
     a: Anthropic SDK 习惯 base_url 不带 /v1，所以填 https://api.lmuai.com；OpenAI SDK 习惯 base_url 带 /v1，所以填 https://api.lmuai.com/v1。填反了会出现 401 / 404 报错。
   - q: Claude Max 分组为什么只支持 Anthropic 协议？
@@ -29,12 +31,12 @@ faq:
 ---
 
 
-灵眸**只有两种**接入协议，按工具客户端协议对号入座即可。两套端点**共用同一个 API Key**（同一份余额扣费）。
+灵眸支持 **Anthropic、OpenAI Compatible 与 Gemini 原生 v1beta** 三种入站协议。各类端点都使用灵眸 `sk-` API Key，实际可用模型由 API Key 所属分组决定。
 
 <Callout type="info" title="先理清两件事">
 
-- **「用哪种协议」**：由客户端 / SDK 决定。Anthropic SDK 走 `/v1/messages`，OpenAI SDK 走 `/v1/chat/completions`、`/v1/responses`。
-- **「能调哪些模型」**：由你的 API Key 所属**分组**（即你的订阅 / 充值套餐对应的上游账号）决定，**和你选哪种协议是两件独立的事**。
+- **「用哪种协议」**：由客户端、SDK 和业务场景决定。Anthropic SDK 走 `/v1/messages`，OpenAI SDK 走 `/v1/chat/completions` 或 `/v1/responses`，Gemini 原生图片调用走 `/v1beta/models/{model}:generateContent`。
+- **「能调哪些模型」**：由你的 API Key 所属**分组**（即你的订阅 / 充值套餐对应的上游账号）决定，**和入站协议是两个不同维度**。
 
 也就是说：选错协议会直接 401 / 404；选对协议但模型不在你分组的可用范围内，会返回模型不可用类的错误。
 
@@ -43,9 +45,10 @@ faq:
 <Callout type="warn" title="最常见的报错来自填错协议">
 
 - **Anthropic 协议** 的 Base URL **不带** `/v1` 后缀
-- **OpenAI 协议** 的 Base URL **必须带** `/v1` 后缀
+- **OpenAI 协议** 的 SDK Base URL 通常 **带** `/v1` 后缀
+- **Gemini 原生协议** 使用 `https://api.lmuai.com` 作为主机，并调用完整 `/v1beta/...` 路径
 
-填错会直接导致 401 / 404，把这一页存为书签，配置任何工具前先来这里对一眼。
+填错会导致 400 / 401 / 404。配置工具或编写代码前，请先确认客户端期望的协议。
 
 </Callout>
 
@@ -56,12 +59,14 @@ faq:
 | 协议 | Base URL | 典型工具 |
 |------|----------|----------|
 | **Anthropic 协议** | `https://api.lmuai.com` | Claude Code（CLI / 桌面版 / VS Code 插件）、官方 `anthropic` SDK、Cherry Studio、Kilo Code 接 Claude / 国产模型、所有兼容 Anthropic 协议的客户端 |
-| **OpenAI 协议** | `https://api.lmuai.com/v1` | Codex CLI、Codex App、Cursor / Cline / Roo Code / OpenCode、官方 `openai` SDK、VS Code 插件接 GPT、Kilo Code 接 OpenAI 模型、所有兼容 OpenAI 协议的客户端 |
+| **OpenAI Compatible** | `https://api.lmuai.com/v1` | Codex CLI、Codex App、Cursor / Cline / Roo Code / OpenCode、官方 `openai` SDK、VS Code 插件接 GPT、所有兼容 OpenAI 协议的客户端 |
+| **Gemini 原生 v1beta** | `https://api.lmuai.com` | Gemini 原生 SDK / HTTP 客户端、Gemini 文生图和图生图、模型列表与 `generateContent` |
 
-鉴权两套协议都用同一个 `sk-` 开头的密钥：
+三类协议都使用 `sk-` 开头的灵眸密钥：
 
 - Anthropic 协议：`Authorization: Bearer <YOUR_API_KEY>` 或 `x-api-key: <YOUR_API_KEY>`
-- OpenAI 协议：`Authorization: Bearer <YOUR_API_KEY>`
+- OpenAI Compatible：`Authorization: Bearer <YOUR_API_KEY>`
+- Gemini 原生：推荐 `x-goog-api-key: <YOUR_API_KEY>`，也兼容 Bearer
 
 ---
 
@@ -156,6 +161,52 @@ curl -X POST https://api.lmuai.com/v1/chat/completions \
 
 ---
 
+## Gemini 原生协议接入
+
+**Base URL：** `https://api.lmuai.com`
+
+**主要端点：**
+
+- `GET /v1beta/models` — 查询 Gemini 原生模型列表
+- `GET /v1beta/models/{model}` — 查询指定模型
+- `POST /v1beta/models/{model}:generateContent` — 文本生成、文生图和图生图
+- `POST /v1beta/models/{model}:streamGenerateContent?alt=sse` — 流式生成
+
+**鉴权：**
+
+```http
+x-goog-api-key: YOUR_API_KEY
+```
+
+最小文生图示例：
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1beta/models/gemini-3.1-flash-image:generateContent' \
+  -H 'x-goog-api-key: YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "contents": [{
+      "role": "user",
+      "parts": [{"text": "一只戴宇航员头盔的橘猫"}]
+    }],
+    "generationConfig": {
+      "responseModalities": ["TEXT", "IMAGE"],
+      "imageConfig": {"aspectRatio": "1:1", "imageSize": "1K"}
+    }
+  }'
+```
+
+<Callout type="info" title="Gemini 图片接口不是 /v1/chat/completions">
+
+Gemini 图片模型推荐使用原生 `generateContent`。完整文生图、图生图、1K / 2K / 4K 和 Base64 解析说明请查看 [Gemini 生图 API](/docs/api/gemini-image)。
+
+GPT 图片模型请查看 [GPT 生图 API](/docs/api/gpt-image)，Grok 图片模型请查看 [Grok 生图 API](/docs/api/grok-image)。大量 Gemini 离线任务请查看 [Gemini 批量生图 API](/docs/api/gemini-image-batch)。
+
+</Callout>
+
+---
+
 ## 协议和可用模型是两件事
 
 你的 Key 能调哪些模型，**完全由所属分组挂载的上游账号决定**，和你用哪种协议调用无关：
@@ -169,7 +220,7 @@ curl -X POST https://api.lmuai.com/v1/chat/completions \
 
 所以：
 
-- 选「Anthropic 协议」**不**等于「只能调 Claude」，选「OpenAI 协议」**也不**等于「只能调 GPT」——协议是入站格式，模型范围由分组决定。
+- 选择 Anthropic、OpenAI Compatible 或 Gemini 原生协议，代表的是入站请求格式；实际模型范围仍由 API Key 分组决定。
 - 想知道当前 Key 实际能调哪些模型，去后台「**API 密钥**」详情或「**可用模型**」页面查看分组对应的模型清单。
 
 ---
@@ -197,7 +248,7 @@ curl -X POST https://api.lmuai.com/v1/chat/completions \
 | 现象 | 通常原因 | 处理 |
 |------|----------|------|
 | `401 Unauthorized` | Base URL 填错协议 / 密钥写错 / IDE 没重启 | 核对 Base URL 是否与工具协议匹配；重启 IDE 重新加载配置 |
-| `404 Not Found` | OpenAI 协议地址漏写 `/v1`，或 Anthropic 协议地址多写了 `/v1` | 按上表重新填 Base URL |
+| `404 Not Found` | OpenAI 协议地址漏写 `/v1`、Anthropic 地址多写 `/v1`，或 Gemini 路径未使用 `/v1beta/models/...` | 按上表重新核对 Base URL 和完整端点 |
 | 模型不可用 / `No available accounts` | 调用了不在你分组可用范围内的模型（如用 Claude Max 分组调 GPT） | 在后台「可用模型」页确认你分组实际包含的模型，或切换到包含目标模型的分组 |
 | `429 Too Many Requests` | 当日额度用完 | 参考 [常见问题](./faq#问题-2429-重试错误) |
 
@@ -214,3 +265,4 @@ curl -X POST https://api.lmuai.com/v1/chat/completions \
 - [Codex CLI · Windows](../tools/codex-cli-windows) · [Mac/Linux](../tools/codex-cli-mac) · [服务器](../tools/codex-cli-server)
 - [Codex App 桌面版](../tools/codex-app) · [VS Code / Cursor / Trae 插件](../tools/vscode-plugin)
 - [OpenCode](../tools/opencode) · [Cherry Studio](../tools/cherry) · [IDEA Kilo Code](../tools/kilo-code-idea) · [Hermes Agent](../tools/hermes)
+- [Gemini 生图 API](/docs/api/gemini-image) · [GPT 生图 API](/docs/api/gpt-image) · [Grok 生图 API](/docs/api/grok-image) · [Gemini 批量生图 API](/docs/api/gemini-image-batch)

@@ -1,0 +1,925 @@
+---
+title: Gemini 批量生图 API
+description: 灵眸异步批量生图接口使用说明：一次提交多条 Gemini 图片任务，查询状态和明细，下载单图或 ZIP，支持幂等、防重复扣费、费用预估和失败任务排查。
+ogDescription: 灵眸 Gemini 批量生图 API 文档：POST /v1/images/batches 提交多提示词任务，轮询状态、查询明细、下载 ZIP、取消任务并处理 BATCH_IMAGE_DISABLED 等错误。
+keywords:
+  - Gemini 批量生图 API
+  - Gemini Batch API
+  - 批量图片生成接口
+  - Gemini 批量任务
+  - images batches
+  - 灵眸批量生图
+  - Gemini JSONL Batch
+  - 批量文生图
+alternateNames:
+  - 灵眸异步批量图片 API
+  - Gemini 图片批处理接口
+  - Image Batches API
+faq:
+  - q: 批量生图接口是公开 API 还是内部接口？
+    a: 它是面向灵眸用户公开的扩展 API，使用用户自己的 sk- API Key 通过 Authorization Bearer 鉴权，也被灵眸控制台的批量生图页面直接调用。
+  - q: 可以在批量接口中使用 gpt-image-2 吗？
+    a: 当前不可以。/v1/images/batches 的后端提供方和分组校验目前只接入 Gemini；GPT 请使用 /v1/images/generations、/v1/images/edits 或异步单任务接口。
+  - q: BATCH_IMAGE_DISABLED 是什么意思？
+    a: 表示当前中转站部署尚未开启全局批量生图功能，不是 API Key 或提示词错误。请将错误码和请求 ID 提供给管理员。
+  - q: 批量生图支持 2K 和 4K 吗？
+    a: 当前批量接口只接受 1K。实时 Gemini generateContent 接口支持 1K、2K、4K；批量接口后续如扩展会同步更新文档。
+  - q: 批量任务提交后会立即返回所有图片吗？
+    a: 不会。批量接口是异步任务 API，提交后返回 batch ID，客户端需要轮询任务状态，完成后再下载单张图片或 ZIP。
+---
+
+灵眸 Gemini 批量生图 API 用于一次提交多条 Gemini 图片任务，服务端异步创建批量任务、跟踪状态、整理结果并完成费用结算。
+
+主端点：
+
+```text
+POST https://api.lmuai.com/v1/images/batches
+```
+
+<Callout type="info" title="这是灵眸扩展 API">
+
+批量接口位于 `/v1/images/batches`，属于灵眸面向用户公开的异步任务 API，不是 Google Gemini 原生 `/v1beta` 路径。
+
+**当前实现仅支持 Gemini。** 虽然请求体包含通用的 `model` 字段，但不能在此端点提交 `gpt-image-2` 或 Grok 图片模型。GPT 文生图请使用 [GPT 生图 API](/docs/api/gpt-image)，Grok 文生图请使用 [Grok 生图 API](/docs/api/grok-image)。
+
+如果只生成一张 Gemini 图片，或需要 `2K / 4K`，请使用[实时 Gemini 生图 API](/docs/api/gemini-image)。
+
+</Callout>
+
+---
+
+## 1. 适用场景
+
+批量接口适合：
+
+- 一次提交几十到数百条不同提示词；
+- 图片任务不要求在同一个 HTTP 请求中立即返回；
+- 需要任务状态、失败明细、取消和批量下载；
+- 离线生产文章配图、电商素材、数据集或设计候选图；
+- 希望通过 `Idempotency-Key` 防止重复提交和重复扣费。
+
+不适合：
+
+- 测量单张实时生图延迟；
+- 需要 `2K / 4K`；
+- 需要同步等待图片后立即展示；
+- 用于并发或 RPM 压测。
+
+---
+
+## 2. 使用前提
+
+批量功能需要管理员在部署和分组两侧同时开启，并配置兼容的上游账号和价格。
+
+调用方可先请求模型列表判断功能是否可用：
+
+```http
+GET /v1/images/batches/models
+```
+
+<Callout type="warn" title="如果返回 BATCH_IMAGE_DISABLED">
+
+`BATCH_IMAGE_DISABLED` 表示中转站全局批量生图功能尚未开启。它不是 API Key、模型或提示词错误。
+
+请把完整错误码和响应头中的请求 ID 提供给管理员，例如：
+
+```text
+错误码：BATCH_IMAGE_DISABLED
+请求 ID：xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+</Callout>
+
+常见准入条件：
+
+- 当前 API Key 状态为 active；
+- API Key 所属分组平台为 Gemini；
+- 分组允许批量生图；
+- 存在可用的批量图片执行资源；
+- 模型已配置批量图片价格；
+- 异步批量任务服务正常运行。
+
+---
+
+## 3. 鉴权
+
+批量接口使用用户自己的灵眸 API Key：
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+示例：
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/models' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+不要把 API Key 放在 URL、前端源码或公开仓库中。
+
+---
+
+## 4. 接口总览
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/v1/images/batches/models` | 查询当前 Key 可用于批量生图的模型 |
+| `POST` | `/v1/images/batches` | 创建批量生图任务 |
+| `GET` | `/v1/images/batches` | 查询当前 Key 创建的批量任务列表 |
+| `GET` | `/v1/images/batches/{id}` | 查询指定任务状态 |
+| `GET` | `/v1/images/batches/{id}/items` | 查询任务明细 |
+| `GET` | `/v1/images/batches/{id}/items/{custom_id}/content` | 下载单个任务项的图片 |
+| `GET` | `/v1/images/batches/{id}/download` | 下载整个批次 ZIP |
+| `POST` | `/v1/images/batches/{id}/cancel` | 取消任务 |
+| `DELETE` | `/v1/images/batches/{id}/outputs` | 删除批次输出文件 |
+| `DELETE` | `/v1/images/batches/{id}` | 删除批次任务记录 |
+
+所有任务数据都按创建任务时使用的 API Key 隔离。
+
+---
+
+## 5. 查询批量可用模型
+
+### `GET /v1/images/batches/models`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/models' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+典型响应（节选）：
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "gemini-3.1-flash-image",
+      "object": "image.batch.model"
+    }
+  ]
+}
+```
+
+<Callout type="info" title="批量模型列表与普通模型列表不同">
+
+请使用 `/v1/images/batches/models` 作为批量任务的模型选择器。它会额外检查批量功能权限、执行资源、模型支持和批量计费配置。
+
+普通 `/v1/models` 或 `/v1beta/models` 返回的模型，不一定都能用于异步批量生图。
+
+</Callout>
+
+---
+
+## 6. 创建批量任务
+
+### `POST /v1/images/batches`
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1/images/batches' \
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+  --header 'Idempotency-Key: client-batch-20260725-001' \
+  --header 'Content-Type: application/json' \
+  --data-raw '{
+    "model": "gemini-3.1-flash-image",
+    "task_name": "产品图片批量评测-001",
+    "response_mime_type": "image/png",
+    "image_size": "1K",
+    "items": [
+      {
+        "custom_id": "image_001",
+        "prompt": "一只戴着宇航员头盔的橘猫，电影感灯光",
+        "output_count": 1
+      },
+      {
+        "custom_id": "image_002",
+        "prompt": "清晨薄雾中的未来城市，超广角摄影",
+        "output_count": 1
+      },
+      {
+        "custom_id": "image_003",
+        "prompt": "日落海边灯塔，水彩插画，温暖色调",
+        "output_count": 1
+      }
+    ]
+  }'
+```
+
+### 顶层请求字段
+
+| 字段 | 类型 | 必填 | 默认 | 说明 |
+|---|---:|:---:|---|---|
+| `model` | string | 是 | — | 必须来自批量模型列表 |
+| `task_name` | string | 否 | 自动生成 | 任务名称，超长内容会被截断 |
+| `parent_batch_id` | string | 否 | — | 关联父任务，适合失败项重跑 |
+| `items` | array | 是 | — | 批量任务明细，至少一项 |
+| `response_mime_type` | string | 否 | `image/png` | 期望的输出 MIME 类型 |
+| `aspect_ratio` | string | 否 | — | 当前版本暂未传递到上游，请不要依赖该字段控制画幅 |
+| `image_size` | string | 否 | `1K` | 当前只支持 `1K` |
+| `metadata` | object | 否 | — | 自定义字符串键值对 |
+
+### `items[]` 字段
+
+| 字段 | 类型 | 必填 | 默认 | 说明 |
+|---|---:|:---:|---|---|
+| `custom_id` | string | 否 | 自动生成 | 调用方任务编号，在同一批次内必须唯一 |
+| `prompt` | string | 是 | — | 每个任务可以使用不同提示词 |
+| `output_count` | integer | 否 | `1` | 当前每项最多 4 张，受部署配置影响 |
+| `reference_images` | array | 否 | — | 图生图参考图片 |
+
+### Idempotency-Key
+
+强烈建议每次创建任务都携带唯一的：
+
+```http
+Idempotency-Key: client-batch-20260725-001
+```
+
+同一个 API Key 使用相同 `Idempotency-Key` 和完全相同的请求体重复提交时，服务端可返回原任务，避免网络超时后重复创建和重复费用预占。
+
+如果复用相同的 `Idempotency-Key`，但请求内容不同，会返回：
+
+```text
+BATCH_IMAGE_IDEMPOTENCY_CONFLICT
+```
+
+---
+
+## 7. 当前批量限制
+
+源码默认限制如下，实际部署可以由管理员调整：
+
+| 限制 | 默认值 |
+|---|---:|
+| 每个批次最大输入项数 | 200 |
+| 每个批次最大输出图片数 | 200 |
+| 每个 item 最大 `output_count` | 4 |
+| 每条提示词最大字符数 | 8000 |
+| 单张内联参考图最大大小 | 10 MiB |
+| ZIP 默认最大任务项数 | 200 |
+
+### 当前不支持指定批量画幅
+
+<Callout type="warn" title="aspect_ratio 当前不会生效">
+
+虽然批量请求结构中保留了 `aspect_ratio` 字段，但当前 Gemini Batch 和 Vertex Batch 请求构建逻辑尚未把它写入上游 `generationConfig.imageConfig`。
+
+因此当前批量任务的画幅由上游默认行为决定。请在请求中省略 `aspect_ratio`，不要把它作为稳定接口能力使用。
+
+需要精确控制 `1:1`、`16:9`、`21:9` 等画幅时，请使用[实时 Gemini 生图 API](/docs/api/gemini-image)。
+
+</Callout>
+
+### 当前只支持 1K
+
+<Callout type="warn" title="批量接口暂不支持 2K / 4K">
+
+当前批量接口的 `image_size` 只接受：
+
+```json
+{
+  "image_size": "1K"
+}
+```
+
+提交 `2K` 或 `4K` 会返回 `BATCH_IMAGE_INVALID_ITEMS`。
+
+需要 `2K / 4K` 时，请使用[实时 Gemini 生图 API](/docs/api/gemini-image)，并由客户端自行控制多请求并发。
+
+</Callout>
+
+### output_count 的任务展开
+
+如果一个 item 设置：
+
+```json
+{
+  "custom_id": "poster",
+  "prompt": "电影海报",
+  "output_count": 3
+}
+```
+
+服务端会展开为独立任务编号，例如：
+
+```text
+poster_01
+poster_02
+poster_03
+```
+
+展开后的图片总数不能超过批次最大输出数量。
+
+---
+
+## 8. 批量图生图
+
+每个 item 可以带 `reference_images`：
+
+```json
+{
+  "model": "gemini-3.1-flash-image",
+  "task_name": "商品图风格转换",
+  "image_size": "1K",
+  "items": [
+    {
+      "custom_id": "product_001",
+      "prompt": "将商品放在简洁的浅灰色摄影棚背景中，保持商品结构和文字准确",
+      "reference_images": [
+        {
+          "id": "source_001",
+          "type": "reference",
+          "mime_type": "image/png",
+          "data": "BASE64_IMAGE_DATA"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 参考图字段
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---:|:---:|---|
+| `id` | string | 否 | 参考图编号 |
+| `type` | string | 否 | 参考图用途标记 |
+| `mime_type` | string | 是 | `image/png`、`image/jpeg` 或 `image/webp` |
+| `data` | string | 二选一 | 图片 Base64 内容 |
+
+公共 API 接入推荐使用 `data` 传递 Base64 参考图。其他存储引用方式属于受控高级能力，需要时请联系管理员。
+
+参考图片数量与模型有关。当前服务对模型名称执行以下默认限制：
+
+- 名称包含 `flash-image`：每个任务最多 3 张参考图；
+- 名称包含 `pro-image`：每个任务最多 14 张参考图。
+
+实际可用数量还可能受上游模型能力和部署配置影响。
+
+---
+
+## 9. 创建任务响应
+
+任务创建成功返回 HTTP `200` 和批次对象：
+
+```json
+{
+  "id": "imgbatch_abc123",
+  "object": "image.batch",
+  "task_name": "产品图片批量评测-001",
+  "status": "queued",
+  "model": "gemini-3.1-flash-image",
+  "item_count": 3,
+  "success_count": 0,
+  "fail_count": 0,
+  "estimated_cost": 0.15,
+  "hold_amount": 0.09,
+  "actual_cost": null,
+  "created_at": 1784995200,
+  "submitted_at": 1784995201,
+  "settled_at": null
+}
+```
+
+### 关键字段
+
+| 字段 | 说明 |
+|---|---|
+| `id` | 批次 ID，后续查询和下载使用 |
+| `status` | 对用户暴露的任务状态 |
+| `item_count` | 展开后的任务项总数 |
+| `success_count` | 成功任务数 |
+| `fail_count` | 失败任务数 |
+| `estimated_cost` | 提交时估算费用 |
+| `hold_amount` | 创建任务时的余额预占金额 |
+| `actual_cost` | 完成结算后的实际费用，未完成时为 `null` |
+
+<Callout type="info" title="提交成功不等于图片已经生成">
+
+创建接口返回 `200` 只表示批次已被接收并提交到异步处理流程。客户端必须继续轮询任务状态，直到 `completed`、`failed` 或 `cancelled`。
+
+</Callout>
+
+---
+
+## 10. 查询任务状态
+
+### `GET /v1/images/batches/{id}`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/imgbatch_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+### 对外状态
+
+| 状态 | 说明 | 是否终态 |
+|---|---|:---:|
+| `queued` | 创建、上传或已提交，等待上游处理 | 否 |
+| `running` | 上游正在生成图片 | 否 |
+| `processing_results` | 正在下载和索引上游结果 | 否 |
+| `settling` | 正在结算实际费用 | 否 |
+| `completed` | 处理完成，可查询和下载结果 | 是 |
+| `failed` | 批次失败 | 是 |
+| `cancelled` | 已取消 | 是 |
+| `output_deleted` | 输出文件已删除，任务记录仍保留 | 是 |
+
+建议轮询间隔：
+
+```text
+前 2 分钟：每 10～15 秒一次
+2 分钟后：每 30 秒一次
+长任务：逐步增加到 60 秒一次
+```
+
+不要每秒轮询。
+
+<Callout type="warn" title="当前不支持完成 Webhook">
+
+当前批量接口没有 `callback_url`、`webhook_url` 或完成回调配置。任务完成后不会主动向调用方服务器发送通知。
+
+调用方需要轮询 `GET /v1/images/batches/{id}`，在状态进入 `completed`、`failed`、`cancelled` 或 `output_deleted` 后停止轮询，再查询明细或下载结果。
+
+</Callout>
+
+---
+
+## 11. 查询任务列表
+
+### `GET /v1/images/batches`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches?status=completed&limit=20' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+### Query 参数
+
+| 参数 | 类型 | 说明 |
+|---|---|---|
+| `status` | string | `queued`、`running`、`processing_results`、`settling`、`completed`、`failed`、`cancelled`、`output_deleted` |
+| `task_name` | string | 按任务名称模糊查询 |
+| `downloaded` | string | `true` / `false`，筛选是否已下载 |
+| `from` | string | 创建时间起点 |
+| `to` | string | 创建时间终点 |
+| `limit` | integer | 默认 20，最大 100 |
+| `cursor` | string | 分页游标 |
+
+响应：
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "imgbatch_abc123",
+      "object": "image.batch",
+      "task_name": "产品图片批量评测-001",
+      "status": "completed",
+      "model": "gemini-3.1-flash-image",
+          "item_count": 3,
+      "success_count": 3,
+      "fail_count": 0,
+      "estimated_cost": 0.15,
+      "hold_amount": 0.09,
+      "actual_cost": 0.12,
+      "created_at": 1784995200,
+      "submitted_at": 1784995201,
+      "settled_at": 1784998800
+    }
+  ],
+  "has_more": false
+}
+```
+
+---
+
+## 12. 查询任务明细
+
+### `GET /v1/images/batches/{id}/items`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/items?status=success&limit=100' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+支持的 `status`：
+
+```text
+all
+pending
+success
+failed
+```
+
+典型响应（节选）：
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "custom_id": "image_001",
+      "status": "success",
+      "prompt_preview": "一只戴着宇航员头盔的橘猫...",
+      "mime_type": "image/png",
+      "file_extension": "png",
+      "image_count": 1,
+      "error": null
+    },
+    {
+      "custom_id": "image_002",
+      "status": "failed",
+      "prompt_preview": "清晨薄雾中的未来城市...",
+      "mime_type": null,
+      "file_extension": null,
+      "image_count": 0,
+      "error": {
+        "code": "PROVIDER_ITEM_FAILED",
+        "message": "image generation failed",
+        "source": "provider"
+      }
+    }
+  ],
+  "has_more": false
+}
+```
+
+任务明细默认每页 100 条，最大 500 条。
+
+---
+
+## 13. 下载图片
+
+### 下载单个任务项
+
+```bash
+curl \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/items/image_001/content' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  --output image_001.png
+```
+
+如果任务项有多张图片，可以指定：
+
+```text
+?image_index=0
+?image_index=1
+```
+
+`image_index` 从 0 开始。
+
+### 下载整个批次 ZIP
+
+```bash
+curl \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/download' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  --output imgbatch_abc123.zip
+```
+
+可选参数：
+
+```text
+?status=success
+?max_items=100
+```
+
+ZIP 中会包含图片和结果清单。下载成功后，任务会记录 `downloaded_at`。
+
+---
+
+## 14. 取消和删除
+
+### 取消任务
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/cancel' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+已经进入终态的任务不会重新执行取消。是否还能阻止上游产生费用，取决于上游 Batch 任务的当前状态。
+
+### 删除输出文件
+
+```bash
+curl --request DELETE \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/outputs' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+输出删除后状态会显示为 `output_deleted`，图片无法再次下载。
+
+### 删除任务记录
+
+```bash
+curl --request DELETE \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+只有终态任务才能删除记录。成功返回 HTTP `204`。
+
+<Callout type="warn" title="删除记录和删除图片是两件事">
+
+- 删除输出：清理图片文件，但任务记录仍保留；
+- 删除记录：从当前用户的任务列表隐藏任务；
+- 生产系统应先确认结果已经下载和归档，再执行删除。
+
+</Callout>
+
+---
+
+## 15. Node.js 完整流程
+
+```js
+import { mkdir, writeFile } from 'node:fs/promises';
+
+const BASE_URL = process.env.LMU_BASE_URL || 'https://api.lmuai.com';
+const API_KEY = process.env.LMU_API_KEY;
+
+if (!API_KEY) throw new Error('缺少 LMU_API_KEY');
+
+const headers = {
+  Authorization: `Bearer ${API_KEY}`,
+};
+
+async function jsonRequest(path, options = {}) {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      ...headers,
+      ...(options.headers || {}),
+    },
+  });
+
+  const text = await response.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(`非 JSON 响应：HTTP ${response.status}`);
+  }
+
+  if (!response.ok) {
+    const error = data?.error || {};
+    throw new Error(
+      `${error.code || response.status}: ${error.message || text}`,
+    );
+  }
+
+  return data;
+}
+
+const batch = await jsonRequest('/v1/images/batches', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Idempotency-Key': `client-${Date.now()}`,
+  },
+  body: JSON.stringify({
+    model: 'gemini-3.1-flash-image',
+    task_name: 'Node 批量生图示例',
+    image_size: '1K',
+    items: [
+      { custom_id: 'cat', prompt: '电影感宇航员橘猫' },
+      { custom_id: 'city', prompt: '清晨薄雾中的未来城市' },
+    ],
+  }),
+});
+
+console.log('batch id:', batch.id);
+
+let job = batch;
+while (!['completed', 'failed', 'cancelled', 'output_deleted'].includes(job.status)) {
+  await new Promise((resolve) => setTimeout(resolve, 15_000));
+  job = await jsonRequest(`/v1/images/batches/${encodeURIComponent(batch.id)}`);
+  console.log('status:', job.status);
+}
+
+if (job.status !== 'completed') {
+  throw new Error(`批量任务未成功完成：${job.status}`);
+}
+
+const items = await jsonRequest(
+  `/v1/images/batches/${encodeURIComponent(batch.id)}/items?status=success`,
+);
+
+await mkdir('batch-output', { recursive: true });
+
+for (const item of items.data || []) {
+  const response = await fetch(
+    `${BASE_URL}/v1/images/batches/${encodeURIComponent(batch.id)}` +
+      `/items/${encodeURIComponent(item.custom_id)}/content`,
+    { headers },
+  );
+
+  if (!response.ok) {
+    console.error('下载失败：', item.custom_id, response.status);
+    continue;
+  }
+
+  const extension = item.file_extension || 'png';
+  await writeFile(
+    `batch-output/${item.custom_id}.${extension}`,
+    Buffer.from(await response.arrayBuffer()),
+  );
+}
+```
+
+---
+
+## 16. Python 完整流程
+
+```python
+import os
+import time
+from pathlib import Path
+import requests
+
+BASE_URL = os.getenv("LMU_BASE_URL", "https://api.lmuai.com")
+API_KEY = os.environ["LMU_API_KEY"]
+HEADERS = {"Authorization": f"Bearer {API_KEY}"}
+
+payload = {
+    "model": "gemini-3.1-flash-image",
+    "task_name": "Python 批量生图示例",
+    "image_size": "1K",
+    "items": [
+        {"custom_id": "cat", "prompt": "电影感宇航员橘猫"},
+        {"custom_id": "city", "prompt": "清晨薄雾中的未来城市"},
+    ],
+}
+
+response = requests.post(
+    f"{BASE_URL}/v1/images/batches",
+    headers={
+        **HEADERS,
+        "Content-Type": "application/json",
+        "Idempotency-Key": f"client-{int(time.time())}",
+    },
+    json=payload,
+    timeout=300,
+)
+response.raise_for_status()
+batch = response.json()
+print("batch id:", batch["id"])
+
+terminal = {"completed", "failed", "cancelled", "output_deleted"}
+job = batch
+while job["status"] not in terminal:
+    time.sleep(15)
+    response = requests.get(
+        f"{BASE_URL}/v1/images/batches/{batch['id']}",
+        headers=HEADERS,
+        timeout=60,
+    )
+    response.raise_for_status()
+    job = response.json()
+    print("status:", job["status"])
+
+if job["status"] != "completed":
+    raise RuntimeError(f"批量任务未成功完成：{job['status']}")
+
+items_response = requests.get(
+    f"{BASE_URL}/v1/images/batches/{batch['id']}/items",
+    headers=HEADERS,
+    params={"status": "success"},
+    timeout=60,
+)
+items_response.raise_for_status()
+items = items_response.json().get("data", [])
+
+output_dir = Path("batch-output")
+output_dir.mkdir(exist_ok=True)
+
+for item in items:
+    content = requests.get(
+        f"{BASE_URL}/v1/images/batches/{batch['id']}"
+        f"/items/{item['custom_id']}/content",
+        headers=HEADERS,
+        timeout=300,
+    )
+    content.raise_for_status()
+    extension = item.get("file_extension") or "png"
+    (output_dir / f"{item['custom_id']}.{extension}").write_bytes(content.content)
+```
+
+---
+
+## 17. 计费与余额预占
+
+批量任务采用“估算、预占、完成后结算”的流程：
+
+1. 服务端根据模型、任务数量、分组倍率和批量折扣估算费用；
+2. 创建任务时预占 `hold_amount`；
+3. 上游处理完成后根据成功图片数量计算 `actual_cost`；
+4. 完成结算后释放多余预占金额；
+5. 提交前失败或取消时，系统会按任务状态尝试释放预占。
+
+响应中的：
+
+```text
+estimated_cost
+hold_amount
+actual_cost
+```
+
+分别代表估算金额、预占金额和最终实际金额。
+
+<Callout type="info" title="价格以当前分组配置为准">
+
+批量折扣、分组倍率、账号倍率和图片单价都可以由管理员配置。文档不承诺固定价格，最终扣费以控制台用量明细和批次 `actual_cost` 为准。
+
+</Callout>
+
+---
+
+## 18. 错误格式
+
+批量接口使用以下错误结构：
+
+```json
+{
+  "error": {
+    "type": "invalid_request_error",
+    "code": "BATCH_IMAGE_INVALID_ITEMS",
+    "message": "batch image items are invalid"
+  }
+}
+```
+
+同时请记录响应头中的请求 ID。在控制台页面中，错误信息会显示为：
+
+```text
+错误码：BATCH_IMAGE_DISABLED
+请求 ID：xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+### 常见错误码
+
+| 错误码 | HTTP | 含义 | 处理 |
+|---|---:|---|---|
+| `BATCH_IMAGE_DISABLED` | 404 | 全局批量生图未开启 | 将错误码和请求 ID 提供给管理员 |
+| `BATCH_IMAGE_GROUP_DISABLED` | 403 | 当前 Key 分组未允许批量生图或不是 Gemini 分组 | 更换 Key 或联系管理员开启分组权限 |
+| `BATCH_IMAGE_NO_ACCOUNT_AVAILABLE` | 502 | 当前没有可用的批量执行资源 | 保存请求 ID 并联系管理员 |
+| `BATCH_IMAGE_SETTLEMENT_PRICING_MISSING` | 400 | 批量模型没有计费价格 | 联系管理员配置模型价格 |
+| `BATCH_IMAGE_INVALID_MODEL` | 400 | 未提供模型 | 使用批量模型列表中的模型 |
+| `BATCH_IMAGE_INVALID_ITEMS` | 400 | items、分辨率或请求字段不合法 | 检查请求体；当前只支持 1K |
+| `BATCH_IMAGE_DUPLICATE_CUSTOM_ID` | 400 | `custom_id` 重复 | 确保同一批次内唯一 |
+| `BATCH_IMAGE_PROMPT_TOO_LONG` | 400 | 提示词过长 | 缩短提示词 |
+| `BATCH_IMAGE_TOO_MANY_OUTPUT_IMAGES` | 400 | 展开后图片数量超过限制 | 减少 items 或 output_count |
+| `BATCH_IMAGE_INVALID_REFERENCE_IMAGE` | 400 | 参考图格式、大小或 URI 不合法 | 检查 MIME、Base64 和 file_uri |
+| `BATCH_IMAGE_INSUFFICIENT_BALANCE` | 402 | 余额不足以完成预占 | 充值或减少任务量 |
+| `BATCH_IMAGE_IDEMPOTENCY_CONFLICT` | 409 | 同一幂等键对应了不同请求体 | 使用新的 Idempotency-Key |
+| `BATCH_IMAGE_PROVIDER_SUBMIT_FAILED` | 502 | 上游批任务创建失败 | 保存请求 ID，有限重试或联系管理员 |
+| `BATCH_IMAGE_QUEUE_FAILED` | 502 | 异步任务服务暂时不可用 | 保存请求 ID 并联系管理员 |
+| `BATCH_IMAGE_NOT_READY` | 409 | 任务未完成就尝试下载 | 等待状态变为 completed |
+| `BATCH_IMAGE_OUTPUT_DELETED` | 410 | 输出已经被清理 | 无法再次下载，需要重新创建任务 |
+| `BATCH_IMAGE_ITEM_FAILED` | 409 | 指定任务项没有成功图片 | 查看 item.error |
+| `BATCH_IMAGE_DOWNLOAD_LIMITED` | 429 | 同时下载数量过多 | 稍后重试 |
+
+---
+
+## 19. 批量接口和实时接口对比
+
+| 项目 | 实时 Gemini 生图 | 异步批量生图 |
+|---|---|---|
+| 端点 | `/v1beta/models/{model}:generateContent` | `/v1/images/batches` |
+| 返回方式 | 同一个 HTTP 请求返回 Base64 图片 | 返回 batch ID，后续轮询和下载 |
+| 分辨率 | `1K / 2K / 4K` | 当前仅接受 `1K`，并由上游使用默认图片配置 |
+| 画面比例 | 按实际模型支持的比例枚举控制 | 当前不支持指定，使用上游默认画幅 |
+| 多提示词 | 客户端发起多个请求 | 一个批次包含多个 items |
+| 每项多图 | 多次独立请求 | `output_count`，默认最多 4 |
+| 状态管理 | 调用方自己记录 | 内置任务状态、明细、取消和删除 |
+| 下载方式 | Base64 解码 | 单图下载或 ZIP |
+| 费用 | 实时请求计费 | 估算、余额预占、完成后结算 |
+| 适合场景 | 在线交互、质量测试、性能压测 | 离线大批量生产 |
+
+---
+
+## 20. 接入验收清单
+
+- [ ] `/v1/images/batches/models` 能返回至少一个模型；
+- [ ] 使用的 API Key 属于允许批量生图的 Gemini 分组；
+- [ ] 创建任务携带唯一 `Idempotency-Key`；
+- [ ] `image_size` 使用 `1K`；
+- [ ] 所有 `custom_id` 唯一；
+- [ ] 能轮询到 `completed` 或明确终态；
+- [ ] 能查询 success / failed 明细；
+- [ ] 能下载单张图片；
+- [ ] 能下载 ZIP 并读取结果清单；
+- [ ] 能识别失败项并避免整批重复提交；
+- [ ] 已确认 estimated_cost、hold_amount 和 actual_cost；
+- [ ] 日志记录错误码和请求 ID，但不记录完整 API Key。
+
+---
+
+## 下一步
+
+- 实时文生图和图生图：[Gemini 生图 API](/docs/api/gemini-image)
+- 查询用量和费用明细：[导出 Usage 使用明细](/docs/api/usage-export)
+- API Key 与协议说明：[接入协议](/docs/guide/api-protocols)

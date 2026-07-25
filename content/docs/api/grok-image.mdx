@@ -1,0 +1,283 @@
+---
+title: Grok 生图 API
+description: 使用灵眸 OpenAI Images 兼容接口调用 Grok 图片模型，覆盖文生图、图片编辑、URL 与 Base64 输入、响应下载、模型选择和错误排查。
+ogDescription: 灵眸 Grok 生图 API 接入指南：POST /v1/images/generations 使用 grok-imagine-image，POST /v1/images/edits 使用 grok-imagine-image-quality 完成图片编辑。
+keywords:
+  - Grok 生图 API
+  - grok-imagine-image
+  - grok-imagine-image-quality
+  - Grok 图片编辑
+  - xAI Images API
+  - 灵眸 Grok 图片生成
+alternateNames:
+  - Grok 图片生成接口
+  - xAI 图片生成兼容接口
+faq:
+  - q: Grok 生图调用哪个端点？
+    a: 文生图调用 POST /v1/images/generations，图片编辑调用 POST /v1/images/edits。OpenAI 兼容客户端的 base_url 填 https://api.lmuai.com/v1。
+  - q: 文生图推荐哪个模型？
+    a: 普通文生图推荐 grok-imagine-image；需要质量模型或图片编辑时使用 grok-imagine-image-quality。最终以当前 API Key 的 GET /v1/models 返回值为准。
+  - q: Grok 图片结果如何返回？
+    a: 通常返回 data[].url。下载链接可能有有效期，建议任务完成后立即下载并保存到自己的对象存储。
+  - q: Grok 支持异步或批量生图吗？
+    a: 当前生产环境未开启异步图片任务，/v1/images/batches 也不支持 Grok。请使用同步 Images 接口并由客户端控制并发。
+---
+
+灵眸通过 OpenAI Images 兼容路径提供 Grok 图片生成和图片编辑能力。
+
+<Callout type="info" title="Base URL">
+
+OpenAI 兼容 SDK：
+
+```text
+https://api.lmuai.com/v1
+```
+
+完整 HTTP 端点：
+
+```text
+POST https://api.lmuai.com/v1/images/generations
+POST https://api.lmuai.com/v1/images/edits
+```
+
+</Callout>
+
+## 1. 接口总览
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/v1/models` | 查询当前 Grok 分组可用模型 |
+| `POST` | `/v1/images/generations` | Grok 文生图，同步返回 |
+| `POST` | `/v1/images/edits` | Grok 图片编辑 / 图生图，同步返回 |
+
+当前没有对外可用的 Grok 异步任务或多条目批量接口。
+
+## 2. 推荐模型
+
+| 场景 | 推荐模型 |
+|---|---|
+| 普通文生图 | `grok-imagine-image` |
+| 质量优先文生图 | `grok-imagine-image-quality` |
+| 图片编辑 / 图生图 | `grok-imagine-image-quality` |
+
+先使用当前 API Key 查询模型：
+
+```bash
+curl https://api.lmuai.com/v1/models \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+<Callout type="warn" title="图片编辑请使用质量模型">
+
+图片编辑示例使用 `grok-imagine-image-quality`。不建议把 `grok-imagine-edit` 作为默认模型：该兼容名称可能出现在部分模型列表中，但某些上游渠道调用时会返回 `404`。
+
+</Callout>
+
+## 3. 鉴权
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+API Key 必须属于已开启图片生成能力的 Grok 分组。
+
+## 4. 文生图
+
+### `POST /v1/images/generations`
+
+```bash
+curl https://api.lmuai.com/v1/images/generations \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "grok-imagine-image",
+    "prompt": "一只蓝色陶瓷杯，居中放置在浅灰色摄影棚背景中，柔和侧光，无文字",
+    "n": 1,
+    "size": "1024x1024"
+  }'
+```
+
+JavaScript：
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.LMU_API_KEY,
+  baseURL: "https://api.lmuai.com/v1",
+});
+
+const result = await client.images.generate({
+  model: "grok-imagine-image",
+  prompt: "一只蓝色陶瓷杯，浅灰色摄影棚背景，柔和侧光，无文字",
+  n: 1,
+  size: "1024x1024",
+});
+
+const url = result.data?.[0]?.url;
+if (!url) throw new Error("响应中没有图片 URL");
+console.log(url);
+```
+
+Python：
+
+```python
+from openai import OpenAI
+import requests
+
+client = OpenAI(
+    api_key="YOUR_API_KEY",
+    base_url="https://api.lmuai.com/v1",
+)
+
+result = client.images.generate(
+    model="grok-imagine-image",
+    prompt="一只蓝色陶瓷杯，浅灰色摄影棚背景，柔和侧光，无文字",
+    n=1,
+    size="1024x1024",
+)
+
+url = result.data[0].url
+if not url:
+    raise RuntimeError("响应中没有图片 URL")
+
+image = requests.get(url, timeout=60)
+image.raise_for_status()
+with open("grok-output.jpg", "wb") as f:
+    f.write(image.content)
+```
+
+## 5. 文生图参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---:|---:|---|
+| `model` | string | 是 | 推荐 `grok-imagine-image` 或 `grok-imagine-image-quality` |
+| `prompt` | string | 是 | 图片描述 |
+| `n` | integer | 否 | 图片数量；建议从 `1` 开始测试 |
+| `size` | string | 否 | OpenAI 兼容尺寸参数；实际输出尺寸由 Grok 上游能力决定 |
+| `response_format` | string | 否 | 响应格式兼容参数；Grok 通常返回 URL |
+
+<Callout type="warn" title="不要依赖 size 强制输出固定像素">
+
+Grok 渠道可能接受 `size` 作为兼容或计费参数，但最终图片的像素和宽高比由上游生成结果决定。需要固定像素时，请下载后自行裁切或缩放。
+
+</Callout>
+
+## 6. 图片编辑 / 图生图
+
+### `POST /v1/images/edits`
+
+Grok 图片编辑推荐使用 JSON，请在 `image.url` 中传入：
+
+- 可公开访问的 HTTPS 图片 URL；或
+- `data:image/...;base64,...` Data URL。
+
+### 使用图片 URL
+
+```bash
+curl https://api.lmuai.com/v1/images/edits \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "grok-imagine-image-quality",
+    "prompt": "保留杯子的形状、构图和光线，把杯子从蓝色改成黄色，无文字",
+    "image": {
+      "url": "https://example.com/input.jpg",
+      "type": "image_url"
+    },
+    "response_format": "url"
+  }'
+```
+
+### 使用本地图片转换为 Data URL
+
+Python：
+
+```python
+import base64
+import mimetypes
+import requests
+
+api_key = "YOUR_API_KEY"
+image_path = "input.jpg"
+mime_type = mimetypes.guess_type(image_path)[0] or "image/jpeg"
+
+with open(image_path, "rb") as f:
+    data_url = f"data:{mime_type};base64,{base64.b64encode(f.read()).decode()}"
+
+payload = {
+    "model": "grok-imagine-image-quality",
+    "prompt": "保留主体和构图，把背景改成黄昏海边，无文字",
+    "image": {
+        "url": data_url,
+        "type": "image_url",
+    },
+    "response_format": "url",
+}
+
+response = requests.post(
+    "https://api.lmuai.com/v1/images/edits",
+    headers={
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    },
+    json=payload,
+    timeout=300,
+)
+response.raise_for_status()
+result = response.json()
+print(result["data"][0]["url"])
+```
+
+<Callout type="warn" title="Data URL 会增大请求体">
+
+Base64 会让请求体增加约三分之一。大图片建议先压缩，或上传到自己的 HTTPS 对象存储后传 URL。不要使用需要 Cookie、登录态或临时防盗链的地址。
+
+</Callout>
+
+## 7. 响应格式
+
+典型 Grok 图片响应：
+
+```json
+{
+  "data": [
+    {
+      "url": "https://image-host.example/generated.jpg"
+    }
+  ],
+  "usage": {
+    "cost_in_usd_ticks": 200000000
+  }
+}
+```
+
+客户端应：
+
+1. 检查 HTTP 状态码；
+2. 检查 `data` 是否为非空数组；
+3. 检查 `data[0].url` 是否非空；
+4. 立即下载图片并保存到自己的存储；
+5. 不要把临时 URL 当作永久资源地址。
+
+`usage` 字段由上游渠道返回，其结构可能与 GPT 图片接口不同。最终费用以灵眸账单和 Usage 明细为准，不要直接把某个上游字段当作账户扣费金额。
+
+## 8. 常见错误
+
+| HTTP | 常见原因 | 处理建议 |
+|---:|---|---|
+| `400` | 缺少 `model` / `prompt`、图片 Data URL 无效 | 检查 JSON 和图片编码 |
+| `401` | API Key 无效 | 检查 Bearer 鉴权 |
+| `403` | 分组未开启图片生成 | 联系管理员检查 Grok 分组权限 |
+| `404` | 使用了渠道不兼容的模型别名或上游路径不可用 | 编辑优先改用 `grok-imagine-image-quality`，并保存请求 ID |
+| `429` | 并发、RPM 或上游额度受限 | 降低并发，指数退避重试 |
+| `5xx` | 上游生成暂时失败 | 有限次数重试，并向管理员提供请求 ID |
+
+## 9. 与其他图片接口的区别
+
+| 需求 | 推荐文档 |
+|---|---|
+| Gemini 原生文生图和图生图 | [Gemini 生图 API](/docs/api/gemini-image) |
+| GPT 文生图和编辑 | [GPT 生图 API](/docs/api/gpt-image) |
+| Grok 文生图和编辑 | 本页 |
+| 多条 Gemini 提示词异步处理 | [Gemini 批量生图 API](/docs/api/gemini-image-batch) |
