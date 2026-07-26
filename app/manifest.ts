@@ -16,5 +16,13 @@ export default function manifest(): MetadataRoute.Manifest {
     background_color: '#ffffff',
     theme_color: THEME_COLOR,
     lang: 'zh-CN',
+    scope: '/',
+    categories: ['developer', 'productivity', 'utilities'],
+    // 192 / 512 两个尺寸是 PWA 可安装的硬性要求；maskable 供 Android 自适应图标裁切。
+    icons: [
+      { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
+      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+    ],
   };
 }
