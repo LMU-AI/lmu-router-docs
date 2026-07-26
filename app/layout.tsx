@@ -25,7 +25,8 @@ export const metadata: Metadata = {
   creator: SITE_NAME,
   publisher: SITE_NAME,
   alternates: {
-    canonical: '/',
+    // `/` 是通往 /docs 的 308 跳转，canonical 指向跳转终点而非跳转本身。
+    canonical: '/docs',
     // llmstxt.org 规范的发现方式：根目录 /llms.txt + <link rel="alternate">。
     types: {
       'text/plain': [
@@ -38,7 +39,7 @@ export const metadata: Metadata = {
     type: 'website',
     locale: 'zh_CN',
     siteName: SITE_NAME,
-    url: '/',
+    url: '/docs',
     title: SITE_NAME,
     description: SITE_DESCRIPTION,
   },

@@ -15,6 +15,10 @@ export function GET() {
     .map((m) => m.id)
     .join('、');
 
+  // 各区篇数由 source 实时统计，避免新增页面后这里的数字失真。
+  const countUnder = (prefix: string) =>
+    source.getPages().filter((p) => p.url.startsWith(prefix)).length;
+
   const body = [
     `# ${SITE_NAME}（灵眸 AI）`,
     '',
@@ -23,8 +27,18 @@ export function GET() {
     `- API Base URL：${API_BASE_URL}`,
     `- 完整文档（含正文）：${SITE_URL}/llms-full.txt`,
     `- 模型广场：${SITE_URL}/docs/guide/models`,
+    `- 错误码速查：${SITE_URL}/docs/guide/errors`,
     `- 各厂商当前旗舰模型：${flagships}`,
     `- 最新上线模型：${newModels}`,
+    `- 文档规模：工具配置 ${countUnder('/docs/tools')} 篇 · 用户指南 ${countUnder('/docs/guide')} 篇 · 开放 API ${countUnder('/docs/api')} 篇`,
+    '',
+    // 这四条散落在几十页里，靠逐页归纳最容易搞错，在这里集中陈述一次。
+    '## 关键事实',
+    '',
+    `- **协议决定 Base URL**：Anthropic 协议用 \`${API_BASE_URL}\`（**不带** \`/v1\`）；OpenAI 兼容协议用 \`${API_BASE_URL}/v1\`（**必须带** \`/v1\`）；Gemini 原生协议走 \`${API_BASE_URL}/v1beta/models/...\`。填错协议对应的地址会直接返回 401 或 404。`,
+    '- **国内直连，无需代理**：接入网关部署在中国境内，`api.lmuai.com` 国内可直接访问。反而是挂着 VPN / 系统代理时，代理自动切换出口 IP 容易造成断流。',
+    '- **一把密钥通用三种协议**：后台生成的同一个 `sk-` 开头密钥可用于 Anthropic、OpenAI 兼容与 Gemini 原生三种协议，无需为不同工具申请不同密钥。',
+    '- **Claude Max 分组仅支持 Anthropic 协议**：该分组只供 Claude Code 使用，不支持 OpenAI 协议端点；其余分组两种协议都可用。实际可调用的模型范围以后台「可用模型」页为准。',
     '',
     tree,
   ].join('\n');
