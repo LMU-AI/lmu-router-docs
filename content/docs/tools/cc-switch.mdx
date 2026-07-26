@@ -11,6 +11,15 @@ keywords:
   - Claude Code settings 导入
 alternateNames:
   - CC Switch 接入灵眸
+faq:
+  - q: 点击「导入到 CCS」没反应怎么办？
+    a: "系统未注册 CC Switch 的 URL 协议。先确认是完整安装了 CC Switch（而非解压绿色版直接运行），然后手动启动一次 CC Switch、完全退出后再点「导入到 CCS」。Windows 用户如仍无效，可在 CC Switch 设置中寻找「注册协议 / 关联链接」选项。"
+  - q: 浏览器拦截了协议跳转怎么办？
+    a: "部分浏览器默认阻止未知协议。在弹窗中选择「始终允许 docs / 后台域名打开此类链接」即可。"
+  - q: CC Switch 里怎么手动添加灵眸配置？
+    a: "CC Switch 支持手动添加自定义提供商：名称随意（如「灵眸」），Base URL 填 https://api.lmuai.com，API Key 填后台生成的 sk- 开头密钥。保存后在主界面切换为当前使用项即可。"
+  - q: 用 CC Switch 还是手动改 settings.json？
+    a: "两种方式效果一致。CC Switch 可同时保存多个分组 / 套餐的密钥、点击即可切换，更适合多套餐用户；如果你主要用命令行、不介意编辑配置文件，继续手动配置 settings.json 也完全可以。"
 ---
 
 

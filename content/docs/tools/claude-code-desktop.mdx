@@ -1,6 +1,6 @@
 ---
 title: Claude Code 桌面版
-description: 在 Claude Code for Desktop 桌面客户端中接入灵眸 API：开启 Developer Mode 后通过 Configure Third-Party Inference 完成第三方端点配置。
+description: Claude Code for Desktop 桌面客户端接入灵眸 API：开启 Developer Mode 后配置第三方推理端点。
 ogDescription: Claude Code 桌面版国内接入：开启 Developer Mode → Configure Third-Party Inference → 填入灵眸 base URL 与 API key 即可使用 Claude 4（桌面客户端需可访问外网的网络代理）。
 keywords:
   - Claude Code 桌面版
@@ -13,6 +13,17 @@ keywords:
   - Claude Desktop 国内
 alternateNames:
   - Claude Code Desktop 接入灵眸
+faq:
+  - q: 桌面版找不到 Configure Third-Party Inference 选项怎么办？
+    a: "桌面版本太旧。该选项是较新版本才加入的功能，前往官网下载最新版重新安装即可。"
+  - q: Developer 菜单没有出现怎么办？
+    a: "先确认 Help → Troubleshooting → Enable Developer Mode 已勾选；若仍未出现，完全关闭并重启客户端（Mac 上需要在 Dock 右键 Quit，只关窗口不生效）。"
+  - q: 桌面版提示 401 / Unauthorized 怎么排查？
+    a: "检查三项：API Key 是否复制完整（sk- 开头）；Base URL 是否为 https://api.lmuai.com（不要带 /v1）；到灵眸后台确认该密钥所属分组是否还有可用额度。"
+  - q: 桌面版卡在下载 / 登录 / 启动界面是什么原因？
+    a: "桌面客户端的下载与基础联网（登录、激活、版本校验）都需要直连海外服务器，请确认外网代理已开启且工作正常，再重新打开客户端。这一限制与是否配置了灵眸 Base URL 无关。"
+  - q: 怎么恢复使用 Anthropic 官方接口？
+    a: "在 Developer → Configure Third-Party Inference 中清空配置或选择默认即可恢复。"
 ---
 
 **Claude Code for Desktop** 是 Anthropic 官方推出的桌面客户端，新版本起支持自定义第三方推理端点，可直接接入灵眸 API。无需手动编辑 `settings.json`，全程在 GUI 中完成。

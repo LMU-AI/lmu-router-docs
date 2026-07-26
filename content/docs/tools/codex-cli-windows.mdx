@@ -1,6 +1,6 @@
 ---
 title: Codex CLI（Windows）
-description: Windows 下安装与配置 Codex CLI，通过灵眸 API 接入 OpenAI Codex 模型的一步步指南；含 config.toml 配置 model_context_window 启用 1M token 长上下文。
+description: Windows 下安装并配置 Codex CLI 接入灵眸 API；含 config.toml 开启 1M token 长上下文的方法。
 ogDescription: Windows 下安装 Codex CLI 并接入灵眸 AI：PowerShell / WSL2 全适用，免代理使用 OpenAI Codex / GPT；两行 config.toml 配置即可开启 1M 长上下文。
 keywords:
   - Codex CLI Windows
@@ -17,6 +17,11 @@ keywords:
 alternateNames:
   - Codex CLI Windows 接入灵眸
   - Codex Windows 启用 1M 上下文
+faq:
+  - q: Windows 报「无法加载文件，因为在此系统上禁止运行脚本」怎么解决？
+    a: "在 PowerShell 中执行 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser，然后关闭并重新打开一个新终端即可。"
+  - q: Windows 提示 CODEX 无法识别为 cmdlet 怎么办？
+    a: "Node.js 未安装，或之前安装过但环境变量配置有问题。重新下载安装 Node.js 20 及以上版本，安装完成后重新打开终端。"
 ---
 
 

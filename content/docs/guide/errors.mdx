@@ -1,0 +1,139 @@
+---
+title: 错误码速查
+description: 灵眸 API 错误码速查：401 / 403 / 404 / 429 / 5xx 等 HTTP 状态码含义与处理方式，批量生图业务错误码，以及按报错原文反查解决方案。
+ogDescription: 灵眸 AI 错误码速查表：一页汇总 400 / 401 / 402 / 403 / 404 / 413 / 429 / 500 / 502 / 503 / 504 各状态码的典型原因与处理方式，BATCH_IMAGE_* 批量生图业务错误码，以及 stream disconnected、Incorrect API key、No available accounts、Invalid signature in thinking block 等常见报错原文的直接跳转。
+keywords:
+  - 灵眸 API 错误码
+  - Claude API 401 报错
+  - Claude API 403 报错
+  - Claude API 429 限流
+  - API 503 No available accounts
+  - Invalid signature in thinking block
+  - Incorrect API key provided
+  - stream disconnected
+  - BATCH_IMAGE 错误码
+  - AI API 报错排查
+alternateNames:
+  - 灵眸 AI 错误码对照表
+  - Claude / GPT API 状态码速查
+  - API 报错怎么解决
+  - 中转 API 错误码汇总
+faq:
+  - q: "报错 401 Unauthorized: Incorrect API key provided 怎么排查？"
+    a: "说明请求仍走了 OpenAI 官方而非灵眸中转。依次检查：config.toml 与 auth.json 两个文件是否都已正确创建或替换；重启 VS Code / Cursor 等 IDE 重新加载配置；若此前用官方或其他平台登录过，先退出账号再重新配置。"
+  - q: "报错 exceeded retry limit, last status: 429 Too Many Requests 是什么原因？"
+    a: "当日额度已用完。到「我的订阅」确认额度，如需增量请购买**不同规格**的套餐（如天卡换月卡），再到后台 API 密钥中切换到新套餐的分组。购买相同套餐是续期而非增量，不会增加当日额度。"
+  - q: "报错 503 No available accounts 是什么原因？"
+    a: "多半是 ~/.zshrc 或 ~/.bashrc 里配置了 ANTHROPIC_AUTH_TOKEN / ANTHROPIC_BASE_URL / ANTHROPIC_MODEL，这些全局变量会覆盖 IDE 工具里配置的 API Key。解决办法：从 shell 配置里删掉这几行，或把它们移到独立文件 ~/.claude_env，仅在启动 Claude Code CLI 时 source 加载。"
+  - q: "报错 400 Invalid signature in thinking block 是什么原因？"
+    a: "Claude 的 thinking block 带加密签名，与生成它的具体上游账号强绑定。在同一段对话里跨分组切换模型时，旧历史里的签名无法被新分组的上游验证，因此返回 400。解决办法：切换分组时新开一个对话，或同一会话固定使用一个分组。这类错误不可通过重试恢复。"
+  - q: "调用生图接口报 400 Unknown parameter: 'tools[0].n' 怎么办？"
+    a: "客户端把 tools 数组塞进了图像接口请求体。/v1/images/generations 与 /v1/images/edits 不支持工具调用，需整个删除 tools 字段；生成多张图请把数量放到顶层 n（仅 generations 支持，edits 不支持多张）。这是请求体不合法导致的错误，换账号或重试都无效。"
+  - q: "Claude Code 报断流超时（stream disconnected before completion）怎么办？"
+    a: "通常是开启了魔法 / VPN / 系统代理，代理自动切换出口 IP 导致连接中断。灵眸网关部署在中国境内、国内直连，关闭所有代理后重试即可；同时检查本地网络是否频繁切换 Wi-Fi / 移动网络。"
+  - q: "404 Not Found 一般是什么原因？"
+    a: "多数是 Base URL 与协议不匹配：OpenAI 协议地址漏写 /v1、Anthropic 地址多写了 /v1，或 Gemini 路径未使用 /v1beta/models/... 的完整端点。对照接入协议页重新核对 Base URL 与端点即可。"
+  - q: "遇到 5xx 应该重试还是直接联系客服？"
+    a: "5xx 属于上游或中转的暂时性失败，建议先做有限次数的指数退避重试，并保存响应头中的请求 ID。若同一类请求 5 分钟内多次失败，把请求 ID 提供给客服排查；不要发送完整 API Key。"
+---
+
+本页把散落在各接口文档里的错误码汇总成一张速查表。**先按 HTTP 状态码定位大类，再按报错原文找到具体解决方案。**
+
+<Callout type="info" title="排查前先记下请求 ID">
+
+响应头中的请求 ID 是定位问题最有效的信息。联系客服时请附上请求 ID 与完整报错文本，**不要发送完整 API Key**。
+
+</Callout>
+
+---
+
+## HTTP 状态码
+
+| 状态码 | 典型原因 | 处理方式 |
+|---:|---|---|
+| `400` | 请求体、参数、模型 ID 或模型路径不合法；图片格式 / 编码错误 | 修正请求，**不要直接重试**——换账号或重试都不会成功 |
+| `401` | API Key 缺失、无效、禁用；Base URL 与协议不匹配；IDE 未重启导致旧配置仍生效 | 核对密钥与 Base URL（见[接入协议](./api-protocols)），重启 IDE；详见[问题 3](./faq#问题-3401-密钥不正确) |
+| `402` | 余额不足 | 充值或减少任务量 |
+| `403` | 说法有两种，都可能出现：① API Key 所属**分组未开启图片生成**；② **余额、订阅、计费资格或权限不足** | 先确认账户余额与订阅状态，再确认分组是否具备该能力；两者都正常仍报错则联系客服 |
+| `404` | OpenAI 协议地址漏写 `/v1`、Anthropic 地址多写 `/v1`、Gemini 未使用 `/v1beta/models/...`；或该接口不支持当前分组 | 按[接入协议](./api-protocols)重新核对 Base URL 与完整端点 |
+| `413` | 图生图请求体过大 | 压缩输入图片 |
+| `429` | ① 当日额度用完；② 并发、RPM 或上游额度受限 | 额度用完见[问题 2](./faq#问题-2429-重试错误)；限流则指数退避并降低并发与 RPM |
+| `500` | 内部或容量错误 | 记录错误码与请求 ID，有限次数重试 |
+| `502` | 上游认证、权限或服务暂时失败 | 退避重试，必要时联系客服 |
+| `503` | 无可用上游账号或上游过载；也可能是**环境变量覆盖了密钥** | 先排查环境变量（见[问题 6](./faq#问题-6503-no-available-accounts环境变量覆盖密钥)），再延迟重试并降低流量 |
+| `504` | 网关或上游超时 | 作为独立请求重新发起 |
+
+<Callout type="warn" title="4xx 与 5xx 的处理原则不同">
+
+- **4xx 基本都不该重试**——请求本身不合法（参数错、密钥错、端点错），换任何上游账号都会得到同样的结果，必须修正请求。
+- **5xx 才适合重试**——属于暂时性失败，用指数退避做**有限次数**重试，避免为重复调用付费。
+
+</Callout>
+
+各接口的完整错误说明见：[Gemini 生图](../api/gemini-image)、[GPT 生图](../api/gpt-image)、[Grok 生图](../api/grok-image)、[Gemini 批量生图](../api/gemini-image-batch)。
+
+---
+
+## 业务错误码（批量生图）
+
+[Gemini 批量生图 API](../api/gemini-image-batch) 在 HTTP 状态码之外还会返回业务错误码，控制台里显示为 `错误码：BATCH_IMAGE_XXX` + 请求 ID。
+
+| 错误码 | HTTP | 含义 | 处理 |
+|---|---:|---|---|
+| `BATCH_IMAGE_DISABLED` | 404 | 全局批量生图未开启 | 将错误码和请求 ID 提供给管理员 |
+| `BATCH_IMAGE_GROUP_DISABLED` | 403 | 当前 Key 分组未允许批量生图或不是 Gemini 分组 | 更换 Key 或联系管理员开启分组权限 |
+| `BATCH_IMAGE_NO_ACCOUNT_AVAILABLE` | 502 | 当前没有可用的批量执行资源 | 保存请求 ID 并联系管理员 |
+| `BATCH_IMAGE_SETTLEMENT_PRICING_MISSING` | 400 | 批量模型没有计费价格 | 联系管理员配置模型价格 |
+| `BATCH_IMAGE_INVALID_MODEL` | 400 | 未提供模型 | 使用批量模型列表中的模型 |
+| `BATCH_IMAGE_INVALID_ITEMS` | 400 | items、分辨率或请求字段不合法 | 检查请求体；当前只支持 1K |
+| `BATCH_IMAGE_DUPLICATE_CUSTOM_ID` | 400 | `custom_id` 重复 | 确保同一批次内唯一 |
+| `BATCH_IMAGE_PROMPT_TOO_LONG` | 400 | 提示词过长 | 缩短提示词 |
+| `BATCH_IMAGE_TOO_MANY_OUTPUT_IMAGES` | 400 | 展开后图片数量超过限制 | 减少 items 或 output_count |
+| `BATCH_IMAGE_INVALID_REFERENCE_IMAGE` | 400 | 参考图格式、大小或 URI 不合法 | 检查 MIME、Base64 和 file_uri |
+| `BATCH_IMAGE_INSUFFICIENT_BALANCE` | 402 | 余额不足以完成预占 | 充值或减少任务量 |
+| `BATCH_IMAGE_IDEMPOTENCY_CONFLICT` | 409 | 同一幂等键对应了不同请求体 | 使用新的 Idempotency-Key |
+| `BATCH_IMAGE_PROVIDER_SUBMIT_FAILED` | 502 | 上游批任务创建失败 | 保存请求 ID，有限重试或联系管理员 |
+| `BATCH_IMAGE_QUEUE_FAILED` | 502 | 异步任务服务暂时不可用 | 保存请求 ID 并联系管理员 |
+| `BATCH_IMAGE_NOT_READY` | 409 | 任务未完成就尝试下载 | 等待状态变为 completed |
+| `BATCH_IMAGE_OUTPUT_DELETED` | 410 | 输出已经被清理 | 无法再次下载，需要重新创建任务 |
+| `BATCH_IMAGE_ITEM_FAILED` | 409 | 指定任务项没有成功图片 | 查看 item.error |
+| `BATCH_IMAGE_DOWNLOAD_LIMITED` | 429 | 同时下载数量过多 | 稍后重试 |
+
+---
+
+## 按报错原文查
+
+把你实际看到的报错文本对上下表，直接点进详细解决方案。
+
+| 报错原文 | 含义 | 详细方案 |
+|---|---|---|
+| `stream disconnected before completion` | 断流，通常是魔法 / VPN / 系统代理切换出口 IP | [问题 1](./faq#问题-1断流超时错误) |
+| `exceeded retry limit, last status: 429 Too Many Requests` | 当日额度已用完 | [问题 2](./faq#问题-2429-重试错误) |
+| `401 Unauthorized: Incorrect API key provided` | 请求仍走了官方而非灵眸中转 | [问题 3](./faq#问题-3401-密钥不正确) |
+| `无法加载文件，因为在此系统上禁止运行脚本`（Windows） | PowerShell 执行策略限制 | [问题 4](./faq#问题-4脚本禁止运行windows) |
+| `CODEX 无法识别为 cmdlet`（Windows） | Node.js 未安装或环境变量有问题 | [问题 5](./faq#问题-5nodejs-未找到windows) |
+| `503 No available accounts` | Shell 环境变量覆盖了 IDE 里配置的密钥 | [问题 6](./faq#问题-6503-no-available-accounts环境变量覆盖密钥) |
+| `400 Invalid signature in thinking block` | 同一对话内跨分组切换模型，thinking 签名无法验证 | [问题 7](./faq#问题-7400-invalid-signature-in-thinking-block跨分组切换模型) |
+| `400 Unknown parameter: 'tools[0].n'` | 图像接口误传了 `tools` 参数 | [问题 8](./faq#问题-8400-unknown-parameter-tools0n图像接口误传参数) |
+| `No available accounts` / 模型不可用 | 调用了不在当前分组可用范围内的模型 | [接入协议 → 排错速查](./api-protocols#排错速查) |
+
+---
+
+## Usage 导出接口的错误
+
+[导出 Usage 使用明细](../api/usage-export) 走 JWT 鉴权，错误语义与上面的 API Key 通道不同：
+
+| 状态码 | 原因 | 处理 |
+|---:|---|---|
+| `401` | JWT 过期 | 用 `refresh_token` 续期，或重新登录 |
+| `403` | 越权（例如查询不属于自己的 `api_key_id`） | 检查该 Key 是否属于当前账号 |
+| `400` | 参数错误（例如 `start_date` 格式不对） | 检查 `YYYY-MM-DD` 格式与 `timezone` 是否合法 |
+
+---
+
+## 还是没解决？
+
+- 逐条排查的完整案例见[常见问题](./faq)
+- Base URL / 端点填写规则见[接入协议](./api-protocols)
+- 密钥被盗刷的防护见 [Key 安全](./key-security)
+- 联系客服时请附上**请求 ID** 与完整报错文本

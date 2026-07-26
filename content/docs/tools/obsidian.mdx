@@ -1,6 +1,6 @@
 ---
 title: Obsidian
-description: 在 Obsidian 笔记软件中接入灵眸 API：通过 Claudian、Copilot 两款插件配置 Claude API，免代理在知识库中使用 Claude 与国产大模型。
+description: 在 Obsidian 笔记软件中接入灵眸 API：通过 Claudian、Copilot 两款插件配置，免代理使用 Claude 与国产大模型。
 ogDescription: Obsidian 接入灵眸 AI 指南：Claudian 插件复用 Claude Code 配置、Copilot 插件添加自定义模型，在笔记与知识库中直接使用 Claude / GPT / 国产大模型。
 keywords:
   - Obsidian Claude API
@@ -17,6 +17,15 @@ keywords:
 alternateNames:
   - Obsidian 接入灵眸
   - Obsidian 配置 Claude API
+faq:
+  - q: Obsidian 插件报 401 / Unauthorized 怎么办？
+    a: "API Key 不正确，或请求仍走了官方地址。Claudian 需确认填的 ANTHROPIC_AUTH_TOKEN 是灵眸密钥，且没有被 Shell 环境变量覆盖；Copilot 需确认 Base URL 是 https://api.lmuai.com、API Key 是灵眸 sk- 开头的密钥，而不是 Anthropic / OpenAI 官方密钥。"
+  - q: Copilot 添加模型时报 CORS 错误怎么解决？
+    a: "在 Add Custom Chat Model 弹窗中勾选 CORS 选项后再点 Test，即可绕过浏览器的跨域限制。"
+  - q: Claudian 提示 Claude CLI not found 怎么办？
+    a: "插件未能自动定位 Claude Code。在终端运行 which claude（Windows 用 where claude），把输出的路径填进 Settings → Claudian → Claude → Claude CLI path。"
+  - q: Obsidian 里响应超时或断流怎么办？
+    a: "确认 API_TIMEOUT_MS 已设为 3000000，避免长任务超时；同时关闭魔法 / VPN / 系统代理 —— 灵眸为国内直连，直连即最快最稳定。"
 ---
 
 Obsidian 是一款基于本地 Markdown 文件的知识管理与笔记软件，常用于搭建个人知识库、双向链接笔记和「第二大脑」。通过社区插件，你可以在笔记中直接调用 Claude API 完成 AI 写作、内容整理、知识库问答与代码生成。
