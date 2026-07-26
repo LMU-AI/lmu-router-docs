@@ -8,7 +8,10 @@ import type { Metadata } from 'next';
 import { CtaFooter } from '@/components/cta-footer';
 import { ModelCard, ModelGrid } from '@/components/model-card';
 import { Mermaid } from '@/components/mermaid';
+import { getBreadcrumbItems } from 'fumadocs-core/breadcrumb';
 import { SITE_NAME, SITE_URL } from '@/lib/site';
+import { PLAZA_MODELS } from '@/lib/models';
+import { lastModifiedOf } from '@/lib/last-modified';
 
 function buildCanonicalPath(slug?: string[]): string {
   return slug && slug.length > 0 ? `/docs/${slug.join('/')}` : '/docs';
@@ -27,28 +30,36 @@ export default async function Page({
   const canonicalPath = buildCanonicalPath(slug);
   const absoluteUrl = `${SITE_URL}${canonicalPath}`;
 
+  // includeRoot 只在 path 中出现 root folder 节点时生效，而 source.pageTree 本身
+  // 就是 root、不在 path 里，所以首层必须自己补。
+  const crumbs = [
+    { name: SITE_NAME, url: `${SITE_URL}/docs` },
+    ...getBreadcrumbItems(page.url, source.pageTree, {
+      includePage: true,
+      includeSeparator: false,
+    }),
+  ];
+
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
-    itemListElement: [
-      {
-        '@type': 'ListItem',
-        position: 1,
-        name: SITE_NAME,
-        item: `${SITE_URL}/docs`,
-      },
-      {
-        '@type': 'ListItem',
-        position: 2,
-        name: page.data.title,
-        item: absoluteUrl,
-      },
-    ],
+    itemListElement: crumbs.map((crumb, i) => ({
+      '@type': 'ListItem',
+      position: i + 1,
+      name: typeof crumb.name === 'string' ? crumb.name : SITE_NAME,
+      // guide / tools / api 三个目录没有 index 页（实测 404），此时按 schema.org
+      // 规范省略 item，而不是指向一个不存在的 URL。
+      ...(crumb.url
+        ? { item: crumb.url.startsWith('http') ? crumb.url : `${SITE_URL}${crumb.url}` }
+        : {}),
+    })),
   };
 
   const keywords = page.data.keywords ?? [];
   const alternateNames = page.data.alternateNames ?? [];
   const faq = page.data.faq ?? [];
+
+  const lastModified = lastModifiedOf(page.absolutePath).toISOString();
 
   const articleJsonLd = {
     '@context': 'https://schema.org',
@@ -57,6 +68,8 @@ export default async function Page({
     description: page.data.description,
     inLanguage: 'zh-CN',
     mainEntityOfPage: absoluteUrl,
+    datePublished: lastModified,
+    dateModified: lastModified,
     image: {
       '@type': 'ImageObject',
       url: `${SITE_URL}/opengraph-image`,
@@ -78,6 +91,22 @@ export default async function Page({
             '@type': 'Question',
             name: item.q,
             acceptedAnswer: { '@type': 'Answer', text: item.a },
+          })),
+        }
+      : null;
+
+  const itemListJsonLd =
+    page.url === '/docs/guide/models'
+      ? {
+          '@context': 'https://schema.org',
+          '@type': 'ItemList',
+          name: '灵眸 AI 可用模型清单',
+          numberOfItems: PLAZA_MODELS.length,
+          itemListElement: PLAZA_MODELS.map((m, i) => ({
+            '@type': 'ListItem',
+            position: i + 1,
+            name: m.id,
+            description: `${m.label}（${m.vendor}）`,
           })),
         }
       : null;
@@ -114,6 +143,12 @@ export default async function Page({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(faqJsonLd) }}
+        />
+      )}
+      {itemListJsonLd && (
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(itemListJsonLd) }}
         />
       )}
     </>

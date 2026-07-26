@@ -12,6 +12,14 @@ export const docs = defineDocs({
         .array(z.object({ q: z.string(), a: z.string() }))
         .optional(),
     }),
+    // 供 /llms-full.txt 使用。ModelCard 等自闭合 JSX 在默认的 filterElement 下
+    // 会被判为 'children-only'，而它没有 children —— 输出会是空字符串。列进
+    // mdxAsPlaceholder 后至少保留结构。
+    postprocess: {
+      includeProcessedMarkdown: {
+        mdxAsPlaceholder: ['ModelCard', 'ModelGrid', 'Mermaid'],
+      },
+    },
   },
 });
 

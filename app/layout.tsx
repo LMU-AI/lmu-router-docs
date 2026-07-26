@@ -24,7 +24,16 @@ export const metadata: Metadata = {
   authors: [{ name: SITE_NAME }],
   creator: SITE_NAME,
   publisher: SITE_NAME,
-  alternates: { canonical: '/' },
+  alternates: {
+    canonical: '/',
+    // llmstxt.org 规范的发现方式：根目录 /llms.txt + <link rel="alternate">。
+    types: {
+      'text/plain': [
+        { url: '/llms.txt', title: 'llms.txt' },
+        { url: '/llms-full.txt', title: 'llms-full.txt' },
+      ],
+    },
+  },
   openGraph: {
     type: 'website',
     locale: 'zh_CN',
