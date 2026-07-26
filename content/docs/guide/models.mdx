@@ -60,8 +60,8 @@ faq:
 
 <Callout type="warn" title="选型前先确认两件事">
 
-- **模型可用范围看分组**：实际能调用哪些模型以后台「可用模型」页为准。例如 GPT 系列需要订阅 GPT 套餐，或在按量计费下选择 GPT 分组。
-- **协议要跟模型对上**：Claude 与国产模型走 Anthropic 协议（Base URL **不带** `/v1`），GPT 走 OpenAI 协议（**必须带** `/v1`）。填错会直接报 404，详见 [接入协议](./api-protocols)。
+- **模型可用范围看分组**：实际能调用哪些模型以后台「可用模型」页为准。例如 GPT 系列需要订阅 GPT 套餐，或在按量计费下选择 GPT 分组。**和你用哪种协议调用无关**。
+- **Base URL 要跟协议对上**：协议由你的客户端和 SDK 决定——Anthropic 协议 Base URL **不带** `/v1`，OpenAI 协议**必须带** `/v1`，Gemini 原生走 `/v1beta/models/...`。填错会直接报 404，详见 [接入协议](./api-protocols)。
 
 </Callout>
 
