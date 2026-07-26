@@ -244,9 +244,9 @@ candidates[].content.parts[].inlineData.data
 
 ### 支持的画面比例
 
-实时 Gemini 原生端点不会在中转站侧把比例限制为固定五种，而是将 `imageConfig.aspectRatio` 转发给实际执行模型。不同图片模型支持范围不同。
+`aspectRatio` 是**模型级能力**，不能把 Flash 的扩展比例用于 Pro 模型。灵眸会按请求模型校验比例，避免把已知无效组合发送到上游。
 
-**通用比例（建议作为跨模型安全集合）：**
+**通用 10 种比例：**
 
 ```text
 1:1
@@ -261,7 +261,7 @@ candidates[].content.parts[].inlineData.data
 21:9
 ```
 
-**部分 Flash 图片模型扩展比例：**
+**Flash 扩展 4 种比例：**
 
 ```text
 1:4
@@ -270,12 +270,33 @@ candidates[].content.parts[].inlineData.data
 8:1
 ```
 
-| 模型系列 | 建议比例范围 |
-|---|---|
-| Gemini 3.1 Flash Image | 通用 10 种 + `1:4`、`1:8`、`4:1`、`8:1` |
-| Gemini 3 Pro Image | 通用 10 种 |
-| Gemini 3.1 Flash Lite Image | 以当前模型列表与实际响应为准；跨模型接入建议使用通用 10 种 |
-| 兼容别名 / Preview | 取决于实际执行模型，建议先用通用 10 种验证 |
+### 模型比例矩阵
+
+| 客户端模型 ID | 确认支持的比例 | 数量 |
+|---|---|---:|
+| `gemini-3.1-flash-image` | 通用 10 种 + Flash 扩展 4 种 | 14 |
+| `gemini-3.1-flash-image-preview` | 通用 10 种 + Flash 扩展 4 种 | 14 |
+| `gemini-3.1-flash-lite-image` | 通用 10 种 + Flash 扩展 4 种 | 14 |
+| `gemini-3-pro-image` | 仅通用 10 种 | 10 |
+| `gemini-3-pro-image-preview` | 仅通用 10 种 | 10 |
+
+<Callout type="warn" title="Pro 模型不支持 Flash 扩展比例">
+
+对 `gemini-3-pro-image` 或 `gemini-3-pro-image-preview` 传入 `1:4`、`1:8`、`4:1`、`8:1` 会返回 `INVALID_ARGUMENT` 或中转站 `400` 参数错误。例如：
+
+```json
+{
+  "error": {
+    "code": 400,
+    "message": "generationConfig.imageConfig.aspectRatio has an unsupported value",
+    "status": "INVALID_ARGUMENT"
+  }
+}
+```
+
+</Callout>
+
+上述矩阵结合 Google 官方模型说明和灵眸生产接口实测得到：三个 Flash / Flash Lite 模型均通过扩展比例测试；两个 Pro 模型均明确拒绝全部四个扩展比例。未知或新模型在完成验证前，应使用通用 10 种。
 
 不指定 `aspectRatio` 时，由模型根据输入内容和默认策略决定画幅。不要传任意小数或任意 `WIDTHxHEIGHT`；必须使用目标模型接受的比例枚举。
 
