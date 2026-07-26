@@ -1,6 +1,6 @@
 ---
 title: 灵眸文档
-description: 灵眸 AI API 使用文档：支持 Claude Code / Codex CLI / Cursor / VS Code / OpenCode / Cherry Studio 等主流 AI 编程工具的中转接入指南。
+description: 灵眸 AI API 使用文档：Claude Code、Codex CLI、Cursor、Cherry Studio 等主流 AI 编程工具的接入指南。
 ogDescription: 灵眸 AI——稳定、靠谱的 Claude / GPT / Gemini API 中转站。一个密钥覆盖 Claude Code、Codex CLI、Cursor、Cherry Studio 等全部主流 AI 编程工具，国内直连、低延迟、多源故障转移。
 keywords:
   - 灵眸 AI
@@ -36,7 +36,9 @@ faq:
 - [快速开始](/docs/guide/getting-started) — 注册、兑换套餐、创建 API 密钥
 - [接入协议](/docs/guide/api-protocols) — Anthropic / OpenAI / Gemini 原生协议速查，避免端点填错
 - [模型广场](/docs/guide/models) — 全部可用模型 ID，一键复制
+- [如何使用 Token](/docs/guide/how-to-use-token) — 查看用量、设置额度上限与模型白名单
 - [常见问题](/docs/guide/faq) — 常见报错与解决方案
+- [错误码速查](/docs/guide/errors) — 401 / 403 / 429 / 5xx 状态码含义，按报错原文反查
 - [Gemini 生图 API](/docs/api/gemini-image) — Gemini 原生文生图、图生图、1K / 2K / 4K
 - [GPT 生图 API](/docs/api/gpt-image) — `gpt-image-2` 文生图和图片编辑
 - [Grok 生图 API](/docs/api/grok-image) — Grok 文生图、URL / Base64 图生图
@@ -45,8 +47,10 @@ faq:
 ## 服务保障
 
 - [稳定性架构](/docs/guide/reliability) — 多源路由、故障转移、状态页
+- [Key 安全](/docs/guide/key-security) — IP 白名单 / 黑名单，防止密钥泄漏被盗刷
 - [数据与隐私](/docs/guide/privacy) — 不留存请求内容，账户数据仅在中国国内
 - [企业方案](/docs/enterprise) — 团队 / 业务 / 旗舰 / 定制四档企业套餐
+- [推荐有奖](/docs/guide/referral) — 邀请链接持续获得 10% 佣金，可转余额或提现
 
 ## 开放 API
 
@@ -68,6 +72,7 @@ faq:
 | CLI（终端） | [Claude Code CLI](/docs/tools/claude-code) |
 | 编辑器插件 · VS Code / Cursor / Trae / Antigravity | [Claude Code 插件](/docs/tools/claude-code-vscode) |
 | 桌面版 | [Claude Code 桌面版](/docs/tools/claude-code-desktop) |
+| 在 Claude Code 里用 GPT 模型 | [Claude Code 配置 GPT](/docs/tools/claude-code-gpt) |
 
 ### Codex
 
@@ -83,7 +88,11 @@ faq:
 
 | 工具 | 教程 |
 |------|------|
+| Cursor | [Cursor 接入第三方 API](/docs/tools/cursor) |
+| Trae | [Trae 接入第三方 API](/docs/tools/trae) |
 | OpenCode | [OpenCode](/docs/tools/opencode) |
 | Cherry Studio | [Cherry Studio](/docs/tools/cherry) |
+| Chatbox | [Chatbox](/docs/tools/chatbox) |
+| Obsidian | [Obsidian](/docs/tools/obsidian) |
 | IntelliJ IDEA Kilo Code | [Kilo Code](/docs/tools/kilo-code-idea) |
 | Hermes Agent | [Hermes Agent](/docs/tools/hermes) |

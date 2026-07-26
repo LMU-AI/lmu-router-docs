@@ -1,5 +1,5 @@
 {
   "title": "灵眸文档",
   "root": true,
-  "pages": ["guide", "tools", "api"]
+  "pages": ["guide", "tools", "api", "enterprise"]
 }

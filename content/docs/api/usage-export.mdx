@@ -1,6 +1,6 @@
 ---
 title: 导出 Usage 使用明细
-description: 灵眸 AI 使用明细 API 导出指南：账号登录获取 JWT，再调用 /api/v1/usage 拉取与控制台 /usage 页面一致的完整 token 使用明细，支持分页、日期范围、模型过滤，含 Bash / Python / Node.js 示例。
+description: 灵眸 Usage 明细 API 导出指南：登录换取 JWT 后调用 /api/v1/usage，支持分页、日期范围与模型过滤，含三种语言示例。
 ogDescription: 灵眸 AI 提供使用明细对外 API：账号密码登录拿 JWT，调用 /api/v1/usage 自动化导出所有 Claude / GPT / Gemini / 国产模型的请求明细、token 消耗与费用，免手动下载 CSV。
 keywords:
   - Claude API 使用明细
@@ -18,8 +18,6 @@ faq:
   - q: JWT 过期了怎么办？
     a: "重新调用登录接口换取新的 JWT 即可。长期运行的导出脚本应当把「登录换 token」封装成可重复调用的函数，在收到鉴权失败时自动续期后重试。"
 ---
-
-# 导出 Usage 使用明细
 
 通过账号密码登录获取 JWT,再用 JWT 调用 `/api/v1/usage` 拉取**与控制台 `/usage` 页面一致的完整 token 使用明细表**。
 
