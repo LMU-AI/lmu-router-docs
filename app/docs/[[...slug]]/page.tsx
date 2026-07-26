@@ -40,15 +40,20 @@ export default async function Page({
     }),
   ];
 
+  // guide / tools / api 三个目录没有 index 页（实测 404），getBreadcrumbItems 给这层
+  // 的 url 是 undefined。此前的做法是保留该层但省略 item —— schema.org 允许，但
+  // Google 明确要求「除最后一项外，item 为必填」，中间层缺 item 会让整条面包屑
+  // 失去富媒体资格（生产实测 31/35 页中招）。既然这层没有可指向的落地页，就整层
+  // 去掉，产出一条合法的两级面包屑，而不是一条 Google 会丢弃的三级面包屑。
+  const linkableCrumbs = crumbs.filter((crumb, i) => crumb.url || i === crumbs.length - 1);
+
   const breadcrumbJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'BreadcrumbList',
-    itemListElement: crumbs.map((crumb, i) => ({
+    itemListElement: linkableCrumbs.map((crumb, i) => ({
       '@type': 'ListItem',
       position: i + 1,
       name: typeof crumb.name === 'string' ? crumb.name : SITE_NAME,
-      // guide / tools / api 三个目录没有 index 页（实测 404），此时按 schema.org
-      // 规范省略 item，而不是指向一个不存在的 URL。
       ...(crumb.url
         ? { item: crumb.url.startsWith('http') ? crumb.url : `${SITE_URL}${crumb.url}` }
         : {}),
