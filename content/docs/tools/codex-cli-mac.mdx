@@ -3,35 +3,37 @@ title: Codex CLI（Mac/Linux）
 description: Mac 与 Linux 下安装并配置 Codex CLI，通过灵眸 API 接入 OpenAI Codex / Claude 模型；含 config.toml 配置 model_context_window 启用 1M token 长上下文的完整教程。
 ogDescription: Mac / Linux 安装 Codex CLI 并接入灵眸 AI：免代理使用 OpenAI Codex、GPT、Claude；两行 config.toml 配置（model_context_window / model_auto_compact_token_limit）即可开启 1M 长上下文。
 keywords:
-  - Codex CLI Mac
-  - Codex CLI Linux
-  - Codex CLI 安装
-  - Codex CLI 国内
+  - Codex CLI Mac 安装
+  - Codex CLI Linux 安装
+  - Codex CLI 国内配置
   - OpenAI Codex 中转
-  - Codex CLI 配置
   - Codex base url
   - Codex 1M 上下文
-  - Codex 长上下文
-  - Codex 1M token
   - model_context_window
   - model_auto_compact_token_limit
-  - gpt-5.4 1M 上下文
+  - Codex config.toml
+  - Codex 免代理
 alternateNames:
   - Codex CLI Mac Linux 接入灵眸
   - Codex 启用 1M 上下文
   - Codex 1M token 配置教程
+faq:
+  - q: Mac / Linux 上怎么让 Codex CLI 走第三方 API？
+    a: "安装 Node.js 20+ 与 Codex CLI 后，在 ~/.codex/ 目录下手动创建 config.toml 与 auth.json 两个文件：config.toml 里配置 model_provider 与 base_url 指向 https://api.lmuai.com，auth.json 里填灵眸后台生成的 sk- 开头密钥。无需任何第三方配置工具，国内直连免代理。"
+  - q: Codex CLI 怎么开启 1M token 长上下文？
+    a: "在 ~/.codex/config.toml 的**顶层**（任意 [section] 之前）追加 model_context_window = 1000000 与 model_auto_compact_token_limit = 900000 两行，保存后重新进入 Codex 即生效。第二个值建议设为窗口的 90%，写更大会被 Codex 钳制。"
+  - q: 配了 1M 上下文但 /status 显示还是 272K 怎么办？
+    a: "依次检查：这两行是否写在配置文件顶层（写进 [profiles.xxx] 段不生效）；是否写在用户级 ~/.codex/config.toml（项目级 .codex/config.toml 可能被忽略）；当前模型是否支持 1M（gpt-5.4、gpt-5.5 支持，gpt-5.3-codex 上限为 272K）；最后升级到最新版 npm i -g @openai/codex@latest 再试。部分版本显示约 950K 属正常，是预留的 5% 安全余量。"
+  - q: 开启 1M 上下文会更贵吗？
+    a: "会。上下文越长单次请求消耗的 token 越多，且超过 272K 的部分按长上下文分档计费、单价更高。建议只在超大仓库梳理、长日志分析等确有需要的场景临时开启，不建议常开。"
 ---
 
 
-配置方案分为**工具配置（方案1）**和**手动配置（方案2）**，推荐使用方案1。
+安装 Codex CLI 后，手动创建两份配置文件（`config.toml` + `auth.json`）即可接入灵眸 API，无需任何第三方配置工具。
 
 ---
 
-## 方案1：使用 ccman 工具配置（推荐）
-
-使用 Mac 或 Linux 的终端进行安装和配置。
-
-### 第1步：安装 Node.js
+## 第1步：安装 Node.js
 
 需要 **Node.js 20+** 版本，下载地址：[https://nodejs.org/en/download](https://nodejs.org/en/download)
 
@@ -42,34 +44,13 @@ node --version
 # 显示版本号（如 v23.7.0）表示安装成功
 ```
 
-### 第2步：安装 ccman
-
-ccman 是我们自己开发的开源中转服务商配置软件：
-
-```bash
-npm i -g ccman
-```
-
-如遇安装失败（网络问题），切换国内镜像源：
-
-```bash
-npm config set registry https://registry.npmmirror.com
-npm i -g ccman
-```
-
-验证安装：
-
-```bash
-ccman --version
-```
-
-### 第3步：安装 Codex CLI
+## 第2步：安装 Codex CLI
 
 ```bash
 npm i -g @openai/codex
 ```
 
-如遇网络问题，先切换镜像源：
+如遇网络问题，先切换国内镜像源再安装：
 
 ```bash
 npm config set registry https://registry.npmmirror.com
@@ -83,49 +64,9 @@ codex --version
 # 显示版本号表示安装成功
 ```
 
-### 第4步：运行 ccman 一键配置
+## 第3步：创建配置文件
 
-```bash
-ccman gmn1
-```
-
-启动后按提示操作：
-1. **选择要配置的工具**（空格键选择）：默认选中 `Codex` 和 `OpenCode`，按需选择
-2. **输入 API Key**：填入后台生成的 `sk-` 开头的密钥（注意选择正确的套餐分组）
-
-### 第5步：启动 Codex CLI
-
-```bash
-codex --dangerously-bypass-approvals-and-sandbox
-```
-
-或者简写：
-
-```bash
-codex --yolo
-```
-
-> 这是免安全审批的启动命令，不需要逐条批准自动执行。
-
-启动成功后，界面显示当前使用模型为 `gpt-5.3-codex xhigh`。
-
-<Callout type="info" title="关于模型切换">
-
-目前默认使用 gpt-5.3-codex xhigh，修改后也无法自由切换模型。如不小心切换，可修改 `~/.codex/config.toml` 中的 `model` 字段改回 `gpt-5.4`，重启终端即可恢复。
-
-</Callout>
-
----
-
-## 方案2：手动配置
-
-> 如果已经安装了 Codex CLI，可直接参考此方案；若没安装，请先参考方案1安装。
-
-编辑配置文件（没有就新建，存在则覆盖）：
-
-- **Mac/Linux 路径**：`~/.codex/`
-
-在该目录下创建/覆盖以下两个文件：
+配置文件目录为 **`~/.codex/`**（没有就新建，已有旧文件则覆盖）。在该目录下创建/覆盖以下两个文件：
 
 ### config.toml
 
@@ -189,11 +130,29 @@ requires_openai_auth = true
 }
 ```
 
-保存后重新打开终端，输入以下命令启动即可自动登录：
+## 第4步：启动 Codex CLI
+
+保存配置文件后重新打开终端，输入以下命令启动即可自动登录：
 
 ```bash
 codex --dangerously-bypass-approvals-and-sandbox
 ```
+
+或者简写：
+
+```bash
+codex --yolo
+```
+
+> 这是免安全审批的启动命令，不需要逐条批准自动执行。
+
+启动成功后，界面显示当前使用模型为 `gpt-5.4 xhigh`（即 `config.toml` 中 `model` 字段指定的模型）。
+
+<Callout type="info" title="关于模型切换">
+
+如不小心在会话内切换到了其他模型，可修改 `~/.codex/config.toml` 中的 `model` 字段改回 `gpt-5.4`，重启终端即可恢复。
+
+</Callout>
 
 ---
 

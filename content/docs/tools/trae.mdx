@@ -4,43 +4,17 @@ description: Trae 如何配置第三方 API（灵眸中转）完整教程：无�
 ogDescription: Trae 如何配置第三方 API 图文教程 —— 无需 Codex 插件、用 Trae 自带「添加自定义模型」功能，通过 Anthropic 协议直连 Claude Opus / Sonnet、智谱 GLM、通义千问 Qwen、DeepSeek 等模型；服务商选 Anthropic、请求地址填 /v1/messages 即可完成，国内免代理。
 keywords:
   - Trae 如何配置第三方 API
-  - Trae 第三方 API
-  - Trae 第三方 API 配置
-  - Trae 第三方 API 教程
-  - Trae 配置第三方 API
-  - Trae 接入第三方 API
-  - Trae 第三方中转
-  - Trae 中转 API
   - Trae 中转 API 配置
-  - Trae 中转站
-  - Trae API 配置
-  - Trae Anthropic 兼容 API
-  - Trae Anthropic
+  - Trae 添加自定义模型
   - Trae Anthropic 协议
-  - Trae 自定义 API
-  - Trae 自定义模型
-  - Trae 添加模型
-  - Trae 添加 AI 模型
-  - Trae 自定义 API Key
-  - Trae BYOK
-  - Trae 使用自己的 API
-  - Trae Claude
+  - Trae 免插件接入
   - Trae 接入 Claude
-  - Trae 配置 Claude API
-  - Trae Claude 4
-  - Trae GLM
-  - Trae 智谱
-  - Trae 通义千问
-  - Trae Qwen
-  - Trae DeepSeek
-  - Trae Kimi
+  - claude-opus-5
+  - glm-5.2
+  - qwen3.8-max-preview
   - Trae 国产模型
-  - Trae 中文 AI
-  - Trae 灵眸
-  - Trae 编辑器 AI
+  - Trae BYOK
   - Trae 免代理
-  - Trae 免插件
-  - Trae 原生 API 配置
 alternateNames:
   - Trae 如何配置第三方 API
   - Trae 如何接入第三方 API
@@ -63,7 +37,7 @@ faq:
     a: 支持。Trae 编辑器自带「添加自定义模型」功能，可以直接通过 Anthropic 协议接入 Claude 官方模型与国产大模型（GLM、Qwen、DeepSeek、Kimi 等），无需安装任何插件。
   - q: Trae 用原生方式和装 Codex 插件方式有什么区别？
     a: Codex 插件走 OpenAI 协议、需要手写 config.toml 与 auth.json 文件；Trae 原生方式走 Anthropic 协议，只需要 GUI 里填服务商 / 地址 / Key。想用 Claude 或国产模型选原生方式更简单；想用 GPT / Codex 系列则用插件方式。两种方式可以共存。
-  - q: Trae 里怎么用 Claude Opus 4？
+  - q: Trae 里怎么用 Claude Opus？
     a: 设置 → 模型 → 添加模型 → 服务商选 Anthropic → 模型选「自定义模型」→ 模型 ID 填 `claude-opus-5`（或 `claude-sonnet-5`）→ 自定义请求地址填 `https://api.lmuai.com/v1/messages` → API 密钥填灵眸后台生成的 `sk-` 开头密钥。
   - q: Trae 能用 GLM / Qwen 等国产大模型吗？
     a: 可以。灵眸的国产大模型统一走 Anthropic 协议，配置方式与 Claude 完全一致，只需要把模型 ID 换成 `glm-5.2`、`qwen3.8-max-preview`、`deepseek-v4-pro` 等即可，服务商仍选 Anthropic、请求地址仍是 `/v1/messages`。

@@ -41,29 +41,81 @@ curl https://get.volta.sh | bash
 volta install node@20
 ```
 
-### 第3步：安装 ccman
-
-```bash
-volta install ccman
-```
-
-### 第4步：安装 Codex CLI
+### 第3步：安装 Codex CLI
 
 ```bash
 volta install @openai/codex
 ```
 
-### 第5步：运行 ccman 一键配置
+### 第4步：创建配置文件
+
+在服务器终端直接执行以下命令，一次性写入 `~/.codex/config.toml` 与 `~/.codex/auth.json`（**注意把 auth.json 中的密钥替换为后台生成的 `sk-` 开头密钥**）：
 
 ```bash
-ccman gmn1
+mkdir -p ~/.codex
+
+cat > ~/.codex/config.toml <<'EOF'
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+disable_response_storage = true
+sandbox_mode = "danger-full-access"
+windows_wsl_setup_acknowledged = true
+approval_policy = "never"
+file_opener = "vscode"
+model_provider = "codex"
+web_search = "cached"
+suppress_unstable_features_warning = true
+
+[history]
+persistence = "save-all"
+
+[tui]
+notifications = true
+
+[shell_environment_policy]
+inherit = "all"
+ignore_default_excludes = false
+
+[sandbox_workspace_write]
+network_access = true
+
+[features]
+plan_tool = true
+apply_patch_freeform = true
+view_image_tool = true
+unified_exec = false
+streamable_shell = false
+rmcp_client = true
+elevated_windows_sandbox = true
+
+[profiles.auto-max]
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+
+[profiles.review]
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[notice]
+hide_gpt5_1_migration_prompt = true
+
+[model_providers.codex]
+name = "codex"
+base_url = "https://api.lmuai.com"
+wire_api = "responses"
+requires_openai_auth = true
+EOF
+
+cat > ~/.codex/auth.json <<'EOF'
+{
+  "OPENAI_API_KEY": "这里填入后台生成的sk-开头的密钥"
+}
+EOF
 ```
 
-启动后按提示操作：
-1. **选择要配置的工具**（空格键选择，回车确认）
-2. **输入 API Key**：填入后台生成的 `sk-` 开头的密钥
+配置内容与 [Codex CLI（Mac/Linux）教程](./codex-cli-mac) 完全一致，也可以用 `vim` / `nano` 手动创建这两个文件。
 
-### 第6步：启动 Codex CLI
+### 第5步：启动 Codex CLI
 
 ```bash
 codex --dangerously-bypass-approvals-and-sandbox

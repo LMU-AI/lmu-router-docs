@@ -19,6 +19,25 @@ alternateNames:
   - 灵眸 AI FAQ
   - Claude / Codex API 常见报错
   - Claude API 排障指南
+faq:
+  - q: "Claude Code 报断流超时（stream disconnected before completion）怎么办？"
+    a: "通常是开启了魔法 / VPN / 系统代理，代理自动切换出口 IP 导致连接中断。灵眸网关部署在中国境内、国内直连，关闭所有代理后重试即可；同时检查本地网络是否频繁切换 Wi-Fi / 移动网络。"
+  - q: "报错 exceeded retry limit, last status: 429 Too Many Requests 是什么原因？"
+    a: "当日额度已用完。到「我的订阅」确认额度，如需增量请购买**不同规格**的套餐（如天卡换月卡），再到后台 API 密钥中切换到新套餐的分组。购买相同套餐是续期而非增量，不会增加当日额度。"
+  - q: "报错 401 Unauthorized: Incorrect API key provided 怎么排查？"
+    a: "说明请求仍走了 OpenAI 官方而非灵眸中转。依次检查：config.toml 与 auth.json 两个文件是否都已正确创建或替换；重启 VS Code / Cursor 等 IDE 重新加载配置；若此前用官方或其他平台登录过，先退出账号再重新配置。"
+  - q: "Windows 报「无法加载文件，因为在此系统上禁止运行脚本」怎么解决？"
+    a: "在 PowerShell 中执行 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser，然后关闭并重新打开一个新终端即可。"
+  - q: "Windows 提示 CODEX 无法识别为 cmdlet 怎么办？"
+    a: "Node.js 未安装或环境变量配置有问题。重新下载安装 Node.js 20 及以上版本，安装完成后重新打开终端。"
+  - q: "报错 503 No available accounts 是什么原因？"
+    a: "多半是 ~/.zshrc 或 ~/.bashrc 里配置了 ANTHROPIC_AUTH_TOKEN / ANTHROPIC_BASE_URL / ANTHROPIC_MODEL，这些全局变量会覆盖 IDE 工具里配置的 API Key。解决办法：从 shell 配置里删掉这几行，或把它们移到独立文件 ~/.claude_env，仅在启动 Claude Code CLI 时 source 加载。"
+  - q: "报错 400 Invalid signature in thinking block 是什么原因？"
+    a: "Claude 的 thinking block 带加密签名，与生成它的具体上游账号强绑定。在同一段对话里跨分组切换模型时，旧历史里的签名无法被新分组的上游验证，因此返回 400。解决办法：切换分组时新开一个对话，或同一会话固定使用一个分组。这类错误不可通过重试恢复。"
+  - q: "调用生图接口报 400 Unknown parameter: 'tools[0].n' 怎么办？"
+    a: "客户端把 tools 数组塞进了图像接口请求体。/v1/images/generations 与 /v1/images/edits 不支持工具调用，需整个删除 tools 字段；生成多张图请把数量放到顶层 n（仅 generations 支持，edits 不支持多张）。这是请求体不合法导致的错误，换账号或重试都无效。"
+  - q: "灵眸 API 需要科学上网吗？"
+    a: "不需要。灵眸接入网关部署在中国境内，api.lmuai.com 国内直连即可获得最快速度与最稳定的连接。反之挂着魔法或代理时，代理自动切换出口 IP 反而容易造成断流。"
 ---
 
 
@@ -179,6 +198,33 @@ Invalid `signature` in `thinking` block
 <Callout type="info" title="为什么重试也没用？">
 
 这类错误属于**签名不可恢复的 4xx 客户端错误**，网关识别到后会按透传规则直接把 400 返回给客户端，不会切换到其他账号自动重试——因为换任何一个非同源的上游账号都会得到同样的失败。
+
+</Callout>
+
+---
+
+## 问题 8：400 Unknown parameter: 'tools[0].n'（图像接口误传参数）
+
+**错误信息：**
+```
+400 - {'error': {'code': 'unknown_parameter', 'message': "Unknown parameter: 'tools[0].n'.", 'param': 'tools[0].n', 'type': 'invalid_request_error'}}
+```
+
+**触发接口：** `/v1/images/generations`、`/v1/images/edits`（图像生成 / 图像编辑）。
+
+**原因：** 客户端在调用图像接口时，把请求体里塞进了一个 `tools` 数组，且 `tools[0]` 里带了 `n` 字段。OpenAI 的图像端点**不接受 `tools` 参数**（工具调用是 Chat / Responses 接口的能力，图像接口没有这个概念），因此请求透传到上游后被直接拒绝，返回 400。
+
+常见起因是客户端 / SDK 封装有误，把「生成张数 `n`」放错了位置——错误地嵌进了 `tools[0].n`，或直接套用了 Chat 接口的参数模板。
+
+**解决方案：**
+
+1. **去掉请求体里的 `tools` 字段**——图像 `generations` / `edits` 不支持工具调用，这个字段应当整个删除。
+2. **生成多张图时，把数量放到顶层 `n`**——仅 `/v1/images/generations` 支持 `n`（一次生成多张）；`/v1/images/edits` 不支持多张，请去掉 `n`。
+3. **检查客户端 SDK 版本**——如果是封装库自动拼的参数，升级或更换 SDK，确认它没有把 Chat 接口的参数模板套用到图像接口上。
+
+<Callout type="info" title="换账号 / 重试为什么没用？">
+
+这是**请求体本身不合法**导致的 4xx 客户端错误，与上游账号、分组无关——网关把请求原样透传给上游，任何账号都会返回同样的 400。必须修正客户端发出的请求参数才能解决。
 
 </Callout>
 

@@ -1,32 +1,36 @@
 ---
 title: Claude Code CLI
-description: Claude Code CLI 接入灵眸 API 完整指南：settings.json 配置、指定模型、国产大模型调用、启用 Claude Opus 4.8 / Sonnet 5 的 1M 上下文（`[1M]` 后缀）与常见报错排查。
-ogDescription: Claude Code CLI 国内接入指南：通过灵眸 AI 配置 settings.json 中的 ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN，免代理使用 Claude 4 Opus / Sonnet 与国产大模型；一并说明如何用 ANTHROPIC_DEFAULT_OPUS_MODEL / ANTHROPIC_DEFAULT_SONNET_MODEL + `[1M]` 后缀启用 1M token 长上下文。
+description: Claude Code CLI 接入灵眸 API 完整指南：settings.json 配置、指定模型、国产大模型调用、启用 Claude Opus 5 / Sonnet 5 的 1M 上下文（`[1M]` 后缀）与常见报错排查。
+ogDescription: Claude Code CLI 国内接入指南：通过灵眸 AI 配置 settings.json 中的 ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN，免代理使用 Claude Opus 5 / Sonnet 5 与国产大模型；一并说明如何用 ANTHROPIC_DEFAULT_OPUS_MODEL / ANTHROPIC_DEFAULT_SONNET_MODEL + `[1M]` 后缀启用 1M token 长上下文。
 keywords:
-  - Claude Code CLI
-  - Claude Code 国内使用
-  - Claude Code 中转
+  - Claude Code CLI 国内使用
+  - Claude Code 中转配置
   - Claude Code settings.json
   - Claude Code 1M 上下文
-  - Claude Code 长上下文
-  - Claude Code 1M token
-  - claude-opus-4-8 1M
-  - claude-opus-4-7 1M
-  - claude-sonnet-5 1M
+  - claude-opus-5
+  - claude-sonnet-5
   - ANTHROPIC_BASE_URL
   - ANTHROPIC_AUTH_TOKEN
   - ANTHROPIC_DEFAULT_OPUS_MODEL
-  - ANTHROPIC_DEFAULT_SONNET_MODEL
-  - Claude Code 配置
-  - Claude Code 报错
   - Claude Code 国产模型
+  - Claude Code 报错排查
   - Claude Code 免代理
-  - Claude Code /model 命令
 alternateNames:
   - Claude Code 命令行接入灵眸
   - Claude Code CLI 中转配置
   - Claude Code 启用 1M 上下文
   - Claude Code 1M token 配置教程
+faq:
+  - q: Claude Code CLI 在国内怎么配置第三方 API？
+    a: "在 settings.json 的 env 段里配置 ANTHROPIC_BASE_URL 为 https://api.lmuai.com、ANTHROPIC_AUTH_TOKEN 为灵眸后台生成的 sk- 开头密钥即可，无需任何代理。也可以用 CC Switch 一键导入，省去手写配置文件。"
+  - q: Claude Code 怎么开启 1M token 长上下文？
+    a: "两种方式：临时用直接在会话里执行 /model claude-opus-5[1M]，退出后自动恢复；常态化使用则在 settings.json 的 env 段加 ANTHROPIC_DEFAULT_OPUS_MODEL 与 ANTHROPIC_DEFAULT_SONNET_MODEL，值带上 [1M] 后缀，之后选 opus / sonnet 时自动走 1M 版本。"
+  - q: 哪些模型支持 [1M] 后缀？
+    a: "claude-opus-5、claude-fable-5、claude-opus-4-8、claude-opus-4-7、claude-sonnet-5 等 Opus / Sonnet 主线模型支持；Haiku 系列以及更旧的模型不支持。1M 模式按 Anthropic 分档定价，单价高于默认 200K 模式，非必要不建议常开。"
+  - q: 怎么让 Claude Code 默认用国产模型？
+    a: "在 settings.json 顶层加 \"model\": \"qwen3.8-max-preview\"（或 glm-5.2、deepseek-v4-pro、kimi-k3 等），启动时自动加载，无需每次 /model 切换。国产模型建议同时设 \"effortLevel\": \"medium\"。"
+  - q: 报错 503 No available accounts 是什么原因？
+    a: "多半是 ~/.zshrc 或 ~/.bashrc 里配置了 ANTHROPIC_AUTH_TOKEN / ANTHROPIC_BASE_URL 等全局环境变量，覆盖了 settings.json 里的配置。把这几行从 shell 配置里删掉，或移到独立文件仅在启动 Claude Code 时 source 加载。"
 ---
 
 

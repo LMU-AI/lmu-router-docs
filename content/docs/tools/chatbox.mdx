@@ -1,33 +1,20 @@
 ---
 title: Chatbox
-description: Chatbox 全平台（Windows / macOS / Linux / iOS / Android / Web）接入灵眸 API：一份配置调用 Claude 4.x / GPT-5 / DeepSeek / Qwen / GLM，Anthropic 与 OpenAI 双协议兼容，国内直连免代理。
+description: Chatbox 全平台（Windows / macOS / Linux / iOS / Android / Web）接入灵眸 API：一份配置调用 Claude Opus 5 / Sonnet 5、GPT-5.6、DeepSeek、Qwen、GLM，Anthropic 与 OpenAI 双协议兼容，国内直连免代理。
 ogDescription: Chatbox 接入灵眸 AI：桌面与手机全平台 AI 对话客户端通过 Anthropic 或 OpenAI Responses 兼容协议调用 Claude Opus 5 / Sonnet 5、GPT-5.6、DeepSeek、Qwen、GLM 等最新模型，同一把 Key 双协议共用，国内直连、免代理、支持流式输出。
 keywords:
-  - Chatbox
-  - Chatbox Claude
-  - Chatbox GPT
-  - Chatbox GPT-5
-  - Chatbox Claude 4.8
   - Chatbox 配置 API
   - Chatbox 添加模型
-  - Chatbox 国内使用
-  - Chatbox 免代理
-  - Chatbox 直连
-  - Chatbox 自定义 API
-  - Chatbox 自定义提供方
-  - Chatbox Anthropic 兼容
-  - Chatbox OpenAI Responses
-  - Chatbox API 中转
-  - Chatbox API Host
-  - Chatbox iOS
-  - Chatbox Android
-  - Chatbox macOS
-  - Chatbox 手机版
-  - Chatbox DeepSeek
-  - Chatbox GLM
-  - Chatbox Qwen
-  - Chatbox Kimi
-  - Chatbox 401 403
+  - Chatbox API Host 填法
+  - Chatbox OpenAI Responses 协议
+  - Chatbox 手机版 API 配置
+  - Chatbox 国内直连免代理
+  - claude-opus-5
+  - claude-sonnet-5
+  - gpt-5.6-sol
+  - Chatbox 国产大模型
+  - Chatbox 401 403 排查
+  - Chatbox 双协议共用一把 Key
 alternateNames:
   - Chatbox 接入灵眸 AI
   - Chatbox 配置 Claude API
@@ -39,7 +26,7 @@ faq:
     a: 不要。Chatbox 的「API Host」字段一律填到域名为止 `https://api.lmuai.com`，Chatbox 会自动拼接 `/v1`——Anthropic 协议拼出 `/v1/messages`、OpenAI Responses 协议拼出 `/v1/responses`。若 Host 里多写了 `/v1`，会出现 `/v1/v1/...` 这种 404 路径。
   - q: OpenAI 协议为什么要选 Responses 而不是普通的 OpenAI API Compatible？
     a: Chatbox 的「OpenAI API Compatible」走的是旧的 `/chat/completions` 接口；灵眸的 OpenAI 协议采用更新的 Responses API（`/v1/responses`），因此需要选 **OpenAI Responses API Compatible**，API Path 填 `/responses`。
-  - q: Chatbox 模型列表里没有 Claude 4.8 或 GPT-5.5 怎么办？
+  - q: Chatbox 模型列表里没有 Claude Opus 5 或 GPT-5.6 怎么办？
     a: Chatbox 内置的预设模型列表更新有延迟，新模型需要在提供商配置里手动「添加模型」，输入对应模型 ID（如 `claude-opus-5`、`claude-sonnet-5`、`gpt-5.6-sol`）即可。完整可用模型见模型广场。
   - q: 改完配置不生效？
     a: 保存后建议重启一次 Chatbox 客户端，或在对话界面重新选择一次模型。手机版切换网络后有时也需要重启一次。
@@ -71,7 +58,7 @@ Chatbox 是一款支持多模型的 AI 对话客户端，覆盖 Windows / macOS 
 | 协议 | 适用模型 | API Host | API Path |
 |------|----------|----------|----------|
 | **Claude API（Anthropic 兼容）** | Claude 系列模型、国产模型（DeepSeek、Qwen、GLM、Kimi 等） | `https://api.lmuai.com` | 默认即可 |
-| **OpenAI Responses API Compatible** | OpenAI 系列模型（GPT-5、GPT-4.1 等） | `https://api.lmuai.com` | `/responses` |
+| **OpenAI Responses API Compatible** | OpenAI 系列模型（GPT-5.6 / GPT-5.5 等） | `https://api.lmuai.com` | `/responses` |
 
 <Callout type="info" title="API Host 都不带 /v1">
 
@@ -213,7 +200,7 @@ Chatbox 会自己拼接 `/v1`：
 
 Chatbox 的「OpenAI API Compatible」走的是旧的 `/chat/completions` 接口；灵眸的 OpenAI 协议采用更新的 **Responses API**（`/v1/responses`），所以这里要选 **OpenAI Responses API Compatible**，API Path 填 `/responses`。
 
-### Chatbox 模型列表里没有 Claude 4.8 / GPT-5.5？
+### Chatbox 模型列表里没有 Claude Opus 5 / GPT-5.6？
 
 Chatbox 内置的预设模型列表更新有延迟，新模型需要手动在提供商配置里「添加模型」，输入对应模型 ID 即可。可用模型见 [模型广场](../guide/models)。
 
