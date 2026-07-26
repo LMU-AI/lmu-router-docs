@@ -75,6 +75,11 @@ jobs:
         with:
           fetch-depth: 0
           ref: ${{ github.event.inputs.ref || github.ref }}
+          # 默认 true 会把 GITHUB_TOKEN 以 http.extraheader 写进 .git/config。
+          # 本 job 之后只做 docker build，不再需要 git 凭据；而 cache-to 用了
+          # mode=max（导出所有中间层到公开可读的 :buildcache），一旦 .git 因任何
+          # 原因进了构建上下文，凭据就会随缓存发到公网。这里从源头不写入。
+          persist-credentials: false
 
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4

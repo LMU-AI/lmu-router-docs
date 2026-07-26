@@ -2,13 +2,31 @@
 // 为什么不能直接用文件 mtime：Dockerfile 的 `COPY . .` 会把所有文件 mtime 重置成
 // 同一时刻，导致生产 sitemap 里 36 个 URL 共享同一个 lastmod —— 这比没有 lastmod
 // 更糟，Google 判定该字段不可信后会长期忽略它。
-// 挂在 build 前（npm run build），失败不阻塞构建：拿不到 git 就回落到 mtime。
+//
+// content-dates.json 随仓库提交，Docker 构建上下文里**没有** .git（.dockerignore
+// 屏蔽了，理由见那里的注释：CI 的 cache mode=max 会把 builder 层连同 .git 里的
+// GITHUB_TOKEN 一起发到公开 registry）。所以本脚本在无 git 时必须**保留**已提交的
+// JSON 而不是覆盖成空表 —— 否则 lastmod 会静默退回 mtime，正好是本文件要修的 bug。
+// 挂在 build 前（npm run build），任何情况下都不阻塞构建。
 import { execFileSync } from 'node:child_process';
-import { readdirSync, writeFileSync } from 'node:fs';
+import { existsSync, readdirSync, writeFileSync } from 'node:fs';
 import { join, relative } from 'node:path';
 
 const CONTENT_DIR = 'content/docs';
 const OUT = 'content-dates.json';
+
+// 没有 .git（Docker 构建上下文 / 打包下载的源码）就直接沿用已提交的 JSON。
+try {
+  execFileSync('git', ['rev-parse', '--git-dir'], { stdio: 'ignore' });
+} catch {
+  const kept = existsSync(OUT);
+  console.log(
+    kept
+      ? `✓ 无 git 仓库，沿用已提交的 ${OUT}（未覆盖）`
+      : `! 无 git 仓库且缺 ${OUT}，lastmod 将回落到 mtime`,
+  );
+  process.exit(0);
+}
 
 function* walk(dir) {
   for (const entry of readdirSync(dir, { withFileTypes: true })) {

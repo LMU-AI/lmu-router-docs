@@ -2,6 +2,12 @@ node_modules
 .next
 out
 .source
+# .git 绝不能进构建上下文：CI 的 actions/checkout 默认 persist-credentials=true，
+# 会把 GITHUB_TOKEN 以 http.extraheader 写进 .git/config；而 workflow 的
+# cache-to 是 mode=max，会把 builder 的每一层（含 COPY . .）导出到公开可读的
+# :buildcache tag —— 等于把带 contents:write 权限的 token 发到公网。
+# lastmod 不依赖 .git：content-dates.json 已随仓库提交，见下方 build 脚本说明。
+.git
 .gitignore
 .env*
 npm-debug.log*

@@ -1,8 +1,9 @@
 FROM node:22-alpine AS builder
 WORKDIR /app
-# git：构建期由 scripts/build-content-dates.mjs 读取每篇文档的最后提交时间。
-# COPY . . 会把所有 mtime 重置成同一时刻，只靠 mtime 会让全站 sitemap lastmod 相同。
-RUN apk add --no-cache git
+# 刻意不装 git、也不把 .git 放进构建上下文（见 .dockerignore）：
+# CI 的 cache-to 是 mode=max，会把 builder 的每一层导出到公开可读的 :buildcache，
+# 而 actions/checkout 默认把 GITHUB_TOKEN 写进 .git/config —— 那等于公网发凭据。
+# sitemap 的 lastmod 改由随仓库提交的 content-dates.json 提供，不需要构建期读 git。
 COPY package*.json ./
 COPY patches ./patches
 RUN npm ci
