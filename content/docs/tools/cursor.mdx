@@ -56,7 +56,7 @@ alternateNames:
   - Cursor 自定义 OpenAI 兼容接口
 faq:
   - q: Cursor 如何配置第三方 API？
-    a: 步骤如下 —— 打开 Settings（Cmd/Ctrl + Shift + J）→ 左侧 Models → 关闭内置默认模型 → Add Model 输入自定义模型 ID（如 `claude-opus-4-8`、`gpt-5.4`、`glm-5.1`）→ 打开 OpenAI API Key 并填入 `sk-` 开头密钥 → 打开 Override OpenAI Base URL 并填 `https://api.lmuai.com/v1` → 点 Verify 校验 → 按 Cmd/Ctrl + L 打开 Chat 面板切换到该模型使用。注意：**仅 Chat / Plan 面板走第三方 API**，Composer / Tab 自动补全等 Cursor 原生功能仍走官方后端。
+    a: 步骤如下 —— 打开 Settings（Cmd/Ctrl + Shift + J）→ 左侧 Models → 关闭内置默认模型 → Add Model 输入自定义模型 ID（如 `claude-opus-5`、`gpt-5.6-sol`、`glm-5.2`）→ 打开 OpenAI API Key 并填入 `sk-` 开头密钥 → 打开 Override OpenAI Base URL 并填 `https://api.lmuai.com/v1` → 点 Verify 校验 → 按 Cmd/Ctrl + L 打开 Chat 面板切换到该模型使用。注意：**仅 Chat / Plan 面板走第三方 API**，Composer / Tab 自动补全等 Cursor 原生功能仍走官方后端。
   - q: Cursor 支持哪种第三方 API 协议？
     a: 只支持 **OpenAI 兼容协议**（`/v1/chat/completions`），通过 Settings → Models 的 Override OpenAI Base URL 覆盖。目前没有原生「Override Anthropic Base URL」开关；想在 Chat 面板用 Claude 系列模型，请把 Claude 模型 ID 作为自定义模型添加走 OpenAI 兼容接口，灵眸后端会做 OpenAI ↔ Anthropic 协议转换。
   - q: Cursor 用第三方中转站会不会更省钱？
@@ -64,13 +64,13 @@ faq:
   - q: Cursor 能用第三方中转 API 吗？
     a: 能，但**只对 Chat / Plan 面板生效**。Cursor 的 Settings → Models 里有「Override OpenAI Base URL」开关，开启后 Chat / Plan 面板（Cmd/Ctrl + L）的请求会走第三方中转；Composer / Tab 自动补全 / Apply / Inline Edit 等 Cursor 原生 Agent 功能仍锁在 Cursor 官方后端，不受影响。
   - q: 想在 Cursor 里用 Claude / GLM / Qwen 怎么办？
-    a: 打开 Settings → Models（Cmd/Ctrl + Shift + J）→ 添加自定义模型（模型 ID 填 `claude-opus-4-8` / `claude-sonnet-4-6` / `glm-5.1` 等）→ 开启 Override OpenAI Base URL → Base URL 填 `https://api.lmuai.com/v1` → API Key 填灵眸后台生成的 `sk-` 开头密钥。
+    a: 打开 Settings → Models（Cmd/Ctrl + Shift + J）→ 添加自定义模型（模型 ID 填 `claude-opus-5` / `claude-sonnet-5` / `glm-5.2` 等）→ 开启 Override OpenAI Base URL → Base URL 填 `https://api.lmuai.com/v1` → API Key 填灵眸后台生成的 `sk-` 开头密钥。
   - q: 开启 Override OpenAI Base URL 之后 Cursor 内置的 Claude 3.5 突然用不了？
-    a: 这是 Cursor 已知的路由冲突——开启 OpenAI Base URL 覆盖后 Cursor 内置的 Anthropic 分支会被打断。想在 Chat 面板继续用 Claude，把 Claude 模型 ID（如 `claude-opus-4-8`）作为自定义模型添加即可，灵眸后端会做 OpenAI ↔ Anthropic 的协议转换。
+    a: 这是 Cursor 已知的路由冲突——开启 OpenAI Base URL 覆盖后 Cursor 内置的 Anthropic 分支会被打断。想在 Chat 面板继续用 Claude，把 Claude 模型 ID（如 `claude-opus-5`）作为自定义模型添加即可，灵眸后端会做 OpenAI ↔ Anthropic 的协议转换。
   - q: Cursor 里 Composer / Tab 自动补全能走灵眸吗？
     a: 不能。Cursor 的 Composer、Tab 自动补全、Apply、Inline Edit 等核心 Agent 功能锁在 Cursor 官方后端，第三方中转无法接管。想要"全能力"体验用灵眸，请在 Cursor 里改装 [Codex 官方插件](./vscode-plugin) 或 [Claude Code for VS Code 插件](./claude-code-vscode)（Cursor 兼容 VS Code 插件市场）。
   - q: 添加模型时 Verify 校验失败？
-    a: 常见——非 OpenAI 官方模型名（如 `claude-opus-4-8`、`glm-5.1`）通不过 Cursor 的连接验证。变通做法：先加一个 `gpt-4` 之类 OpenAI 官方名过 Verify（确认 Base URL + Key 联通），再单独添加要用的自定义模型 ID，Verify 会给警告但**实际运行没问题**。
+    a: 常见——非 OpenAI 官方模型名（如 `claude-opus-5`、`glm-5.2`）通不过 Cursor 的连接验证。变通做法：先加一个 `gpt-4` 之类 OpenAI 官方名过 Verify（确认 Base URL + Key 联通），再单独添加要用的自定义模型 ID，Verify 会给警告但**实际运行没问题**。
   - q: Base URL 要不要带 `/v1`？
     a: 要带。填 `https://api.lmuai.com/v1`，Cursor 会自动拼 `/chat/completions`，最终请求 `https://api.lmuai.com/v1/chat/completions`。漏 `/v1` 会 404。
   - q: Cursor 用灵眸需要科学上网吗？
@@ -106,14 +106,13 @@ Cursor 内置了很多默认模型（GPT-4 / Claude-3.5 等），保留启用会
 
 点 **Add Model**，输入你要用的灵眸模型 ID，例如：
 
-- `claude-opus-4-8`
+- `claude-opus-5`
 - `claude-sonnet-5`
-- `claude-sonnet-4-6`
-- `gpt-5.5`
-- `gpt-5.4`
-- `glm-5.1`
-- `qwen3.7-max`
+- `gpt-5.6-sol`
+- `glm-5.2`
+- `qwen3.8-max-preview`
 - `deepseek-v4-pro`
+- `kimi-k3`
 
 **每个模型都要 Add 一次**。完整可用模型见 [模型广场](../guide/models)。
 
@@ -132,7 +131,7 @@ Cursor 内置了很多默认模型（GPT-4 / Claude-3.5 等），保留启用会
 
 <Callout type="info" title="Verify 校验失败也不代表配错">
 
-Cursor 的 Verify 会用你填的**模型名**去校验一次，非 OpenAI 官方名（`claude-opus-4-8`、`glm-5.1` 等）会通不过。变通做法：**先添加一个 `gpt-4` 过 Verify**（确认 Base URL + Key 联通），再单独添加要用的自定义模型 ID，Verify 会给警告但实际运行没问题。
+Cursor 的 Verify 会用你填的**模型名**去校验一次，非 OpenAI 官方名（`claude-opus-5`、`glm-5.2` 等）会通不过。变通做法：**先添加一个 `gpt-4` 过 Verify**（确认 Base URL + Key 联通），再单独添加要用的自定义模型 ID，Verify 会给警告但实际运行没问题。
 
 </Callout>
 
@@ -146,16 +145,18 @@ Cursor 的 Verify 会用你填的**模型名**去校验一次，非 OpenAI 官�
 
 | 模型 ID | 说明 |
 |------|------|
-| `claude-opus-4-8` | Claude Opus 4.8（旗舰） |
+| `claude-opus-5` | Claude Opus 5（旗舰，推荐） |
 | `claude-sonnet-5` | Claude Sonnet 5（平衡） |
-| `claude-sonnet-4-6` | Claude Sonnet 4.6（平衡） |
 | `claude-haiku-4-5` | Claude Haiku 4.5（高速） |
-| `gpt-5.5` | GPT-5.5 |
-| `gpt-5.4` | GPT-5.4 |
-| `glm-5.1` | 智谱 GLM-5.1 |
-| `qwen3.7-max` | 通义千问 3.7 Max |
+| `gpt-5.6-sol` | GPT-5.6 Sol |
+| `glm-5.2` | 智谱 GLM-5.2 |
+| `qwen3.8-max-preview` | 通义千问 3.8 Max Preview |
 | `deepseek-v4-pro` | DeepSeek V4 Pro |
-| `kimi-k2.6` | Kimi K2.6 |
+| `kimi-k3` | Kimi K3 |
+| `claude-opus-4-8` | Claude Opus 4.8（上一代） |
+| `claude-sonnet-4-6` | Claude Sonnet 4.6（上一代） |
+| `gpt-5.5` | GPT-5.5（上一代） |
+| `glm-5.1` | 智谱 GLM-5.1（上一代） |
 
 完整清单见 [模型广场](../guide/models)。
 
@@ -178,7 +179,7 @@ Cursor 兼容 VS Code 插件市场，两个插件都可以直接在 Cursor 里�
 
 ### 开启 Override 后内置 Claude 3.5 突然报错？
 
-这是 Cursor 已知的路由冲突 —— 开启 OpenAI Base URL 覆盖会打断 Anthropic 分支。想在 Chat 面板继续用 Claude，把 Claude 模型 ID（`claude-opus-4-8` 等）作为自定义模型添加即可，灵眸后端会做 OpenAI ↔ Anthropic 协议转换。
+这是 Cursor 已知的路由冲突 —— 开启 OpenAI Base URL 覆盖会打断 Anthropic 分支。想在 Chat 面板继续用 Claude，把 Claude 模型 ID（`claude-opus-5` 等）作为自定义模型添加即可，灵眸后端会做 OpenAI ↔ Anthropic 协议转换。
 
 ### 报错 401 / 403？
 

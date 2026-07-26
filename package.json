@@ -6,6 +6,7 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
+    "check:models": "node scripts/check-model-refs.mjs",
     "postinstall": "patch-package"
   },
   "dependencies": {

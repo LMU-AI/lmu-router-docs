@@ -189,7 +189,7 @@ Claude Opus 4.8 / Sonnet 5 支持 **1M token 长上下文窗口**（默认为 20
 **保留最简 settings.json**（只有 `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN`），启动 Claude Code 后直接在对话框输入：
 
 ```
-/model claude-opus-4-8[1M]
+/model claude-opus-5[1M]
 ```
 
 或：
@@ -209,7 +209,7 @@ Claude Opus 4.8 / Sonnet 5 支持 **1M token 长上下文窗口**（默认为 20
   "env": {
     "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
     "ANTHROPIC_AUTH_TOKEN": "sk-你的灵眸API密钥",
-    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-4-8[1M]",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5[1M]",
     "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5[1M]",
     "API_TIMEOUT_MS": "3000000",
     "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
@@ -230,7 +230,7 @@ Claude Opus 4.8 / Sonnet 5 支持 **1M token 长上下文窗口**（默认为 20
 <Callout type="warn" title="使用注意">
 
 - **计费不同**：1M 上下文模式按 Anthropic 分档定价，每 token 单价通常**高于默认 200K 模式**，长文本任务开销会显著上涨，非必要不常开
-- **仅部分模型支持**：`claude-opus-4-8`、`claude-opus-4-7`、`claude-sonnet-5` 等 Opus / Sonnet 主线模型支持 `[1M]` 后缀；Haiku 系列以及更旧的模型不支持。具体以 [模型广场](../guide/models) 的可用清单为准
+- **仅部分模型支持**：`claude-opus-5`、`claude-fable-5`、`claude-opus-4-8`、`claude-opus-4-7`、`claude-sonnet-5` 等 Opus / Sonnet 主线模型支持 `[1M]` 后缀；Haiku 系列以及更旧的模型不支持。具体以 [模型广场](../guide/models) 的可用清单为准
 - **偶尔用一次**选方式 A、**常态化使用**选方式 B —— 两种方式二选一即可
 
 </Callout>
@@ -248,7 +248,7 @@ Claude Opus 4.8 / Sonnet 5 支持 **1M token 长上下文窗口**（默认为 20
     "ANTHROPIC_AUTH_TOKEN": "sk-你的灵眸API密钥",
     "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
   },
-  "model": "qwen3.6-plus",
+  "model": "qwen3.8-max-preview",
   "effortLevel": "medium"
 }
 ```
@@ -263,8 +263,11 @@ Claude Opus 4.8 / Sonnet 5 支持 **1M token 长上下文窗口**（默认为 20
 
 <Callout type="info" title="支持的国产模型（示例）">
 
-- `qwen3.6-plus` — 通义千问 3.6 Plus
-- `qwen3-235b-a22b` — 通义千问 3 旗舰版
+- `qwen3.8-max-preview` — 通义千问 3.8 Max Preview（最新）
+- `qwen3.7-max` — 通义千问 3.7 Max
+- `glm-5.2` — 智谱 GLM-5.2
+- `deepseek-v4-pro` — DeepSeek V4 Pro
+- `kimi-k3` — Kimi K3
 
 具体可用模型以灵眸后台「可用模型」列表为准。
 

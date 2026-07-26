@@ -54,7 +54,7 @@ alternateNames:
   - Trae BYOK 自带 API Key 配置
 faq:
   - q: Trae 如何配置第三方 API？
-    a: 步骤如下 —— 打开 Trae 设置 → 模型 → 添加模型 → 服务商选 **Anthropic** → 模型选「自定义模型」并输入模型 ID（如 `claude-opus-4-8`、`glm-5.1`）→ 自定义请求地址填 `https://api.lmuai.com/v1/messages` → API 密钥填灵眸后台的 `sk-` 开头密钥 → 保存。整个流程 GUI 里完成，**无需安装任何插件、无需写配置文件**，是所有编辑器里最简单的第三方 API 接入方式。
+    a: 步骤如下 —— 打开 Trae 设置 → 模型 → 添加模型 → 服务商选 **Anthropic** → 模型选「自定义模型」并输入模型 ID（如 `claude-opus-5`、`glm-5.2`）→ 自定义请求地址填 `https://api.lmuai.com/v1/messages` → API 密钥填灵眸后台的 `sk-` 开头密钥 → 保存。整个流程 GUI 里完成，**无需安装任何插件、无需写配置文件**，是所有编辑器里最简单的第三方 API 接入方式。
   - q: Trae 支持哪种第三方 API 协议？
     a: 支持 **Anthropic 兼容协议**（`/v1/messages`）—— Trae 内置的服务商选择里选 Anthropic 即可。灵眸的 Claude、GLM、Qwen、DeepSeek、Kimi 等模型全部走 Anthropic 协议，配置方式完全一致，只需要切换模型 ID。
   - q: Trae 用第三方中转站比装 Codex 插件方式好在哪里？
@@ -64,9 +64,9 @@ faq:
   - q: Trae 用原生方式和装 Codex 插件方式有什么区别？
     a: Codex 插件走 OpenAI 协议、需要手写 config.toml 与 auth.json 文件；Trae 原生方式走 Anthropic 协议，只需要 GUI 里填服务商 / 地址 / Key。想用 Claude 或国产模型选原生方式更简单；想用 GPT / Codex 系列则用插件方式。两种方式可以共存。
   - q: Trae 里怎么用 Claude Opus 4？
-    a: 设置 → 模型 → 添加模型 → 服务商选 Anthropic → 模型选「自定义模型」→ 模型 ID 填 `claude-opus-4-8`（或 `claude-opus-4-7`）→ 自定义请求地址填 `https://api.lmuai.com/v1/messages` → API 密钥填灵眸后台生成的 `sk-` 开头密钥。
+    a: 设置 → 模型 → 添加模型 → 服务商选 Anthropic → 模型选「自定义模型」→ 模型 ID 填 `claude-opus-5`（或 `claude-sonnet-5`）→ 自定义请求地址填 `https://api.lmuai.com/v1/messages` → API 密钥填灵眸后台生成的 `sk-` 开头密钥。
   - q: Trae 能用 GLM / Qwen 等国产大模型吗？
-    a: 可以。灵眸的国产大模型统一走 Anthropic 协议，配置方式与 Claude 完全一致，只需要把模型 ID 换成 `glm-5.1`、`qwen3.6-plus`、`deepseek-v4-pro` 等即可，服务商仍选 Anthropic、请求地址仍是 `/v1/messages`。
+    a: 可以。灵眸的国产大模型统一走 Anthropic 协议，配置方式与 Claude 完全一致，只需要把模型 ID 换成 `glm-5.2`、`qwen3.8-max-preview`、`deepseek-v4-pro` 等即可，服务商仍选 Anthropic、请求地址仍是 `/v1/messages`。
   - q: 请求地址结尾为什么要带 /v1/messages？
     a: Trae 的「自定义请求地址」需要填**完整端点**（不像 Chatbox 等工具会自动拼路径）。Anthropic 协议对话端点固定是 `/v1/messages`，所以完整地址是 `https://api.lmuai.com/v1/messages`。
   - q: Trae 添加模型后不生效 / 报错怎么办？
@@ -116,21 +116,24 @@ faq:
 
 | 模型 ID | 说明 |
 |------|------|
-| `claude-opus-4-8` | Claude Opus 4.8（旗舰版） |
-| `claude-opus-4-7` | Claude Opus 4.7 |
+| `claude-opus-5` | Claude Opus 5（旗舰版，推荐） |
 | `claude-sonnet-5` | Claude Sonnet 5（平衡） |
-| `claude-sonnet-4-6` | Claude Sonnet 4.6（平衡） |
 | `claude-haiku-4-5` | Claude Haiku 4.5（高速） |
+| `claude-opus-4-8` | Claude Opus 4.8（上一代） |
+| `claude-opus-4-7` | Claude Opus 4.7（上一代） |
+| `claude-sonnet-4-6` | Claude Sonnet 4.6（上一代） |
 
 **国产大模型**（需选「自定义模型」手动输入 ID）
 
 | 模型 ID | 说明 |
 |------|------|
-| `glm-5.1` | 智谱 GLM-5.1 |
-| `qwen3.7-max` | 通义千问 3.7 Max |
-| `qwen3.6-plus` | 通义千问 3.6 Plus |
+| `glm-5.2` | 智谱 GLM-5.2 |
+| `qwen3.8-max-preview` | 通义千问 3.8 Max Preview |
 | `deepseek-v4-pro` | DeepSeek V4 Pro |
-| `kimi-k2.6` | Kimi K2.6 |
+| `kimi-k3` | Kimi K3 |
+| `glm-5.1` | 智谱 GLM-5.1（上一代） |
+| `qwen3.7-max` | 通义千问 3.7 Max |
+| `kimi-k2.6` | Kimi K2.6（上一代） |
 
 具体可用模型以灵眸后台「可用模型」列表为准，完整清单见 [模型广场](../guide/models)。
 
