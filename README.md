@@ -35,6 +35,10 @@
 | Cherry Studio | 桌面 AI 助手 | [查看文档](https://docs.lmuai.com/docs/tools/cherry) |
 | IntelliJ IDEA (Kilo Code) | JetBrains 插件 | [查看文档](https://docs.lmuai.com/docs/tools/kilo-code-idea) |
 | CC Switch | 一键导入配置 | [查看文档](https://docs.lmuai.com/docs/tools/cc-switch) |
+| Gemini 生图 API | Gemini 原生文生图 / 图生图 | [查看文档](https://docs.lmuai.com/docs/api/gemini-image) |
+| GPT 生图 API | `gpt-image-2` 文生图 / 图片编辑 | [查看文档](https://docs.lmuai.com/docs/api/gpt-image) |
+| Grok 生图 API | Grok 文生图 / 图片编辑 | [查看文档](https://docs.lmuai.com/docs/api/grok-image) |
+| Gemini 批量生图 API | Gemini 异步多任务 | [查看文档](https://docs.lmuai.com/docs/api/gemini-image-batch) |
 
 ---
 

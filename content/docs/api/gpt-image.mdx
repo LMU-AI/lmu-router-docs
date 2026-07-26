@@ -1,0 +1,293 @@
+---
+title: GPT 生图 API
+description: 使用灵眸 OpenAI Images 兼容接口调用 gpt-image-2，覆盖文生图、图片编辑、参数说明、Base64 图片保存、模型查询和错误排查。
+ogDescription: 灵眸 GPT 生图 API 接入指南：POST /v1/images/generations 文生图，POST /v1/images/edits 图片编辑，使用 gpt-image-2 并解析 Base64 图片结果。
+keywords:
+  - GPT 生图 API
+  - gpt-image-2 API
+  - OpenAI Images API
+  - images generations
+  - images edits
+  - GPT 图片编辑
+  - 灵眸 GPT 图片生成
+alternateNames:
+  - GPT 图片生成接口
+  - OpenAI Images 兼容接口
+faq:
+  - q: GPT 生图调用哪个端点？
+    a: 文生图调用 POST /v1/images/generations，图片编辑调用 POST /v1/images/edits。OpenAI SDK 的 base_url 填 https://api.lmuai.com/v1。
+  - q: 当前推荐使用哪个 GPT 图片模型？
+    a: 使用 GET /v1/models 查询当前 API Key；当前 GPT 图片分组可使用 gpt-image-2，调用时建议显式填写 model。
+  - q: GPT 图片结果是 URL 还是 Base64？
+    a: gpt-image-2 通常在 data[].b64_json 中返回 Base64 图片。客户端也应兼容检查 data[].url，以适配不同渠道。
+  - q: GPT 可以调用 /v1/images/batches 吗？
+    a: 当前不能。/v1/images/batches 目前仅支持 Gemini 批量任务。
+---
+
+灵眸提供 OpenAI Images 兼容接口，可使用 `gpt-image-2` 完成**文生图**和**图片编辑 / 图生图**。
+
+<Callout type="info" title="Base URL">
+
+OpenAI SDK：
+
+```text
+https://api.lmuai.com/v1
+```
+
+手写 HTTP 请求时使用完整端点：
+
+```text
+POST https://api.lmuai.com/v1/images/generations
+POST https://api.lmuai.com/v1/images/edits
+```
+
+</Callout>
+
+## 1. 接口总览
+
+| 方法 | 路径 | Content-Type | 说明 |
+|---|---|---|---|
+| `GET` | `/v1/models` | — | 查询当前 API Key 可用模型 |
+| `POST` | `/v1/images/generations` | `application/json` | GPT 文生图，同步返回 |
+| `POST` | `/v1/images/edits` | `multipart/form-data` | GPT 图片编辑 / 图生图，同步返回 |
+
+<Callout type="warn" title="当前没有 GPT 多条目批量接口">
+
+`/v1/images/batches` 当前仅支持 Gemini，不能提交 `gpt-image-2`。如果需要生成多张 GPT 图片，请由客户端逐次请求并自行控制并发和 RPM。
+
+生产环境当前也未开启异步图片任务端点，请以本页两个同步接口为准。
+
+</Callout>
+
+## 2. 鉴权
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+不要把 API Key 放在浏览器前端、公开仓库、URL Query 或日志中。建议由自己的服务端调用。
+
+## 3. 查询模型
+
+```bash
+curl https://api.lmuai.com/v1/models \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+从响应的 `data[].id` 中查找图片模型，例如：
+
+```json
+{
+  "object": "list",
+  "data": [
+    {"id": "gpt-image-2", "object": "model"}
+  ]
+}
+```
+
+模型列表由 API Key 所属分组决定。同一个站点上的不同 API Key，返回的模型可能不同。
+
+## 4. 文生图
+
+### `POST /v1/images/generations`
+
+```bash
+curl https://api.lmuai.com/v1/images/generations \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-image-2",
+    "prompt": "一只红色陶瓷杯，居中放置在浅灰色摄影棚背景中，柔和侧光，无文字",
+    "n": 1,
+    "size": "1024x1024",
+    "quality": "low",
+    "output_format": "png"
+  }'
+```
+
+### Python SDK
+
+```python
+from openai import OpenAI
+import base64
+
+client = OpenAI(
+    api_key="YOUR_API_KEY",
+    base_url="https://api.lmuai.com/v1",
+)
+
+result = client.images.generate(
+    model="gpt-image-2",
+    prompt="一只红色陶瓷杯，浅灰色摄影棚背景，柔和侧光，无文字",
+    size="1024x1024",
+    quality="low",
+)
+
+item = result.data[0]
+
+if item.b64_json:
+    with open("gpt-output.png", "wb") as f:
+        f.write(base64.b64decode(item.b64_json))
+elif item.url:
+    print(item.url)
+else:
+    raise RuntimeError("响应中没有有效图片")
+```
+
+### JavaScript
+
+```javascript
+import OpenAI from "openai";
+import fs from "node:fs";
+
+const client = new OpenAI({
+  apiKey: process.env.LMU_API_KEY,
+  baseURL: "https://api.lmuai.com/v1",
+});
+
+const result = await client.images.generate({
+  model: "gpt-image-2",
+  prompt: "一只红色陶瓷杯，浅灰色摄影棚背景，柔和侧光，无文字",
+  size: "1024x1024",
+  quality: "low",
+  output_format: "png",
+});
+
+const item = result.data?.[0];
+if (item?.b64_json) {
+  fs.writeFileSync("gpt-output.png", Buffer.from(item.b64_json, "base64"));
+} else if (item?.url) {
+  console.log(item.url);
+} else {
+  throw new Error("响应中没有有效图片");
+}
+```
+
+## 5. 文生图参数
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---:|---:|---|
+| `model` | string | 建议填写 | 当前使用 `gpt-image-2` |
+| `prompt` | string | 是 | 图片描述 |
+| `n` | integer | 否 | 图片数量；可用范围由模型和上游渠道决定 |
+| `size` | string | 否 | 请求尺寸，例如 `1024x1024`；实际像素尺寸以返回图片为准 |
+| `quality` | string | 否 | 质量档位，例如 `low`、`medium`、`high`；以模型能力为准 |
+| `background` | string | 否 | 背景设置，例如透明背景；以模型能力为准 |
+| `output_format` | string | 否 | `png`、`jpeg`、`webp` 等；以模型能力为准 |
+| `output_compression` | integer | 否 | JPEG / WebP 等格式的压缩质量 |
+| `response_format` | string | 否 | 兼容响应格式参数；客户端仍应同时检查 `b64_json` 和 `url` |
+| `moderation` | string | 否 | 内容审核参数，以模型能力为准 |
+| `stream` | boolean | 否 | 流式图片响应开关；普通服务端调用建议使用非流式 |
+| `partial_images` | integer | 否 | 流式场景的阶段图片数量，以模型能力为准 |
+
+<Callout type="warn" title="size 不是强制裁切保证">
+
+不同上游账号和图片后端可能对 `size` 做能力映射或归一化。即使请求 `1024x1024`，实际图片像素也可能不同。需要固定比例或像素时，请读取输出文件尺寸，并在业务侧进行裁切或缩放。
+
+</Callout>
+
+## 6. 图片编辑 / 图生图
+
+### `POST /v1/images/edits`
+
+GPT 图片编辑使用 `multipart/form-data`：
+
+```bash
+curl https://api.lmuai.com/v1/images/edits \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -F "model=gpt-image-2" \
+  -F "prompt=保留杯子的形状、构图和光线，把杯子从红色改成绿色，无文字" \
+  -F "image=@./input.png" \
+  -F "size=1024x1024" \
+  -F "quality=low" \
+  -F "output_format=png"
+```
+
+Python SDK：
+
+```python
+from openai import OpenAI
+import base64
+
+client = OpenAI(
+    api_key="YOUR_API_KEY",
+    base_url="https://api.lmuai.com/v1",
+)
+
+with open("input.png", "rb") as image_file:
+    result = client.images.edit(
+        model="gpt-image-2",
+        image=image_file,
+        prompt="保留主体和构图，把背景改成雨夜霓虹街道",
+        size="1024x1024",
+        quality="low",
+    )
+
+item = result.data[0]
+if item.b64_json:
+    with open("gpt-edited.png", "wb") as f:
+        f.write(base64.b64decode(item.b64_json))
+```
+
+如模型和渠道支持遮罩编辑，可增加：
+
+```bash
+-F "mask=@./mask.png"
+```
+
+编辑接口还可接受 `input_fidelity`、`background`、`output_format`、`output_compression` 等参数，具体效果由模型能力决定。
+
+## 7. 响应格式
+
+典型 GPT 图片响应：
+
+```json
+{
+  "created": 1760000000,
+  "data": [
+    {
+      "b64_json": "iVBORw0KGgoAAA..."
+    }
+  ],
+  "background": "opaque",
+  "output_format": "png",
+  "quality": "low",
+  "size": "1024x1024",
+  "model": "gpt-image-2",
+  "usage": {
+    "input_tokens": 48,
+    "output_tokens": 186,
+    "total_tokens": 234
+  }
+}
+```
+
+客户端应执行三层校验：
+
+1. HTTP 状态码是否为 `2xx`；
+2. `data` 是否为非空数组；
+3. `data[]` 中是否存在非空 `b64_json` 或 `url`。
+
+HTTP 200 但没有有效图片字段时，应按业务失败处理。
+
+## 8. 常见错误
+
+| HTTP | 常见原因 | 处理建议 |
+|---:|---|---|
+| `400` | 请求体、图片格式、参数或模型错误 | 检查 JSON / multipart、字段名和模型 ID |
+| `401` | API Key 无效 | 检查 Bearer 头，不要在 Key 前后加入空格 |
+| `403` | API Key 所属分组未开启图片生成 | 联系管理员检查分组图片权限 |
+| `404` | 路径错误或图片接口不支持当前分组 | 确认使用 `/v1/images/generations` 或 `/v1/images/edits` |
+| `429` | 并发、RPM 或上游额度受限 | 指数退避，并降低并发和 RPM |
+| `5xx` | 上游或中转暂时不可用 | 记录请求 ID，进行有限次数重试 |
+
+排查时请保存响应头中的请求 ID，并提供给管理员；不要发送完整 API Key。
+
+## 9. 与其他图片接口的区别
+
+| 需求 | 推荐文档 |
+|---|---|
+| Gemini 原生文生图、图生图、1K / 2K / 4K | [Gemini 生图 API](/docs/api/gemini-image) |
+| GPT 文生图和编辑 | 本页 |
+| Grok 文生图和编辑 | [Grok 生图 API](/docs/api/grok-image) |
+| 一次提交多条 Gemini 提示词 | [Gemini 批量生图 API](/docs/api/gemini-image-batch) |

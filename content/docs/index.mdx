@@ -37,15 +37,29 @@ faq:
 ## 快速导航
 
 - [快速开始](/docs/guide/getting-started) — 注册、兑换套餐、创建 API 密钥
-- [接入协议](/docs/guide/api-protocols) — Anthropic / OpenAI 两套 Base URL 速查，避免协议填错
+- [接入协议](/docs/guide/api-protocols) — Anthropic / OpenAI / Gemini 原生协议速查，避免端点填错
 - [模型广场](/docs/guide/models) — 全部可用模型 ID，一键复制
 - [常见问题](/docs/guide/faq) — 常见报错与解决方案
+- [Gemini 生图 API](/docs/api/gemini-image) — Gemini 原生文生图、图生图、1K / 2K / 4K
+- [GPT 生图 API](/docs/api/gpt-image) — `gpt-image-2` 文生图和图片编辑
+- [Grok 生图 API](/docs/api/grok-image) — Grok 文生图、URL / Base64 图生图
+- [Gemini 批量生图 API](/docs/api/gemini-image-batch) — Gemini 多提示词异步批次、状态查询和 ZIP 下载
 
 ## 服务保障
 
 - [稳定性架构](/docs/guide/reliability) — 多源路由、故障转移、状态页
 - [数据与隐私](/docs/guide/privacy) — 不留存请求内容，账户数据仅在中国国内
 - [企业方案](/docs/enterprise) — 团队 / 业务 / 旗舰 / 定制四档企业套餐
+
+## 开放 API
+
+| API | 用途 |
+|------|------|
+| [Gemini 生图 API](/docs/api/gemini-image) | Gemini 原生文生图、图生图，支持 1K / 2K / 4K |
+| [GPT 生图 API](/docs/api/gpt-image) | `gpt-image-2` 文生图和图片编辑，通常返回 Base64 |
+| [Grok 生图 API](/docs/api/grok-image) | Grok 文生图和图片编辑，通常返回临时图片 URL |
+| [Gemini 批量生图 API](/docs/api/gemini-image-batch) | 当前仅 Gemini；异步提交多条提示词，查询明细，下载单图或 ZIP |
+| [导出 Usage 使用明细](/docs/api/usage-export) | 自动化导出请求、token 和费用明细 |
 
 ## 工具配置
 

@@ -1,0 +1,894 @@
+---
+title: Gemini 生图 API
+description: 使用灵眸 Gemini 原生 v1beta 接口完成文生图、图片编辑与图生图，支持模型查询、inlineData 输入、1K / 2K / 4K、常用画幅和 Base64 图片解析。
+ogDescription: 灵眸 Gemini 生图 API 完整接入指南：通过 generateContent 完成文生图、图片编辑和图生图，支持 inlineData、1K/2K/4K 与多种画幅。
+keywords:
+  - Gemini 生图 API
+  - Gemini 图片生成接口
+  - Gemini 文生图
+  - Gemini 图生图
+  - Gemini 图片编辑
+  - gemini-3.1-flash-image
+  - gemini-3-pro-image
+  - Gemini API 国内中转
+  - generateContent 图片
+  - 灵眸 Gemini API
+alternateNames:
+  - Gemini 图片生成接口文档
+  - 灵眸 Gemini Image API
+  - Gemini 原生生图 API
+faq:
+  - q: Gemini 生图应该调用 /v1/chat/completions 吗？
+    a: 不建议。灵眸 Gemini 图片模型推荐使用原生端点 POST /v1beta/models/{model}:generateContent，请求体使用 contents、generationConfig 和 imageConfig。
+  - q: Gemini 生图支持哪些分辨率？
+    a: 单张实时生图接口支持 1K、2K、4K，值必须大写并放在 generationConfig.imageConfig.imageSize 中。
+  - q: Gemini 支持图片编辑吗？
+    a: 支持。Gemini 没有独立的 /v1/images/edits 路径；文生图和图片编辑都调用 POST /v1beta/models/{model}:generateContent，编辑时在 contents[].parts[] 中同时传文本指令和 inlineData 输入图片。
+  - q: 为什么 HTTP 200 却没有生成图片？
+    a: HTTP 成功只代表上游返回了响应。客户端还必须在 candidates[].content.parts[] 中找到非空 inlineData.data；没有图片数据时应按业务失败处理并检查 finishReason。
+  - q: 一次请求可以返回多张图片吗？
+    a: 当前实时 Gemini 图片模型按一次请求返回一张主要图片使用。需要多张时应发起多次独立请求；离线大量任务可以使用灵眸异步批量生图 API。
+---
+
+灵眸提供 Gemini 原生 `v1beta` 兼容接口，可直接调用 Gemini 图片模型完成**文生图、图片编辑和图生图**。
+
+<Callout type="info" title="接口协议">
+
+Gemini 生图使用的是 Google Gemini 原生 `generateContent` 协议，不是 OpenAI 的 `/v1/chat/completions`，也不是 OpenAI Images 的 `/v1/images/generations`。
+
+主端点：
+
+```text
+POST https://api.lmuai.com/v1beta/models/{model}:generateContent
+```
+
+</Callout>
+
+---
+
+## 1. 接口总览
+
+| 方法 | 路径 | 说明 |
+|---|---|---|
+| `GET` | `/v1beta/models` | 查询当前 API Key 在 Gemini 分组下可用的原生模型 |
+| `GET` | `/v1beta/models/{model}` | 查询指定模型信息 |
+| `POST` | `/v1beta/models/{model}:generateContent` | 文生图、图片编辑、图生图主接口 |
+| `POST` | `/v1beta/models/{model}:streamGenerateContent?alt=sse` | 流式生成；图片场景不建议作为首选 |
+| `GET` | `/v1/models` | OpenAI 兼容模型列表，适合通用模型选择器 |
+| `POST` | `/v1/images/batches` | 灵眸 Gemini 异步批量生图扩展接口，详见[Gemini 批量生图 API](/docs/api/gemini-image-batch) |
+
+**Base URL：**
+
+```text
+https://api.lmuai.com
+```
+
+---
+
+## 2. 鉴权
+
+### 推荐：Gemini 原生请求头
+
+```http
+x-goog-api-key: YOUR_API_KEY
+```
+
+### 兼容：Bearer 请求头
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+服务端按以下优先级读取 API Key：
+
+1. `x-goog-api-key`；
+2. `Authorization: Bearer ...`；
+3. `x-api-key`；
+4. `/v1beta` 路径的 `?key=...` 查询参数。
+
+<Callout type="warn" title="不要把 Key 放进 URL">
+
+`?api_key=...` 已弃用并会返回 `400`。`?key=...` 虽然兼容，但容易被浏览器历史、反向代理和访问日志记录，生产环境请使用请求头。
+
+</Callout>
+
+典型鉴权错误：
+
+```json
+{
+  "error": {
+    "code": 401,
+    "message": "Invalid API key",
+    "status": "UNAUTHENTICATED"
+  }
+}
+```
+
+API Key 必须绑定到 `gemini` 平台分组，否则不能调用 Gemini 原生接口。
+
+---
+
+## 3. 模型与可用性
+
+本次图片服务主要使用以下客户端模型 ID：
+
+| 模型 ID | 建议用途 | 图片编辑说明 |
+|---|---|---|
+| `gemini-3.1-flash-image` | 默认推荐 | 已通过生产环境 `inlineData` 图片编辑实测 |
+| `gemini-3.1-flash-image-preview` | 预览兼容 | 使用同一 `generateContent` 编辑协议，正式接入前建议单独验证 |
+| `gemini-3-pro-image` | 质量优先 / 复杂编辑 | 使用同一 `generateContent` 编辑协议，以当前 Key 可用性为准 |
+| `gemini-3-pro-image-preview` | Pro 预览兼容 | 使用同一编辑协议，执行模型以服务端响应为准 |
+| `gemini-3.1-flash-lite-image` | 轻量场景 | 仅在模型列表返回且已验证图片输出时使用 |
+
+### 查询当前 Key 的 Gemini 模型
+
+```bash
+curl 'https://api.lmuai.com/v1beta/models' \
+  -H 'x-goog-api-key: YOUR_API_KEY'
+```
+
+OpenAI 兼容模型列表：
+
+```bash
+curl 'https://api.lmuai.com/v1/models' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+<Callout type="info" title="模型 ID 可能经过服务端映射">
+
+客户端提交的是请求模型 ID。灵眸支持兼容模型别名，因此请求模型名称不一定等于响应中的最终模型版本。
+
+不要仅根据模型名称猜测是否可用；请以当前 Key 调用 `/v1beta/models` 的实际结果为准。
+
+</Callout>
+
+---
+
+## 4. 快速开始：文生图
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1beta/models/gemini-3.1-flash-image:generateContent' \
+  --header 'x-goog-api-key: YOUR_API_KEY' \
+  --header 'Content-Type: application/json' \
+  --data-raw '{
+    "contents": [
+      {
+        "role": "user",
+        "parts": [
+          {
+            "text": "一只戴着宇航员头盔的橘猫，电影感灯光，精致细节"
+          }
+        ]
+      }
+    ],
+    "generationConfig": {
+      "responseModalities": ["TEXT", "IMAGE"],
+      "imageConfig": {
+        "aspectRatio": "1:1",
+        "imageSize": "1K"
+      }
+    }
+  }'
+```
+
+成功后，从下面的位置读取图片：
+
+```text
+candidates[].content.parts[].inlineData.data
+```
+
+---
+
+## 5. 文生图请求结构
+
+```json
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "电影感雨夜城市街景，霓虹灯倒映在湿润路面，广角构图"
+        }
+      ]
+    }
+  ],
+  "generationConfig": {
+    "responseModalities": ["TEXT", "IMAGE"],
+    "imageConfig": {
+      "aspectRatio": "16:9",
+      "imageSize": "2K"
+    }
+  }
+}
+```
+
+### 请求字段
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---:|:---:|---|
+| `contents` | array | 是 | 对话内容数组，至少包含一条用户消息 |
+| `contents[].role` | string | 建议 | 用户输入使用 `user` |
+| `contents[].parts` | array | 是 | 文本或输入图片片段 |
+| `parts[].text` | string | 文生图必填 | 图片提示词 |
+| `generationConfig` | object | 是 | 生成参数 |
+| `generationConfig.responseModalities` | string[] | 是 | 生图必须包含 `IMAGE`，推荐 `['TEXT', 'IMAGE']` |
+| `generationConfig.imageConfig` | object | 是 | 图片分辨率和画幅配置 |
+
+<Callout type="warn" title="图片参数必须放在 imageConfig">
+
+请使用 `generationConfig.imageConfig`。不要使用 `responseFormat.image`；该字段可能不会报参数错误，但不会按照 Gemini 原生图片参数生效。
+
+</Callout>
+
+---
+
+## 6. 分辨率和画幅
+
+### 支持的分辨率
+
+| `imageSize` | 推荐场景 | 特点 |
+|---|---|---|
+| `1K` | 草图、快速预览、批量筛选 | 通常速度更快、费用更低 |
+| `2K` | 常规交付、文章配图、电商素材 | 质量、耗时和成本较均衡 |
+| `4K` | 精细大图、高质量交付 | 通常生成和传输时间更长 |
+
+`imageSize` 必须使用大写：
+
+```json
+{
+  "imageSize": "2K"
+}
+```
+
+### 支持的画面比例
+
+实时 Gemini 原生端点不会在中转站侧把比例限制为固定五种，而是将 `imageConfig.aspectRatio` 转发给实际执行模型。不同图片模型支持范围不同。
+
+**通用比例（建议作为跨模型安全集合）：**
+
+```text
+1:1
+2:3
+3:2
+3:4
+4:3
+4:5
+5:4
+9:16
+16:9
+21:9
+```
+
+**部分 Flash 图片模型扩展比例：**
+
+```text
+1:4
+1:8
+4:1
+8:1
+```
+
+| 模型系列 | 建议比例范围 |
+|---|---|
+| Gemini 3.1 Flash Image | 通用 10 种 + `1:4`、`1:8`、`4:1`、`8:1` |
+| Gemini 3 Pro Image | 通用 10 种 |
+| Gemini 3.1 Flash Lite Image | 以当前模型列表与实际响应为准；跨模型接入建议使用通用 10 种 |
+| 兼容别名 / Preview | 取决于实际执行模型，建议先用通用 10 种验证 |
+
+不指定 `aspectRatio` 时，由模型根据输入内容和默认策略决定画幅。不要传任意小数或任意 `WIDTHxHEIGHT`；必须使用目标模型接受的比例枚举。
+
+示例：
+
+```json
+{
+  "generationConfig": {
+    "responseModalities": ["TEXT", "IMAGE"],
+    "imageConfig": {
+      "aspectRatio": "9:16",
+      "imageSize": "4K"
+    }
+  }
+}
+```
+
+<Callout type="info" title="分辨率档位不是固定像素宽高">
+
+`1K`、`2K`、`4K` 是模型分辨率档位。图片的实际宽高由模型根据档位和画幅计算，客户端不应固定假设一定是 `1024×1024`、`2048×2048` 或 `4096×4096`。
+
+</Callout>
+
+---
+
+## 7. 图片编辑 / 图生图
+
+Gemini **支持图片编辑**，只是没有类似 GPT 的独立 `/v1/images/edits` 端点。
+
+文生图和图片编辑都调用：
+
+```text
+POST /v1beta/models/{model}:generateContent
+```
+
+两者的区别是：
+
+| 场景 | `contents[].parts[]` 内容 |
+|---|---|
+| 文生图 | 只有文本提示词 |
+| 图片编辑 / 图生图 | 文本编辑指令 + `inlineData` 输入图片 |
+
+<Callout type="info" title="生产环境已验证">
+
+使用 `gemini-3.1-flash-image`，输入 JPEG 图片并通过 `inlineData` 提交，已成功返回：
+
+- HTTP `200`；
+- `finishReason: STOP`；
+- `image/png` 编辑结果；
+- 非空 `inlineData.data`；
+- `usageMetadata` 图片模态 Token 统计。
+
+响应可能只包含图片 part、不包含文本 part，客户端不能要求响应中必须同时存在文字。
+
+</Callout>
+
+### 7.1 最小图片编辑请求
+
+```json
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "保留人物、构图和光线，把背景修改成雨夜霓虹街道"
+        },
+        {
+          "inlineData": {
+            "mimeType": "image/png",
+            "data": "INPUT_IMAGE_BASE64"
+          }
+        }
+      ]
+    }
+  ],
+  "generationConfig": {
+    "responseModalities": ["TEXT", "IMAGE"],
+    "imageConfig": {
+      "aspectRatio": "1:1",
+      "imageSize": "1K"
+    }
+  }
+}
+```
+
+### 7.2 输入图片字段
+
+| 字段 | 类型 | 必填 | 说明 |
+|---|---:|:---:|---|
+| `contents[].parts[].text` | string | 是 | 编辑指令，应明确哪些内容需要保留、哪些内容需要修改 |
+| `inlineData.mimeType` | string | 是 | 如 `image/png`、`image/jpeg`、`image/webp` |
+| `inlineData.data` | string | 是 | 纯 Base64，不要带 Data URL 前缀 |
+| `imageConfig.aspectRatio` | string | 否 | 输出画幅；需要保留输入比例时填写对应比例 |
+| `imageConfig.imageSize` | string | 否 | 输出档位：`1K`、`2K`、`4K`，以模型能力为准 |
+
+<Callout type="warn" title="Base64 不要带 Data URL 前缀">
+
+正确：
+
+```text
+/9j/4AAQSkZJRgABAQ...
+```
+
+不要传：
+
+```text
+data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...
+```
+
+输入图片过大会增加上传和处理时间，并可能因网关请求体限制返回 `413`。
+
+</Callout>
+
+### 7.3 curl 完整示例
+
+先把本地图片转换为不换行的 Base64：
+
+```bash
+IMAGE_BASE64=$(base64 < input.jpg | tr -d '\n')
+```
+
+然后调用图片模型：
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1beta/models/gemini-3.1-flash-image:generateContent' \
+  --header 'x-goog-api-key: YOUR_API_KEY' \
+  --header 'Content-Type: application/json' \
+  --data-raw "{
+    \"contents\": [{
+      \"role\": \"user\",
+      \"parts\": [
+        {
+          \"text\": \"保留杯子、构图、光线和背景不变，只把杯子从蓝色改成紫色，并在杯身增加三个白色星形图案，不要添加文字\"
+        },
+        {
+          \"inlineData\": {
+            \"mimeType\": \"image/jpeg\",
+            \"data\": \"${IMAGE_BASE64}\"
+          }
+        }
+      ]
+    }],
+    \"generationConfig\": {
+      \"responseModalities\": [\"TEXT\", \"IMAGE\"],
+      \"imageConfig\": {
+        \"aspectRatio\": \"3:2\",
+        \"imageSize\": \"1K\"
+      }
+    }
+  }"
+```
+
+### 7.4 Python 图片编辑示例
+
+```python
+import base64
+import requests
+
+api_key = "YOUR_API_KEY"
+model = "gemini-3.1-flash-image"
+input_path = "input.jpg"
+
+with open(input_path, "rb") as f:
+    image_base64 = base64.b64encode(f.read()).decode("utf-8")
+
+payload = {
+    "contents": [{
+        "role": "user",
+        "parts": [
+            {
+                "text": "保留主体和构图，把背景改成雨夜霓虹街道"
+            },
+            {
+                "inlineData": {
+                    "mimeType": "image/jpeg",
+                    "data": image_base64,
+                }
+            },
+        ],
+    }],
+    "generationConfig": {
+        "responseModalities": ["TEXT", "IMAGE"],
+        "imageConfig": {
+            "aspectRatio": "3:2",
+            "imageSize": "1K",
+        },
+    },
+}
+
+response = requests.post(
+    f"https://api.lmuai.com/v1beta/models/{model}:generateContent",
+    headers={
+        "x-goog-api-key": api_key,
+        "Content-Type": "application/json",
+    },
+    json=payload,
+    timeout=300,
+)
+response.raise_for_status()
+result = response.json()
+
+saved = False
+for candidate in result.get("candidates", []):
+    for part in candidate.get("content", {}).get("parts", []):
+        inline_data = part.get("inlineData", {})
+        if inline_data.get("data"):
+            mime_type = inline_data.get("mimeType", "image/png")
+            extension = "jpg" if "jpeg" in mime_type else "webp" if "webp" in mime_type else "png"
+            with open(f"gemini-edited.{extension}", "wb") as f:
+                f.write(base64.b64decode(inline_data["data"]))
+            saved = True
+            break
+    if saved:
+        break
+
+if not saved:
+    raise RuntimeError("HTTP 请求成功，但响应中没有编辑后的图片")
+```
+
+### 7.5 编辑提示词建议
+
+图片编辑提示词最好明确区分“保留项”和“修改项”：
+
+```text
+保留：主体身份、姿势、镜头角度、构图和光线。
+修改：把背景改成雨夜霓虹街道。
+禁止：不要增加文字，不要改变人物脸部。
+```
+
+相比只写“把它改好看一些”，这种结构更容易获得稳定结果。
+
+### 7.6 多张参考图
+
+部分 Gemini 图片模型可以在同一个 `parts[]` 中接收多张 `inlineData` 图片，用于风格参考、人物参考或素材融合。但不同模型允许的参考图数量和总请求体大小不同，正式使用前应针对当前模型单独验证。
+
+不要仅因为 `/v1beta/models` 返回了某个图片模型，就假定它支持无限数量的参考图。
+
+---
+
+## 8. 成功响应
+
+典型响应：
+
+```json
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "已根据要求生成图片。"
+          },
+          {
+            "inlineData": {
+              "mimeType": "image/png",
+              "data": "BASE64_IMAGE_DATA"
+            }
+          }
+        ]
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 123,
+    "candidatesTokenCount": 1120,
+    "totalTokenCount": 1450,
+    "candidatesTokensDetails": [
+      {
+        "modality": "IMAGE",
+        "tokenCount": 1024
+      }
+    ]
+  },
+  "modelVersion": "MODEL_VERSION"
+}
+```
+
+### 关键响应字段
+
+| 字段 | 说明 |
+|---|---|
+| `candidates[]` | 候选输出列表 |
+| `candidates[].content.parts[]` | 文本或图片片段 |
+| `parts[].inlineData.mimeType` | 返回图片 MIME 类型 |
+| `parts[].inlineData.data` | 返回图片 Base64 内容 |
+| `candidates[].finishReason` | 结束原因；常见成功值为 `STOP` |
+| `usageMetadata` | 输入、输出及图片模态 token 统计 |
+| `modelVersion` | 上游返回的实际模型版本信息，若有则透传 |
+
+### 正确判断生图成功
+
+客户端应同时检查：
+
+1. HTTP 状态码为 `2xx`；
+2. `candidates` 非空；
+3. 至少一个 `parts[]` 含有非空 `inlineData.data`；
+4. Base64 能成功解码；
+5. 必要时检查 `finishReason`。
+
+<Callout type="warn" title="HTTP 200 不等于一定生成了图片">
+
+上游可能返回 HTTP `200`，但响应中没有 `inlineData.data`。这类请求必须按“业务生图失败”处理，不能计入成功图片数。
+
+</Callout>
+
+---
+
+## 9. Node.js 示例
+
+```js
+import { writeFile } from 'node:fs/promises';
+
+const BASE_URL = process.env.GEMINI_BASE_URL || 'https://api.lmuai.com';
+const API_KEY = process.env.GEMINI_API_KEY;
+const MODEL = 'gemini-3.1-flash-image';
+
+if (!API_KEY) throw new Error('缺少 GEMINI_API_KEY');
+
+const payload = {
+  contents: [
+    {
+      role: 'user',
+      parts: [
+        { text: '日落时分的海边灯塔，水彩插画，温暖色调，细腻纸张纹理' },
+      ],
+    },
+  ],
+  generationConfig: {
+    responseModalities: ['TEXT', 'IMAGE'],
+    imageConfig: {
+      aspectRatio: '16:9',
+      imageSize: '2K',
+    },
+  },
+};
+
+const controller = new AbortController();
+const timer = setTimeout(() => controller.abort(), 300_000);
+
+try {
+  const response = await fetch(
+    `${BASE_URL}/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`,
+    {
+      method: 'POST',
+      headers: {
+        'x-goog-api-key': API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    },
+  );
+
+  const text = await response.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`服务返回非 JSON 内容：HTTP ${response.status}`);
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `HTTP ${response.status}: ${data?.error?.message || JSON.stringify(data)}`,
+    );
+  }
+
+  const parts = data.candidates?.flatMap((candidate) => candidate.content?.parts || []) || [];
+  const imagePart = parts.find((part) => part.inlineData?.data);
+
+  if (!imagePart) {
+    const reasons = data.candidates?.map((candidate) => candidate.finishReason).filter(Boolean);
+    throw new Error(`请求完成但没有图片，finishReason=${reasons?.join(',') || 'unknown'}`);
+  }
+
+  const mimeType = imagePart.inlineData.mimeType || 'image/png';
+  const extension = mimeType === 'image/jpeg'
+    ? 'jpg'
+    : mimeType === 'image/webp'
+      ? 'webp'
+      : 'png';
+
+  await writeFile(
+    `gemini-output.${extension}`,
+    Buffer.from(imagePart.inlineData.data, 'base64'),
+  );
+
+  console.log('图片已保存，usageMetadata：', data.usageMetadata || null);
+} finally {
+  clearTimeout(timer);
+}
+```
+
+---
+
+## 10. Python 示例
+
+```python
+import base64
+import os
+from pathlib import Path
+import requests
+
+BASE_URL = os.getenv("GEMINI_BASE_URL", "https://api.lmuai.com")
+API_KEY = os.environ["GEMINI_API_KEY"]
+MODEL = "gemini-3.1-flash-image"
+
+payload = {
+    "contents": [
+        {
+            "role": "user",
+            "parts": [
+                {"text": "未来主义建筑群，清晨薄雾，超广角摄影，真实材质"}
+            ],
+        }
+    ],
+    "generationConfig": {
+        "responseModalities": ["TEXT", "IMAGE"],
+        "imageConfig": {
+            "aspectRatio": "16:9",
+            "imageSize": "2K",
+        },
+    },
+}
+
+response = requests.post(
+    f"{BASE_URL}/v1beta/models/{MODEL}:generateContent",
+    headers={
+        "x-goog-api-key": API_KEY,
+        "Content-Type": "application/json",
+    },
+    json=payload,
+    timeout=300,
+)
+
+data = response.json()
+if not response.ok:
+    message = data.get("error", {}).get("message", data)
+    raise RuntimeError(f"HTTP {response.status_code}: {message}")
+
+image_part = None
+for candidate in data.get("candidates", []):
+    for part in candidate.get("content", {}).get("parts", []):
+        if part.get("inlineData", {}).get("data"):
+            image_part = part
+            break
+    if image_part:
+        break
+
+if not image_part:
+    reasons = [candidate.get("finishReason") for candidate in data.get("candidates", [])]
+    raise RuntimeError(f"请求完成但没有返回图片，finishReason={reasons}")
+
+inline_data = image_part["inlineData"]
+mime_type = inline_data.get("mimeType", "image/png")
+extension = {
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+}.get(mime_type, "png")
+
+Path(f"gemini-output.{extension}").write_bytes(
+    base64.b64decode(inline_data["data"])
+)
+
+print("图片已保存")
+print("usageMetadata:", data.get("usageMetadata"))
+```
+
+---
+
+## 11. 常见错误
+
+Gemini 原生端点通常返回 Google 风格错误：
+
+```json
+{
+  "error": {
+    "code": 429,
+    "message": "upstream rate limit exceeded",
+    "status": "RESOURCE_EXHAUSTED"
+  }
+}
+```
+
+| HTTP 状态 | 常见原因 | 建议 |
+|---:|---|---|
+| `400` | 请求结构、模型路径或分组平台错误 | 修正请求，不要直接重试 |
+| `401` | API Key 缺失、无效或禁用 | 检查 Key 和请求头 |
+| `402` / `403` | 余额、订阅、计费资格或权限不足 | 检查账户和分组权限 |
+| `413` | 图生图请求体过大 | 压缩输入图片 |
+| `429` | 用户并发限制或上游限流 | 指数退避，降低并发和 RPM |
+| `500` | 内部或容量错误 | 记录错误码和请求 ID，有限重试 |
+| `502` | 上游认证、权限或服务暂时失败 | 退避重试，必要时联系管理员 |
+| `503` | 无可用 Gemini 账号或上游过载 | 延迟重试并降低流量 |
+| `504` | 网关或上游超时 | 作为独立请求重新发起 |
+
+如果错误信息提示所有 Token 均处于禁用、冷却、锁定或过期状态，属于服务容量问题，不是提示词格式错误。请停止密集重试，并将错误码和请求 ID 提供给管理员。
+
+---
+
+## 12. 超时、重试和并发
+
+### 客户端超时建议
+
+| 分辨率 | 建议总超时 |
+|---|---:|
+| `1K` | 不低于 120 秒 |
+| `2K` | 不低于 180 秒 |
+| `4K` | 建议 300 秒 |
+
+这只是接入建议，不代表固定 SLA。若请求还经过自有 Nginx、CDN 或 API 网关，需要同步调整这些组件的读取超时。
+
+### 重试建议
+
+建议重试：
+
+- `429`；
+- `502`、`503`、`504`；
+- 网络中断、连接重置和读取超时；
+- HTTP `200` 但没有图片时，可有限重试一次并保存原始响应。
+
+通常不要重试：
+
+- `400`；
+- `401`；
+- 明确的余额或权限错误；
+- 请求参数或内容策略错误。
+
+推荐最多重试 2～3 次，并使用指数退避：
+
+```text
+第 1 次：1～2 秒随机抖动
+第 2 次：3～5 秒随机抖动
+第 3 次：8～12 秒随机抖动
+```
+
+### 多张实时图片
+
+实时接口当前按“一次请求一张主要图片”使用。需要多张时应拆成多个独立请求，并同时限制：
+
+- 最大在途并发；
+- 每分钟请求数（RPM）；
+- 单用户任务数；
+- 超时与最大重试次数。
+
+如果需要提交几十到数百条提示词并异步等待结果，请使用[Gemini 批量生图 API](/docs/api/gemini-image-batch)。
+
+---
+
+## 13. 用量与计费
+
+响应中的 `usageMetadata` 可用于分析输入、输出和图片模态 token，但不一定等于最终扣费金额。
+
+实际扣费可能受以下因素影响：
+
+- 请求模型 ID 与实际映射模型；
+- `1K`、`2K`、`4K` 图片档位；
+- 分组图片单价；
+- 用户分组倍率和上游账户倍率；
+- 部署环境中的计费规则。
+
+最终金额请以灵眸控制台的用量明细和账户余额变化为准。
+
+进行质量或并发测试时，建议记录：
+
+1. 测试前余额；
+2. 测试后余额；
+3. 成功请求数；
+4. 实际返回图片数；
+5. 模型、分辨率和画幅；
+6. 余额差额；
+7. 单张成功图片平均成本。
+
+用量记录可能异步落账，测试结束后可等待一段时间再核对最终金额。
+
+---
+
+## 14. 安全建议
+
+- API Key 只保存在服务端环境变量或密钥管理系统；
+- 不要在浏览器前端、移动端安装包或公开代码仓库中写入 Key；
+- 日志不要打印完整 API Key 和完整图片 Base64；
+- 校验输入图片 MIME 类型、文件大小和 Base64 合法性；
+- 保存响应时根据 `inlineData.mimeType` 选择扩展名；
+- 为每个业务请求记录自己的 trace ID、请求时间、模型、分辨率和 HTTP 状态；
+- 超时后不要在极短时间内重复创建大量相同请求。
+
+---
+
+## 15. 接入验收清单
+
+- [ ] 能使用 `/v1beta/models` 获取当前 Key 的 Gemini 模型列表；
+- [ ] 能使用 `x-goog-api-key` 或 Bearer 请求头鉴权；
+- [ ] 能完成一张 `1K / 1:1` 文生图；
+- [ ] 能完成 `2K` 和 `4K` 文生图；
+- [ ] 能完成至少一次图片编辑 / 图生图；
+- [ ] 能识别 `inlineData.mimeType` 和 `inlineData.data`；
+- [ ] 能把 HTTP 200 但没有图片的情况标记为失败；
+- [ ] 已设置图片请求超时；
+- [ ] 已对 429 和 5xx 实现有限次数指数退避；
+- [ ] 已确认价格、余额、并发和 RPM；
+- [ ] 日志不会泄露 API Key 或完整 Base64。
+
+---
+
+## 下一步
+
+- 大量提示词异步生成：[Gemini 批量生图 API](/docs/api/gemini-image-batch)
+- 查询当前 Key 可用模型：[模型广场](/docs/guide/models)
+- 协议和 Base URL 说明：[接入协议](/docs/guide/api-protocols)
+- 查询请求用量：[导出 Usage 使用明细](/docs/api/usage-export)

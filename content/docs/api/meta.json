@@ -1,4 +1,10 @@
 {
   "title": "开放 API",
-  "pages": ["usage-export"]
+  "pages": [
+    "gemini-image",
+    "gpt-image",
+    "grok-image",
+    "gemini-image-batch",
+    "usage-export"
+  ]
 }
