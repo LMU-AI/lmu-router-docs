@@ -1,0 +1,81 @@
+# =============================================================================
+# Rebuild missing image on PR merge
+# -----------------------------------------------------------------------------
+# 场景：在 PR 分支 HEAD 打了 tag、然后立刻推 tag，触发了 docker-build.yml；
+# 但因为此时 PR 尚未 merge，tag 指向的 commit 不在 main 上，guard 跳过发布。
+# PR merge 后原 workflow 不会自动重触发，镜像永远缺失。
+#
+# 本 workflow：PR merge 时，找 PR head SHA 上打过的 tag，若 Docker Hub 上
+# 没有对应镜像，用 workflow_dispatch 重新触发 docker-build.yml。
+# =============================================================================
+name: Rebuild missing image on PR merge
+
+on:
+  pull_request:
+    types: [closed]
+
+permissions:
+  contents: read
+  actions: write   # gh workflow run 需要
+
+jobs:
+  rebuild:
+    # 只对合并进 main 的 PR 生效
+    if: >-
+      github.event.pull_request.merged == true &&
+      github.event.pull_request.base.ref == 'main'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout with tags
+        uses: actions/checkout@v5
+        with:
+          fetch-depth: 0
+
+      - name: Find tag(s) on merged PR HEAD
+        id: find
+        run: |
+          set -euo pipefail
+          SHA="${{ github.event.pull_request.head.sha }}"
+          echo "PR head SHA: ${SHA}"
+          git fetch --tags --force
+          # points-at 只匹配精确指向该 commit 的 tag
+          TAGS=$(git tag --points-at "${SHA}" || true)
+          echo "Tags at head: ${TAGS:-<none>}"
+          if [ -z "${TAGS}" ]; then
+            echo "tag=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          # 若多个 tag 指向同一 commit（少见），取字典序最后一个
+          TAG=$(printf '%s\n' "${TAGS}" | sort | tail -n1)
+          echo "Selected tag: ${TAG}"
+          echo "tag=${TAG}" >> "$GITHUB_OUTPUT"
+
+      - name: Check Docker Hub for missing image
+        id: check
+        if: steps.find.outputs.tag != ''
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.find.outputs.tag }}"
+          # 用 anonymous API 查 tag 是否已发布——公开镜像仓库无需认证
+          URL="https://hub.docker.com/v2/repositories/submit2mxh/lmu-router-docs/tags/${TAG}/"
+          CODE=$(curl -s -o /dev/null -w '%{http_code}' "${URL}")
+          echo "Docker Hub GET ${TAG} -> HTTP ${CODE}"
+          if [ "${CODE}" = "200" ]; then
+            echo "Image already published, no rebuild needed"
+            echo "needs_build=false" >> "$GITHUB_OUTPUT"
+          else
+            echo "Image missing, will trigger rebuild"
+            echo "needs_build=true" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Trigger docker-build.yml for missing tag
+        if: steps.check.outputs.needs_build == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        run: |
+          set -euo pipefail
+          TAG="${{ steps.find.outputs.tag }}"
+          echo "Dispatching docker-build.yml with ref=${TAG}"
+          gh workflow run docker-build.yml \
+            --ref "${TAG}" \
+            -f ref="${TAG}"
