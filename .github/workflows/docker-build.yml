@@ -131,10 +131,15 @@ jobs:
           } >> "$GITHUB_STEP_SUMMARY"
 
       # -------------------------------------------------------------------------
-      # 3) 自动创建 GitHub Release（只在 tag push 触发时执行；workflow_dispatch 跳过）
+      # 3) 自动创建 GitHub Release
+      #   条件只看 github.ref 是不是 tag——两种入口都覆盖：
+      #   - push tag：github.ref = refs/tags/vX，恒真
+      #   - workflow_dispatch --ref vX（含 rebuild-on-merge.yml 的自动补构建）：
+      #     workflow 从该 tag ref 运行，github.ref 同样是 refs/tags/vX
+      #   若 dispatch 时 ref 传的是 branch（如 main），会跳过，不会误创。
       # -------------------------------------------------------------------------
       - name: Create GitHub Release
-        if: github.event_name == 'push' && startsWith(github.ref, 'refs/tags/')
+        if: startsWith(github.ref, 'refs/tags/')
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
