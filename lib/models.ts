@@ -15,7 +15,6 @@ export const MODELS: ModelEntry[] = [
   { id: 'qwen3.6-flash', label: '通义千问 3.6 Flash', vendor: '阿里云', family: 'domestic', tier: 'fast' },
   { id: 'qwen3.5-plus', label: '通义千问 3.5 Plus', vendor: '阿里云', family: 'domestic' },
   { id: 'qwen3-max-2026-01-23', label: '通义千问 3 Max 旗舰版', vendor: '阿里云', family: 'domestic' },
-  { id: 'qwen3-coder-plus', label: '通义千问 3 Coder Plus', vendor: '阿里云', family: 'domestic' },
 
   // DeepSeek
   { id: 'deepseek-v4-pro', label: 'DeepSeek V4 Pro', vendor: 'DeepSeek', family: 'domestic', tier: 'flagship', isNew: true },
