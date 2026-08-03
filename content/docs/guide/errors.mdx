@@ -18,19 +18,9 @@ alternateNames:
   - Claude / GPT API 状态码速查
   - API 报错怎么解决
   - 中转 API 错误码汇总
+# 只保留正文表格里确有对应内容的条目。按报错原文查的那 6 条叙述都在 faq.mdx，
+# 由该页出 FAQPage；本页只做表格并链过去，避免两个 URL 提交同一份问答。
 faq:
-  - q: "报错 401 Unauthorized: Incorrect API key provided 怎么排查？"
-    a: "说明请求仍走了 OpenAI 官方而非灵眸中转。依次检查：config.toml 与 auth.json 两个文件是否都已正确创建或替换；重启 VS Code / Cursor 等 IDE 重新加载配置；若此前用官方或其他平台登录过，先退出账号再重新配置。"
-  - q: "报错 exceeded retry limit, last status: 429 Too Many Requests 是什么原因？"
-    a: "当日额度已用完。到「我的订阅」确认额度，如需增量请购买**不同规格**的套餐（如天卡换月卡），再到后台 API 密钥中切换到新套餐的分组。购买相同套餐是续期而非增量，不会增加当日额度。"
-  - q: "报错 503 No available accounts 是什么原因？"
-    a: "多半是 ~/.zshrc 或 ~/.bashrc 里配置了 ANTHROPIC_AUTH_TOKEN / ANTHROPIC_BASE_URL / ANTHROPIC_MODEL，这些全局变量会覆盖 IDE 工具里配置的 API Key。解决办法：从 shell 配置里删掉这几行，或把它们移到独立文件 ~/.claude_env，仅在启动 Claude Code CLI 时 source 加载。"
-  - q: "报错 400 Invalid signature in thinking block 是什么原因？"
-    a: "Claude 的 thinking block 带加密签名，与生成它的具体上游账号强绑定。在同一段对话里跨分组切换模型时，旧历史里的签名无法被新分组的上游验证，因此返回 400。解决办法：切换分组时新开一个对话，或同一会话固定使用一个分组。这类错误不可通过重试恢复。"
-  - q: "调用生图接口报 400 Unknown parameter: 'tools[0].n' 怎么办？"
-    a: "客户端把 tools 数组塞进了图像接口请求体。/v1/images/generations 与 /v1/images/edits 不支持工具调用，需整个删除 tools 字段；生成多张图请把数量放到顶层 n（仅 generations 支持，edits 不支持多张）。这是请求体不合法导致的错误，换账号或重试都无效。"
-  - q: "Claude Code 报断流超时（stream disconnected before completion）怎么办？"
-    a: "通常是开启了魔法 / VPN / 系统代理，代理自动切换出口 IP 导致连接中断。灵眸网关部署在中国境内、国内直连，关闭所有代理后重试即可；同时检查本地网络是否频繁切换 Wi-Fi / 移动网络。"
   - q: "404 Not Found 一般是什么原因？"
     a: "多数是 Base URL 与协议不匹配：OpenAI 协议地址漏写 /v1、Anthropic 地址多写了 /v1，或 Gemini 路径未使用 /v1beta/models/... 的完整端点。对照接入协议页重新核对 Base URL 与端点即可。"
   - q: "遇到 5xx 应该重试还是直接联系客服？"
