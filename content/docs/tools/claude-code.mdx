@@ -29,8 +29,8 @@ faq:
     a: "claude-opus-5、claude-fable-5、claude-opus-4-8、claude-opus-4-7、claude-sonnet-5 等 Opus / Sonnet 主线模型支持；Haiku 系列以及更旧的模型不支持。1M 模式按 Anthropic 分档定价，单价高于默认 200K 模式，非必要不建议常开。"
   - q: 怎么让 Claude Code 默认用国产模型？
     a: "在 settings.json 顶层加 \"model\": \"qwen3.8-max-preview\"（或 glm-5.2、deepseek-v4-pro、kimi-k3 等），启动时自动加载，无需每次 /model 切换。国产模型建议同时设 \"effortLevel\": \"medium\"。"
-  - q: 报错 503 No available accounts 是什么原因？
-    a: "多半是 ~/.zshrc 或 ~/.bashrc 里配置了 ANTHROPIC_AUTH_TOKEN / ANTHROPIC_BASE_URL 等全局环境变量，覆盖了 settings.json 里的配置。把这几行从 shell 配置里删掉，或移到独立文件仅在启动 Claude Code 时 source 加载。"
+  # 503 No available accounts 不放这里：faq.mdx 问题 6 已有完整叙述并出 FAQPage，
+  # 同一条问答由两个 URL 提交会互相抵消。本页正文保留该小节并链过去。
 ---
 
 
@@ -359,6 +359,12 @@ echo $env:ANTHROPIC_BASE_URL
 **原因：** 本地网络不稳定，或开启了魔法 / VPN / 系统代理——代理自动切换 IP 会导致连接中断。
 
 **解决：** 关闭魔法 / VPN / 系统代理后重试。灵眸为国内直连，无需魔法，直连即最快最稳定。
+
+### 报错 503 No available accounts
+
+**原因：** 多半是 `~/.zshrc` 或 `~/.bashrc` 里配置了 `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL` 等全局环境变量，覆盖了 `settings.json` 里的配置。
+
+**解决：** 把这几行从 shell 配置里删掉，或移到独立文件仅在启动 Claude Code 时 `source` 加载。详见[常见问题 · 问题 6](../guide/faq#问题-6503-no-available-accounts环境变量覆盖密钥)。
 
 ### 响应超时
 
