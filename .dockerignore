@@ -6,7 +6,11 @@ out
 # 会把 GITHUB_TOKEN 以 http.extraheader 写进 .git/config；而 workflow 的
 # cache-to 是 mode=max，会把 builder 的每一层（含 COPY . .）导出到公开可读的
 # :buildcache tag —— 等于把带 contents:write 权限的 token 发到公网。
-# lastmod 不依赖 .git：content-dates.json 已随仓库提交，见下方 build 脚本说明。
+#
+# 日期数据不依赖构建上下文里的 .git：docker-build.yml 在 checkout 之后、
+# docker build 之前跑 scripts/build-content-dates.mjs，把 git 提交时间物化成
+# content-dates.json（那一步在 runner 上执行，此时 .git 完整），JSON 再随上下文
+# 进镜像。仓库里已提交的那份只作本地开发和无 CI 场景的 fallback。
 .git
 .gitignore
 .env*
