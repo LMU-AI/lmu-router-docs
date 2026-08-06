@@ -81,6 +81,24 @@ jobs:
           # 原因进了构建上下文，凭据就会随缓存发到公网。这里从源头不写入。
           persist-credentials: false
 
+      # content-dates.json 记录每篇 MDX 的 git 最后提交时间，供 sitemap 的 lastmod、
+      # TechArticle 的 dateModified 和页面底部的「最后更新」使用。
+      #
+      # 它必须在**这里**生成，不能只依赖仓库里已提交的那份：
+      #   - .dockerignore 屏蔽了 .git（CI 的 cache mode=max 会把含 GITHUB_TOKEN 的
+      #     构建层发到公开 registry，见该文件注释），所以镜像内的 build 步骤没有 git，
+      #     scripts/build-content-dates.mjs 会走「无 git → 沿用已提交的 JSON」分支；
+      #   - 而那份 JSON 只有恰好本地跑过 npm run build 并顺手提交才会更新。实测它
+      #     停在 2026-07-27，比真实内容落后一个月——sitemap 正告诉 Google「8 月改过
+      #     的页面最后修改于 7 月」。
+      # 这一步在 checkout 之后、docker build 之前跑，此时 .git 完整（fetch-depth: 0），
+      # 生成的 JSON 随构建上下文进镜像。.git 本身仍不进上下文，安全措施不变。
+      - name: Refresh content-dates.json from git history
+        run: |
+          node scripts/build-content-dates.mjs
+          echo "--- 前 5 条 ---"
+          head -6 content-dates.json
+
       - name: Set up QEMU
         uses: docker/setup-qemu-action@v4
 

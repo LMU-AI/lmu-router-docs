@@ -12,6 +12,7 @@ import { getBreadcrumbItems } from 'fumadocs-core/breadcrumb';
 import { SITE_NAME, SITE_URL } from '@/lib/site';
 import { PLAZA_MODELS } from '@/lib/models';
 import { lastModifiedOf } from '@/lib/last-modified';
+import { LastUpdated } from '@/components/last-updated';
 
 function buildCanonicalPath(slug?: string[]): string {
   return slug && slug.length > 0 ? `/docs/${slug.join('/')}` : '/docs';
@@ -64,7 +65,8 @@ export default async function Page({
   const alternateNames = page.data.alternateNames ?? [];
   const faq = page.data.faq ?? [];
 
-  const lastModified = lastModifiedOf(page.absolutePath).toISOString();
+  const lastModifiedDate = lastModifiedOf(page.absolutePath);
+  const lastModified = lastModifiedDate.toISOString();
 
   const articleJsonLd = {
     '@context': 'https://schema.org',
@@ -133,6 +135,7 @@ export default async function Page({
               Mermaid,
             }}
           />
+          <LastUpdated date={lastModifiedDate} />
           <CtaFooter />
         </DocsBody>
       </DocsPage>

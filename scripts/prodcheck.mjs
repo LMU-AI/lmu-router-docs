@@ -322,13 +322,61 @@ async function main() {
   check('live', 'FAQPage 已产出', (typeCount.FAQPage ?? 0) >= 5, `${typeCount.FAQPage ?? 0} 页`);
   check('live', '模型广场有 ItemList', (typeCount.ItemList ?? 0) >= 1, `${typeCount.ItemList ?? 0}`);
 
+  // 原本这里列了 7 页（含 codex-cli-windows）。PR#6 之后 codex-cli-windows 主动
+  // 撤掉了 faq：它那两个坑（脚本禁止运行、CODEX 无法识别）的完整报错原文和解决
+  // 步骤都在 faq.mdx 问题 4 / 5，由该页出 FAQPage；两个 URL 提交同一份问答会被
+  // Google 判重（保一条、稀释另一条），严重时算结构化数据人工处罚。
+  // 所以这里从 6 页断言「有」，另起一条断言它「没有」——把决策钉死，防回填回去。
   const FAQ_NEXT = ['obsidian', 'claude-code-gpt', 'cc-switch', 'claude-code-vscode',
-    'claude-code-desktop', 'hermes', 'codex-cli-windows'];
+    'claude-code-desktop', 'hermes'];
   const missingFaq = FAQ_NEXT.filter((s) => {
     const html = byPathAll.get(`/docs/tools/${s}`);
     return !html || !html.includes('FAQPage');
   });
-  check('next', `7 个工具页已回填 FAQPage`, missingFaq.length === 0, `缺: ${missingFaq.join(', ') || '无'}`);
+  check('next', `6 个工具页已回填 FAQPage`, missingFaq.length === 0, `缺: ${missingFaq.join(', ') || '无'}`);
+
+  const winHtml = byPathAll.get('/docs/tools/codex-cli-windows');
+  check('live', 'codex-cli-windows 不出 FAQPage（问答归 faq.mdx，避免跨 URL 重复）',
+    !!winHtml && !winHtml.includes('FAQPage'),
+    winHtml ? (winHtml.includes('FAQPage') ? '又出现了 FAQPage —— 与 PR#6 的去重决策冲突' : '') : '页面未取到');
+
+  // --- 7c. 最后更新日期 ----------------------------------------------------
+  // 这块每条断言都对应一种「看起来还在，其实已经废了」的退化方式：
+  // 组件被换回 fumadocs 内建的 PageLastUpdate（客户端渲染，SSR 里没有日期）、
+  // content-dates.json 停止刷新（全站退回构建时刻 → 所有页同一天）、
+  // 或 CI 漏跑刷新那步（日期集体停在某个过去的时间点）。
+  group('7c. 最后更新日期');
+
+  const dateOf = (html) => (html?.match(/<time datetime="([^"]+)"/) ?? [])[1] ?? null;
+  const pagesWithDate = [...pageBodies.values()].filter((h) => h.includes('最后更新：'));
+
+  check('next', '每个文档页都有「最后更新」', pagesWithDate.length === pageBodies.size,
+    `${pagesWithDate.length}/${pageBodies.size} 页`);
+
+  // 必须出现在 SSR 的 HTML 里。fumadocs 内建的 PageLastUpdate 把日期放在
+  // useEffect 里，首屏 HTML 是空标签 —— 爬虫和 AI 检索什么也读不到，
+  // 「让人感知到持续更新」恰好对最需要它的读者失效。
+  const withTime = [...pageBodies.values()].filter((h) => dateOf(h));
+  check('next', '日期在 SSR HTML 里（非客户端渲染）', withTime.length === pageBodies.size,
+    `${withTime.length}/${pageBodies.size} 页有 <time datetime>`);
+
+  // 属性名必须是小写 datetime。React 19 对 <time> 走通用透传，JSX 写 dateTime
+  // 会原样输出成 dateTime="..."，浏览器认但严格 XML 解析器不认。
+  const camelCase = [...pageBodies.entries()].filter(([, h]) => h.includes('<time dateTime='));
+  check('next', 'time 标签用小写 datetime 属性', camelCase.length === 0,
+    camelCase.length ? `${camelCase.length} 页是驼峰 dateTime` : '');
+
+  // 逐页独立才有意义：全站同一个日期 = 退回了「构建时刻」，等于没有信号。
+  const distinct = new Set(withTime.map((h) => dateOf(h).slice(0, 10)));
+  check('next', '日期逐页独立（非全站同值）', distinct.size >= 3,
+    `${distinct.size} 个不同日期`);
+
+  // content-dates.json 若停止刷新，日期会集体冻结在过去某点。用「最新一篇不能
+  // 太旧」来兜底：站在持续更新，最近改动不该超过 120 天没反映到页面上。
+  const newest = withTime.map((h) => dateOf(h)).sort().at(-1);
+  const daysOld = newest ? (Date.now() - Date.parse(newest)) / 86400000 : Infinity;
+  check('next', '日期数据未陈旧（最新一篇 < 120 天）', daysOld < 120,
+    newest ? `最新 ${newest.slice(0, 10)}，距今 ${Math.round(daysOld)} 天` : '取不到日期');
 
   // --- 7b. 内容自洽性 ------------------------------------------------------
   // 发布前审计抓到两条「归纳过头」的断言：站上没有出处，且与既有页面直接冲突。
