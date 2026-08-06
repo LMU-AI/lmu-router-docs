@@ -322,13 +322,23 @@ async function main() {
   check('live', 'FAQPage 已产出', (typeCount.FAQPage ?? 0) >= 5, `${typeCount.FAQPage ?? 0} 页`);
   check('live', '模型广场有 ItemList', (typeCount.ItemList ?? 0) >= 1, `${typeCount.ItemList ?? 0}`);
 
+  // 原本这里列了 7 页（含 codex-cli-windows）。PR#6 之后 codex-cli-windows 主动
+  // 撤掉了 faq：它那两个坑（脚本禁止运行、CODEX 无法识别）的完整报错原文和解决
+  // 步骤都在 faq.mdx 问题 4 / 5，由该页出 FAQPage；两个 URL 提交同一份问答会被
+  // Google 判重（保一条、稀释另一条），严重时算结构化数据人工处罚。
+  // 所以这里从 6 页断言「有」，另起一条断言它「没有」——把决策钉死，防回填回去。
   const FAQ_NEXT = ['obsidian', 'claude-code-gpt', 'cc-switch', 'claude-code-vscode',
-    'claude-code-desktop', 'hermes', 'codex-cli-windows'];
+    'claude-code-desktop', 'hermes'];
   const missingFaq = FAQ_NEXT.filter((s) => {
     const html = byPathAll.get(`/docs/tools/${s}`);
     return !html || !html.includes('FAQPage');
   });
-  check('next', `7 个工具页已回填 FAQPage`, missingFaq.length === 0, `缺: ${missingFaq.join(', ') || '无'}`);
+  check('next', `6 个工具页已回填 FAQPage`, missingFaq.length === 0, `缺: ${missingFaq.join(', ') || '无'}`);
+
+  const winHtml = byPathAll.get('/docs/tools/codex-cli-windows');
+  check('live', 'codex-cli-windows 不出 FAQPage（问答归 faq.mdx，避免跨 URL 重复）',
+    !!winHtml && !winHtml.includes('FAQPage'),
+    winHtml ? (winHtml.includes('FAQPage') ? '又出现了 FAQPage —— 与 PR#6 的去重决策冲突' : '') : '页面未取到');
 
   // --- 7b. 内容自洽性 ------------------------------------------------------
   // 发布前审计抓到两条「归纳过头」的断言：站上没有出处，且与既有页面直接冲突。
