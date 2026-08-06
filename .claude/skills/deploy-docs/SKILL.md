@@ -32,6 +32,13 @@ description: 发布 docs.lmuai.com。触发场景：用户说 "发布 / 上线 /
    - **failure**：见「坑 5」的 arm64 SIGILL，重试即可。
 
    手动补：`gh workflow run docker-build.yml --ref vX.Y.Z -f ref=vX.Y.Z`（PR 已 merge 且 commit 在 main 上才会成功）
+
+   想直接问 registry「这个 tag 到底有没有」，**在目标机上用 `docker pull`**（原因见「坑 1」）：
+
+   ```bash
+   ssh work@47.92.165.32 'docker pull -q submit2mxh/lmu-router-docs:vX.Y.Z 2>&1 | head -3'
+   # "manifest unknown" = 镜像不存在，CI 没产出
+   ```
 2. **别在 tag push 后立刻部署** —— build 要 ~8-10 min
 
 ## 部署步骤
@@ -99,7 +106,13 @@ docker compose up -d'
 
 ## 已踩过的坑
 
-1. **本机（Mac）连不到 hub.docker.com HTTP API**（DNS/网络问题），所以**验证镜像存在必须去 SSH 目标机上做 `docker inspect`**，别在 Mac 上 `curl hub.docker.com/v2/...`（会 15s timeout）。目标机 `docker pull` 走的是不同端点，正常。
+1. **查「某个 tag 有没有发布」只有一条路走得通：目标机上 `docker pull`。** 另外两条都不通：
+   - **Mac 上 `curl https://hub.docker.com/v2/...`** —— 15s timeout，连不上 Docker Hub HTTP API。
+   - **目标机上 `docker manifest inspect`** —— 报 `error pinging v2 registry: ... Client.Timeout exceeded`。该命令**绕过 registry mirror 直连 `registry-1.docker.io`**，而那个域名在目标机的网络下不可达。
+
+   目标机 `/etc/docker/daemon.json` 配了 4 个国内加速器（daocloud / 1panel / 1ms / 百度云），`docker pull` 和 `docker compose pull` 走 mirror，所以正常。判读：`manifest unknown` = 镜像确实不存在；能拉下来 = 存在。
+
+   注意 `docker inspect <image>` 查的是**本地已有**镜像，不回答「registry 上有没有」——只适合做部署前后的 digest 对比。
 2. **`:latest` 有滞后**：只有当 CI 的 `Build & push` 步骤成功执行时才会更新 :latest。tag push 但 guard skip → :latest 不动。
 3. **同机上还有一个 `lmu-docs` 容器**（`submit2mxh/lmu-docs:latest`，跑了 2 个月）—— 那**不是本项目**，别误操作。本项目是 `limao-docs`（前缀 `limao`）。
 4. **别改 compose 的 image tag 为具体版本**（如 `:v0.1.16`）—— 那样 `rebuild-on-merge` 更新 :latest 后就不会自动生效，需要手动改文件。除非明确要固化某版。
