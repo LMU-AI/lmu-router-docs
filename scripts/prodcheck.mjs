@@ -347,7 +347,9 @@ async function main() {
   // 或 CI 漏跑刷新那步（日期集体停在某个过去的时间点）。
   group('7c. 最后更新日期');
 
-  const dateOf = (html) => (html?.match(/<time datetime="([^"]+)"/) ?? [])[1] ?? null;
+  // /i：组件输出 JSX 规范的驼峰 dateTime（避开 React 19 dev 的 Invalid DOM property
+  // 告警）；页面以 text/html 提供，HTML 解析器把它与 datetime 视作同一个。
+  const dateOf = (html) => (html?.match(/<time datetime="([^"]+)"/i) ?? [])[1] ?? null;
   const pagesWithDate = [...pageBodies.values()].filter((h) => h.includes('最后更新：'));
 
   check('next', '每个文档页都有「最后更新」', pagesWithDate.length === pageBodies.size,
@@ -360,11 +362,13 @@ async function main() {
   check('next', '日期在 SSR HTML 里（非客户端渲染）', withTime.length === pageBodies.size,
     `${withTime.length}/${pageBodies.size} 页有 <time datetime>`);
 
-  // 属性名必须是小写 datetime。React 19 对 <time> 走通用透传，JSX 写 dateTime
-  // 会原样输出成 dateTime="..."，浏览器认但严格 XML 解析器不认。
-  const camelCase = [...pageBodies.entries()].filter(([, h]) => h.includes('<time dateTime='));
-  check('next', 'time 标签用小写 datetime 属性', camelCase.length === 0,
-    camelCase.length ? `${camelCase.length} 页是驼峰 dateTime` : '');
+  // datetime 的值必须是合法 ISO 8601（给机器读的完整时间戳），不能退化成只有
+  // 显示用的短日期。属性名大小写不做要求：text/html 下 dateTime 与 datetime 等价，
+  // 组件刻意用驼峰以避开 React 19 dev-only 的 Invalid DOM property 告警；真正给机器
+  // 读的日期另在 JSON-LD 的 dateModified 里，此处属性大小写纯装饰。
+  const validIso = withTime.filter((h) => !Number.isNaN(Date.parse(dateOf(h))));
+  check('next', 'time 标签带合法 ISO datetime 属性', validIso.length === pageBodies.size,
+    `${validIso.length}/${pageBodies.size} 页 datetime 可解析为 ISO`);
 
   // 逐页独立才有意义：全站同一个日期 = 退回了「构建时刻」，等于没有信号。
   const distinct = new Set(withTime.map((h) => dateOf(h).slice(0, 10)));
