@@ -31,14 +31,13 @@ export function LastUpdated({ date }: { date: Date }) {
     <p className="not-prose mt-8 border-t border-fd-border pt-4 text-sm text-fd-muted-foreground">
       最后更新：
       {/*
-        用 {...{ datetime }} 而不是 JSX 的 dateTime 属性：实测 React 19 的
-        server bundle 里没有 dateTime 的映射条目，它走通用透传，把属性名**原样**
-        写进 HTML，产出 `<time dateTime="...">`。浏览器解析 HTML 属性名不区分
-        大小写，所以功能不受影响，但规范里该属性是全小写 datetime，严格的
-        XML / XHTML 解析器和一部分抓取工具只认小写。展开写法绕过 React 的
-        属性名规范化，直接落小写。
+        用 JSX 规范的 dateTime（驼峰）。React 19 的 server 渲染并不会把它降成小写，
+        产出的就是 `<time dateTime="...">`——这没问题：页面以 text/html 提供，HTML5
+        属性名大小写不敏感，浏览器与爬虫都按 datetime 读；真正给机器读的 dateModified
+        另在 JSON-LD 里。别为了拿全小写而改用 {...{ datetime }} 透传——那会触发 React 19
+        dev-only 的 "Invalid DOM property `datetime`. Did you mean `dateTime`?" 告警。
       */}
-      <time {...{ datetime: machine }}>{display}</time>
+      <time dateTime={machine}>{display}</time>
     </p>
   );
 }
