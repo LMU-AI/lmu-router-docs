@@ -21,7 +21,7 @@ const FORMATTER = new Intl.DateTimeFormat('zh-CN', {
   day: '2-digit',
 });
 
-export function LastUpdated({ date }: { date: Date }) {
+export function LastUpdated({ date, locale = 'cn' }: { date: Date; locale?: string }) {
   // zh-CN 的 format 产出 2026/08/04，统一换成 ISO 风格的短横线。
   const display = FORMATTER.format(date).replace(/\//g, '-');
   // datetime 属性给机器读，必须是完整 ISO 8601。
@@ -29,7 +29,7 @@ export function LastUpdated({ date }: { date: Date }) {
 
   return (
     <p className="not-prose mt-8 border-t border-fd-border pt-4 text-sm text-fd-muted-foreground">
-      最后更新：
+      {locale === 'en' ? 'Last updated: ' : '最后更新：'}
       {/*
         用 JSX 规范的 dateTime（驼峰）。React 19 的 server 渲染并不会把它降成小写，
         产出的就是 `<time dateTime="...">`——这没问题：页面以 text/html 提供，HTML5

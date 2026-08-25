@@ -1,0 +1,131 @@
+---
+title: Error Codes
+description: "LMU AI error-code reference: meanings and fixes for 401 / 403 / 404 / 429 / 5xx statuses, batch-image business codes, and lookup from raw error text to a fix."
+ogDescription: LMU AI error-code cheat sheet — one page covering the typical cause and fix for 400 / 401 / 402 / 403 / 404 / 413 / 429 / 500 / 502 / 503 / 504, the BATCH_IMAGE_* batch-image business codes, and jump links for common raw errors like stream disconnected, Incorrect API key, No available accounts, and Invalid signature in thinking block.
+keywords:
+  - LMU AI error codes
+  - Claude API 401 error
+  - Claude API 403 error
+  - Claude API 429 rate limit
+  - API 503 No available accounts
+  - Invalid signature in thinking block
+  - Incorrect API key provided
+  - stream disconnected
+  - BATCH_IMAGE error codes
+  - AI API troubleshooting
+alternateNames:
+  - LMU AI error-code table
+  - Claude / GPT API status-code reference
+  - how to fix API errors
+  - relay API error codes
+# Only entries that actually appear in the tables below. The 6 lookup-by-raw-text
+# cases are all in faq.en.mdx, which owns the FAQPage; this page only tables and links.
+faq:
+  - q: "What usually causes a 404 Not Found?"
+    a: "Most often the Base URL does not match the protocol: an OpenAI-protocol URL missing /v1, an Anthropic URL that wrongly includes /v1, or a Gemini path that does not use the full /v1beta/models/... endpoint. Re-check the Base URL and endpoint against the API Protocols page."
+  - q: "Should I retry on a 5xx, or contact support directly?"
+    a: "A 5xx is a transient upstream or relay failure. Retry a limited number of times with exponential backoff and save the request ID from the response headers. If the same kind of request keeps failing within 5 minutes, send the request ID to support — never send your full API key."
+---
+
+This page collects the error codes scattered across the individual API docs into one cheat sheet. **First locate the broad class by HTTP status code, then find the specific fix by the raw error text.**
+
+<Callout type="info" title="Record the request ID before troubleshooting">
+
+The request ID in the response headers is the single most useful piece of information for diagnosing a problem. When you contact support, include the request ID and the full error text — **do not send your full API key**.
+
+</Callout>
+
+---
+
+## HTTP status codes
+
+| Status | Typical cause | What to do |
+|---:|---|---|
+| `400` | Invalid request body, parameter, model ID or model path; bad image format / encoding | Fix the request — **do not just retry**; switching accounts or retrying will not succeed |
+| `401` | API key missing, invalid, or disabled; Base URL does not match the protocol; the IDE was not restarted so the old config is still in effect | Check the key and Base URL (see [API Protocols](/en/docs/guide/api-protocols)), restart the IDE; details in [Issue 3](/en/docs/guide/faq#issue-3) |
+| `402` | Insufficient balance | Top up or reduce the workload |
+| `403` | Two possibilities, both possible: ① the API key's **group does not have image generation enabled**; ② **insufficient balance, subscription, billing eligibility, or permission** | First confirm the account balance and subscription status, then confirm the group has the capability; if both are fine and it still errors, contact support |
+| `404` | OpenAI-protocol URL missing `/v1`, Anthropic URL wrongly including `/v1`, Gemini not using `/v1beta/models/...`; or the endpoint is not supported by the current group | Re-check the Base URL and full endpoint against [API Protocols](/en/docs/guide/api-protocols) |
+| `413` | Image-to-image request body too large | Compress the input image |
+| `429` | ① Daily quota exhausted; ② concurrency, RPM, or upstream quota limited | For an exhausted quota see [Issue 2](/en/docs/guide/faq#issue-2); for rate limiting, back off exponentially and lower concurrency and RPM |
+| `500` | Internal or capacity error | Record the error code and request ID, retry a limited number of times |
+| `502` | Upstream auth, permission, or service temporarily failed | Back off and retry; contact support if needed |
+| `503` | No available upstream account or upstream overloaded; may also be **an environment variable overriding the key** | First check env vars (see [Issue 6](/en/docs/guide/faq#issue-6)), then retry with delay and lower traffic |
+| `504` | Gateway or upstream timeout | Re-issue as a fresh, independent request |
+
+<Callout type="warn" title="What to retry, and what must be fixed instead">
+
+- **Do not retry**: `400`, `401`, and any explicit balance, permission, parameter, or content-policy error — the request itself is invalid, and any upstream account returns the same result. You must fix the request first.
+- **Safe to retry**: `429`, `502`, `503`, `504`, and network drops, connection resets, and read timeouts — all transient failures. Use exponential backoff for a **limited** number of retries (2–3 recommended) to avoid paying for repeated calls; on `429` also lower concurrency and RPM.
+
+This classification comes from the retry guidance in the image APIs — see [Gemini Image · Retry guidance](/docs/api/gemini-image#重试建议).
+
+</Callout>
+
+Full error descriptions for each API: [Gemini Image](/docs/api/gemini-image), [GPT Image](/docs/api/gpt-image), [Grok Image](/docs/api/grok-image), [Gemini Batch Image](/docs/api/gemini-image-batch).
+
+---
+
+## Business error codes (batch image)
+
+Beyond HTTP status codes, the [Gemini Batch Image API](/docs/api/gemini-image-batch) also returns business error codes, shown in the console as `error code: BATCH_IMAGE_XXX` plus a request ID.
+
+| Error code | HTTP | Meaning | What to do |
+|---|---:|---|---|
+| `BATCH_IMAGE_DISABLED` | 404 | Batch image generation disabled globally | Send the error code and request ID to the administrator |
+| `BATCH_IMAGE_GROUP_DISABLED` | 403 | The current key's group does not allow batch image or is not a Gemini group | Change the key or ask the administrator to enable group permission |
+| `BATCH_IMAGE_NO_ACCOUNT_AVAILABLE` | 502 | No batch-execution resource currently available | Save the request ID and contact the administrator |
+| `BATCH_IMAGE_SETTLEMENT_PRICING_MISSING` | 400 | The batch model has no billing price | Ask the administrator to configure the model price |
+| `BATCH_IMAGE_INVALID_MODEL` | 400 | No model provided | Use a model from the batch model list |
+| `BATCH_IMAGE_INVALID_ITEMS` | 400 | Invalid items, resolution, or request fields | Check the request body; only 1K is supported for now |
+| `BATCH_IMAGE_DUPLICATE_CUSTOM_ID` | 400 | Duplicate `custom_id` | Ensure it is unique within the batch |
+| `BATCH_IMAGE_PROMPT_TOO_LONG` | 400 | Prompt too long | Shorten the prompt |
+| `BATCH_IMAGE_TOO_MANY_OUTPUT_IMAGES` | 400 | Image count after expansion exceeds the limit | Reduce items or output_count |
+| `BATCH_IMAGE_INVALID_REFERENCE_IMAGE` | 400 | Invalid reference-image format, size, or URI | Check MIME, Base64, and file_uri |
+| `BATCH_IMAGE_INSUFFICIENT_BALANCE` | 402 | Balance too low to reserve the charge | Top up or reduce the workload |
+| `BATCH_IMAGE_IDEMPOTENCY_CONFLICT` | 409 | The same idempotency key maps to a different request body | Use a new Idempotency-Key |
+| `BATCH_IMAGE_PROVIDER_SUBMIT_FAILED` | 502 | Upstream batch-task creation failed | Save the request ID, retry a limited number of times, or contact the administrator |
+| `BATCH_IMAGE_QUEUE_FAILED` | 502 | The async task service is temporarily unavailable | Save the request ID and contact the administrator |
+| `BATCH_IMAGE_NOT_READY` | 409 | Tried to download before the task completed | Wait until the status becomes completed |
+| `BATCH_IMAGE_OUTPUT_DELETED` | 410 | The output was already cleaned up | It can no longer be downloaded; create the task again |
+| `BATCH_IMAGE_ITEM_FAILED` | 409 | The specified task item has no successful image | Check item.error |
+| `BATCH_IMAGE_DOWNLOAD_LIMITED` | 429 | Too many simultaneous downloads | Retry later |
+
+---
+
+## Look up by raw error text
+
+Match the error text you actually see against the table below and jump straight to the detailed fix.
+
+| Raw error text | Meaning | Detailed fix |
+|---|---|---|
+| `stream disconnected before completion` | Stream dropped, usually a VPN / proxy / system proxy rotating the exit IP | [Issue 1](/en/docs/guide/faq#issue-1) |
+| `exceeded retry limit, last status: 429 Too Many Requests` | Daily quota exhausted | [Issue 2](/en/docs/guide/faq#issue-2) |
+| `401 Unauthorized: Incorrect API key provided` | The request still went to the official endpoint, not the LMU AI relay | [Issue 3](/en/docs/guide/faq#issue-3) |
+| `running scripts is disabled on this system` (Windows) | PowerShell execution policy restriction | [Issue 4](/en/docs/guide/faq#issue-4) |
+| `CODEX is not recognized as a cmdlet` (Windows) | Node.js not installed or PATH broken | [Issue 5](/en/docs/guide/faq#issue-5) |
+| `503 No available accounts` | A shell env var overrides the key configured in the IDE | [Issue 6](/en/docs/guide/faq#issue-6) |
+| `400 Invalid signature in thinking block` | Switching models across groups in one conversation; the thinking signature cannot be verified | [Issue 7](/en/docs/guide/faq#issue-7) |
+| `400 Unknown parameter: 'tools[0].n'` | A `tools` parameter was wrongly sent to an image endpoint | [Issue 8](/en/docs/guide/faq#issue-8) |
+| `No available accounts` / model unavailable | Called a model outside the current group's available range | [API Protocols → Troubleshooting](/en/docs/guide/api-protocols#troubleshooting) |
+
+---
+
+## Errors on the Usage export API
+
+The [Usage export API](/docs/api/usage-export) uses JWT authentication, so its error semantics differ from the API-key channel above:
+
+| Status | Cause | What to do |
+|---:|---|---|
+| `401` | JWT expired | Renew with the `refresh_token`, or sign in again |
+| `403` | Unauthorized access (e.g. querying an `api_key_id` that is not yours) | Check whether the key belongs to the current account |
+| `400` | Bad parameter (e.g. wrong `start_date` format) | Check the `YYYY-MM-DD` format and that `timezone` is valid |
+
+---
+
+## Still stuck?
+
+- Step-by-step worked cases are in the [FAQ](/en/docs/guide/faq)
+- Base URL / endpoint rules are in [API Protocols](/en/docs/guide/api-protocols)
+- Protection against a stolen key is in [Key Security](/docs/guide/key-security)
+- When contacting support, include the **request ID** and the full error text

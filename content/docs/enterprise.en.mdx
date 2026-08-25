@@ -1,0 +1,112 @@
+---
+title: Enterprise
+description: "LMU AI enterprise Claude / GPT / Gemini API plans: 6 SKUs (Enterprise Standard + Flagship) on Anthropic and OpenAI, with contracts, invoices, and support."
+ogDescription: LMU AI enterprise plans — enterprise-grade Claude / GPT / Gemini API relay subscriptions, 6 SKUs across Enterprise Standard and Enterprise Flagship, with contract signing, VAT invoices, and a dedicated business contact.
+keywords:
+  - Claude API enterprise
+  - enterprise Claude API
+  - Claude API relay enterprise
+  - Claude API invoice
+  - Claude API contract
+  - LLM API enterprise plan
+  - AI API team plan
+  - Claude API bulk procurement
+  - enterprise compliant AI access
+alternateNames:
+  - LMU AI enterprise edition
+  - Claude / GPT enterprise relay plans
+  - Claude API Enterprise Standard / Enterprise Flagship
+faq:
+  - q: What's the core difference between the enterprise plans and the personal plans?
+    a: Mainly quota scale, stability targets, and business support. The enterprise tiers commit to a 99.5% availability target and provide a monthly availability report, and support contract signing and VAT invoices. Exact terms are per the business contact and contract.
+  - q: Can you sign contracts and issue invoices?
+    a: Yes. The enterprise plans support signing a procurement contract and issuing VAT invoices; submit the invoice title and tax ID when ordering or during the business contact.
+  - q: Can one API key call both Claude and GPT?
+    a: Yes. The models you can call are decided by the API key's group, independent of the calling protocol; under an enterprise plan you can use the models of the corresponding platform for the SKU you ordered.
+---
+
+For teams that have already built AI calls into a product or internal workflow, we offer enterprise plans separate from the personal plans, covering both the **Anthropic (Claude)** and **OpenAI (GPT)** platforms across two tiers — **Enterprise Standard / Enterprise Flagship** — for a total of **6 SKUs**.
+
+## The problems we solve
+
+If your team has run into any of the following, an enterprise plan is usually a better fit than a personal plan:
+
+- **Volatility affecting production**: occasional call failures that force you to write your own fallback, retry, and monitoring in code
+- **Inflexible quota structure**: day / week passes can't sustain a team's concurrent, multi-person, multi-scenario needs
+- **Slow support response**: waiting hours for support when something breaks, with the business stalled
+- **Missing compliance materials**: finance needs invoices, legal needs a contract
+- **No visibility**: not knowing how many tokens each project spent, who's running what, or how to allocate costs
+
+## Enterprise plans on sale
+
+The 6 tiers below are the enterprise SKUs currently on sale; prices and cycles are per the [official pricing page](https://api.lmuai.com/pricing). **Other specs (response time, private deployment, etc.) are to be confirmed during the business contact.**
+
+| Plan | Model | Cycle | Concurrency | Price | List price |
+|------|------|------|------|------|------|
+| **G-PRO Enterprise Standard** | GPT (OpenAI) | 30 days | from 40 | ¥2,999 | ¥18,350 |
+| **C-PRO Enterprise Standard** | Claude (Anthropic) | 30 days | from 40 | ¥3,999 | ¥14,790 |
+| **C-MAX Enterprise Standard** | Claude (Anthropic) | 30 days | from 40 | ¥7,799 | ¥14,800 |
+| **G-PRO · Enterprise Flagship** | GPT (OpenAI) | 30 days | from 80 | ¥6,250 | ¥42,375 |
+| **C-PRO · Enterprise Flagship** | Claude (Anthropic) | 30 days | from 80 | ¥8,250 | ¥42,375 |
+| **C-MAX · Enterprise Flagship** | Claude (Anthropic) | 30 days | from 80 | ¥16,500 | ¥42,375 |
+
+> Naming: **G-PRO** provides GPT-series models; **C-PRO / C-MAX** both provide Claude-series models, corresponding to different upstream account pools on the Anthropic platform. We recommend confirming your use case with the business team before ordering.
+
+## Capabilities shared by all enterprise tiers
+
+Whichever tier you choose, every enterprise plan includes:
+
+| Capability | Description |
+|------|------|
+| **Multi-source routing + automatic failover** | See [Reliability architecture](/docs/guide/reliability) |
+| **99.5% availability target + monthly report** | The enterprise tiers commit to a 99.5% availability target and provide a monthly availability report; see the [SLA section](/docs/guide/reliability#服务等级sla) |
+| **Usage detail API** | Automatically pull call details, token consumption, and cost via the [/api/v1/usage endpoint](/docs/api/usage-export) |
+| **Zero content retention** | Prompts and response content are not persisted; see [Data & Privacy](/docs/guide/privacy) |
+| **Contracts and invoices** | Supports signing a procurement contract and issuing VAT invoices |
+| **One key across platforms** | The models you can call are decided by the API key's group, independent of protocol; see [API Protocols](/en/docs/guide/api-protocols) |
+
+> Higher SLA and compensation terms can be arranged with the business team; the contract governs.
+
+## What we don't sell
+
+To save your time, the following are **outside our current scope**:
+
+- API calls involving political, pornographic, gambling, or fraud content
+- Any plan that requires circumventing a model provider's terms of use
+
+## How to get started
+
+### Not sure which tier fits?
+
+Contact the business team directly, and we'll advise based on your call volume, platform preference (Anthropic / OpenAI), and compliance requirements.
+
+### Business contact
+
+- **Email**: business@lmuai.com
+- **WeChat / phone**: 18599001010
+
+Please briefly include in your email / message:
+
+1. Team size and use case (e.g. a 10-person AI writing tool, mostly using Claude Sonnet)
+2. Estimated monthly call volume (that's fine if you don't know — we can estimate together)
+3. Any special requirements around compliance, contracts, or invoices
+
+## FAQ
+
+<Callout type="info" title="Can enterprise and personal plans coexist?">
+
+Yes. One account can hold multiple plans at once, and calls are routed by the API key's group — see [API Protocols · Protocol and available models are two different things](/en/docs/guide/api-protocols#protocol-vs-models).
+
+</Callout>
+
+<Callout type="info" title="Can I mix Claude and GPT?">
+
+Which models one API key can call is decided by its group: if you ordered an Anthropic-platform SKU, you can call Claude-series models; if you ordered an OpenAI-platform SKU, you can call GPT-series models. When you need both platforms, order the corresponding SKUs separately.
+
+</Callout>
+
+<Callout type="info" title="How do I negotiate a higher SLA or compensation terms?">
+
+Above the enterprise tiers' default 99.5% availability target, if you need a higher SLA or explicit compensation terms, arrange them through the business contact; the contract governs.
+
+</Callout>

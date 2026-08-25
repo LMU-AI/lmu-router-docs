@@ -16,12 +16,22 @@ function createTokenizer() {
   return tokenizer;
 }
 
+// The source is i18n (cn + en), so createFromSource builds one index per locale
+// and picks each locale's tokenizer from localeMap. Chinese needs the Mandarin
+// segmenter (Intl.Segmenter) to split CJK runs into terms; English uses Orama's
+// built-in tokenizer/stemmer, which handles stemming and stop-words properly —
+// applying the Mandarin tokenizer to English would lose that.
 export const { GET } = createFromSource(source, {
-  components: {
-    tokenizer: createTokenizer(),
-  },
-  search: {
-    threshold: 0,
-    tolerance: 1,
+  localeMap: {
+    cn: {
+      components: {
+        tokenizer: createTokenizer(),
+      },
+      search: {
+        threshold: 0,
+        tolerance: 1,
+      },
+    },
+    en: 'english',
   },
 });
