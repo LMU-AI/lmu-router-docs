@@ -58,17 +58,17 @@ The request ID in the response headers is the single most useful piece of inform
 - **Do not retry**: `400`, `401`, and any explicit balance, permission, parameter, or content-policy error — the request itself is invalid, and any upstream account returns the same result. You must fix the request first.
 - **Safe to retry**: `429`, `502`, `503`, `504`, and network drops, connection resets, and read timeouts — all transient failures. Use exponential backoff for a **limited** number of retries (2–3 recommended) to avoid paying for repeated calls; on `429` also lower concurrency and RPM.
 
-This classification comes from the retry guidance in the image APIs — see [Gemini Image · Retry guidance](/docs/api/gemini-image#重试建议).
+This classification comes from the retry guidance in the image APIs — see [Gemini Image · Retry guidance](/en/docs/api/gemini-image#retry-recommendations).
 
 </Callout>
 
-Full error descriptions for each API: [Gemini Image](/docs/api/gemini-image), [GPT Image](/docs/api/gpt-image), [Grok Image](/docs/api/grok-image), [Gemini Batch Image](/docs/api/gemini-image-batch).
+Full error descriptions for each API: [Gemini Image](/en/docs/api/gemini-image), [GPT Image](/en/docs/api/gpt-image), [Grok Image](/en/docs/api/grok-image), [Gemini Batch Image](/en/docs/api/gemini-image-batch).
 
 ---
 
 ## Business error codes (batch image)
 
-Beyond HTTP status codes, the [Gemini Batch Image API](/docs/api/gemini-image-batch) also returns business error codes, shown in the console as `error code: BATCH_IMAGE_XXX` plus a request ID.
+Beyond HTTP status codes, the [Gemini Batch Image API](/en/docs/api/gemini-image-batch) also returns business error codes, shown in the console as `error code: BATCH_IMAGE_XXX` plus a request ID.
 
 | Error code | HTTP | Meaning | What to do |
 |---|---:|---|---|
@@ -113,7 +113,7 @@ Match the error text you actually see against the table below and jump straight 
 
 ## Errors on the Usage export API
 
-The [Usage export API](/docs/api/usage-export) uses JWT authentication, so its error semantics differ from the API-key channel above:
+The [Usage export API](/en/docs/api/usage-export) uses JWT authentication, so its error semantics differ from the API-key channel above:
 
 | Status | Cause | What to do |
 |---:|---|---|
@@ -127,5 +127,5 @@ The [Usage export API](/docs/api/usage-export) uses JWT authentication, so its e
 
 - Step-by-step worked cases are in the [FAQ](/en/docs/guide/faq)
 - Base URL / endpoint rules are in [API Protocols](/en/docs/guide/api-protocols)
-- Protection against a stolen key is in [Key Security](/docs/guide/key-security)
+- Protection against a stolen key is in [Key Security](/en/docs/guide/key-security)
 - When contacting support, include the **request ID** and the full error text

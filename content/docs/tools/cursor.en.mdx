@@ -40,7 +40,7 @@ faq:
   - q: After turning on Override OpenAI Base URL, Cursor's built-in Claude 3.5 suddenly stopped working?
     a: This is a known Cursor routing conflict — turning on the OpenAI Base URL override interrupts Cursor's built-in Anthropic branch. To keep using Claude in the Chat panel, add the Claude model ID (e.g. `claude-opus-5`) as a custom model, and the LMU AI backend does the OpenAI ↔ Anthropic protocol translation.
   - q: Can Cursor's Composer / Tab autocomplete use LMU AI?
-    a: No. Cursor's core agent features — Composer, Tab autocomplete, Apply, Inline Edit — are locked to the Cursor official backend and cannot be taken over by a third-party relay. For a "full-capability" LMU AI experience, install the [official Codex extension](/docs/tools/vscode-plugin) or the [Claude Code for VS Code extension](/docs/tools/claude-code-vscode) in Cursor (Cursor is compatible with the VS Code extension marketplace).
+    a: No. Cursor's core agent features — Composer, Tab autocomplete, Apply, Inline Edit — are locked to the Cursor official backend and cannot be taken over by a third-party relay. For a "full-capability" LMU AI experience, install the [official Codex extension](/en/docs/tools/vscode-plugin) or the [Claude Code for VS Code extension](/en/docs/tools/claude-code-vscode) in Cursor (Cursor is compatible with the VS Code extension marketplace).
   - q: Verify fails when I add a model?
     a: "Common — non-official OpenAI model names (e.g. `claude-opus-5`, `glm-5.2`) do not pass Cursor's connection check. Workaround: first add an official OpenAI name like `gpt-4` to pass Verify (confirming the Base URL + key connect), then add the custom model IDs you want separately; Verify warns but **it runs fine in practice**."
   - q: Does the Base URL need `/v1`?
@@ -57,8 +57,8 @@ Cursor's Override OpenAI Base URL **only affects the Chat / Plan panel** (the co
 
 If you need a "full-capability" agent experience in Cursor (including Composer-type features), install instead (Cursor is compatible with the VS Code extension marketplace):
 
-- [Official Codex extension](/docs/tools/vscode-plugin) — a Codex agent over the LMU AI OpenAI protocol
-- [Claude Code for VS Code extension](/docs/tools/claude-code-vscode) — a Claude Code agent over the LMU AI Anthropic protocol
+- [Official Codex extension](/en/docs/tools/vscode-plugin) — a Codex agent over the LMU AI OpenAI protocol
+- [Claude Code for VS Code extension](/en/docs/tools/claude-code-vscode) — a Claude Code agent over the LMU AI Anthropic protocol
 
 </Callout>
 
@@ -140,8 +140,8 @@ For the full list, see the [Model Gallery](/en/docs/guide/models).
 
 Native Override OpenAI Base URL can't do it — these Cursor core features are locked to the official backend. To route everything through LMU AI, use:
 
-- [Official Codex extension](/docs/tools/vscode-plugin) — an OpenAI-protocol agent
-- [Claude Code for VS Code extension](/docs/tools/claude-code-vscode) — an Anthropic-protocol agent
+- [Official Codex extension](/en/docs/tools/vscode-plugin) — an OpenAI-protocol agent
+- [Claude Code for VS Code extension](/en/docs/tools/claude-code-vscode) — an Anthropic-protocol agent
 
 Cursor is compatible with the VS Code extension marketplace, so both extensions install directly in Cursor.
 

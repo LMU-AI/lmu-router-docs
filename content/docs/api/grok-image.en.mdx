@@ -1,0 +1,283 @@
+---
+title: Grok Image API
+description: "Call Grok image models via the LMU AI OpenAI Images-compatible API: text-to-image, editing, URL and Base64 input, downloads, model choice, and error fixes."
+ogDescription: "LMU AI Grok Image API integration guide: POST /v1/images/generations with grok-imagine-image, and POST /v1/images/edits with grok-imagine-image-quality for image editing."
+keywords:
+  - Grok Image API
+  - grok-imagine-image
+  - grok-imagine-image-quality
+  - Grok image editing
+  - xAI Images API
+  - LMU AI Grok image generation
+alternateNames:
+  - Grok image generation API
+  - xAI image generation-compatible API
+faq:
+  - q: Which endpoint does Grok image generation use?
+    a: "Text-to-image uses POST /v1/images/generations, and image editing uses POST /v1/images/edits. Set the base_url of an OpenAI-compatible client to https://api.lmuai.com/v1."
+  - q: Which model is recommended for text-to-image?
+    a: "For standard text-to-image we recommend grok-imagine-image; use grok-imagine-image-quality when you need the quality model or image editing. The GET /v1/models response for your current API key is the source of truth."
+  - q: How are Grok image results returned?
+    a: "They usually return data[].url. The download link may expire, so we recommend downloading it right after the job completes and saving it to your own object storage."
+  - q: Does Grok support async or batch image generation?
+    a: "The production environment currently has no async image jobs enabled, and /v1/images/batches does not support Grok either. Use the synchronous Images API and control concurrency on the client side."
+---
+
+LMU AI provides Grok image generation and image editing through the OpenAI Images-compatible path.
+
+<Callout type="info" title="Base URL">
+
+OpenAI-compatible SDK:
+
+```text
+https://api.lmuai.com/v1
+```
+
+Full HTTP endpoints:
+
+```text
+POST https://api.lmuai.com/v1/images/generations
+POST https://api.lmuai.com/v1/images/edits
+```
+
+</Callout>
+
+## 1. API overview
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/v1/models` | Query the models available to your current Grok group |
+| `POST` | `/v1/images/generations` | Grok text-to-image, synchronous response |
+| `POST` | `/v1/images/edits` | Grok image editing / image-to-image, synchronous response |
+
+There is currently no publicly available Grok async job or multi-item batch API.
+
+## 2. Recommended models
+
+| Scenario | Recommended model |
+|---|---|
+| Standard text-to-image | `grok-imagine-image` |
+| Quality-first text-to-image | `grok-imagine-image-quality` |
+| Image editing / image-to-image | `grok-imagine-image-quality` |
+
+First query the models with your current API key:
+
+```bash
+curl https://api.lmuai.com/v1/models \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+<Callout type="warn" title="Use the quality model for image editing">
+
+The image editing examples use `grok-imagine-image-quality`. We do not recommend `grok-imagine-edit` as your default model: this compatibility name may appear in some model lists, but some upstream channels return `404` when it is called.
+
+</Callout>
+
+## 3. Authentication
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+Your API key must belong to a Grok group that has image generation enabled.
+
+## 4. Text-to-image
+
+### `POST /v1/images/generations`
+
+```bash
+curl https://api.lmuai.com/v1/images/generations \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "grok-imagine-image",
+    "prompt": "A blue ceramic mug, centered on a light-gray studio background, soft side lighting, no text",
+    "n": 1,
+    "size": "1024x1024"
+  }'
+```
+
+JavaScript:
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.LMU_API_KEY,
+  baseURL: "https://api.lmuai.com/v1",
+});
+
+const result = await client.images.generate({
+  model: "grok-imagine-image",
+  prompt: "A blue ceramic mug, light-gray studio background, soft side lighting, no text",
+  n: 1,
+  size: "1024x1024",
+});
+
+const url = result.data?.[0]?.url;
+if (!url) throw new Error("No image URL in the response");
+console.log(url);
+```
+
+Python:
+
+```python
+from openai import OpenAI
+import requests
+
+client = OpenAI(
+    api_key="YOUR_API_KEY",
+    base_url="https://api.lmuai.com/v1",
+)
+
+result = client.images.generate(
+    model="grok-imagine-image",
+    prompt="A blue ceramic mug, light-gray studio background, soft side lighting, no text",
+    n=1,
+    size="1024x1024",
+)
+
+url = result.data[0].url
+if not url:
+    raise RuntimeError("No image URL in the response")
+
+image = requests.get(url, timeout=60)
+image.raise_for_status()
+with open("grok-output.jpg", "wb") as f:
+    f.write(image.content)
+```
+
+## 5. Text-to-image parameters
+
+| Field | Type | Required | Description |
+|---|---:|---:|---|
+| `model` | string | Yes | Recommended: `grok-imagine-image` or `grok-imagine-image-quality` |
+| `prompt` | string | Yes | Image description |
+| `n` | integer | No | Number of images; we recommend starting your tests with `1` |
+| `size` | string | No | OpenAI-compatible size parameter; the actual output size is determined by Grok upstream capabilities |
+| `response_format` | string | No | Response-format compatibility parameter; Grok usually returns a URL |
+
+<Callout type="warn" title="Do not rely on size to force fixed output pixels">
+
+Grok channels may accept `size` as a compatibility or billing parameter, but the final image's pixels and aspect ratio are determined by the upstream generation result. When you need fixed pixels, download the image and crop or resize it yourself.
+
+</Callout>
+
+## 6. Image editing / image-to-image
+
+### `POST /v1/images/edits`
+
+Grok image editing is best done with JSON; pass one of the following in `image.url`:
+
+- A publicly accessible HTTPS image URL; or
+- A `data:image/...;base64,...` Data URL.
+
+### Using an image URL
+
+```bash
+curl https://api.lmuai.com/v1/images/edits \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "grok-imagine-image-quality",
+    "prompt": "Keep the mug's shape, composition, and lighting; change the mug from blue to yellow; no text",
+    "image": {
+      "url": "https://example.com/input.jpg",
+      "type": "image_url"
+    },
+    "response_format": "url"
+  }'
+```
+
+### Converting a local image to a Data URL
+
+Python:
+
+```python
+import base64
+import mimetypes
+import requests
+
+api_key = "YOUR_API_KEY"
+image_path = "input.jpg"
+mime_type = mimetypes.guess_type(image_path)[0] or "image/jpeg"
+
+with open(image_path, "rb") as f:
+    data_url = f"data:{mime_type};base64,{base64.b64encode(f.read()).decode()}"
+
+payload = {
+    "model": "grok-imagine-image-quality",
+    "prompt": "Keep the subject and composition; change the background to a seaside at dusk; no text",
+    "image": {
+        "url": data_url,
+        "type": "image_url",
+    },
+    "response_format": "url",
+}
+
+response = requests.post(
+    "https://api.lmuai.com/v1/images/edits",
+    headers={
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    },
+    json=payload,
+    timeout=300,
+)
+response.raise_for_status()
+result = response.json()
+print(result["data"][0]["url"])
+```
+
+<Callout type="warn" title="Data URLs enlarge the request body">
+
+Base64 increases the request body by about one third. For large images, compress them first, or upload them to your own HTTPS object storage and pass the URL. Do not use addresses that require cookies, a login session, or temporary hotlink protection.
+
+</Callout>
+
+## 7. Response format
+
+A typical Grok image response:
+
+```json
+{
+  "data": [
+    {
+      "url": "https://image-host.example/generated.jpg"
+    }
+  ],
+  "usage": {
+    "cost_in_usd_ticks": 200000000
+  }
+}
+```
+
+Clients should:
+
+1. Check the HTTP status code;
+2. Check whether `data` is a non-empty array;
+3. Check whether `data[0].url` is non-empty;
+4. Download the image immediately and save it to your own storage;
+5. Do not treat the temporary URL as a permanent resource address.
+
+The `usage` field is returned by the upstream channel, and its structure may differ from the GPT image API. The final cost follows your LMU AI bill and Usage details; do not treat any single upstream field as the amount charged to your account.
+
+## 8. Common errors
+
+| HTTP | Common cause | Recommended action |
+|---:|---|---|
+| `400` | Missing `model` / `prompt`, or an invalid image Data URL | Check the JSON and image encoding |
+| `401` | Invalid API key | Check the Bearer authentication |
+| `403` | Image generation not enabled for the group | Contact the admin to check the Grok group permissions |
+| `404` | A channel-incompatible model alias was used, or the upstream path is unavailable | For editing, switch to `grok-imagine-image-quality` first and save the request ID |
+| `429` | Concurrency, RPM, or upstream quota limits | Lower concurrency and retry with exponential backoff |
+| `5xx` | Upstream generation temporarily failed | Retry a limited number of times and provide the request ID to the admin |
+
+## 9. Differences from other image APIs
+
+| Need | Recommended doc |
+|---|---|
+| Gemini native text-to-image and image-to-image | [Gemini Image API](/en/docs/api/gemini-image) |
+| GPT text-to-image and editing | [GPT Image API](/en/docs/api/gpt-image) |
+| Grok text-to-image and editing | This page |
+| Async processing of multiple Gemini prompts | [Gemini Batch Image API](/en/docs/api/gemini-image-batch) |
