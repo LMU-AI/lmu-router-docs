@@ -1,0 +1,133 @@
+---
+title: Key security
+description: "LMU AI API key IP whitelist / blacklist guide: restrict which IPs can call your key to stop a leaked key being abused; supports single IPs and CIDR ranges."
+ogDescription: "LMU AI key security: configure IP whitelists and blacklists for your Claude / GPT / Chinese-model API keys, with support for single IPs, CIDR ranges, and IPv6, so a leaked key can't be used by others to drain your quota — includes troubleshooting and production best practices."
+keywords:
+  - API key security
+  - API key IP whitelist
+  - prevent API key abuse
+  - what to do if a Claude API key leaks
+  - CIDR whitelist configuration
+  - IPv6 whitelist
+  - 403 ACCESS_DENIED
+  - Claude Code key security
+  - LMU AI key IP restriction
+  - AI API key protection
+alternateNames:
+  - Claude API key IP whitelist configuration
+  - LMU AI key security guide
+  - API key abuse-protection settings
+  - How to limit losses after a key leaks
+  - Claude Code key protection tutorial
+faq:
+  - q: Can I use the IP whitelist and blacklist at the same time?
+    a: Yes. When both are configured, the blacklist takes effect first — even if an IP is on the whitelist, it is still rejected if it matches the blacklist.
+  - q: Why can't I connect when I put a private (LAN) IP on the whitelist?
+    a: LMU AI's servers can't see private IPs (such as 192.168.x.x or 10.x.x.x); they only see your **public egress IP**. Use `curl https://ifconfig.me` to find your real egress IP, then enter that.
+  - q: My home IP changes — how do I use the whitelist?
+    a: If you have a dynamic public IP, you can enter the CIDR range assigned by your ISP (such as `123.45.0.0/16`) to loosen the range; if you can't determine the range, we recommend not enabling the whitelist and using other protections instead (rate limiting, total quota, model whitelist).
+  - q: What should I do if my LMU AI API key leaks?
+    a: Immediately **reset or delete** the key in the console; if an IP whitelist is already configured, the leaked key can't be used from unfamiliar IPs, which significantly reduces your losses. We also recommend tracing the source of the leak (public repo commits, logs, chat history, screenshots, etc.) and enabling an IP whitelist right away on the new key.
+  - q: How many IPs can one key have? Does it support IPv6?
+    a: "One rule per line; you can mix single IPs and CIDR ranges, and there is no hard limit on the number of entries. Both IPv4 and IPv6 are supported (IPv6 example: `2001:db8::/32`). If you have both v4 and v6 egress, enter both."
+  - q: How do I set up the whitelist for calls from a production server?
+    a: Enter the server's **public IP** (not its private IP). If you use a load balancer or have multiple egress IPs, add all possible egress IPs or their CIDR ranges to the whitelist; for local development, use a separate key with no whitelist to avoid interference.
+  - q: Do the IP whitelist, rate limiting, and total quota conflict?
+    a: No, and we recommend stacking them. The IP whitelist limits "who can use it," rate limiting limits "how fast," and total quota limits "how much." Configure all three on a production key for defense in depth — even if the whitelist is bypassed, rate limiting and quota still provide a backstop.
+  - q: Why is my call rejected with 403 ACCESS_DENIED?
+    a: Most likely the IP didn't match the whitelist. Use `curl https://ifconfig.me` to check your real egress IP, compare it against the key's whitelist, and either add the current IP or temporarily clear the whitelist to test; if it's still rejected, check whether it matches the blacklist, whether the key is disabled, and whether the quota is exhausted.
+---
+
+If a key leaks, others can use it to consume your quota. An **IP whitelist** is the most direct protection — only IPs you trust are allowed to use the key.
+
+## Where to configure it
+
+Go to **console → API Keys → Edit (or Create)** and find the two fields, **IP whitelist** and **IP blacklist**.
+
+One rule per line, in either of two formats:
+
+| Format | Example | Description |
+|------|------|------|
+| Single IP | `203.0.113.10` | Matches exactly one IP |
+| CIDR range | `203.0.113.0/24` | Matches a whole range of IPs (`/24` = 256 IPs) |
+
+Both IPv4 and IPv6 are supported (IPv6 example: `2001:db8::/32`).
+
+## How it takes effect
+
+- **Whitelist empty** → no source restriction; any IP can use the key
+- **Whitelist non-empty** → only IPs on the list can use it; all others are rejected
+- **Blacklist** → matching IPs are rejected, **taking priority over the whitelist**
+- You can use both at once (the blacklist is checked first, then the whitelist)
+
+When rejected, the API returns `403 ACCESS_DENIED`.
+
+## Find your real egress IP (important!)
+
+**This is the easiest mistake to make**: the IP you configure on the key must be the **public egress IP** that LMU AI's servers see, not the private address shown by `ipconfig` / `ifconfig` on your computer.
+
+```bash
+# Command line
+curl https://ifconfig.me
+# or
+curl https://ip.sb
+```
+
+Or open [ip.sb](https://ip.sb) / [ifconfig.me](https://ifconfig.me) in your browser.
+
+<Callout type="warn">
+  Your egress IP changes when you turn on a VPN or a company proxy, or when your mobile device switches Wi-Fi networks. Confirm it with the command above before configuring the whitelist.
+</Callout>
+
+## Common scenarios
+
+**Scenario 1: A fixed office IP**
+```
+Whitelist:
+203.0.113.10
+```
+
+**Scenario 2: Working from both home and the office**
+```
+Whitelist:
+203.0.113.10      # Company egress
+198.51.100.20     # Home broadband
+```
+
+**Scenario 3: Running on your own cloud server**
+```
+Whitelist:
+<your cloud server's public IP>
+```
+Allow only your server to call the API, and use a separate key (with no whitelist) for local development.
+
+**Scenario 4: You just want to temporarily block a suspicious IP**
+```
+Blacklist:
+1.2.3.4
+```
+Everything else works as usual, with no impact on normal use.
+
+## Troubleshooting
+
+**Q: My call returns 403 ACCESS_DENIED — is it an IP restriction?**
+
+Most likely. Check in order:
+
+1. Use `curl https://ifconfig.me` to confirm your current real egress IP
+2. Compare it against the key's whitelist to see if it matches
+3. If it doesn't match, add the current IP to the whitelist, or temporarily clear the whitelist to test
+4. If it's still rejected, check whether it's on the blacklist, whether the key is disabled, and whether the quota is exhausted
+
+**Q: I put an IP on the whitelist but I'm still rejected?**
+
+- Did you enter a **private IP** (`192.168.x.x` / `10.x.x.x` / `172.16-31.x.x`)? Replace it with your public egress IP.
+- Did you enter an IPv6 address but go online over IPv4 (or vice versa)? Enter both.
+- Did you enter a CIDR with a malformed format (such as `1.2.3.4/33`)? Invalid rules are silently ignored.
+
+## Recommended practices
+
+- For **production keys**, we strongly recommend configuring an IP whitelist to minimize the attack surface
+- For **development / debugging keys**, you can skip the whitelist, but you must set a **total quota cap** as a backstop
+- If you're especially worried about leaks, combine it with [**rate limiting**, **total quota**, and **model whitelist**](/en/docs/guide/how-to-use-token) for layered defense
+- The moment you suspect a key has leaked, **reset or delete** it in the console right away

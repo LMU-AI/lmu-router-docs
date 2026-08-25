@@ -1,0 +1,128 @@
+---
+title: Reliability architecture
+description: "LMU AI reliability architecture: multi-source routing, health probes, and three-tier automatic failover; 99.5% availability target on Standard and Enterprise."
+ogDescription: "A stable, reliable Claude API relay: LMU AI uses multi-source routing, three-tier failover (official / upstream / fallback), and health probing to deliver a high-availability, low-latency Claude / GPT / Gemini API relay service."
+keywords:
+  - stable Claude API relay
+  - Claude API high availability
+  - Claude API failover
+  - what to do when the Claude API is unstable
+  - AI API relay SLA
+  - multi-source routing
+  - Claude relay in China
+  - large-model API relay reliability
+  - reliable AI API relay
+  - stable Claude Code relay
+alternateNames:
+  - Claude API relay reliability overview
+  - LMU AI reliability architecture
+  - High-availability relay for Claude / GPT / Gemini
+faq:
+  - q: Is LMU AI's Claude API relay stable?
+    a: LMU AI uses a three-tier failover architecture (official channel → upstream channel → fallback channel) and continuously runs health probes on every upstream; unhealthy channels are automatically down-weighted or removed, single-point failures are transparent to end users, and this keeps the Claude / GPT / Gemini API highly available and low-latency.
+  - q: Why is connecting directly to the official Claude API unstable?
+    a: Connecting directly to the official API often brings regional rate limiting, account risk controls, compatibility issues during version switches, spikes in first-token latency, and more. If a relay is just a simple proxy, these problems are passed through as-is. LMU AI designs its system on the premise that "upstreams are unstable," masking the jitter through multi-source pooling, automatic retries, and tiered routing.
+  - q: How is the LMU AI relay different from an ordinary mirror site?
+    a: An ordinary mirror site is usually a single upstream plus a transparent proxy; LMU AI connects multiple independent channels behind the same model and dynamically selects an upstream based on your plan tier, the model, health, and load, while providing a public status page, automatic error retries, streaming passthrough, and billing consistency.
+---
+
+We treat "stability" as the product's number-one feature. This page explains how we achieve that, and what happens when something goes wrong.
+
+## Why is reliability so hard?
+
+Developers who connect directly to the official API run into things like:
+
+- Regional rate limiting / unavailability
+- A single payment channel or account getting banned
+- Compatibility issues during model version switches
+- Queuing at peak hours and spikes in first-token latency
+
+If a relay service is just a simple proxy, these problems are **passed through as-is** to users, or even made worse. Our approach is to design the system on the premise that "upstreams are unstable," rather than treating that as an exception.
+
+## Our multi-source routing architecture
+
+For every API call, the request is handled along the following path:
+
+<Mermaid chart={`flowchart TD
+    U([User request]) --> E[Edge gateway<br/>Auth / rate limiting / parameter validation]
+    E --> R[Routing decision layer<br/>Select upstream by plan tier / model / health / load]
+
+    R -->|First priority| O1[Official channel A primary]
+    R -->|First priority| O2[Official channel B backup]
+    R -.->|When official is unavailable| P1[Upstream channel A]
+    R -.->|When official is unavailable| P2[Upstream channel B]
+    R -.->|When the first two tiers are unavailable| F1[Fallback channel A]
+    R -.->|When the first two tiers are unavailable| F2[Fallback channel B]
+
+    O1 --> A[Response aggregation layer<br/>Error retries / streaming passthrough / billing]
+    O2 --> A
+    P1 --> A
+    P2 --> A
+    F1 --> A
+    F2 --> A
+    A --> Ret([Return to user])
+`} />
+
+**Core mechanisms:**
+
+- **Multi-upstream pool**: multiple independent channels sit behind the same model, avoiding single points of failure
+- **Health probing**: we continuously monitor each upstream's success rate, first-token latency, and rate-limit rate, and **unhealthy channels are automatically down-weighted or removed**
+- **Automatic failover**: when the primary channel returns 5xx / rate limiting / timeouts, the request switches to a backup channel within milliseconds, **usually with no impact on your side**
+- **Stream interruption reconnect**: when a streaming response drops midway, we attempt to resume it on protocols that support it
+
+## Service level (SLA)
+
+Our external commitments are grounded in "what we can actually deliver" — we don't make empty promises.
+
+| Tier | Availability target | Monthly report | Business contract |
+|------|-----------|---------|---------|
+| Economy | Best-effort | — | Not applicable |
+| Standard | 99.5% | — | Not applicable |
+| Enterprise | 99.5% | Provided | Higher SLA and compensation terms available |
+
+> The Economy tier is for individual developers who want the best value and can tolerate occasional fluctuations; if your business has hard reliability requirements, choose the Enterprise tier or contact our sales team for a custom plan.
+
+How availability is measured:
+- We count only the request success rate "on the LMU AI side," **excluding user-side network problems, parameter errors, and content refusals from the upstream model itself**
+- A single failure lasting < 60 seconds is not counted
+- The monthly report includes success rates and P95 latency broken down by model and by time period
+
+## What happens during an incident
+
+**Brief jitter (< 5 minutes)**
+- The routing layer switches upstreams automatically, with no announcement
+- The [status page](https://api.lmuai.com/monitor) records the event
+
+**A single upstream outage (< 1 hour)**
+- The routing layer completes the switch; if it's visible to some users/models, we post it on the status page
+- Standard and Enterprise users are notified by email
+
+**Regional or simultaneous multi-upstream impact**
+- The event is pinned on the status page with periodic updates
+- Enterprise users get progress updates by email in real time
+- A postmortem is published within 48 hours after the event ends
+
+## What we don't do
+
+To avoid misleading users, we currently do **not** promise the following:
+
+- **Zero-latency, seamless switching**: failover introduces extra latency from milliseconds to seconds, so it will never be completely seamless
+- **Cross-model compatibility compensation**: if an upstream model itself is retired (for example, a model version is discontinued by the provider), we announce it rather than silently switching to a different model
+- **Unlimited retries**: failed requests are retried a limited number of times per policy, so you don't pay for unexpected repeat calls
+
+## FAQ
+
+<Callout type="info" title="Why do I still hit failures occasionally?">
+
+No system is 100% available. Our goal is to keep overall availability above 99.5% and to recover quickly when failures occur. If you experience persistent failures (for example, the same kind of request failing multiple times within 5 minutes), please contact support with your request ID and we'll prioritize the investigation.
+
+</Callout>
+
+<Callout type="info" title="How do I apply for the Enterprise tier?">
+
+See the [Enterprise plans](/en/docs/enterprise) page, or contact sales directly:
+
+- Email: business@lmuai.com
+- WeChat / phone: 18599001010
+
+</Callout>

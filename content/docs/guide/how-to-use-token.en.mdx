@@ -1,0 +1,47 @@
+---
+title: How to use tokens
+description: "LMU AI token management: personal vs. channel tokens, view usage in the console, set a total quota and model whitelist, reset quota, and revoke tokens."
+ogDescription: "LMU AI token management guide: tell personal tokens from channel tokens, view call counts and token consumption by day / month in the console, set a total quota, requests per minute, and a model whitelist when creating a token, reset quota, and revoke a token at any time."
+keywords:
+  - LMU AI token usage
+  - API key quota limits
+  - API key model whitelist
+  - token usage statistics
+  - personal token vs channel token
+  - API key revocation
+  - requests-per-minute limit
+alternateNames:
+  - LMU AI token management
+  - View API key quota and usage
+  - Token whitelist and revocation
+---
+
+
+## Token types
+
+| Type | Description |
+|------|------|
+| Personal token | Bound to your account, uses your quota |
+| Channel token | Assigned by an administrator, with independent quota management |
+
+## View usage
+
+Go to **console → Usage statistics** to view:
+
+- Call counts by day / month
+- Token consumption
+- Cost breakdown
+- Share of usage by model
+
+## Quota limits
+
+When you create a token, you can set the following limits:
+
+- **Total quota**: the maximum quota this token can consume (leave empty for no limit)
+- **Requests per minute**: rate-limit protection
+- **Model whitelist**: restrict this token to calling only the specified models
+
+## Reset and revoke
+
+- **Reset quota**: you can manually reset used quota on the token management page
+- **Revoke token**: deleting a token takes effect immediately; requests already sent are unaffected

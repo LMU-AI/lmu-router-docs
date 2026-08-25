@@ -1,0 +1,141 @@
+---
+title: Data and privacy
+description: "LMU AI data handling: request and response content is never persisted, call metadata is kept for 90 days, and account data is stored only within China."
+ogDescription: "LMU AI data and privacy: we don't retain request or response content, account and billing data stays only within China, cross-border calls transmit only the necessary request, and enterprise compliance materials, a DPA, and security documentation are available on request."
+keywords:
+  - Claude API data security
+  - Claude API privacy
+  - AI API no retention
+  - Claude API compliance
+  - Claude API DPA
+  - AI cross-border data
+  - enterprise AI compliance
+  - AI API log retention
+  - AI data storage in China
+  - LMU AI privacy policy
+alternateNames:
+  - LMU AI privacy policy
+  - Claude API compliance overview
+  - Data processing and cross-border transfer
+---
+
+This page explains the principles LMU AI follows when handling user data. We treat "minimal storage, isolation, and transparency" as the three baselines of our data handling.
+
+## What data we handle
+
+We divide data into two categories: **account data** and **request data**. The two are handled and stored in completely different ways.
+
+### Account data
+
+| Type | Content | Purpose |
+|------|------|------|
+| Identity information | Email, phone number | Login, password recovery, notifications |
+| Billing information | Plan, quota, order records | Billing and invoices |
+| Credential information | API key (stored encrypted), login session | Authentication |
+| Usage metadata | Call time, model, token usage, duration | Billing, statistics, reports |
+
+### Request data
+
+| Type | Content | Purpose |
+|------|------|------|
+| Request body | The prompt, messages, and parameters you send | Forwarded to the upstream model to generate a response |
+| Response body | The content the model returns | Returned to you |
+
+**Key distinction**: account data is used to operate the platform itself; request data is used only to complete your current, single API call.
+
+## Where data is stored
+
+Our infrastructure has two layers:
+
+**Access layer (within China)**
+- Main servers, user database, billing system
+- **All account data is stored here**
+- Your email, phone number, orders, and API key never leave China
+
+**Upstream channel layer (multi-region, including overseas)**
+- Used to access the official interfaces of model providers such as OpenAI / Anthropic / etc.
+- These channels **serve only as a relay for model traffic** and do not persist any user identity information
+- Channel nodes do not store user accounts and do not know which user a request comes from (they see only the anonymized request payload)
+
+<Mermaid chart={`flowchart TD
+    U[User login / billing] -- Account data --> DB[(Database in China)]
+    U -- Initiate API call<br/>User identity stripped after API key auth --> G[Access gateway<br/>In China]
+    G -- Request payload --> UP[Upstream channels, multi-region<br/>No user data stored]
+    UP -- Response data --> G
+
+    classDef cn fill:#eef6ff,stroke:#3b82f6,color:#1e3a8a;
+    classDef ext fill:#fff7ed,stroke:#f97316,color:#7c2d12;
+    class U,G,DB cn;
+    class UP ext;
+`} />
+
+## Log retention policy
+
+| Data type | Retention period | Storage location |
+|---------|---------|---------|
+| Request / response body content | **Not persisted** | — |
+| Call metadata (time, model, token, duration, status code) | 90 days | Within China |
+| Error logs (may include truncated request fragments) | 90 days | Within China |
+| Account and order data | For the life of the account; cleared within 30 days of cancellation | Within China |
+
+**About request content**
+
+- We **do not store your prompt or response content** — once a request is forwarded, it is released from memory and never written to any database or file
+- When an upstream channel returns an error, the error log may contain **truncated request fragments** (used to reproduce the problem); this data is cleared after 90 days
+- Error logs are not used to train any model and are not proactively reviewed by humans; they are only accessed by the relevant engineers when you submit a ticket that needs troubleshooting help
+
+<Callout type="info" title="Optional audit logs for the Enterprise tier">
+
+Enterprise customers can opt in to the audit log feature and retain request / response data according to your company's compliance requirements. Once enabled, logs are stored encrypted, and access can be controlled by your company's administrators. See [Enterprise plans](/en/docs/enterprise) for details.
+
+</Callout>
+
+## Cross-border data transfer
+
+Because the servers for upstream models (Claude, GPT, etc.) are located overseas, **the request and response bodies of an API call pass through overseas channels during forwarding**. This is a necessary technical path for any relay service that accesses overseas large-model APIs.
+
+Our commitments at this stage:
+
+- **We don't persist any data on overseas nodes**: the channels only forward, and memory is released as soon as forwarding completes
+- **We don't carry user identity**: the requests the upstream channels see have already been stripped of account fields such as email, phone number, and order associations
+- **Encrypted transmission**: user ↔ access layer, access layer ↔ upstream channel, and upstream channel ↔ model provider are all TLS 1.2+ end to end
+- **We don't share with third parties**: apart from the upstream model providers necessary to complete the current call, we don't pass your request content to any third party
+
+<Callout type="warn" title="Advice on sensitive data">
+
+Because request content must pass through overseas channels to reach the model provider, **do not send requests through the API that contain highly sensitive data such as state secrets, trade secrets, or personal ID numbers**. If you have such compliance requirements, contact sales to discuss on-premises deployment or a compliant channel.
+
+</Callout>
+
+## What we don't do
+
+- **We don't read** your prompt or response content for human analysis, commercial analysis, or any model training
+- **We don't sell** any of your data to third parties
+- **We don't retain** request and response content **without informing you**
+- **We don't transfer account data across borders** (account data is stored only within China)
+
+## Security practices
+
+- API keys are stored encrypted in the database, showing only a few leading and trailing characters
+- All internal operations that access the database are audit-logged
+- Key changes (plan, API key reset, withdrawals, etc.) trigger email / SMS notifications
+- Team members accessing production data must go through approval and the principle of least privilege
+
+If you notice a suspected account anomaly, please immediately:
+1. Reset your API key in the console
+2. Contact sales or support: business@lmuai.com / WeChat 18599001010
+
+## Enterprise compliance support
+
+Enterprise customers with any of the following needs should reach out through the business channel:
+
+- Signing a Data Processing Agreement (DPA)
+- Custom log retention policies
+- On-premises gateway deployment (request content does not pass through shared channels)
+- Supporting materials for MLPS / GDPR / SOC2 questionnaires
+
+## Policy changes
+
+If there are material changes to this policy, we will post a notice in a prominent place on the website and notify active users by email. Continuing to use the service after a policy update constitutes acceptance of the new policy.
+
+*Last updated: 2026-05-06*

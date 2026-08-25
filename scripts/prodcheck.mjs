@@ -282,6 +282,43 @@ async function main() {
   check('live', '首页 twitter:card 已设', !!meta(docsHome, 'twitter:card'), meta(docsHome, 'twitter:card'));
   check('live', '未误发 noindex', !/<meta[^>]+name="robots"[^>]+noindex/i.test(docsHome), '');
 
+  // --- 6b. hreflang 双语互指 -----------------------------------------------
+  // 双语站的核心不变量：中英两版存在时必须互挂 hreflang（zh-CN↔en，x-default→中文），
+  // 且**只在两版都存在时**互挂——只有中文版的页面绝不能发 hreflang（会指向 404，
+  // 稀释信号）。这条与 app/sitemap.ts、page.tsx 的规则同源，抓的是「翻译补齐后
+  // 某页 hreflang 没跟上」或「未翻译页误发了指向 404 的 en 链接」这类渲染期回归。
+  group('6b. hreflang 双语互指');
+  const hrefLangs = (html) => {
+    const out = {};
+    for (const m of (html ?? '').matchAll(/<link\b[^>]*\bhreflang="([^"]+)"[^>]*>/gi)) {
+      const href = (m[0].match(/\bhref="([^"]+)"/i) ?? [])[1];
+      if (href) out[m[1]] = href;
+    }
+    return out;
+  };
+  const hrefPath = (u) => { try { return new URL(u, BASE).pathname; } catch { return u ?? ''; } };
+  const pathToHtml = new Map([...pageBodies].map(([l, h]) => [new URL(l).pathname, h]));
+  const hreflangProblems = [];
+  let hreflangPairs = 0;
+  for (const [p, html] of pathToHtml) {
+    if (p.startsWith('/en/')) continue; // 从中文页迭代，en 作为对偶取
+    const enP = `/en${p}`;
+    const langs = hrefLangs(html);
+    if (pathToHtml.has(enP)) {
+      hreflangPairs++;
+      const want = { 'zh-CN': p, en: enP, 'x-default': p };
+      const enLangs = hrefLangs(pathToHtml.get(enP));
+      for (const [k, v] of Object.entries(want)) {
+        if (hrefPath(langs[k]) !== v) hreflangProblems.push(`${p}: hreflang ${k} 缺/错`);
+        if (hrefPath(enLangs[k]) !== v) hreflangProblems.push(`${enP}: hreflang ${k} 缺/错`);
+      }
+    } else if (Object.keys(langs).length > 0) {
+      hreflangProblems.push(`${p}: 无英文版却发了 hreflang（会指向 404）`);
+    }
+  }
+  check('next', `hreflang 双语页互指且自洽（${hreflangPairs} 对）`, hreflangProblems.length === 0,
+    hreflangProblems.slice(0, 6).join('; '));
+
   // --- 7. 结构化数据 -------------------------------------------------------
   group('7. 结构化数据 JSON-LD');
 

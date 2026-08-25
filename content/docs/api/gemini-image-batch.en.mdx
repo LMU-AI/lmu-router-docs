@@ -1,0 +1,925 @@
+---
+title: Gemini Batch Image API
+description: "LMU AI async batch image API: submit many Gemini image tasks at once, poll status and details, download images or ZIP, with idempotency and cost estimates."
+ogDescription: "LMU AI Gemini batch image API docs: POST /v1/images/batches to submit multi-prompt tasks, poll status, query details, download ZIP, cancel tasks, and handle errors such as BATCH_IMAGE_DISABLED."
+keywords:
+  - Gemini batch image API
+  - Gemini Batch API
+  - batch image generation API
+  - Gemini batch tasks
+  - images batches
+  - LMU AI batch image generation
+  - Gemini JSONL Batch
+  - batch text-to-image
+alternateNames:
+  - LMU AI async batch image API
+  - Gemini image batch processing API
+  - Image Batches API
+faq:
+  - q: Is the batch image API a public API or an internal one?
+    a: "It is an extension API that LMU AI exposes to users. It authenticates with your own sk- API key via Authorization Bearer, and it is also called directly by the batch image page in the LMU AI console."
+  - q: Can I use gpt-image-2 with the batch API?
+    a: "Not currently. The backend provider and group validation for /v1/images/batches only support Gemini for now; for GPT, use /v1/images/generations, /v1/images/edits, or the async single-task API."
+  - q: What does BATCH_IMAGE_DISABLED mean?
+    a: "It means the current API relay deployment has not enabled the global batch image feature; it is not an API key or prompt error. Provide the error code and request ID to the administrator."
+  - q: Does batch image generation support 2K and 4K?
+    a: "The batch API currently only accepts 1K. The real-time Gemini generateContent API supports 1K, 2K, and 4K; if the batch API is extended later, the docs will be updated accordingly."
+  - q: Does a batch task return all images immediately after it is submitted?
+    a: "No. The batch API is an async task API: after submission it returns a batch ID, and the client needs to poll the task status, then download single images or a ZIP once it completes."
+---
+
+The LMU AI Gemini batch image API lets you submit multiple Gemini image tasks at once. The server asynchronously creates the batch task, tracks its status, organizes the results, and settles the cost.
+
+Main endpoint:
+
+```text
+POST https://api.lmuai.com/v1/images/batches
+```
+
+<Callout type="info" title="This is an LMU AI extension API">
+
+The batch API lives at `/v1/images/batches`. It is an async task API that LMU AI exposes to users — not Google Gemini's native `/v1beta` path.
+
+**The current implementation only supports Gemini.** Although the request body includes a generic `model` field, you cannot submit `gpt-image-2` or Grok image models at this endpoint. For GPT text-to-image, use the [GPT Image API](/en/docs/api/gpt-image); for Grok text-to-image, use the [Grok Image API](/en/docs/api/grok-image).
+
+If you only need to generate a single Gemini image, or you need `2K / 4K`, use the [real-time Gemini Image API](/en/docs/api/gemini-image).
+
+</Callout>
+
+---
+
+## 1. When to use it
+
+The batch API is a good fit when you:
+
+- submit dozens to hundreds of different prompts at once;
+- do not need the image tasks to return immediately within the same HTTP request;
+- need task status, failure details, cancellation, and batch download;
+- produce article illustrations, e-commerce assets, datasets, or design candidates offline;
+- want to use `Idempotency-Key` to prevent duplicate submissions and double charges.
+
+It is not a good fit when you:
+
+- measure the latency of a single real-time image generation;
+- need `2K / 4K`;
+- need to wait synchronously for an image and display it immediately;
+- run concurrency or RPM stress tests.
+
+---
+
+## 2. Prerequisites
+
+The batch feature requires the administrator to enable it on both the deployment and group sides, and to configure compatible upstream accounts and pricing.
+
+You can request the model list first to check whether the feature is available:
+
+```http
+GET /v1/images/batches/models
+```
+
+<Callout type="warn" title="If it returns BATCH_IMAGE_DISABLED">
+
+`BATCH_IMAGE_DISABLED` means the API relay's global batch image feature has not been enabled. It is not an API key, model, or prompt error.
+
+Provide the full error code and the request ID from the response headers to the administrator, for example:
+
+```text
+Error code: BATCH_IMAGE_DISABLED
+Request ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+</Callout>
+
+Common admission conditions:
+
+- the current API key status is active;
+- the API key's group platform is Gemini;
+- the group allows batch image generation;
+- batch image execution resources are available;
+- the model has batch image pricing configured;
+- the async batch task service is running normally.
+
+---
+
+## 3. Authentication
+
+The batch API uses your own LMU AI API key:
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+Example:
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/models' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Do not put your API key in URLs, front-end source code, or public repositories.
+
+---
+
+## 4. Endpoint overview
+
+| Method | Path | Description |
+|---|---|---|
+| `GET` | `/v1/images/batches/models` | List the models the current key can use for batch image generation |
+| `POST` | `/v1/images/batches` | Create a batch image task |
+| `GET` | `/v1/images/batches` | List the batch tasks created by the current key |
+| `GET` | `/v1/images/batches/{id}` | Query the status of a specific task |
+| `GET` | `/v1/images/batches/{id}/items` | Query task item details |
+| `GET` | `/v1/images/batches/{id}/items/{custom_id}/content` | Download the image for a single task item |
+| `GET` | `/v1/images/batches/{id}/download` | Download the whole batch as a ZIP |
+| `POST` | `/v1/images/batches/{id}/cancel` | Cancel a task |
+| `DELETE` | `/v1/images/batches/{id}/outputs` | Delete the batch output files |
+| `DELETE` | `/v1/images/batches/{id}` | Delete the batch task record |
+
+All task data is isolated by the API key used to create the task.
+
+---
+
+## 5. List available batch models
+
+### `GET /v1/images/batches/models`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/models' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+A typical response (excerpt):
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "gemini-3.1-flash-image",
+      "object": "image.batch.model"
+    }
+  ]
+}
+```
+
+<Callout type="info" title="The batch model list differs from the regular model list">
+
+Use `/v1/images/batches/models` as the model selector for batch tasks. It additionally checks batch feature permissions, execution resources, model support, and batch billing configuration.
+
+Not every model returned by the regular `/v1/models` or `/v1beta/models` can be used for async batch image generation.
+
+</Callout>
+
+---
+
+## 6. Create a batch task
+
+### `POST /v1/images/batches`
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1/images/batches' \
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+  --header 'Idempotency-Key: client-batch-20260725-001' \
+  --header 'Content-Type: application/json' \
+  --data-raw '{
+    "model": "gemini-3.1-flash-image",
+    "task_name": "Product image batch eval 001",
+    "response_mime_type": "image/png",
+    "image_size": "1K",
+    "items": [
+      {
+        "custom_id": "image_001",
+        "prompt": "An orange tabby cat wearing an astronaut helmet, cinematic lighting",
+        "output_count": 1
+      },
+      {
+        "custom_id": "image_002",
+        "prompt": "A futuristic city in morning mist, ultra-wide-angle photography",
+        "output_count": 1
+      },
+      {
+        "custom_id": "image_003",
+        "prompt": "A seaside lighthouse at sunset, watercolor illustration, warm tones",
+        "output_count": 1
+      }
+    ]
+  }'
+```
+
+### Top-level request fields
+
+| Field | Type | Required | Default | Description |
+|---|---:|:---:|---|---|
+| `model` | string | Yes | — | Must come from the batch model list |
+| `task_name` | string | No | Auto-generated | Task name; overly long content is truncated |
+| `parent_batch_id` | string | No | — | Links a parent task, suitable for retrying failed items |
+| `items` | array | Yes | — | Batch task items, at least one |
+| `response_mime_type` | string | No | `image/png` | The expected output MIME type |
+| `aspect_ratio` | string | No | — | Not yet passed to the upstream in the current version; do not rely on this field to control the aspect ratio |
+| `image_size` | string | No | `1K` | Only `1K` is currently supported |
+| `metadata` | object | No | — | Custom string key-value pairs |
+
+### `items[]` fields
+
+| Field | Type | Required | Default | Description |
+|---|---:|:---:|---|---|
+| `custom_id` | string | No | Auto-generated | The caller's task ID, must be unique within the same batch |
+| `prompt` | string | Yes | — | Each task can use a different prompt |
+| `output_count` | integer | No | `1` | Currently up to 4 per item, subject to deployment configuration |
+| `reference_images` | array | No | — | Reference images for image-to-image |
+
+### Idempotency-Key
+
+It is strongly recommended to include a unique one with every task creation:
+
+```http
+Idempotency-Key: client-batch-20260725-001
+```
+
+When the same API key resubmits with the same `Idempotency-Key` and an identical request body, the server can return the original task, avoiding duplicate creation and duplicate cost holds after a network timeout.
+
+If you reuse the same `Idempotency-Key` but with different request content, it returns:
+
+```text
+BATCH_IMAGE_IDEMPOTENCY_CONFLICT
+```
+
+---
+
+## 7. Current batch limits
+
+The default limits in the source code are below; the actual deployment can be adjusted by the administrator:
+
+| Limit | Default |
+|---|---:|
+| Max input items per batch | 200 |
+| Max output images per batch | 200 |
+| Max `output_count` per item | 4 |
+| Max characters per prompt | 8000 |
+| Max size per inline reference image | 10 MiB |
+| Default max items per ZIP | 200 |
+
+### Batch aspect ratio cannot be specified yet
+
+<Callout type="warn" title="aspect_ratio currently has no effect">
+
+Although the batch request structure keeps an `aspect_ratio` field, the current Gemini Batch and Vertex Batch request-building logic does not yet write it into the upstream `generationConfig.imageConfig`.
+
+As a result, the aspect ratio of a batch task is currently determined by upstream default behavior. Omit `aspect_ratio` in your request and do not rely on it as a stable API capability.
+
+When you need precise control over aspect ratios such as `1:1`, `16:9`, or `21:9`, use the [real-time Gemini Image API](/en/docs/api/gemini-image).
+
+</Callout>
+
+### Only 1K is supported
+
+<Callout type="warn" title="The batch API does not support 2K / 4K yet">
+
+The batch API's `image_size` currently only accepts:
+
+```json
+{
+  "image_size": "1K"
+}
+```
+
+Submitting `2K` or `4K` returns `BATCH_IMAGE_INVALID_ITEMS`.
+
+When you need `2K / 4K`, use the [real-time Gemini Image API](/en/docs/api/gemini-image) and manage multi-request concurrency on the client side.
+
+</Callout>
+
+### How output_count expands into tasks
+
+If an item sets:
+
+```json
+{
+  "custom_id": "poster",
+  "prompt": "Movie poster",
+  "output_count": 3
+}
+```
+
+the server expands it into separate task IDs, for example:
+
+```text
+poster_01
+poster_02
+poster_03
+```
+
+The total number of images after expansion cannot exceed the batch's maximum output count.
+
+---
+
+## 8. Batch image-to-image
+
+Each item can include `reference_images`:
+
+```json
+{
+  "model": "gemini-3.1-flash-image",
+  "task_name": "Product image style transfer",
+  "image_size": "1K",
+  "items": [
+    {
+      "custom_id": "product_001",
+      "prompt": "Place the product on a clean light-gray studio background, keeping the product structure and text accurate",
+      "reference_images": [
+        {
+          "id": "source_001",
+          "type": "reference",
+          "mime_type": "image/png",
+          "data": "BASE64_IMAGE_DATA"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Reference image fields
+
+| Field | Type | Required | Description |
+|---|---:|:---:|---|
+| `id` | string | No | Reference image ID |
+| `type` | string | No | A tag for the reference image's purpose |
+| `mime_type` | string | Yes | `image/png`, `image/jpeg`, or `image/webp` |
+| `data` | string | One of two | The image's Base64 content |
+
+For public API integration, we recommend passing Base64 reference images via `data`. Other storage-reference methods are a controlled advanced capability — contact the administrator if you need them.
+
+The number of reference images depends on the model. The service currently applies the following default limits based on the model name:
+
+- names containing `flash-image`: up to 3 reference images per task;
+- names containing `pro-image`: up to 14 reference images per task.
+
+The actual usable count may also be affected by upstream model capabilities and deployment configuration.
+
+---
+
+## 9. Create-task response
+
+A successful creation returns HTTP `200` and the batch object:
+
+```json
+{
+  "id": "imgbatch_abc123",
+  "object": "image.batch",
+  "task_name": "Product image batch eval 001",
+  "status": "queued",
+  "model": "gemini-3.1-flash-image",
+  "item_count": 3,
+  "success_count": 0,
+  "fail_count": 0,
+  "estimated_cost": 0.15,
+  "hold_amount": 0.09,
+  "actual_cost": null,
+  "created_at": 1784995200,
+  "submitted_at": 1784995201,
+  "settled_at": null
+}
+```
+
+### Key fields
+
+| Field | Description |
+|---|---|
+| `id` | The batch ID, used for later queries and downloads |
+| `status` | The task status exposed to the user |
+| `item_count` | Total number of task items after expansion |
+| `success_count` | Number of successful tasks |
+| `fail_count` | Number of failed tasks |
+| `estimated_cost` | Estimated cost at submission time |
+| `hold_amount` | The balance hold placed when the task is created |
+| `actual_cost` | The actual cost after settlement; `null` while incomplete |
+
+<Callout type="info" title="A successful submission does not mean the images are ready">
+
+A `200` from the creation endpoint only means the batch has been accepted and submitted to the async processing pipeline. The client must keep polling the task status until it reaches `completed`, `failed`, or `cancelled`.
+
+</Callout>
+
+---
+
+## 10. Query task status
+
+### `GET /v1/images/batches/{id}`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/imgbatch_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+### User-facing statuses
+
+| Status | Description | Terminal |
+|---|---|:---:|
+| `queued` | Created, uploaded, or submitted; waiting for upstream processing | No |
+| `running` | Upstream is generating images | No |
+| `processing_results` | Downloading and indexing upstream results | No |
+| `settling` | Settling the actual cost | No |
+| `completed` | Processing complete; results can be queried and downloaded | Yes |
+| `failed` | The batch failed | Yes |
+| `cancelled` | Cancelled | Yes |
+| `output_deleted` | Output files deleted, but the task record remains | Yes |
+
+Recommended polling intervals:
+
+```text
+First 2 minutes: every 10-15 seconds
+After 2 minutes: every 30 seconds
+Long tasks: gradually increase to every 60 seconds
+```
+
+Do not poll every second.
+
+<Callout type="warn" title="Completion webhooks are not supported yet">
+
+The batch API currently has no `callback_url`, `webhook_url`, or completion-callback configuration. It does not proactively notify the caller's server when a task completes.
+
+The caller needs to poll `GET /v1/images/batches/{id}`, stop polling once the status reaches `completed`, `failed`, `cancelled`, or `output_deleted`, and then query the details or download the results.
+
+</Callout>
+
+---
+
+## 11. List tasks
+
+### `GET /v1/images/batches`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches?status=completed&limit=20' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+### Query parameters
+
+| Parameter | Type | Description |
+|---|---|---|
+| `status` | string | `queued`, `running`, `processing_results`, `settling`, `completed`, `failed`, `cancelled`, `output_deleted` |
+| `task_name` | string | Fuzzy search by task name |
+| `downloaded` | string | `true` / `false`, filter by whether it has been downloaded |
+| `from` | string | Start of the creation-time range |
+| `to` | string | End of the creation-time range |
+| `limit` | integer | Default 20, max 100 |
+| `cursor` | string | Pagination cursor |
+
+Response:
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "imgbatch_abc123",
+      "object": "image.batch",
+      "task_name": "Product image batch eval 001",
+      "status": "completed",
+      "model": "gemini-3.1-flash-image",
+          "item_count": 3,
+      "success_count": 3,
+      "fail_count": 0,
+      "estimated_cost": 0.15,
+      "hold_amount": 0.09,
+      "actual_cost": 0.12,
+      "created_at": 1784995200,
+      "submitted_at": 1784995201,
+      "settled_at": 1784998800
+    }
+  ],
+  "has_more": false
+}
+```
+
+---
+
+## 12. Query task item details
+
+### `GET /v1/images/batches/{id}/items`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/items?status=success&limit=100' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Supported `status` values:
+
+```text
+all
+pending
+success
+failed
+```
+
+A typical response (excerpt):
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "custom_id": "image_001",
+      "status": "success",
+      "prompt_preview": "An orange tabby cat wearing an astronaut helmet...",
+      "mime_type": "image/png",
+      "file_extension": "png",
+      "image_count": 1,
+      "error": null
+    },
+    {
+      "custom_id": "image_002",
+      "status": "failed",
+      "prompt_preview": "A futuristic city in morning mist...",
+      "mime_type": null,
+      "file_extension": null,
+      "image_count": 0,
+      "error": {
+        "code": "PROVIDER_ITEM_FAILED",
+        "message": "image generation failed",
+        "source": "provider"
+      }
+    }
+  ],
+  "has_more": false
+}
+```
+
+Task items default to 100 per page, with a maximum of 500.
+
+---
+
+## 13. Download images
+
+### Download a single task item
+
+```bash
+curl \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/items/image_001/content' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  --output image_001.png
+```
+
+If a task item has multiple images, you can specify:
+
+```text
+?image_index=0
+?image_index=1
+```
+
+`image_index` starts at 0.
+
+### Download the whole batch as a ZIP
+
+```bash
+curl \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/download' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  --output imgbatch_abc123.zip
+```
+
+Optional parameters:
+
+```text
+?status=success
+?max_items=100
+```
+
+The ZIP contains the images and a results manifest. After a successful download, the task records a `downloaded_at`.
+
+---
+
+## 14. Cancel and delete
+
+### Cancel a task
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/cancel' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+A task that has already reached a terminal state will not be cancelled again. Whether upstream charges can still be prevented depends on the current state of the upstream Batch task.
+
+### Delete output files
+
+```bash
+curl --request DELETE \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/outputs' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+After the output is deleted, the status shows as `output_deleted` and the images can no longer be downloaded.
+
+### Delete the task record
+
+```bash
+curl --request DELETE \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Only tasks in a terminal state can have their record deleted. A success returns HTTP `204`.
+
+<Callout type="warn" title="Deleting the record and deleting the images are two different things">
+
+- Delete output: cleans up the image files, but the task record remains;
+- Delete record: hides the task from the current user's task list;
+- Production systems should confirm the results have been downloaded and archived before deleting.
+
+</Callout>
+
+---
+
+## 15. Full Node.js workflow
+
+```js
+import { mkdir, writeFile } from 'node:fs/promises';
+
+const BASE_URL = process.env.LMU_BASE_URL || 'https://api.lmuai.com';
+const API_KEY = process.env.LMU_API_KEY;
+
+if (!API_KEY) throw new Error('Missing LMU_API_KEY');
+
+const headers = {
+  Authorization: `Bearer ${API_KEY}`,
+};
+
+async function jsonRequest(path, options = {}) {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      ...headers,
+      ...(options.headers || {}),
+    },
+  });
+
+  const text = await response.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(`Non-JSON response: HTTP ${response.status}`);
+  }
+
+  if (!response.ok) {
+    const error = data?.error || {};
+    throw new Error(
+      `${error.code || response.status}: ${error.message || text}`,
+    );
+  }
+
+  return data;
+}
+
+const batch = await jsonRequest('/v1/images/batches', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Idempotency-Key': `client-${Date.now()}`,
+  },
+  body: JSON.stringify({
+    model: 'gemini-3.1-flash-image',
+    task_name: 'Node batch image demo',
+    image_size: '1K',
+    items: [
+      { custom_id: 'cat', prompt: 'A cinematic astronaut orange tabby cat' },
+      { custom_id: 'city', prompt: 'A futuristic city in morning mist' },
+    ],
+  }),
+});
+
+console.log('batch id:', batch.id);
+
+let job = batch;
+while (!['completed', 'failed', 'cancelled', 'output_deleted'].includes(job.status)) {
+  await new Promise((resolve) => setTimeout(resolve, 15_000));
+  job = await jsonRequest(`/v1/images/batches/${encodeURIComponent(batch.id)}`);
+  console.log('status:', job.status);
+}
+
+if (job.status !== 'completed') {
+  throw new Error(`Batch task did not complete successfully: ${job.status}`);
+}
+
+const items = await jsonRequest(
+  `/v1/images/batches/${encodeURIComponent(batch.id)}/items?status=success`,
+);
+
+await mkdir('batch-output', { recursive: true });
+
+for (const item of items.data || []) {
+  const response = await fetch(
+    `${BASE_URL}/v1/images/batches/${encodeURIComponent(batch.id)}` +
+      `/items/${encodeURIComponent(item.custom_id)}/content`,
+    { headers },
+  );
+
+  if (!response.ok) {
+    console.error('Download failed:', item.custom_id, response.status);
+    continue;
+  }
+
+  const extension = item.file_extension || 'png';
+  await writeFile(
+    `batch-output/${item.custom_id}.${extension}`,
+    Buffer.from(await response.arrayBuffer()),
+  );
+}
+```
+
+---
+
+## 16. Full Python workflow
+
+```python
+import os
+import time
+from pathlib import Path
+import requests
+
+BASE_URL = os.getenv("LMU_BASE_URL", "https://api.lmuai.com")
+API_KEY = os.environ["LMU_API_KEY"]
+HEADERS = {"Authorization": f"Bearer {API_KEY}"}
+
+payload = {
+    "model": "gemini-3.1-flash-image",
+    "task_name": "Python batch image demo",
+    "image_size": "1K",
+    "items": [
+        {"custom_id": "cat", "prompt": "A cinematic astronaut orange tabby cat"},
+        {"custom_id": "city", "prompt": "A futuristic city in morning mist"},
+    ],
+}
+
+response = requests.post(
+    f"{BASE_URL}/v1/images/batches",
+    headers={
+        **HEADERS,
+        "Content-Type": "application/json",
+        "Idempotency-Key": f"client-{int(time.time())}",
+    },
+    json=payload,
+    timeout=300,
+)
+response.raise_for_status()
+batch = response.json()
+print("batch id:", batch["id"])
+
+terminal = {"completed", "failed", "cancelled", "output_deleted"}
+job = batch
+while job["status"] not in terminal:
+    time.sleep(15)
+    response = requests.get(
+        f"{BASE_URL}/v1/images/batches/{batch['id']}",
+        headers=HEADERS,
+        timeout=60,
+    )
+    response.raise_for_status()
+    job = response.json()
+    print("status:", job["status"])
+
+if job["status"] != "completed":
+    raise RuntimeError(f"Batch task did not complete successfully: {job['status']}")
+
+items_response = requests.get(
+    f"{BASE_URL}/v1/images/batches/{batch['id']}/items",
+    headers=HEADERS,
+    params={"status": "success"},
+    timeout=60,
+)
+items_response.raise_for_status()
+items = items_response.json().get("data", [])
+
+output_dir = Path("batch-output")
+output_dir.mkdir(exist_ok=True)
+
+for item in items:
+    content = requests.get(
+        f"{BASE_URL}/v1/images/batches/{batch['id']}"
+        f"/items/{item['custom_id']}/content",
+        headers=HEADERS,
+        timeout=300,
+    )
+    content.raise_for_status()
+    extension = item.get("file_extension") or "png"
+    (output_dir / f"{item['custom_id']}.{extension}").write_bytes(content.content)
+```
+
+---
+
+## 17. Billing and balance holds
+
+Batch tasks follow an "estimate, hold, then settle on completion" flow:
+
+1. The server estimates the cost based on the model, task count, group multiplier, and batch discount;
+2. It places a `hold_amount` hold when the task is created;
+3. After upstream processing finishes, it computes `actual_cost` based on the number of successful images;
+4. After settlement, it releases any excess hold;
+5. If the task fails or is cancelled before submission, the system tries to release the hold according to the task status.
+
+The response fields:
+
+```text
+estimated_cost
+hold_amount
+actual_cost
+```
+
+represent the estimated amount, the held amount, and the final actual amount, respectively.
+
+<Callout type="info" title="Pricing follows the current group configuration">
+
+The batch discount, group multiplier, account multiplier, and per-image price can all be configured by the administrator. The docs do not promise fixed prices; the final charge is determined by the usage details in the console and the batch's `actual_cost`.
+
+</Callout>
+
+---
+
+## 18. Error format
+
+The batch API uses the following error structure:
+
+```json
+{
+  "error": {
+    "type": "invalid_request_error",
+    "code": "BATCH_IMAGE_INVALID_ITEMS",
+    "message": "batch image items are invalid"
+  }
+}
+```
+
+Also record the request ID from the response headers. In the console, the error message is shown as:
+
+```text
+Error code: BATCH_IMAGE_DISABLED
+Request ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+### Common error codes
+
+| Error code | HTTP | Meaning | What to do |
+|---|---:|---|---|
+| `BATCH_IMAGE_DISABLED` | 404 | Global batch image generation is not enabled | Provide the error code and request ID to the administrator |
+| `BATCH_IMAGE_GROUP_DISABLED` | 403 | The current key's group does not allow batch image generation, or is not a Gemini group | Switch keys or contact the administrator to enable the group permission |
+| `BATCH_IMAGE_NO_ACCOUNT_AVAILABLE` | 502 | No batch execution resources are currently available | Save the request ID and contact the administrator |
+| `BATCH_IMAGE_SETTLEMENT_PRICING_MISSING` | 400 | The batch model has no billing price | Contact the administrator to configure the model price |
+| `BATCH_IMAGE_INVALID_MODEL` | 400 | No model was provided | Use a model from the batch model list |
+| `BATCH_IMAGE_INVALID_ITEMS` | 400 | The items, resolution, or request fields are invalid | Check the request body; only 1K is currently supported |
+| `BATCH_IMAGE_DUPLICATE_CUSTOM_ID` | 400 | Duplicate `custom_id` | Ensure it is unique within the same batch |
+| `BATCH_IMAGE_PROMPT_TOO_LONG` | 400 | The prompt is too long | Shorten the prompt |
+| `BATCH_IMAGE_TOO_MANY_OUTPUT_IMAGES` | 400 | The number of images after expansion exceeds the limit | Reduce items or output_count |
+| `BATCH_IMAGE_INVALID_REFERENCE_IMAGE` | 400 | The reference image format, size, or URI is invalid | Check the MIME type, Base64, and file_uri |
+| `BATCH_IMAGE_INSUFFICIENT_BALANCE` | 402 | The balance is insufficient to place the hold | Top up or reduce the task volume |
+| `BATCH_IMAGE_IDEMPOTENCY_CONFLICT` | 409 | The same idempotency key maps to a different request body | Use a new Idempotency-Key |
+| `BATCH_IMAGE_PROVIDER_SUBMIT_FAILED` | 502 | Upstream batch task creation failed | Save the request ID, retry a limited number of times, or contact the administrator |
+| `BATCH_IMAGE_QUEUE_FAILED` | 502 | The async task service is temporarily unavailable | Save the request ID and contact the administrator |
+| `BATCH_IMAGE_NOT_READY` | 409 | You tried to download before the task completed | Wait until the status becomes completed |
+| `BATCH_IMAGE_OUTPUT_DELETED` | 410 | The output has already been cleaned up | It cannot be downloaded again; you need to recreate the task |
+| `BATCH_IMAGE_ITEM_FAILED` | 409 | The specified task item has no successful image | Check item.error |
+| `BATCH_IMAGE_DOWNLOAD_LIMITED` | 429 | Too many simultaneous downloads | Retry later |
+
+---
+
+## 19. Batch API vs. real-time API
+
+| Aspect | Real-time Gemini image | Async batch image |
+|---|---|---|
+| Endpoint | `/v1beta/models/{model}:generateContent` | `/v1/images/batches` |
+| Return method | Returns a Base64 image in the same HTTP request | Returns a batch ID; poll and download afterward |
+| Resolution | `1K / 2K / 4K` | Currently only accepts `1K`, and the upstream uses its default image config |
+| Aspect ratio | Controlled by the ratio enum the model actually supports | Cannot be specified currently; uses the upstream default aspect ratio |
+| Multiple prompts | The client makes multiple requests | One batch contains multiple items |
+| Multiple images per item | Multiple separate requests | `output_count`, up to 4 by default |
+| State management | The caller tracks it themselves | Built-in task status, details, cancellation, and deletion |
+| Download method | Base64 decoding | Single-image download or ZIP |
+| Cost | Billed per real-time request | Estimate, balance hold, settle on completion |
+| Best for | Online interaction, quality testing, performance stress tests | Large-scale offline production |
+
+---
+
+## 20. Integration checklist
+
+- [ ] `/v1/images/batches/models` returns at least one model;
+- [ ] the API key you use belongs to a Gemini group that allows batch image generation;
+- [ ] task creation includes a unique `Idempotency-Key`;
+- [ ] `image_size` uses `1K`;
+- [ ] all `custom_id` values are unique;
+- [ ] you can poll until `completed` or a definite terminal state;
+- [ ] you can query success / failed details;
+- [ ] you can download a single image;
+- [ ] you can download the ZIP and read the results manifest;
+- [ ] you can identify failed items and avoid resubmitting the whole batch;
+- [ ] you have verified estimated_cost, hold_amount, and actual_cost;
+- [ ] logs record the error code and request ID but not the full API key.
+
+---
+
+## Next steps
+
+- Real-time text-to-image and image-to-image: [Gemini Image API](/en/docs/api/gemini-image)
+- Query usage and cost details: [Export Usage Details](/en/docs/api/usage-export)
+- API keys and protocol details: [API Protocols](/en/docs/guide/api-protocols)

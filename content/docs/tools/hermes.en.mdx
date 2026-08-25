@@ -1,0 +1,111 @@
+---
+title: Hermes Agent
+description: Connect Hermes Agent to LMU AI — edit ~/.hermes/config.yaml with a base_url that includes /v1 and your sk- key to switch to any available model.
+ogDescription: Connect Hermes Agent to LMU AI — customize the base_url and model so Hermes Agent can call Claude / GPT / Gemini through LMU AI.
+keywords:
+  - Hermes Agent
+  - Configure Hermes Agent
+  - Connect Hermes to Claude
+  - Hermes Agent in China
+  - Hermes base url
+  - AI Agent API relay
+alternateNames:
+  - Connect Hermes Agent to LMU AI
+faq:
+  - q: How do I connect Hermes Agent to LMU AI?
+    a: "Edit ~/.hermes/config.yaml and add a new provider under providers: set base_url to https://api.lmuai.com/v1, set api_key to the sk- key generated in the LMU AI console, and set model to the model ID you want (e.g. glm-5.2); then point provider to it in the top-level model section. Save and run hermes chat to verify."
+  - q: What should I do if Hermes Agent returns 401 Unauthorized?
+    a: "The API key is wrong or expired. Confirm the key's status in the LMU AI console, then re-enter it in the api_key field of config.yaml."
+  - q: What should I do if Hermes Agent returns 404 Not Found?
+    a: "The base_url is wrong. Hermes uses the OpenAI protocol, so the address must include the /v1 suffix — the correct form is https://api.lmuai.com/v1, and https://api.lmuai.com returns a 404."
+---
+
+## Prerequisites
+
+Before you start, make sure you have:
+
+1. Registered and topped up an LMU AI account ([Quick Start](/en/docs/guide/getting-started))
+2. An API key that starts with `sk-`
+3. Installed Hermes Agent ([GitHub](https://github.com/nousresearch/hermes-agent))
+
+## Configure LMU AI models
+
+### Method 1 — Create the config with one command
+
+Open a terminal and run the following command:
+
+```bash
+mkdir -p ~/.hermes
+cat > ~/.hermes/config.yaml << 'EOF'
+providers:
+  lumai:
+    name: lumai
+    base_url: https://api.lmuai.com/v1
+    api_key: YOUR_API_KEY
+    model: glm-5.2
+
+model:
+  provider: lumai
+  model: glm-5.2
+EOF
+```
+
+<Callout type="warn" title="Note">
+
+Replace `YOUR_API_KEY` with the actual `sk-` key you created in the LMU AI console.
+
+</Callout>
+
+### Method 2 — Edit the config file manually
+
+If `~/.hermes/config.yaml` already exists, open it in an editor:
+
+```bash
+hermes config edit
+```
+
+Add or modify the following in the file:
+
+```yaml
+providers:
+  lumai:
+    name: lumai
+    base_url: https://api.lmuai.com/v1
+    api_key: sk-your-actual-key
+    model: glm-5.2
+
+model:
+  provider: lumai
+  model: glm-5.2
+```
+
+Save and exit.
+
+## Available models
+
+In the `model` field, you can substitute any model name LMU AI supports. For the full model list, see the [Model Gallery](/en/docs/guide/models).
+
+## Verify the config
+
+Run the following command to test whether the config works:
+
+```bash
+hermes chat -q 'Hello, please reply in one sentence' -Q
+```
+
+If you get a reply from the AI, the config is working.
+
+## Common issues
+
+### 401 Unauthorized error
+
+The API key is wrong or has expired. Check the key's status in the LMU AI console.
+
+### 404 Not Found error
+
+The `base_url` is wrong. Hermes uses the OpenAI protocol, so the address must include the `/v1` suffix:
+
+```
+https://api.lmuai.com/v1    ✅ Correct
+https://api.lmuai.com       ❌ Wrong
+```

@@ -3,10 +3,24 @@
   "pages": [
     "---Claude Code---",
     "claude-code",
-    "cc-switch",
+    "claude-code-desktop",
+    "claude-code-vscode",
+    "claude-code-gpt",
     "---Codex---",
     "codex-cli-mac",
-    "---Other tools---",
-    "cursor"
+    "codex-cli-windows",
+    "codex-cli-server",
+    "codex-app",
+    "---Third-party tools & clients---",
+    "cc-switch",
+    "opencode",
+    "cherry",
+    "chatbox",
+    "hermes",
+    "vscode-plugin",
+    "cursor",
+    "trae",
+    "kilo-code-idea",
+    "obsidian"
   ]
 }
