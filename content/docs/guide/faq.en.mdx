@@ -1,0 +1,280 @@
+---
+title: FAQ
+description: Solutions to common LMU AI API errors and setup issues — 401 / 403 / 429 / 500, token billing, model switching, and Claude Code / Codex CLI troubleshooting.
+ogDescription: LMU AI FAQ and troubleshooting — 401/403/429/500 errors, token billing, model selection, and Claude Code / Codex CLI / Cursor setup failures, answered in one place.
+keywords:
+  - Claude API error
+  - Claude API 401 403 429
+  - Claude Code setup failed
+  - Codex CLI error
+  - Claude API token billing
+  - Claude API rate limit
+  - Anthropic API error codes
+  - OpenAI API error codes
+  - relay API FAQ
+  - LMU AI troubleshooting
+alternateNames:
+  - LMU AI FAQ
+  - Claude / Codex API common errors
+  - Claude API troubleshooting guide
+faq:
+  - q: "How do I fix stream disconnected before completion in Claude Code?"
+    a: "It is usually caused by a VPN / proxy / system proxy that keeps rotating the exit IP and breaks the connection. The LMU AI gateway is hosted inside mainland China with direct domestic access — turn off every proxy and retry. Also check whether your local network keeps switching between Wi-Fi and cellular."
+  - q: "What causes exceeded retry limit, last status: 429 Too Many Requests?"
+    a: "Your daily quota is used up. Check My Subscription for the quota, and if you need more buy a plan of a DIFFERENT tier (e.g. switch a day pass for a month pass), then switch to the new plan's group under API Keys in the console. Buying the same plan renews it rather than adding quota, so it will not raise the daily limit."
+  - q: "How do I troubleshoot 401 Unauthorized: Incorrect API key provided?"
+    a: "It means the request still went to OpenAI's official endpoint instead of the LMU AI relay. Check in order: whether both config.toml and auth.json were created or replaced correctly; restart the IDE (VS Code / Cursor) to reload the config; and if you previously signed in with an official or another provider's account, sign out first and reconfigure."
+  - q: "Windows says scripts are disabled on this system — how do I fix it?"
+    a: "Run Set-ExecutionPolicy RemoteSigned -Scope CurrentUser in PowerShell, then close the terminal and open a new one."
+  - q: "Windows says CODEX is not recognized as a cmdlet — what should I do?"
+    a: "Node.js is not installed or its PATH is broken. Reinstall Node.js 20 or later, then open a new terminal."
+  - q: "What causes 503 No available accounts?"
+    a: "Usually ANTHROPIC_AUTH_TOKEN / ANTHROPIC_BASE_URL / ANTHROPIC_MODEL is set in ~/.zshrc or ~/.bashrc; those global variables override the API key configured in your IDE. Fix it by removing those lines from your shell config, or move them to a separate ~/.claude_env file that you only source when launching the Claude Code CLI."
+  - q: "What causes 400 Invalid signature in thinking block?"
+    a: "Claude's thinking block carries an encrypted signature tied to the specific upstream account that generated it. When you switch models across groups within one conversation, the old history's signature cannot be verified by the new group's upstream, so it returns 400. Fix it by starting a new conversation when you switch groups, or keep one group per conversation. This error cannot be recovered by retrying."
+  - q: "Image endpoint returns 400 Unknown parameter: 'tools[0].n' — what now?"
+    a: "The client put a tools array into an image request. /v1/images/generations and /v1/images/edits do not support tool calls — remove the whole tools field. To generate multiple images put the count in the top-level n (generations only; edits does not support multiple). This is an invalid-request error, so switching accounts or retrying will not help."
+  - q: "Does the LMU AI API need a VPN?"
+    a: "No. The LMU AI gateway is hosted inside mainland China; api.lmuai.com is reachable directly from within China for the fastest, most stable connection. A VPN or proxy that rotates the exit IP actually tends to cause stream disconnects."
+  - q: "Codex returns unexpected status 401 Unauthorized: API_KEY_REQUIRED — what should I do?"
+    a: "A known Codex bug: when a custom model provider uses the responses wire API, the request carries no API key at all (none of the three key headers is sent). Add requires_openai_auth = true inside [model_providers.<your id>] in config.toml, save, and reopen the terminal."
+---
+
+
+## Issue 1: Stream disconnected / timeout [#issue-1]
+
+**Error message:**
+```
+stream disconnected before completion: error sending request for url
+(https://api.lmuai.com/responses)
+```
+
+**Cause:** a classic stream disconnect, usually from:
+- an unstable local network (frequent Wi-Fi / cellular switching, weak signal, packet loss)
+- **a VPN / proxy / system proxy is on**: the proxy rotates the exit IP and breaks the connection
+
+**Solution:**
+1. **Turn off any VPN / proxy / system proxy and retry** — LMU AI is a direct domestic connection and needs no VPN
+2. Check that your local network is stable; switch to a more reliable network if needed
+
+<Callout type="info" title="No VPN needed — direct access inside China is fastest">
+
+The LMU AI gateway is hosted **inside mainland China**, so it can be called directly from a domestic network with **no VPN, proxy, or workaround required**. A direct connection gives the fastest, most stable results; conversely, a VPN or proxy that rotates the exit IP tends to cause stream disconnects.
+
+</Callout>
+
+---
+
+## Issue 2: 429 retry error [#issue-2]
+
+**Error message:**
+```
+exceeded retry limit, last status: 429 Too Many Requests
+```
+
+**Cause:** your daily quota is used up.
+
+**Solution:**
+1. Open **My Subscription** and confirm whether the daily quota is exhausted
+2. If you need more, buy a plan of a **different tier**, then switch to the new plan's group under **API Keys** in the console
+
+<Callout type="warn" title="Renewal vs. adding quota">
+
+- **Do not buy the same plan** — the same plan renews, it does not add quota
+- To add quota, buy a different plan (e.g. switch from a day pass to a month pass)
+
+</Callout>
+
+---
+
+## Issue 3: 401 Incorrect API key [#issue-3]
+
+**Error message:**
+```
+unexpected status 401 Unauthorized: Incorrect API key provided
+```
+
+**Cause:** the request still went to OpenAI's official endpoint instead of our relay.
+
+**Solution:**
+1. Confirm both `config.toml` and `auth.json` were created or replaced correctly
+2. Restart the IDE (VS Code / Cursor, etc.) to reload the config files
+3. If you previously signed in with an official or another provider's account, sign out first, then reconfigure
+
+<Callout type="info" title="What to do when you hit an error">
+
+Take a screenshot of the error and translate it — that usually pinpoints the cause quickly.
+
+</Callout>
+
+---
+
+## Issue 4: Scripts are disabled (Windows) [#issue-4]
+
+**Error message:**
+```
+codex: cannot be loaded because running scripts is disabled on this system.
+```
+
+**Solution:** run the following in the terminal, then open a new terminal:
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+---
+
+## Issue 5: Node.js not found (Windows) [#issue-5]
+
+**Error message:** `CODEX` is not recognized as a cmdlet, or similar
+
+**Cause:** Node.js is not installed or its PATH is broken.
+
+**Solution:** reinstall Node.js 20+, then open a new terminal.
+
+---
+
+## Issue 6: 503 No available accounts (env vars override the key) [#issue-6]
+
+**Error message:**
+```
+Error code: 503 - {'error': {'message': 'No available accounts: no available accounts', 'type': 'api_error'}}
+```
+
+**Cause:** your `~/.zshrc` (or `~/.bashrc`) sets `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL`. Once the shell starts, these variables take effect globally and override the API key configured in your IDE (Cursor, VS Code, etc.), so the request uses the wrong key.
+
+**Solution (pick one):**
+
+**Option A: remove the variables from `.zshrc`**
+
+Open `~/.zshrc` and delete these lines:
+```bash
+export ANTHROPIC_AUTH_TOKEN="..."
+export ANTHROPIC_BASE_URL="..."
+export ANTHROPIC_MODEL="..."
+```
+Then run `source ~/.zshrc` to apply, and restart the IDE.
+
+**Option B: move the variables to a separate file, loaded only for the Claude Code CLI**
+
+1. Create `~/.claude_env` with the three lines:
+```bash
+export ANTHROPIC_AUTH_TOKEN="sk-your-lmu-ai-api-key"
+export ANTHROPIC_BASE_URL="https://api.lmuai.com"
+export ANTHROPIC_MODEL="the-model-you-use"
+```
+
+2. Delete those three lines from `~/.zshrc`.
+
+3. Load them manually when starting Claude Code:
+```bash
+source ~/.claude_env && claude
+```
+
+This way the IDE uses the key from its config file and the Claude Code CLI uses the environment variables, without interfering with each other.
+
+---
+
+## Issue 7: 400 Invalid signature in thinking block (switching models across groups) [#issue-7]
+
+**Error message:**
+```
+upstream error: 400 messages.<index>.content.<index>:
+Invalid `signature` in `thinking` block
+```
+
+**Cause:** when Claude's Extended Thinking generates a `thinking` block, it attaches an **encrypted signature** that is tightly bound to the **specific upstream account** that produced it. If you **switch models across groups** within one conversation (e.g. from `claude-sonnet-5` in a "Claude-Pro direct" group to `claude-fable-5` in a "Claude-MAX high-multiplier" group), the client sends the previous history (including the signed thinking block) to the new group's upstream account. Different groups use **different upstreams** and cannot verify a signature issued by another, so it returns 400.
+
+**Typical triggers:**
+- The client supports switching models mid-conversation and carries the full prior history
+- The groups before and after the switch come from **different upstream accounts** (e.g. "direct group" ↔ "relay / MAX high-multiplier group")
+
+**Solution (any one):**
+
+1. **Start a new conversation when switching groups** — carrying no old history is the simplest, most reliable fix.
+2. **Keep one group per conversation** — if you need multi-model collaboration, switch within the same group (same upstream).
+3. **Strip the thinking blocks from history** — if the client supports editing history, remove the `thinking` blocks before switching groups.
+
+<Callout type="info" title="Why doesn't retrying help?">
+
+This is an **unrecoverable 4xx client error caused by an invalid signature**. Once the gateway detects it, it passes the 400 straight back to the client and does not auto-retry on another account — because any non-matching upstream would fail the same way.
+
+</Callout>
+
+---
+
+## Issue 8: 400 Unknown parameter: 'tools[0].n' (tools sent to an image endpoint) [#issue-8]
+
+**Error message:**
+```
+400 - {'error': {'code': 'unknown_parameter', 'message': "Unknown parameter: 'tools[0].n'.", 'param': 'tools[0].n', 'type': 'invalid_request_error'}}
+```
+
+**Endpoints affected:** `/v1/images/generations`, `/v1/images/edits` (image generation / editing).
+
+**Cause:** the client put a `tools` array into the image request body, with an `n` field inside `tools[0]`. OpenAI's image endpoints **do not accept `tools`** (tool calls belong to the Chat / Responses endpoints; image endpoints have no such concept), so the upstream rejects it with 400.
+
+This usually comes from a buggy client / SDK wrapper that puts the "number of images `n`" in the wrong place — nested into `tools[0].n`, or copied from a Chat request template.
+
+**Solution:**
+
+1. **Remove the `tools` field from the request body** — image `generations` / `edits` do not support tool calls; drop the field entirely.
+2. **To generate multiple images, put the count in the top-level `n`** — only `/v1/images/generations` supports `n` (multiple per call); `/v1/images/edits` does not, so drop `n` there.
+3. **Check the client SDK version** — if a wrapper builds the parameters automatically, upgrade or replace it so it does not apply a Chat template to image endpoints.
+
+<Callout type="info" title="Why don't switching accounts / retrying help?">
+
+This is a 4xx client error caused by an **invalid request body**, unrelated to the upstream account or group — the gateway passes the request through as-is, and any account returns the same 400. You must fix the request parameters the client sends.
+
+</Callout>
+
+---
+
+## Issue 9: Do I need a VPN? [#issue-9]
+
+**No.** The LMU AI gateway is hosted **inside mainland China**, and `api.lmuai.com` can be called directly from a domestic network with no VPN, proxy, or workaround.
+
+Conversely, a VPN or proxy that rotates the exit IP tends to cause stream disconnects (see [Issue 1](#issue-1)). A direct domestic connection gives the fastest, most stable results.
+
+---
+
+## Issue 10: 401 API_KEY_REQUIRED (Codex sends no key) [#issue-10]
+
+**Error message:**
+```
+unexpected status 401 Unauthorized: {"code":"API_KEY_REQUIRED","message":"API key is required in Authorization header (Bearer scheme), x-api-key header, or x-goog-api-key header"}, url: https://api.lmuai.com/responses, request id: ...
+```
+
+**Cause:** a Codex bug — when a custom model provider uses `wire_api = "responses"`, the request Codex sends carries **no API key at all** (none of `Authorization`, `x-api-key`, `x-goog-api-key` is sent), so the gateway finds no key and returns 401 `API_KEY_REQUIRED`.
+
+Note this is different from the `Incorrect API key provided` in [Issue 3](#issue-3): that one sends a key that is wrong (usually because the request went to OpenAI's official endpoint instead of the LMU AI relay), whereas this one sends **no key at all**.
+
+**Solution:** open `~/.codex/config.toml`, find your model provider section `[model_providers.<ID>]` (usually `[model_providers.codex]` if you followed this site's guide), and add `requires_openai_auth = true` inside it:
+
+```toml
+[model_providers.codex]
+name = "codex"
+base_url = "https://api.lmuai.com"
+wire_api = "responses"
+requires_openai_auth = true
+```
+
+Save, reopen the terminal, and restart Codex.
+
+<Callout type="info" title="Users who followed this site's guide are unaffected">
+
+Every Codex guide on this site ([Mac](/en/docs/tools/codex-cli-mac) / [Windows](/docs/tools/codex-cli-windows) / [Server](/docs/tools/codex-cli-server) / [Codex App](/docs/tools/codex-app)) already includes `requires_openai_auth = true` in its `config.toml` example. If you hit this error, your config was likely copied from an older guide or another source that omitted this line — add it as shown above.
+
+</Callout>
+
+---
+
+## Still stuck?
+
+If a special environment still blocks you during install or setup, contact support:
+- Add support on WeChat
+- Reach support on Xianyu (闲鱼)
+
+> Remote-assist hours: **after 2 p.m.** (mornings are spent resolving complex environment setups remotely).
+>
+> If you need remote help, download **NetEase UU Remote** first and send it to support; technical guidance and remote assistance run in the afternoon after 2 p.m.

@@ -1,0 +1,198 @@
+---
+title: Codex CLI (Mac/Linux)
+description: Install and configure the Codex CLI on Mac / Linux to connect to the LMU AI API, including how to enable the 1M-token long context in config.toml.
+ogDescription: Install the Codex CLI on Mac / Linux and connect it to LMU AI — use OpenAI Codex, GPT, and Claude with no proxy; two lines in config.toml (model_context_window / model_auto_compact_token_limit) enable the 1M long context.
+keywords:
+  - Codex CLI Mac install
+  - Codex CLI Linux install
+  - Codex CLI setup
+  - OpenAI Codex relay
+  - Codex base url
+  - Codex 1M context
+  - model_context_window
+  - model_auto_compact_token_limit
+  - Codex config.toml
+  - Codex no proxy
+alternateNames:
+  - Connect Codex CLI on Mac/Linux to LMU AI
+  - Enable 1M context in Codex
+  - Codex 1M token config guide
+faq:
+  - q: How do I point the Codex CLI at a third-party API on Mac / Linux?
+    a: "After installing Node.js 20+ and the Codex CLI, create two files under ~/.codex/ by hand: config.toml, where you set model_provider and base_url to https://api.lmuai.com, and auth.json, where you put the sk- key generated in the LMU AI console. No third-party config tool is needed, and it's a direct domestic connection with no proxy."
+  - q: How do I enable the 1M-token long context in the Codex CLI?
+    a: "Add model_context_window = 1000000 and model_auto_compact_token_limit = 900000 at the top level of ~/.codex/config.toml (before any [section]), save, and re-enter Codex. Set the second value to about 90% of the window; a larger value is clamped by Codex."
+  - q: I enabled the 1M context but /status still shows 272K — what now?
+    a: "Check in order: whether the two lines are at the top level of the file (inside [profiles.xxx] they do not take effect); whether they are in the user-level ~/.codex/config.toml (a project-level .codex/config.toml may be ignored); whether the current model supports 1M (gpt-5.4 and gpt-5.5 do; gpt-5.3-codex is capped at 272K); finally upgrade with npm i -g @openai/codex@latest and retry. Some versions showing about 950K is normal — a reserved 5% safety margin."
+  - q: Does the 1M context cost more?
+    a: "Yes. A longer context uses more tokens per request, and the portion above 272K is billed at the higher long-context tier. Enable it only when you really need it — large-repo review, long-log analysis — and not permanently."
+---
+
+
+After installing the Codex CLI, create two config files by hand (`config.toml` + `auth.json`) to connect to the LMU AI API — no third-party config tool needed.
+
+---
+
+## Step 1 — Install Node.js
+
+You need **Node.js 20+** — download: [https://nodejs.org/en/download](https://nodejs.org/en/download)
+
+Click through the installer, then verify in the terminal:
+
+```bash
+node --version
+# A version number (e.g. v23.7.0) means it installed correctly
+```
+
+## Step 2 — Install the Codex CLI
+
+```bash
+npm i -g @openai/codex
+```
+
+If you hit network issues, switch to a China mirror first:
+
+```bash
+npm config set registry https://registry.npmmirror.com
+npm i -g @openai/codex
+```
+
+Verify the install:
+
+```bash
+codex --version
+# A version number means it installed correctly
+```
+
+## Step 3 — Create the config files
+
+The config directory is **`~/.codex/`** (create it if missing; overwrite any old files). Create/overwrite these two files in it:
+
+### config.toml
+
+```toml
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+disable_response_storage = true
+sandbox_mode = "danger-full-access"
+windows_wsl_setup_acknowledged = true
+approval_policy = "never"
+file_opener = "vscode"
+model_provider = "codex"
+web_search = "cached"
+suppress_unstable_features_warning = true
+
+[history]
+persistence = "save-all"
+
+[tui]
+notifications = true
+
+[shell_environment_policy]
+inherit = "all"
+ignore_default_excludes = false
+
+[sandbox_workspace_write]
+network_access = true
+
+[features]
+plan_tool = true
+apply_patch_freeform = true
+view_image_tool = true
+unified_exec = false
+streamable_shell = false
+rmcp_client = true
+elevated_windows_sandbox = true
+
+[profiles.auto-max]
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+
+[profiles.review]
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[notice]
+hide_gpt5_1_migration_prompt = true
+
+[model_providers.codex]
+name = "codex"
+base_url = "https://api.lmuai.com"
+wire_api = "responses"
+requires_openai_auth = true
+```
+
+### auth.json
+
+```json
+{
+  "OPENAI_API_KEY": "your sk- key generated in the console"
+}
+```
+
+## Step 4 — Launch the Codex CLI
+
+After saving the config files, reopen the terminal and run the following to launch and sign in automatically:
+
+```bash
+codex --dangerously-bypass-approvals-and-sandbox
+```
+
+Or the short form:
+
+```bash
+codex --yolo
+```
+
+> This launch command skips security approvals, so you do not approve each auto-executed step.
+
+On a successful launch, the interface shows the current model as `gpt-5.4 xhigh` (the model set by the `model` field in `config.toml`).
+
+<Callout type="info" title="About switching models">
+
+If you accidentally switch to a different model in a session, change the `model` field in `~/.codex/config.toml` back to `gpt-5.4` and restart the terminal to restore it.
+
+</Callout>
+
+---
+
+## Enabling the 1M context in Codex (optional)
+
+`gpt-5.4` supports a **1M-token long context window** (272K by default), useful for large-repo review, long-log analysis, and cross-file refactors. Codex does **not** enable the 1M window by default; you must declare it explicitly in `config.toml`.
+
+### How to configure: add two lines to config.toml
+
+Edit `~/.codex/config.toml` and add the following at the **top level** (before any `[section]`, e.g. right after `model = "gpt-5.4"`):
+
+```toml
+model_context_window = 1000000
+model_auto_compact_token_limit = 900000
+```
+
+Save, reopen the terminal, and re-enter Codex to apply it.
+
+**Field reference**
+
+| Field | Purpose |
+|------|------|
+| `model_context_window` | Declares the model's usable context window in tokens; `1000000` is 1M. Unset, it uses the model default (272K) |
+| `model_auto_compact_token_limit` | The token threshold that triggers auto-compaction of history; set it to about 90% of the window (`900000` for 1M). Values above 90% of the window are clamped by Codex, so a larger number is pointless |
+
+### Verify it took effect
+
+After re-entering Codex, type `/status` and check whether `context window` shows around 1M (some versions show about 950K — a reserved 5% safety margin from Codex). You can also use `/statusline` to add context usage to the status bar for live monitoring.
+
+### If you use CC Switch
+
+If you manage the Codex config with [CC Switch](/en/docs/tools/cc-switch), add the same two lines in its Codex config editor and apply — the effect is identical:
+
+![Setting model_context_window = 1000000 and model_auto_compact_token_limit = 900000 for the Codex config in CC Switch to enable the 1M-token long context](/images/tools/codex/codex-ccs.png)
+
+<Callout type="warn" title="Usage notes">
+
+- **Must be at the top level**: these two fields do not take effect inside a `[profiles.xxx]` section (a known Codex limitation); also put them in the user-level `~/.codex/config.toml`, since a project-level `.codex/config.toml` may be ignored
+- **Model support**: `gpt-5.4` and `gpt-5.5` support 1M over the API channel; models like `gpt-5.3-codex` are capped at 272K, and no config value can exceed the model's own limit
+- **Higher cost**: a longer context uses more tokens per request; the portion above 272K is billed at the higher long-context tier, so do not leave it on for anything but very long tasks
+- **Version differences**: some newer Codex versions read the window size from the model catalog first; if `/status` still shows the old value, upgrade to the latest (`npm i -g @openai/codex@latest`) and retry
+
+</Callout>

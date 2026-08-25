@@ -9,43 +9,46 @@ import { CtaFooter } from '@/components/cta-footer';
 import { ModelCard, ModelGrid } from '@/components/model-card';
 import { Mermaid } from '@/components/mermaid';
 import { getBreadcrumbItems } from 'fumadocs-core/breadcrumb';
-import { SITE_NAME, SITE_URL } from '@/lib/site';
+import { SITE_URL, siteName } from '@/lib/site';
+import { HTML_LANG, OG_LOCALE, localePrefix } from '@/lib/i18n';
 import { PLAZA_MODELS } from '@/lib/models';
 import { lastModifiedOf } from '@/lib/last-modified';
 import { LastUpdated } from '@/components/last-updated';
 
-function buildCanonicalPath(slug?: string[]): string {
-  return slug && slug.length > 0 ? `/docs/${slug.join('/')}` : '/docs';
+// 语言前缀感知的文档路径：cn → /docs/...；en → /en/docs/...
+function docsPath(lang: string, slug?: string[]): string {
+  const prefix = localePrefix(lang);
+  return slug && slug.length > 0 ? `${prefix}/docs/${slug.join('/')}` : `${prefix}/docs`;
 }
 
 export default async function Page({
   params,
 }: {
-  params: Promise<{ slug?: string[] }>;
+  params: Promise<{ lang: string; slug?: string[] }>;
 }) {
-  const { slug } = await params;
-  const page = source.getPage(slug);
+  const { lang, slug } = await params;
+  const page = source.getPage(slug, lang);
   if (!page) notFound();
 
   const MDX = page.data.body;
-  const canonicalPath = buildCanonicalPath(slug);
+  const canonicalPath = docsPath(lang, slug);
   const absoluteUrl = `${SITE_URL}${canonicalPath}`;
+  const inLanguage = HTML_LANG[lang] ?? 'zh-CN';
 
-  // includeRoot 只在 path 中出现 root folder 节点时生效，而 source.pageTree 本身
+  // includeRoot 只在 path 中出现 root folder 节点时生效，而 pageTree 本身
   // 就是 root、不在 path 里，所以首层必须自己补。
   const crumbs = [
-    { name: SITE_NAME, url: `${SITE_URL}/docs` },
-    ...getBreadcrumbItems(page.url, source.pageTree, {
+    { name: siteName(lang), url: `${SITE_URL}${localePrefix(lang)}/docs` },
+    ...getBreadcrumbItems(page.url, source.getPageTree(lang), {
       includePage: true,
       includeSeparator: false,
     }),
   ];
 
   // guide / tools / api 三个目录没有 index 页（实测 404），getBreadcrumbItems 给这层
-  // 的 url 是 undefined。此前的做法是保留该层但省略 item —— schema.org 允许，但
-  // Google 明确要求「除最后一项外，item 为必填」，中间层缺 item 会让整条面包屑
-  // 失去富媒体资格（生产实测 31/35 页中招）。既然这层没有可指向的落地页，就整层
-  // 去掉，产出一条合法的两级面包屑，而不是一条 Google 会丢弃的三级面包屑。
+  // 的 url 是 undefined。Google 明确要求「除最后一项外，item 为必填」，中间层缺 item
+  // 会让整条面包屑失去富媒体资格。既然这层没有可指向的落地页，就整层去掉，产出一条
+  // 合法的两级面包屑，而不是一条 Google 会丢弃的三级面包屑。
   const linkableCrumbs = crumbs.filter((crumb, i) => crumb.url || i === crumbs.length - 1);
 
   const breadcrumbJsonLd = {
@@ -54,7 +57,7 @@ export default async function Page({
     itemListElement: linkableCrumbs.map((crumb, i) => ({
       '@type': 'ListItem',
       position: i + 1,
-      name: typeof crumb.name === 'string' ? crumb.name : SITE_NAME,
+      name: typeof crumb.name === 'string' ? crumb.name : siteName(lang),
       ...(crumb.url
         ? { item: crumb.url.startsWith('http') ? crumb.url : `${SITE_URL}${crumb.url}` }
         : {}),
@@ -73,7 +76,7 @@ export default async function Page({
     '@type': 'TechArticle',
     headline: page.data.title,
     description: page.data.description,
-    inLanguage: 'zh-CN',
+    inLanguage,
     mainEntityOfPage: absoluteUrl,
     datePublished: lastModified,
     dateModified: lastModified,
@@ -83,8 +86,8 @@ export default async function Page({
       width: 1200,
       height: 630,
     },
-    author: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
-    publisher: { '@type': 'Organization', name: SITE_NAME, url: SITE_URL },
+    author: { '@type': 'Organization', name: siteName(lang), url: SITE_URL },
+    publisher: { '@type': 'Organization', name: siteName(lang), url: SITE_URL },
     ...(keywords.length > 0 ? { keywords: keywords.join(', ') } : {}),
     ...(alternateNames.length > 0 ? { alternateName: alternateNames } : {}),
   };
@@ -102,21 +105,21 @@ export default async function Page({
         }
       : null;
 
-  const itemListJsonLd =
-    page.url === '/docs/guide/models'
-      ? {
-          '@context': 'https://schema.org',
-          '@type': 'ItemList',
-          name: '灵眸 AI 可用模型清单',
-          numberOfItems: PLAZA_MODELS.length,
-          itemListElement: PLAZA_MODELS.map((m, i) => ({
-            '@type': 'ListItem',
-            position: i + 1,
-            name: m.id,
-            description: `${m.label}（${m.vendor}）`,
-          })),
-        }
-      : null;
+  const isModels = (slug?.join('/') ?? '') === 'guide/models';
+  const itemListJsonLd = isModels
+    ? {
+        '@context': 'https://schema.org',
+        '@type': 'ItemList',
+        name: lang === 'en' ? 'LMU AI available models' : '灵眸 AI 可用模型清单',
+        numberOfItems: PLAZA_MODELS.length,
+        itemListElement: PLAZA_MODELS.map((m, i) => ({
+          '@type': 'ListItem',
+          position: i + 1,
+          name: m.id,
+          description: `${m.label}（${m.vendor}）`,
+        })),
+      }
+    : null;
 
   return (
     <>
@@ -135,8 +138,8 @@ export default async function Page({
               Mermaid,
             }}
           />
-          <LastUpdated date={lastModifiedDate} />
-          <CtaFooter />
+          <LastUpdated date={lastModifiedDate} locale={lang} />
+          <CtaFooter locale={lang} />
         </DocsBody>
       </DocsPage>
       <script
@@ -164,30 +167,43 @@ export default async function Page({
 }
 
 export async function generateStaticParams() {
-  return [{ slug: [] }, ...source.generateParams()];
+  return source.generateParams();
 }
 
 export async function generateMetadata({
   params,
 }: {
-  params: Promise<{ slug?: string[] }>;
+  params: Promise<{ lang: string; slug?: string[] }>;
 }): Promise<Metadata> {
-  const { slug } = await params;
-  const page = source.getPage(slug);
+  const { lang, slug } = await params;
+  const page = source.getPage(slug, lang);
   if (!page) notFound();
 
-  const canonicalPath = buildCanonicalPath(slug);
+  const canonicalPath = docsPath(lang, slug);
   const ogDescription = page.data.ogDescription ?? page.data.description;
+
+  // hreflang：只在两种语言都真实存在该页面时互指，避免指向 404。
+  const cnExists = !!source.getPage(slug, 'cn');
+  const enExists = !!source.getPage(slug, 'en');
+  const cnPath = docsPath('cn', slug);
+  const enPath = docsPath('en', slug);
+  const languages =
+    cnExists && enExists
+      ? { 'zh-CN': cnPath, en: enPath, 'x-default': cnPath }
+      : undefined;
 
   return {
     title: page.data.title,
     description: page.data.description,
     keywords: page.data.keywords,
-    alternates: { canonical: canonicalPath },
+    alternates: {
+      canonical: canonicalPath,
+      ...(languages ? { languages } : {}),
+    },
     openGraph: {
       type: 'article',
-      locale: 'zh_CN',
-      siteName: SITE_NAME,
+      locale: OG_LOCALE[lang] ?? OG_LOCALE.cn,
+      siteName: siteName(lang),
       url: canonicalPath,
       title: page.data.title,
       description: ogDescription,

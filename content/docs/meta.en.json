@@ -1,0 +1,5 @@
+{
+  "title": "LMU AI Docs",
+  "root": true,
+  "pages": ["guide", "tools", "enterprise"]
+}

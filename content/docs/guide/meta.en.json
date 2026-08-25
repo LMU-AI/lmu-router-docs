@@ -1,0 +1,4 @@
+{
+  "title": "User Guide",
+  "pages": ["getting-started", "api-protocols", "models", "faq", "errors"]
+}

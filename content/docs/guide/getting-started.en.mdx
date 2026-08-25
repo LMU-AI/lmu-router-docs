@@ -1,0 +1,118 @@
+---
+title: Getting started
+description: "Get started with the LMU AI API in three steps: create an account, subscribe or top up, create an API key, then connect Claude Code, Codex CLI, and Cursor."
+ogDescription: LMU AI in three steps — sign up, subscribe or top up, create an API key, and use Claude / GPT / Gemini in Claude Code, Codex CLI and Cursor within minutes.
+keywords:
+  - LMU AI sign up
+  - Claude API key
+  - Claude Code setup
+  - Codex CLI setup
+  - Cursor Claude setup
+  - AI API quick start
+faq:
+  - q: How do I get an LMU AI API key?
+    a: Register an LMU AI account → subscribe or top up → create a new key on the "API Keys" page of the console, then paste it into Claude Code / Codex CLI / Cursor and other tools.
+  - q: Should I subscribe or top up first?
+    a: A subscription gives you a fixed monthly quota and suits steady daily development; topping up is pay-as-you-go and flexible across models. Both are chosen on the "Top up / Subscribe" page of the console.
+  - q: How do I contact LMU AI support?
+    a: LMU AI runs two QQ groups. The pre-sales group 1042851564 is open to join for questions about plans, models and setup. The after-sales group 1044817922 requires your payment order number for approval — join it right after purchase.
+---
+
+
+For plan advice and quotes, join the **pre-sales group**. After purchase, join the **after-sales group** first for hands-on help.
+
+<div className="grid gap-6 sm:grid-cols-2">
+
+<div>
+
+**Pre-sales QQ group: 1042851564** — questions about plans, models and setup; open to join
+
+<div style={{ maxWidth: 220 }}>
+
+![LMU AI pre-sales QQ group QR 1042851564](/images/tools/qq-qrimg/presales-qq-group-qr.png)
+
+</div>
+
+</div>
+
+<div>
+
+**After-sales QQ group: 1044817922** — approval requires your **payment order number**
+
+<div style={{ maxWidth: 220 }}>
+
+![LMU AI after-sales QQ group QR 1044817922](/images/tools/qq-qrimg/customer-service-qr.png)
+
+</div>
+
+</div>
+
+</div>
+
+---
+
+## Step 1 — Create an account
+
+Go to the sign-up page: [https://api.lmuai.com/register?ref=vJaWWr4T](https://api.lmuai.com/register?ref=vJaWWr4T)
+
+Enter your email and a password to finish registration.
+
+## Step 2 — Subscribe or top up
+
+After logging in, click "**Top up / Subscribe**" in the left menu:
+
+- **Subscribe**: pick a plan and get a fixed monthly quota
+- **Top up**: add balance on demand and use any model flexibly
+
+You're ready to go as soon as payment completes.
+
+## Step 3 — Create an API key [#create-key]
+
+1. Click "**API Keys**" in the left menu
+2. Click "Create key" and give it any name
+3. Once created, **save your API key** (the value that starts with `sk-`)
+
+## Step 4 — Configure your tool
+
+**API base URL:**
+
+Pick the base URL that matches your tool's protocol:
+
+**Anthropic protocol** (Claude Code, Cherry Studio, Trae, Kilo Code with Claude / Chinese models, etc.):
+
+```
+https://api.lmuai.com
+```
+
+**OpenAI protocol** (Codex CLI, Codex App, VS Code / Cursor with GPT, Kilo Code with OpenAI models, etc.):
+
+```
+https://api.lmuai.com/v1
+```
+
+<Callout type="warn" title="The difference (the most common mistake)">
+
+- The **Anthropic protocol** has **no** `/v1` suffix
+- The **OpenAI protocol** **must** include the `/v1` suffix
+
+Using the wrong protocol causes 401 / 404 errors. For full protocol details, SDK / curl examples and Claude Max group limits, see **[API protocols →](/en/docs/guide/api-protocols)**.
+
+</Callout>
+
+Keep these three things handy — every tool setup below needs them:
+- **API Key**: the `sk-` key you created in the console (shared by both protocols)
+- **Anthropic base URL**: `https://api.lmuai.com`
+- **OpenAI base URL**: `https://api.lmuai.com/v1`
+
+---
+
+## Next steps
+
+Pick the setup guide for your tool:
+
+| Tool | Guide |
+|------|------|
+| CC Switch (one-click import, recommended) | [CC Switch guide](/en/docs/tools/cc-switch) |
+| Claude Code | [Claude Code guide](/en/docs/tools/claude-code) |
+| Codex CLI (Mac / Linux) | [Mac / Linux guide](/en/docs/tools/codex-cli-mac) |
+| Cursor | [Cursor guide](/en/docs/tools/cursor) |

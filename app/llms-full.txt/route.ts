@@ -4,7 +4,8 @@ import { SITE_NAME, SITE_URL, API_BASE_URL } from '@/lib/site';
 // content/ 不进入 standalone 产物，必须构建期预渲染。
 export const dynamic = 'force-static';
 
-// source.getPages() 是文件系统顺序（enterprise 会排在 docs 前），按导航顺序重排。
+// 站点是 cn+en 双语；.com 的 llms-full.txt 以中文为主，只取 'cn' 页（不带参数会混入英文页）。
+// source.getPages('cn') 是文件系统顺序（enterprise 会排在 docs 前），按导航顺序重排。
 const SECTION_ORDER = ['/docs', '/docs/guide', '/docs/tools', '/docs/api'];
 
 function sortKey(url: string): number {
@@ -37,7 +38,7 @@ function renderPlaceholders(md: string): string {
 }
 
 export async function GET() {
-  const pages = source.getPages().sort((a, b) => {
+  const pages = source.getPages('cn').sort((a, b) => {
     const d = sortKey(a.url) - sortKey(b.url);
     return d !== 0 ? d : a.url.localeCompare(b.url);
   });

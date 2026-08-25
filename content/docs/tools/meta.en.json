@@ -1,0 +1,12 @@
+{
+  "title": "Tools",
+  "pages": [
+    "---Claude Code---",
+    "claude-code",
+    "cc-switch",
+    "---Codex---",
+    "codex-cli-mac",
+    "---Other tools---",
+    "cursor"
+  ]
+}

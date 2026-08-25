@@ -255,24 +255,28 @@ async function main() {
     if (!d) issues.desc.push(`${p}: 缺失`);
     else {
       const len = decodeEntities(d).length;
-      if (len < 40 || len > 100) issues.descLen.push(`${p}: ${len} 字`);
+      // 英文描述天然更长（同一句信息量，拉丁字符数远多于汉字），SERP 截断也按像素/字符
+      // 更宽——中文按 40–100 卡，英文放宽到 70–160，避免把合规的英文页误判越界。
+      const [descLo, descHi] = p.startsWith('/en/') ? [70, 160] : [40, 100];
+      if (len < descLo || len > descHi) issues.descLen.push(`${p}: ${len} 字`);
     }
 
     const h1s = html.match(/<h1[\s>]/g) ?? [];
     if (h1s.length !== 1) issues.h1.push(`${p}: ${h1s.length} 个`);
 
     if (!meta(html, 'og:title') || !meta(html, 'og:description')) issues.og.push(p);
-    if (!/<html[^>]+lang="zh-CN"/.test(html)) issues.lang.push(p);
+    const wantLang = p.startsWith('/en/') ? 'en' : 'zh-CN';
+    if (!new RegExp(`<html[^>]+lang="${wantLang}"`).test(html)) issues.lang.push(`${p}: 期望 ${wantLang}`);
   }
   check('live', `每页 canonical 存在且自指（${pageBodies.size} 页）`, issues.canonical.length === 0,
     issues.canonical.slice(0, 6).join('; '));
   check('live', '每页有非空 <title>', issues.title.length === 0, issues.title.slice(0, 6).join('; '));
   check('live', '每页有 meta description', issues.desc.length === 0, issues.desc.slice(0, 6).join('; '));
-  check('next', 'description 长度均在 40–100 字', issues.descLen.length === 0,
+  check('next', 'description 长度合规（中文 40–100 / 英文 70–160）', issues.descLen.length === 0,
     `${issues.descLen.length} 页越界: ` + issues.descLen.slice(0, 8).join('; '));
   check('next', '每页恰好 1 个 <h1>', issues.h1.length === 0, issues.h1.slice(0, 6).join('; '));
   check('live', '每页有 og:title / og:description', issues.og.length === 0, issues.og.slice(0, 6).join('; '));
-  check('live', '每页 <html lang="zh-CN">', issues.lang.length === 0, issues.lang.slice(0, 6).join('; '));
+  check('live', '每页 <html lang> 与语言匹配（cn=zh-CN / en=en）', issues.lang.length === 0, issues.lang.slice(0, 6).join('; '));
 
   const docsHome = byPathAll.get('/docs') ?? (await get('/docs')).body;
   check('live', '首页 twitter:card 已设', !!meta(docsHome, 'twitter:card'), meta(docsHome, 'twitter:card'));
@@ -350,7 +354,8 @@ async function main() {
   // /i：组件输出 JSX 规范的驼峰 dateTime（避开 React 19 dev 的 Invalid DOM property
   // 告警）；页面以 text/html 提供，HTML 解析器把它与 datetime 视作同一个。
   const dateOf = (html) => (html?.match(/<time datetime="([^"]+)"/i) ?? [])[1] ?? null;
-  const pagesWithDate = [...pageBodies.values()].filter((h) => h.includes('最后更新：'));
+  const pagesWithDate = [...pageBodies.entries()].filter(
+    ([loc, h]) => h.includes(new URL(loc).pathname.startsWith('/en/') ? 'Last updated' : '最后更新'));
 
   check('next', '每个文档页都有「最后更新」', pagesWithDate.length === pageBodies.size,
     `${pagesWithDate.length}/${pageBodies.size} 页`);

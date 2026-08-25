@@ -8,16 +8,18 @@ export const dynamic = 'force-static';
 
 export function GET() {
   // llms() 输出相对路径，llmstxt.org 规范偏好绝对 URL（AI 抓到后要能直接访问）。
-  const tree = llms(source).index().replace(/\]\(\/docs/g, `](${SITE_URL}/docs`);
+  // 站点是 cn+en 双语，index() 不带 lang 会把中英文两棵树拼在一起；.com 的 llms.txt 以
+  // 中文为主，显式取 'cn' 树。
+  const tree = llms(source).index('cn').replace(/\]\(\/docs/g, `](${SITE_URL}/docs`);
 
   const flagships = Object.values(FLAGSHIP).join('、');
   const newModels = MODELS.filter((m) => m.isNew)
     .map((m) => m.id)
     .join('、');
 
-  // 各区篇数由 source 实时统计，避免新增页面后这里的数字失真。
+  // 各区篇数由 source 实时统计，避免新增页面后这里的数字失真。只数中文页（en 是子集）。
   const countUnder = (prefix: string) =>
-    source.getPages().filter((p) => p.url.startsWith(prefix)).length;
+    source.getPages('cn').filter((p) => p.url.startsWith(prefix)).length;
 
   const body = [
     `# ${SITE_NAME}（灵眸 AI）`,
