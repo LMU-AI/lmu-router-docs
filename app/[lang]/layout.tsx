@@ -8,6 +8,9 @@ import {
   SITE_KEYWORDS,
   SITE_URL,
   THEME_COLOR,
+  productDescription,
+  productFeatures,
+  productName,
   siteDescription,
   siteName,
 } from '@/lib/site';
@@ -53,11 +56,12 @@ export async function generateMetadata({
         en: '/en/docs',
         'x-default': '/docs',
       },
-      // llmstxt.org 规范的发现方式：根目录 /llms.txt + <link rel="alternate">。
+      // llmstxt.org 规范的发现方式：/llms.txt + <link rel="alternate">。
+      // 按语言指向：cn→/llms.txt，en→/en/llms.txt，让各语言页各自发现对应文件。
       types: {
         'text/plain': [
-          { url: '/llms.txt', title: 'llms.txt' },
-          { url: '/llms-full.txt', title: 'llms-full.txt' },
+          { url: `${prefix}/llms.txt`, title: 'llms.txt' },
+          { url: `${prefix}/llms-full.txt`, title: 'llms-full.txt' },
         ],
       },
     },
@@ -124,6 +128,28 @@ export default async function Layout({
     sameAs: [SITE_URL, API_BASE_URL],
   };
 
+  // 产品实体：让生成式引擎/搜索明确「灵眸 AI 是什么」。仅忠实描述（名称、类别、
+  // 能力、提供方），不含价格/评分等需向用户核实且此处无法确证的字段。
+  const softwareApplicationJsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'SoftwareApplication',
+    name: productName(lang),
+    alternateName: lang === 'en' ? ['灵眸 AI', 'Lingmou AI'] : ['LMU AI', 'Lingmou AI'],
+    applicationCategory: 'DeveloperApplication',
+    applicationSubCategory:
+      lang === 'en' ? 'Large-model API relay' : '大模型 API 中转服务',
+    operatingSystem: 'Web',
+    url: API_BASE_URL,
+    description: productDescription(lang),
+    inLanguage,
+    featureList: productFeatures(lang),
+    provider: {
+      '@type': 'Organization',
+      name: productName(lang),
+      url: API_BASE_URL,
+    },
+  };
+
   return (
     <html lang={inLanguage} suppressHydrationWarning>
       <body suppressHydrationWarning>
@@ -134,6 +160,10 @@ export default async function Layout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
+        />
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationJsonLd) }}
         />
         <Script
           src="https://www.googletagmanager.com/gtag/js?id=G-3YQJ477Z5W"

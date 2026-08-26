@@ -3,7 +3,7 @@ import { buildLlmsFull, llmsResponse } from '@/lib/llms';
 // content/ 不进入 standalone 产物，必须构建期预渲染。
 export const dynamic = 'force-static';
 
-// 主 llms-full.txt 以中文为主。英文全文见 /en/llms-full.txt。
+// 英文全文 llms-full.txt。
 export async function GET() {
-  return llmsResponse(await buildLlmsFull('cn'));
+  return llmsResponse(await buildLlmsFull('en'));
 }

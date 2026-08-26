@@ -174,6 +174,18 @@ async function main() {
     !/Stripe|z-pay|APIv3/i.test(llmsFull.body),
     /Stripe/i.test(llmsFull.body) ? '仍含 Stripe/z-pay/APIv3 字样' : '干净');
 
+  // 英文 LLM 发现面（v0.1.28 起）：英文 36 页此前在 llms 层完全缺席。
+  const llmsEn = await get('/en/llms.txt');
+  check('next', '/en/llms.txt 200', llmsEn.status === 200, `status=${llmsEn.status}`);
+  check('next', '/en/llms.txt 是 text/plain', /text\/plain/.test(llmsEn.headers['content-type'] ?? ''),
+    llmsEn.headers['content-type']);
+  check('next', '/en/llms.txt 用绝对 URL', !/\]\(\/(en\/)?docs/.test(llmsEn.body),
+    /\]\(\/(en\/)?docs/.test(llmsEn.body) ? '仍含相对路径 ](/…/docs' : '全部绝对 URL');
+  check('next', '/en/llms.txt 含「Key facts」块', llmsEn.body.includes('Key facts'), '');
+  check('next', '/en/llms.txt 指向英文错误码页', llmsEn.body.includes('/en/docs/guide/errors'), '');
+  const llmsFullEn = await get('/en/llms-full.txt');
+  check('next', '/en/llms-full.txt 200', llmsFullEn.status === 200, `status=${llmsFullEn.status}`);
+
   // AI 爬虫拿到的必须和普通访客一致（不做 cloaking，也别被 WAF 拦）
   for (const ua of ['GPTBot/1.0', 'ClaudeBot/1.0', 'Mozilla/5.0 (compatible; Googlebot/2.1)']) {
     const r = await get('/docs', { ua });
@@ -358,6 +370,9 @@ async function main() {
     `（这三个目录无 index 页，代码按"宁缺勿指向 404"省略了 item，但 Google 要求中间层必填 → 整条面包屑失去富媒体资格）`);
   check('live', '存在 WebSite / Organization', !!typeCount.WebSite && !!typeCount.Organization,
     `WebSite=${typeCount.WebSite ?? 0} Organization=${typeCount.Organization ?? 0}`);
+  // 产品实体（v0.1.28 起）：让引擎明确「灵眸 AI 是什么」。站点级注入，逐页都有。
+  check('next', 'SoftwareApplication 描述产品实体', (typeCount.SoftwareApplication ?? 0) >= 1,
+    `${typeCount.SoftwareApplication ?? 0} 页`);
   check('live', 'TechArticle 覆盖文档页', (typeCount.TechArticle ?? 0) >= 20,
     `${typeCount.TechArticle ?? 0} 页`);
   check('live', 'FAQPage 已产出', (typeCount.FAQPage ?? 0) >= 5, `${typeCount.FAQPage ?? 0} 页`);
