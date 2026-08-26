@@ -65,6 +65,8 @@ Claude Max 分组只支持 Anthropic 协议，**不能**填入 `https://api.lmua
 4. （可选）按模型能力打开工具调用（Tool Call）、图片输入（Image）等开关。
 5. 保存，回到模型选择器选中刚添加的模型即可对话。
 
+![WorkBuddy「添加模型（Add Model）」对话框填写示例：提供商选 Custom，接口地址填到 `https://api.lmuai.com/v1` 为止](/images/tools/workbuddy/workbuddy-add-model.png)
+
 <Callout type="info" title="接口地址不要重复写 /chat/completions">
 
 WorkBuddy 会自动在接口地址后拼接 `/chat/completions`。所以接口地址只填到 `https://api.lmuai.com/v1` 为止，不要再写 `/chat/completions`——否则会拼成 `…/v1/chat/completions/chat/completions` 导致 404。

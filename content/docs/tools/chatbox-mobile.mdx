@@ -1,0 +1,136 @@
+---
+title: Chatbox 手机版
+description: Chatbox 手机版（iOS / Android）接入灵眸 API 分步教程：从 ☰ 菜单进入模型提供方，双协议配置 API 主机与 API 路径，国内直连免代理。
+ogDescription: Chatbox 手机版（iOS / Android）接入灵眸 AI：从左上角 ☰ 菜单进入「模型提供方」，用 Anthropic 兼容协议调用 Claude / DeepSeek / Qwen / GLM，或用 OpenAI Responses 协议调用 GPT 系列；API 主机填 `https://api.lmuai.com`、不带 /v1，打开「改善网络兼容性」减少手机网络连接问题，国内直连、免代理。
+keywords:
+  - Chatbox 手机版配置
+  - Chatbox 手机版 API 配置
+  - Chatbox iOS 配置灵眸
+  - Chatbox Android 配置灵眸
+  - Chatbox 手机版 API 主机
+  - Chatbox 改善网络兼容性
+  - Chatbox 手机版 OpenAI Responses
+  - claude-sonnet-5
+  - gpt-5.6-sol
+  - Chatbox 手机版国内直连免代理
+alternateNames:
+  - Chatbox 手机版接入灵眸 AI
+  - Chatbox iOS / Android 配置教程
+  - Chatbox 手机端配置 Claude API
+  - 手机版 Chatbox 直连 Claude
+faq:
+  - q: Chatbox 手机版从哪里进入 API 配置？
+    a: 打开 Chatbox → 点击左上角菜单图标 ☰ 打开侧边栏 → 设置 → 模型提供方（Model Provider）→ 底部「添加」。手机版的字段名为「API 主机」与「API 路径」，填法与桌面版一一对应。
+  - q: Chatbox 手机版的 API 主机要不要带 /v1？
+    a: 不要。「API 主机」一律填到域名为止 `https://api.lmuai.com`，Chatbox 会自动拼接 /v1——Anthropic 协议拼出 /v1/messages、OpenAI Responses 协议拼出 /v1/responses。填好后界面下方会实时显示拼出的完整地址，照着核对即可。
+  - q: Chatbox 手机版「改善网络兼容性」开关要不要打开？
+    a: 建议打开。它位于配置界面底部，可减少手机网络环境下的连接问题；切换 Wi-Fi / 蜂窝网络后若配置不生效，可重启一次 Chatbox。
+  - q: Chatbox 手机版接入灵眸需要科学上网吗？
+    a: 不需要。灵眸 API 域名 api.lmuai.com 国内直连，Chatbox 手机版无需任何代理即可使用。
+---
+
+Chatbox 手机版（iOS / Android）与桌面版共用同一套配置逻辑，只是入口和字段名称略有不同。本文按手机端界面分步说明，桌面版请看 [Chatbox 全平台配置](./chatbox)。
+
+<Callout type="info" title="手机版与桌面版基本一致">
+
+- **入口不同**：手机版从**左上角 ☰ 菜单**进入设置，桌面版从左下角「设置」进入。
+- **字段对应**：手机版字段为 **API 主机**、**API 路径**，与桌面版含义完全对应，按下方步骤填写即可。
+
+</Callout>
+
+---
+
+## 下载安装
+
+- **官网**：[https://chatboxai.app](https://chatboxai.app)
+- 在 App Store（iOS）或应用商店 / 官网 APK（Android）下载安装，无需注册账号即可使用自带 Key（BYOK）模式。
+
+---
+
+## 进入配置入口
+
+打开 Chatbox → 点击**左上角菜单图标 ☰** 打开侧边栏 → 点击「设置」→ 进入「模型提供方（Model Provider）」→ 点击底部「添加」。
+
+进入配置界面后，按下面「方式一 / 方式二」填写即可。
+
+---
+
+## 两种协议说明
+
+灵眸支持两种接入协议，按模型类型选择：
+
+| 协议 | 适用模型 | API 主机 | API 路径 |
+|------|----------|----------|----------|
+| **Claude API（Anthropic 兼容）** | Claude 系列、国产模型（DeepSeek、Qwen、GLM、Kimi 等） | `https://api.lmuai.com` | 默认即可 |
+| **OpenAI Responses API Compatible** | OpenAI 系列（GPT-5.6 / GPT-5.5 等） | `https://api.lmuai.com` | `/responses` |
+
+<Callout type="info" title="API 主机都不带 /v1">
+
+Chatbox 会自动拼接路径，所以 **API 主机一律填到域名为止，不要带 `/v1`**。填好后界面下方会实时显示拼出的完整地址，例如 OpenAI Responses 协议拼成 `https://api.lmuai.com/v1/responses`。**只要域名不是 `api.lmuai.com`，就是「API 主机」填错了。**
+
+</Callout>
+
+---
+
+## 方式一：Anthropic 协议（Claude 及国产模型）
+
+1. **API 模式**：选择 **`Claude API（Anthropic 兼容）`**
+2. **名称**：随意填写（如 `LMU AI·灵眸`）
+3. **API 主机**：填 `https://api.lmuai.com`（**不带** `/v1`）
+4. **API 密钥**：填后台生成的 `sk-` 开头的密钥
+5. **添加模型**：手机版预设列表可能没有最新模型，在「模型」区域点「新建」/「添加模型」，输入模型 ID，例如：
+
+   - `claude-opus-5`
+   - `claude-sonnet-5`
+   - `claude-haiku-4-5`
+   - `deepseek-v4-pro`
+   - `qwen3.8-max-preview`
+   - `glm-5.2`
+   - `kimi-k3`
+
+   完整可用模型清单见 [模型广场](../guide/models)。
+
+---
+
+## 方式二：OpenAI 协议（GPT 模型）
+
+<Callout type="warn" title="使用前提">
+
+需要满足以下任一条件：
+
+- 已订阅 **GPT 套餐**
+- 使用按量计费，并且在灵眸后台选择了 **GPT 分组**
+
+</Callout>
+
+1. **API 模式**：选择 **`OpenAI Responses API Compatible`**（不是 `OpenAI API Compatible`）
+2. **名称**：随意填写（如 `LMUAI-GPT`）
+3. **API 主机**：填 `https://api.lmuai.com`
+4. **API 路径**：填 `/responses`
+5. **API 密钥**：填后台生成的 `sk-` 开头的密钥
+6. **添加模型**：在「模型」区域点「新建」，输入模型 ID，例如 `gpt-5.6-sol`、`gpt-5.6-terra`、`gpt-5.5`、`gpt-5.4`。
+
+Chatbox 会把 API 主机、`/v1` 和 API 路径拼成完整地址 `https://api.lmuai.com/v1/responses`，界面下方实时显示。
+
+---
+
+## 配置示例与手机版细节
+
+下图为在手机版填写完成后的界面（OpenAI Responses 协议，界面下方已拼出 `https://api.lmuai.com/v1/responses`）：
+
+![Chatbox 手机版配置完成示例](/images/tools/chatbox-phone/chatbox-phone-config.jpg)
+
+<Callout type="info" title="手机版两个细节">
+
+- **「改善网络兼容性」**：配置界面底部的这个开关建议**打开**，可减少手机网络环境下的连接问题。
+- **认准界面下方拼出的完整地址**：填好后界面会实时显示最终请求地址（如上图拼出 `https://api.lmuai.com/v1/responses`）。只要域名不是 `api.lmuai.com`，就是「API 主机」填错了。
+
+</Callout>
+
+---
+
+## 遇到问题
+
+- **改完配置不生效**：保存后重启一次 Chatbox，或在对话界面重新选择一次模型；手机版切换 Wi-Fi / 蜂窝网络后有时也需要重启。
+- **报错 401 / 403**：依次检查 API Key 是否为灵眸后台的 `sk-` 密钥、API 主机是否填对（不带 `/v1`）、OpenAI 协议的 API 模式与 API 路径是否正确、当前套餐 / 计费分组是否包含所调用的模型。
+- 更多协议说明、模型 ID 与常见问题，见桌面与手机通用的 [Chatbox 全平台配置](./chatbox)。
