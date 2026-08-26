@@ -1,4 +1,4 @@
-import { DocsLayout } from 'fumadocs-ui/layouts/docs';
+import { DocsLayout } from 'fumadocs-ui/layouts/notebook';
 import type { ReactNode } from 'react';
 import { source } from '@/lib/source';
 import { REGISTER_URL, siteName } from '@/lib/site';
@@ -17,7 +17,7 @@ export default async function Layout({
     <DocsLayout
       tree={source.getPageTree(lang)}
       sidebar={{ defaultOpenLevel: 99 }}
-      nav={{ title: siteName(lang) }}
+      nav={{ title: siteName(lang), mode: 'top' }}
       links={[
         {
           type: 'main',
