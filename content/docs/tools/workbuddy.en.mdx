@@ -65,6 +65,8 @@ The Claude Max group supports only the Anthropic protocol and **cannot** be fill
 4. (Optional) Toggle Tool Call, Image input, etc. according to the model's capabilities.
 5. Save, return to the model picker, select the model you just added, and start chatting.
 
+![The WorkBuddy "Add Model" dialog filled in: provider set to Custom, endpoint stopping at `https://api.lmuai.com/v1`](/images/tools/workbuddy/workbuddy-add-model.png)
+
 <Callout type="info" title="Do not write /chat/completions into the endpoint twice">
 
 WorkBuddy automatically appends `/chat/completions` to the endpoint. So stop the endpoint at `https://api.lmuai.com/v1` and do not add `/chat/completions` — otherwise it becomes `…/v1/chat/completions/chat/completions` and returns a 404.
