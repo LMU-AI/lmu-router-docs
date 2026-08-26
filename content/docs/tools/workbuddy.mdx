@@ -1,0 +1,173 @@
+---
+title: WorkBuddy
+description: 在腾讯 WorkBuddy 中用「自定义模型」接入灵眸中转 API，填 OpenAI 兼容地址与 sk- 密钥，一把 Key 调用 Claude / GPT / 国产模型。
+ogDescription: WorkBuddy（腾讯 CodeBuddy 同源）接入灵眸 AI：通过「自定义模型（OpenAI 兼容）」填入 Base URL https://api.lmuai.com/v1 与 sk- 密钥，一把 Key 调用 Claude Sonnet 5 / GPT-5.6 / DeepSeek / GLM 等模型，支持界面添加与 models.json 两种方式，国内直连免代理。
+keywords:
+  - WorkBuddy 配置 API
+  - WorkBuddy 自定义模型
+  - WorkBuddy 接入灵眸
+  - WorkBuddy OpenAI 兼容
+  - WorkBuddy Base URL 填法
+  - WorkBuddy models.json
+  - 腾讯 WorkBuddy 中转
+  - CodeBuddy 自定义模型
+  - WorkBuddy 401 404 排查
+alternateNames:
+  - WorkBuddy 接入灵眸 AI
+  - WorkBuddy 配置灵眸中转
+  - 腾讯 WorkBuddy 自定义模型教程
+faq:
+  - q: WorkBuddy 的接口地址要不要带 /v1？
+    a: 用界面「自定义模型」填「接口地址 / Base URL」时，填到 https://api.lmuai.com/v1 为止（带 /v1、不带 /chat/completions），WorkBuddy 会自动拼接 /chat/completions；用 models.json 手填 url 时则要写完整的 https://api.lmuai.com/v1/chat/completions。两者对应同一个端点，别把 /chat/completions 重复写进接口地址，否则路径拼两次会 404。
+  - q: WorkBuddy 能用 Claude 或国产模型吗？
+    a: 能。WorkBuddy 自定义模型走 OpenAI 兼容协议（/v1/chat/completions），灵眸后端会做协议转换，因此只要你的密钥分组挂了对应上游，填 claude-sonnet-5、deepseek-v4-pro、glm-5.2 等模型 ID 都能调用。实际可用模型以分组为准。
+  - q: 用了 Claude Max 分组的密钥为什么报错？
+    a: Claude Max 分组只支持 Anthropic 协议，不能填入 https://api.lmuai.com/v1 这类 OpenAI 协议地址，因此不能用于 WorkBuddy 的自定义模型。请改用按量充值或普通订阅分组的密钥。
+  - q: 改完 models.json 不生效？
+    a: 编辑 models.json 后必须「完全退出并重启」WorkBuddy；文件要保存为「UTF-8 无 BOM」，带 BOM 头可能加载失败。界面添加的模型保存后回到模型选择器重新选一次即可。
+---
+
+WorkBuddy 是腾讯推出的 AI 编程助手（与 CodeBuddy 同源），支持通过「自定义模型（Custom，OpenAI 兼容）」接入任意 OpenAI 兼容的 API。因此可以把它指向灵眸中转，用一把 `sk-` 密钥调用 Claude / GPT / 国产等模型。
+
+---
+
+## 准备工作
+
+- 一把灵眸 `sk-` 开头的 API 密钥：在[灵眸后台](https://api.lmuai.com)注册并生成。
+- 记住灵眸的 OpenAI 兼容地址（Base URL），**带** `/v1`：
+
+  ```
+  https://api.lmuai.com/v1
+  ```
+
+- 确认你的密钥所属分组挂了要用的模型对应的上游（可用模型以分组为准）。
+
+<Callout type="warn" title="别用 Claude Max 分组的密钥">
+
+Claude Max 分组只支持 Anthropic 协议，**不能**填入 `https://api.lmuai.com/v1` 这类 OpenAI 协议地址，因此无法用于 WorkBuddy 的自定义模型。请改用**按量充值**或**普通订阅分组**的密钥。
+
+</Callout>
+
+---
+
+## 方式一：界面添加自定义模型（推荐）
+
+1. 打开 WorkBuddy，进入模型设置：可从「设置（Settings）→ 模型（Model）」进入，或点开对话框的模型选择器、翻到底部选择「配置自定义模型（Configure custom models）」。
+2. 点击「添加模型（Add Model）」，提供商 / 类型选择「自定义（Custom）」。
+3. 填写以下三项：
+
+   | 字段 | 取值 |
+   |------|------|
+   | 接口地址 / Base URL | `https://api.lmuai.com/v1` |
+   | API Key / 密钥 | 后台生成的 `sk-` 开头的密钥 |
+   | 模型名称 / Model Name | 灵眸的模型 ID，如 `gpt-5.6-sol` 或 `claude-sonnet-5` |
+
+4. （可选）按模型能力打开工具调用（Tool Call）、图片输入（Image）等开关。
+5. 保存，回到模型选择器选中刚添加的模型即可对话。
+
+<Callout type="info" title="接口地址不要重复写 /chat/completions">
+
+WorkBuddy 会自动在接口地址后拼接 `/chat/completions`。所以接口地址只填到 `https://api.lmuai.com/v1` 为止，不要再写 `/chat/completions`——否则会拼成 `…/v1/chat/completions/chat/completions` 导致 404。
+
+</Callout>
+
+---
+
+## 方式二：编辑 models.json（精确、可版本管理）
+
+WorkBuddy / CodeBuddy 也把自定义模型存在一个配置文件里，适合批量或团队统一配置。
+
+配置文件位于用户目录下的 `.codebuddy` 文件夹（部分版本为 `.workbuddy`，以你本机实际存在的为准）：
+
+- **Windows（用户级）**：`C:\Users\<你的用户名>\.codebuddy\models.json`
+- **macOS / Linux（用户级）**：`~/.codebuddy/models.json`
+- **项目级**：`<你的项目目录>\.codebuddy\models.json`
+
+首次使用需先安装、登录并随便打开一个项目，配置目录才会生成。示例（把 `apiKey` 换成你自己的 `sk-` 密钥）：
+
+```json
+{
+  "models": [
+    {
+      "id": "gpt-5.6-sol",
+      "name": "灵眸 GPT-5.6 Sol",
+      "vendor": "LMU AI",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "apiKey": "sk-你的密钥",
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 8192,
+      "supportsToolCall": true,
+      "supportsImages": false
+    },
+    {
+      "id": "claude-sonnet-5",
+      "name": "灵眸 Claude Sonnet 5",
+      "vendor": "LMU AI",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "apiKey": "sk-你的密钥",
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 8192,
+      "supportsToolCall": true,
+      "supportsImages": false
+    }
+  ],
+  "availableModels": ["gpt-5.6-sol", "claude-sonnet-5"]
+}
+```
+
+注意：
+
+- 这里的 `url` 要写**完整路径** `https://api.lmuai.com/v1/chat/completions`（和方式一不同，要带 `/chat/completions`）。
+- `maxInputTokens`、`maxOutputTokens`、`supportsToolCall`、`supportsImages` 是**客户端声明值**，按你所选模型的实际能力调整。
+- 文件保存为 **UTF-8 无 BOM**，带 BOM 头可能加载失败。
+- 也可以把密钥设为环境变量再引用，例如 `"apiKey": "${LMU_API_KEY}"`（Windows 先 `setx LMU_API_KEY "sk-..."`，macOS / Linux 先 `export LMU_API_KEY=sk-...`）。
+- 改完**完全退出并重启** WorkBuddy，再到模型选择器里选择。
+
+---
+
+## 可用模型
+
+常用模型 ID（实际以你的分组为准，完整清单见[模型广场](../guide/models)）：
+
+- **GPT**：`gpt-5.6-sol`、`gpt-5.6-terra`、`gpt-5.6-luna`、`gpt-5.5`
+- **Claude**：`claude-opus-5`、`claude-sonnet-5`、`claude-haiku-4-5`
+- **国产**：`deepseek-v4-pro`、`qwen3.8-max-preview`、`glm-5.2`、`kimi-k3`
+
+WorkBuddy 走 OpenAI 兼容协议，灵眸后端会自动做协议转换，所以填 Claude / 国产模型 ID 同样可用，前提是你的分组挂了对应上游。
+
+---
+
+## 常见问题
+
+### 报错 401 / 403
+
+依次检查：
+
+1. API Key 是否是灵眸后台生成的 `sk-` 开头密钥（不是 OpenAI / Anthropic 官方的 Key）。
+2. 接口地址是否填对：`https://api.lmuai.com/v1`（带 `/v1`）。
+3. 密钥所属分组是否包含你调用的那个模型。
+
+### 报错 404 / Not Found
+
+多半是接口地址里重复写了 `/chat/completions`，或漏了 `/v1`：
+
+- 方式一（界面）：接口地址填到 `https://api.lmuai.com/v1` 为止，WorkBuddy 自动拼 `/chat/completions`。
+- 方式二（models.json）：`url` 写完整的 `https://api.lmuai.com/v1/chat/completions`。
+
+### 提示模型不可用 / 没有可用账号
+
+调用了不在你分组范围内的模型（例如用 Claude Max 分组去调 GPT）。到后台「可用模型」确认当前分组能调的模型，或更换分组。详见[接入协议](../guide/api-protocols)。
+
+### 改完配置不生效
+
+编辑 `models.json` 后需**完全退出并重启** WorkBuddy；文件要存为 **UTF-8 无 BOM**。界面添加的模型保存后，回到模型选择器重新选一次即可。
+
+---
+
+## 注意事项
+
+- 接口地址只填灵眸中转地址，不要填 OpenAI / Anthropic 官方地址。
+- 同一把 `sk-` 密钥可以同时用于其它工具；WorkBuddy 走的是 OpenAI 兼容协议。
+- 灵眸 API 域名国内直连，无需代理。
+
+更多说明见[接入协议](../guide/api-protocols)与[常见问题](../guide/faq)。
