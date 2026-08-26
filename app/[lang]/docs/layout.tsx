@@ -17,7 +17,7 @@ export default async function Layout({
     <DocsLayout
       tree={source.getPageTree(lang)}
       sidebar={{ defaultOpenLevel: 99 }}
-      nav={{ title: siteName(lang), mode: 'top' }}
+      nav={{ title: siteName(lang), mode: 'auto' }}
       links={[
         {
           type: 'main',
