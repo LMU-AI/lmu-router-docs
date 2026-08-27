@@ -54,14 +54,29 @@ stream disconnected before completion: error sending request for url
 - **a VPN / proxy / system proxy is on**: the proxy rotates the exit IP and breaks the connection
 
 **Solution:**
+<CN>
 1. **Turn off any VPN / proxy / system proxy and retry** — LMU AI is a direct domestic connection and needs no VPN
 2. Check that your local network is stable; switch to a more reliable network if needed
+</CN>
+<Intl>
+1. **Turn off any VPN / proxy / system proxy and retry** — the LMU AI overseas gateway connects directly, no extra proxy needed
+2. Check that your local network is stable; switch to a more reliable network if needed
+</Intl>
 
+<CN>
 <Callout type="info" title="No VPN needed — direct access inside China is fastest">
 
 The LMU AI gateway is hosted **inside mainland China**, so it can be called directly from a domestic network with **no VPN, proxy, or workaround required**. A direct connection gives the fastest, most stable results; conversely, a VPN or proxy that rotates the exit IP tends to cause stream disconnects.
 
 </Callout>
+</CN>
+<Intl>
+<Callout type="info" title="Direct overseas access via the Singapore node">
+
+The LMU AI overseas gateway runs on a **Singapore node**, so `api.lmuai.ai` can be called directly from networks outside mainland China with **no extra proxy required**. A direct connection gives the fastest, most stable results; conversely, a proxy that rotates the exit IP tends to cause stream disconnects.
+
+</Callout>
+</Intl>
 
 ---
 
@@ -232,9 +247,16 @@ This is a 4xx client error caused by an **invalid request body**, unrelated to t
 
 ## Issue 9: Do I need a VPN? [#issue-9]
 
+<CN>
 **No.** The LMU AI gateway is hosted **inside mainland China**, and `api.lmuai.com` can be called directly from a domestic network with no VPN, proxy, or workaround.
 
 Conversely, a VPN or proxy that rotates the exit IP tends to cause stream disconnects (see [Issue 1](#issue-1)). A direct domestic connection gives the fastest, most stable results.
+</CN>
+<Intl>
+**No.** The LMU AI overseas gateway runs on a **Singapore node**, and `api.lmuai.ai` can be called directly from networks outside mainland China with no VPN or proxy.
+
+Conversely, a VPN or proxy that rotates the exit IP tends to cause stream disconnects (see [Issue 1](#issue-1)). A direct connection gives the fastest, most stable results.
+</Intl>
 
 ---
 
