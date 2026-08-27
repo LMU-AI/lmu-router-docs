@@ -56,16 +56,25 @@ jobs:
         run: |
           set -euo pipefail
           TAG="${{ steps.find.outputs.tag }}"
-          # 用 anonymous API 查 tag 是否已发布——公开镜像仓库无需认证
-          URL="https://hub.docker.com/v2/repositories/submit2mxh/lmu-router-docs/tags/${TAG}/"
-          CODE=$(curl -s -o /dev/null -w '%{http_code}' "${URL}")
-          echo "Docker Hub GET ${TAG} -> HTTP ${CODE}"
-          if [ "${CODE}" = "200" ]; then
-            echo "Image already published, no rebuild needed"
-            echo "needs_build=false" >> "$GITHUB_OUTPUT"
-          else
-            echo "Image missing, will trigger rebuild"
+          # 用 anonymous API 查 tag 是否已发布——公开镜像仓库无需认证。
+          # 两个站点变体各出一个镜像 tag（vX / vX-ai，见 docker-build.yml 矩阵），
+          # 缺任意一个都要补构建；dispatch 一次即可（矩阵会把两个变体都重建）。
+          NEEDS=false
+          for T in "${TAG}" "${TAG}-ai"; do
+            URL="https://hub.docker.com/v2/repositories/submit2mxh/lmu-router-docs/tags/${T}/"
+            CODE=$(curl -s -o /dev/null -w '%{http_code}' "${URL}")
+            echo "Docker Hub GET ${T} -> HTTP ${CODE}"
+            if [ "${CODE}" != "200" ]; then
+              echo "Image ${T} missing"
+              NEEDS=true
+            fi
+          done
+          if [ "${NEEDS}" = "true" ]; then
+            echo "Will trigger rebuild (matrix rebuilds both variants)"
             echo "needs_build=true" >> "$GITHUB_OUTPUT"
+          else
+            echo "Both variant images published, no rebuild needed"
+            echo "needs_build=false" >> "$GITHUB_OUTPUT"
           fi
 
       - name: Trigger docker-build.yml for missing tag
