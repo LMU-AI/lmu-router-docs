@@ -10,7 +10,7 @@ import { ModelCard, ModelGrid } from '@/components/model-card';
 import { Mermaid } from '@/components/mermaid';
 import { getBreadcrumbItems } from 'fumadocs-core/breadcrumb';
 import { SITE_URL, siteName } from '@/lib/site';
-import { HTML_LANG, OG_LOCALE, localePrefix } from '@/lib/i18n';
+import { HTML_LANG, OG_LOCALE, i18n, localePrefix } from '@/lib/i18n';
 import { PLAZA_MODELS } from '@/lib/models';
 import { lastModifiedOf } from '@/lib/last-modified';
 import { LastUpdated } from '@/components/last-updated';
@@ -183,13 +183,18 @@ export async function generateMetadata({
   const ogDescription = page.data.ogDescription ?? page.data.description;
 
   // hreflang：只在两种语言都真实存在该页面时互指，避免指向 404。
+  // x-default 指默认语言（.com 中文 / .ai 英文）；仅站内互指，不做跨域 alternates。
   const cnExists = !!source.getPage(slug, 'cn');
   const enExists = !!source.getPage(slug, 'en');
   const cnPath = docsPath('cn', slug);
   const enPath = docsPath('en', slug);
   const languages =
     cnExists && enExists
-      ? { 'zh-CN': cnPath, en: enPath, 'x-default': cnPath }
+      ? {
+          'zh-CN': cnPath,
+          en: enPath,
+          'x-default': docsPath(i18n.defaultLanguage, slug),
+        }
       : undefined;
 
   return {
