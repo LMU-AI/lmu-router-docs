@@ -2,6 +2,9 @@ node_modules/
 .next/
 out/
 .source/
+# SITE_VARIANT=ai 构建期物化产物（scripts/materialize-variant-content.mjs 生成）
+content-ai/
+content-ai-dates.json
 *.local
 .env
 .env.*

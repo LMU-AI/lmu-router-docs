@@ -1,16 +1,21 @@
 import { readFileSync, statSync } from 'node:fs';
 import { relative, resolve } from 'node:path';
+import { IS_AI } from './variant';
 
 // 构建时刻，用作前两级都拿不到时的兜底。
 const BUILD_TIME = new Date();
 
-const CONTENT_DIR = resolve(process.cwd(), 'content/docs');
+// .ai 变体读物化出的角色对调内容树；日期表也用重映射过 key 的那份 ——
+// 否则 en↔cn 改名后 key 全部失配、退到被 Docker COPY 抹平的 mtime，
+// 全站 lastmod 变成同一天（sitemap 的日期信号即失效）。
+const CONTENT_DIR = resolve(process.cwd(), IS_AI ? 'content-ai/docs' : 'content/docs');
+const DATES_FILE = IS_AI ? 'content-ai-dates.json' : 'content-dates.json';
 
-// scripts/build-content-dates.mjs 在 next build 之前生成，key 是相对 content/docs 的路径。
+// scripts/build-content-dates.mjs 在 next build 之前生成，key 是相对内容目录的路径。
 // 读不到（首次运行 / 手动 next build）就整张表为空，自动退到 mtime。
 const GIT_DATES: Record<string, string> = (() => {
   try {
-    return JSON.parse(readFileSync(resolve(process.cwd(), 'content-dates.json'), 'utf8'));
+    return JSON.parse(readFileSync(resolve(process.cwd(), DATES_FILE), 'utf8'));
   } catch {
     return {};
   }

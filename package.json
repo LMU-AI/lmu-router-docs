@@ -4,7 +4,7 @@
   "private": true,
   "scripts": {
     "dev": "next dev",
-    "build": "node scripts/build-content-dates.mjs && next build",
+    "build": "node scripts/build-content-dates.mjs && node scripts/materialize-variant-content.mjs && next build",
     "start": "next start",
     "check:models": "node scripts/check-model-refs.mjs",
     "postinstall": "patch-package",
