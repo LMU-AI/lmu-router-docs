@@ -63,12 +63,25 @@ jobs:
           fi
 
   # ---------------------------------------------------------------------------
-  # 2) 构建并推送镜像
+  # 2) 构建并推送镜像（站点变体矩阵）
+  #    com → docs.lmuai.com：tag 名与历史完全一致（latest / vX.Y.Z），北京机在用
+  #    ai  → docs.lmuai.ai ：tag 加 -ai 后缀（latest-ai / vX.Y.Z-ai），新加坡机在用
+  #    fail-fast: false —— arm64 QEMU 偶发 SIGILL（见 deploy skill 坑 5），一条腿
+  #    抖动不应拖死另一条；单腿重跑用 workflow_dispatch 即可（矩阵会两腿都跑，
+  #    已成功的那腿仅是重复推同内容，无害）。
   # ---------------------------------------------------------------------------
   build-and-push:
     needs: guard
     if: ${{ needs.guard.outputs.proceed == 'true' }}
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: com
+            suffix: ''
+          - variant: ai
+            suffix: '-ai'
     steps:
       - name: Checkout
         uses: actions/checkout@v5
@@ -121,8 +134,12 @@ jobs:
             # 例：v0.1.0 -> v0.1.0；release-2026-07 -> release-2026-07。
             type=ref,event=tag
             type=raw,value=latest
-          # latest 由上面的 raw 规则显式控制，禁用自动 latest
-          flavor: latest=false
+          # latest 由上面的 raw 规则显式控制，禁用自动 latest。
+          # flavor.suffix 给两类 tag 统一追加变体后缀：com 腿为空（latest / vX.Y.Z
+          # 逐字不变），ai 腿为 -ai（latest-ai / vX.Y.Z-ai）。
+          flavor: |
+            latest=false
+            suffix=${{ matrix.suffix }}
 
       - name: Build & push
         uses: docker/build-push-action@v7
@@ -134,9 +151,14 @@ jobs:
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
           provenance: false
+          # 站点变体（见 lib/variant.ts / Dockerfile ARG）。com 腿传 com = 现状不变。
+          build-args: |
+            SITE_VARIANT=${{ matrix.variant }}
           # Registry 缓存：存到 Docker Hub 同仓库的 buildcache tag，跨 run 稳定复用。
-          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache
-          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache,mode=max,image-manifest=true,oci-mediatypes=true
+          # 变体各自一个 cache tag（buildcache / buildcache-ai），互不覆盖 ——
+          # 两个变体的 build 产物层完全不同，共用一个 tag 会互相清洗。
+          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache${{ matrix.suffix }}
+          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache${{ matrix.suffix }},mode=max,image-manifest=true,oci-mediatypes=true
 
       - name: Summary
         run: |
@@ -155,9 +177,10 @@ jobs:
       #   - workflow_dispatch --ref vX（含 rebuild-on-merge.yml 的自动补构建）：
       #     workflow 从该 tag ref 运行，github.ref 同样是 refs/tags/vX
       #   若 dispatch 时 ref 传的是 branch（如 main），会跳过，不会误创。
+      #   矩阵下只在 com 腿创建（softprops 重复创建会失败/污染，一个 tag 一个 Release）。
       # -------------------------------------------------------------------------
       - name: Create GitHub Release
-        if: startsWith(github.ref, 'refs/tags/')
+        if: ${{ matrix.variant == 'com' && startsWith(github.ref, 'refs/tags/') }}
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}

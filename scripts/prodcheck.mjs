@@ -1,12 +1,13 @@
 #!/usr/bin/env node
-// 生产站点测试套件 —— docs.lmuai.com
+// 生产站点测试套件 —— docs.lmuai.com（com 变体）/ docs.lmuai.ai（ai 变体）
 //
 // 每条断言标注 since：该项从哪个版本起应当为真。
 //   'live'  —— 当前生产版本就该通过；失败 = 真实线上缺陷
 //   'next'  —— 本轮（v0.1.8）才引入；在旧版本上失败属预期，用于上线后回归
 //
-// 用法：node scripts/prodcheck.mjs [--base https://docs.lmuai.com] [--json out.json]
+// 用法：node scripts/prodcheck.mjs [--base https://docs.lmuai.com] [--variant com|ai] [--json out.json]
 //      npm run prodcheck
+// --variant 省略时按 --base 的主机名推断（*.ai → ai，否则 com）。
 
 import { writeFileSync } from 'node:fs';
 
@@ -15,6 +16,26 @@ const BASE = (args[args.indexOf('--base') + 1] ?? '').startsWith('http')
   ? args[args.indexOf('--base') + 1]
   : 'https://docs.lmuai.com';
 const JSON_OUT = args.includes('--json') ? args[args.indexOf('--json') + 1] : null;
+
+// —— 站点变体参数（与 lib/variant.ts 同一套口径） ——
+// com：默认语言中文在裸路径，英文带 /en 前缀，网关 api.lmuai.com。
+// ai ：默认语言英文在裸路径，中文带 /cn 前缀，网关 api.lmuai.ai。
+const VARIANT = args.includes('--variant')
+  ? args[args.indexOf('--variant') + 1]
+  : new URL(BASE).hostname.endsWith('.ai')
+    ? 'ai'
+    : 'com';
+const IS_AI = VARIANT === 'ai';
+const OTHER_PREFIX = IS_AI ? '/cn/' : '/en/'; // 非默认语言的路径前缀（带尾斜杠，供 startsWith）
+const OTHER_SEG = IS_AI ? '/cn' : '/en'; // 同上（不带尾斜杠，供拼接）
+const DEFAULT_HTML_LANG = IS_AI ? 'en' : 'zh-CN';
+const OTHER_HTML_LANG = IS_AI ? 'zh-CN' : 'en';
+const API_HOST = IS_AI ? 'api.lmuai.ai' : 'api.lmuai.com';
+// 「最后更新」标记：默认语言在裸路径。
+const DEFAULT_UPDATED_MARK = IS_AI ? 'Last updated' : '最后更新';
+const OTHER_UPDATED_MARK = IS_AI ? '最后更新' : 'Last updated';
+// 页面是否英文页（description 长度阈值等按此分流）。
+const isEnPath = (p) => (IS_AI ? !p.startsWith('/cn/') : p.startsWith('/en/'));
 
 const results = [];
 let currentGroup = '';
@@ -164,9 +185,18 @@ async function main() {
     llms.headers['content-type']);
   check('live', 'llms.txt 用绝对 URL', !/\]\(\/docs/.test(llms.body),
     /\]\(\/docs/.test(llms.body) ? '仍含相对路径 ](/docs' : '全部绝对 URL');
-  check('next', 'llms.txt 含「关键事实」块', llms.body.includes('关键事实'), '');
+  check('next', `llms.txt 含关键事实块（${IS_AI ? 'Key facts' : '关键事实'}）`,
+    llms.body.includes(IS_AI ? 'Key facts' : '关键事实'), '');
   check('next', 'llms.txt 指向错误码速查页', llms.body.includes('/docs/guide/errors'), '');
-  check('next', 'llms.txt 不再提及 payment', !llms.body.includes('payment'), '');
+  // com（中文主文件）：英文单词 payment 出现即意味着已下线的 payment 文档残留。
+  // ai（英文主文件）：正文合法含 payment（如 referral 的 "first payment"），只断言
+  // 不出现已下线的 payment 页路径。
+  check('next', 'llms.txt 不再提及 payment 文档',
+    IS_AI ? !llms.body.includes('/docs/guide/payment') : !llms.body.includes('payment'), '');
+  // 网关端点必须与站点变体一致（.ai 的 llms 里出现 api.lmuai.com 即端点替换失效）。
+  check('next', `llms.txt 端点为 ${API_HOST}`, llms.body.includes(API_HOST) &&
+    (IS_AI ? !llms.body.includes('api.lmuai.com') : true),
+    IS_AI && llms.body.includes('api.lmuai.com') ? '仍含 api.lmuai.com' : '');
 
   const llmsFull = await get('/llms-full.txt');
   check('live', '/llms-full.txt 200', llmsFull.status === 200, `status=${llmsFull.status}`);
@@ -174,17 +204,19 @@ async function main() {
     !/Stripe|z-pay|APIv3/i.test(llmsFull.body),
     /Stripe/i.test(llmsFull.body) ? '仍含 Stripe/z-pay/APIv3 字样' : '干净');
 
-  // 英文 LLM 发现面（v0.1.28 起）：英文 36 页此前在 llms 层完全缺席。
-  const llmsEn = await get('/en/llms.txt');
-  check('next', '/en/llms.txt 200', llmsEn.status === 200, `status=${llmsEn.status}`);
-  check('next', '/en/llms.txt 是 text/plain', /text\/plain/.test(llmsEn.headers['content-type'] ?? ''),
-    llmsEn.headers['content-type']);
-  check('next', '/en/llms.txt 用绝对 URL', !/\]\(\/(en\/)?docs/.test(llmsEn.body),
-    /\]\(\/(en\/)?docs/.test(llmsEn.body) ? '仍含相对路径 ](/…/docs' : '全部绝对 URL');
-  check('next', '/en/llms.txt 含「Key facts」块', llmsEn.body.includes('Key facts'), '');
-  check('next', '/en/llms.txt 指向英文错误码页', llmsEn.body.includes('/en/docs/guide/errors'), '');
-  const llmsFullEn = await get('/en/llms-full.txt');
-  check('next', '/en/llms-full.txt 200', llmsFullEn.status === 200, `status=${llmsFullEn.status}`);
+  // 非默认语言的 LLM 发现面（v0.1.28 起）：com 上是 /en/*，ai 上是 /cn/*。
+  const llmsOther = await get(`${OTHER_SEG}/llms.txt`);
+  check('next', `${OTHER_SEG}/llms.txt 200`, llmsOther.status === 200, `status=${llmsOther.status}`);
+  check('next', `${OTHER_SEG}/llms.txt 是 text/plain`, /text\/plain/.test(llmsOther.headers['content-type'] ?? ''),
+    llmsOther.headers['content-type']);
+  check('next', `${OTHER_SEG}/llms.txt 用绝对 URL`, !/\]\(\/(en\/|cn\/)?docs/.test(llmsOther.body),
+    /\]\(\/(en\/|cn\/)?docs/.test(llmsOther.body) ? '仍含相对路径 ](/…/docs' : '全部绝对 URL');
+  check('next', `${OTHER_SEG}/llms.txt 含关键事实块`,
+    llmsOther.body.includes(IS_AI ? '关键事实' : 'Key facts'), '');
+  check('next', `${OTHER_SEG}/llms.txt 指向对应语言错误码页`,
+    llmsOther.body.includes(`${OTHER_SEG}/docs/guide/errors`), '');
+  const llmsFullOther = await get(`${OTHER_SEG}/llms-full.txt`);
+  check('next', `${OTHER_SEG}/llms-full.txt 200`, llmsFullOther.status === 200, `status=${llmsFullOther.status}`);
 
   // AI 爬虫拿到的必须和普通访客一致（不做 cloaking，也别被 WAF 拦）
   for (const ua of ['GPTBot/1.0', 'ClaudeBot/1.0', 'Mozilla/5.0 (compatible; Googlebot/2.1)']) {
@@ -269,7 +301,8 @@ async function main() {
       const len = decodeEntities(d).length;
       // 英文描述天然更长（同一句信息量，拉丁字符数远多于汉字），SERP 截断也按像素/字符
       // 更宽——中文按 40–100 卡，英文放宽到 70–160，避免把合规的英文页误判越界。
-      const [descLo, descHi] = p.startsWith('/en/') ? [70, 160] : [40, 100];
+      // 英文页的判定随变体走：com 上英文带 /en 前缀；ai 上英文在裸路径。
+      const [descLo, descHi] = isEnPath(p) ? [70, 160] : [40, 100];
       if (len < descLo || len > descHi) issues.descLen.push(`${p}: ${len} 字`);
     }
 
@@ -277,7 +310,7 @@ async function main() {
     if (h1s.length !== 1) issues.h1.push(`${p}: ${h1s.length} 个`);
 
     if (!meta(html, 'og:title') || !meta(html, 'og:description')) issues.og.push(p);
-    const wantLang = p.startsWith('/en/') ? 'en' : 'zh-CN';
+    const wantLang = p.startsWith(OTHER_PREFIX) ? OTHER_HTML_LANG : DEFAULT_HTML_LANG;
     if (!new RegExp(`<html[^>]+lang="${wantLang}"`).test(html)) issues.lang.push(`${p}: 期望 ${wantLang}`);
   }
   check('live', `每页 canonical 存在且自指（${pageBodies.size} 页）`, issues.canonical.length === 0,
@@ -288,17 +321,18 @@ async function main() {
     `${issues.descLen.length} 页越界: ` + issues.descLen.slice(0, 8).join('; '));
   check('next', '每页恰好 1 个 <h1>', issues.h1.length === 0, issues.h1.slice(0, 6).join('; '));
   check('live', '每页有 og:title / og:description', issues.og.length === 0, issues.og.slice(0, 6).join('; '));
-  check('live', '每页 <html lang> 与语言匹配（cn=zh-CN / en=en）', issues.lang.length === 0, issues.lang.slice(0, 6).join('; '));
+  check('live', `每页 <html lang> 与语言匹配（裸=${DEFAULT_HTML_LANG} / ${OTHER_SEG}=${OTHER_HTML_LANG}）`, issues.lang.length === 0, issues.lang.slice(0, 6).join('; '));
 
   const docsHome = byPathAll.get('/docs') ?? (await get('/docs')).body;
   check('live', '首页 twitter:card 已设', !!meta(docsHome, 'twitter:card'), meta(docsHome, 'twitter:card'));
   check('live', '未误发 noindex', !/<meta[^>]+name="robots"[^>]+noindex/i.test(docsHome), '');
 
   // --- 6b. hreflang 双语互指 -----------------------------------------------
-  // 双语站的核心不变量：中英两版存在时必须互挂 hreflang（zh-CN↔en，x-default→中文），
-  // 且**只在两版都存在时**互挂——只有中文版的页面绝不能发 hreflang（会指向 404，
+  // 双语站的核心不变量：两版存在时必须互挂 hreflang（zh-CN↔en，x-default→默认语言），
+  // 且**只在两版都存在时**互挂——只有一版的页面绝不能发 hreflang（会指向 404，
   // 稀释信号）。这条与 app/sitemap.ts、page.tsx 的规则同源，抓的是「翻译补齐后
-  // 某页 hreflang 没跟上」或「未翻译页误发了指向 404 的 en 链接」这类渲染期回归。
+  // 某页 hreflang 没跟上」或「未翻译页误发了指向 404 的链接」这类渲染期回归。
+  // 默认语言随变体：com 裸=zh-CN、/en=en；ai 裸=en、/cn=zh-CN。x-default 恒指裸路径。
   group('6b. hreflang 双语互指');
   const hrefLangs = (html) => {
     const out = {};
@@ -313,19 +347,23 @@ async function main() {
   const hreflangProblems = [];
   let hreflangPairs = 0;
   for (const [p, html] of pathToHtml) {
-    if (p.startsWith('/en/')) continue; // 从中文页迭代，en 作为对偶取
-    const enP = `/en${p}`;
+    if (p.startsWith(OTHER_PREFIX)) continue; // 从默认语言页迭代，另一语言作为对偶取
+    const otherP = `${OTHER_SEG}${p}`;
     const langs = hrefLangs(html);
-    if (pathToHtml.has(enP)) {
+    if (pathToHtml.has(otherP)) {
       hreflangPairs++;
-      const want = { 'zh-CN': p, en: enP, 'x-default': p };
-      const enLangs = hrefLangs(pathToHtml.get(enP));
+      const want = {
+        [DEFAULT_HTML_LANG]: p,
+        [OTHER_HTML_LANG]: otherP,
+        'x-default': p,
+      };
+      const otherLangs = hrefLangs(pathToHtml.get(otherP));
       for (const [k, v] of Object.entries(want)) {
         if (hrefPath(langs[k]) !== v) hreflangProblems.push(`${p}: hreflang ${k} 缺/错`);
-        if (hrefPath(enLangs[k]) !== v) hreflangProblems.push(`${enP}: hreflang ${k} 缺/错`);
+        if (hrefPath(otherLangs[k]) !== v) hreflangProblems.push(`${otherP}: hreflang ${k} 缺/错`);
       }
     } else if (Object.keys(langs).length > 0) {
-      hreflangProblems.push(`${p}: 无英文版却发了 hreflang（会指向 404）`);
+      hreflangProblems.push(`${p}: 无另一语言版却发了 hreflang（会指向 404）`);
     }
   }
   check('next', `hreflang 双语页互指且自洽（${hreflangPairs} 对）`, hreflangProblems.length === 0,
@@ -391,6 +429,7 @@ async function main() {
   });
   check('next', `6 个工具页已回填 FAQPage`, missingFaq.length === 0, `缺: ${missingFaq.join(', ') || '无'}`);
 
+  // 该断言在两个变体都成立：cn 与 en 的 codex-cli-windows 均无 faq frontmatter（已核）。
   const winHtml = byPathAll.get('/docs/tools/codex-cli-windows');
   check('live', 'codex-cli-windows 不出 FAQPage（问答归 faq.mdx，避免跨 URL 重复）',
     !!winHtml && !winHtml.includes('FAQPage'),
@@ -407,7 +446,7 @@ async function main() {
   // 告警）；页面以 text/html 提供，HTML 解析器把它与 datetime 视作同一个。
   const dateOf = (html) => (html?.match(/<time datetime="([^"]+)"/i) ?? [])[1] ?? null;
   const pagesWithDate = [...pageBodies.entries()].filter(
-    ([loc, h]) => h.includes(new URL(loc).pathname.startsWith('/en/') ? 'Last updated' : '最后更新'));
+    ([loc, h]) => h.includes(new URL(loc).pathname.startsWith(OTHER_PREFIX) ? OTHER_UPDATED_MARK : DEFAULT_UPDATED_MARK));
 
   check('next', '每个文档页都有「最后更新」', pagesWithDate.length === pageBodies.size,
     `${pagesWithDate.length}/${pageBodies.size} 页`);
@@ -449,9 +488,11 @@ async function main() {
   const byPath = new Map([...pageBodies].map(([l, h]) => [new URL(l).pathname, h]));
   // 断言只看去掉 HTML 标签后的纯文本：**加粗** 会在句子中间插入 <strong>，
   // 直接对原始 HTML 做子串匹配会漏判。
+  // 这四条断言针对的是中文原文文案 —— 中文页在 com 是裸路径、在 ai 带 /cn 前缀。
+  const cnDocs = (p) => byPath.get(IS_AI ? `/cn${p}` : p);
   const textOf = (h) => h.replace(/<[^>]+>/g, '');
-  const errHtml = textOf(byPath.get('/docs/guide/errors') ?? '');
-  const modHtml = textOf(byPath.get('/docs/guide/models') ?? '');
+  const errHtml = textOf(cnDocs('/docs/guide/errors') ?? '');
+  const modHtml = textOf(cnDocs('/docs/guide/models') ?? '');
 
   // 429 是 4xx，而三个生图接口一致把它列进「建议重试」——「4xx 基本都不该重试」
   // 与本页自己的 429 行同屏矛盾。
@@ -469,6 +510,17 @@ async function main() {
   check('next', 'models 页保留「可用模型由分组决定」的口径',
     modHtml.includes('和你用哪种协议调用无关'),
     modHtml.length === 0 ? '页面取不到' : '未声明与协议无关');
+
+  // .ai 变体专属：大陆定位话术（对新加坡线路为假）不得出现在任何页面 ——
+  // 抓的是 <CN>/<Intl> 标记漏包或物化替换失效。
+  if (IS_AI) {
+    const leak = [];
+    for (const [p, html] of byPath) {
+      const t = textOf(html);
+      if (/国内直连|免代理|无需魔法|proxy-free|hosted inside mainland China/.test(t)) leak.push(p);
+    }
+    check('next', '.ai 页面无大陆定位话术残留', leak.length === 0, leak.slice(0, 6).join('; ') || '干净');
+  }
 
   // --- 8. 站内链接与锚点 ---------------------------------------------------
   group('8. 站内链接完整性');
@@ -540,8 +592,9 @@ async function main() {
   group('11. 404 行为');
   const nf = await get('/docs/this-page-does-not-exist-' + 'x'.repeat(8));
   check('live', '不存在的路径返回 404', nf.status === 404, `status=${nf.status}`);
-  check('next', '404 页为中文', /页面不存在|找不到/.test(nf.body),
-    /页面不存在|找不到/.test(nf.body) ? '中文' : '疑似英文默认页');
+  const nf404Re = IS_AI ? /Page not found/ : /页面不存在|找不到/;
+  check('next', `404 页为${IS_AI ? '英文' : '中文'}（随默认语言）`, nf404Re.test(nf.body),
+    nf404Re.test(nf.body) ? '语言正确' : '语言不符（或仍是框架默认页）');
   check('next', '404 页 noindex', /name="robots"[^>]*noindex/.test(nf.body), '');
 
   // ==== 汇总 ================================================================

@@ -15,6 +15,7 @@ import {
   siteName,
 } from '@/lib/site';
 import { HTML_LANG, OG_LOCALE, i18n, localePrefix } from '@/lib/i18n';
+import { GA_MEASUREMENT_ID } from '@/lib/variant';
 import { provider } from '@/lib/i18n-ui';
 import '../global.css';
 
@@ -51,10 +52,13 @@ export async function generateMetadata({
     alternates: {
       // `/`(或 /en) 是通往文档首页的跳转，canonical 指向跳转终点。
       canonical: `${prefix}/docs`,
+      // 语言路径由 localePrefix 派生（默认语言无前缀）；x-default 指默认语言
+      // （.com 中文 / .ai 英文）。仅站内 cn↔en 互指，不做跨域 alternates ——
+      // 两个域名按既定决策各自独立收录。
       languages: {
-        'zh-CN': '/docs',
-        en: '/en/docs',
-        'x-default': '/docs',
+        'zh-CN': `${localePrefix('cn')}/docs`,
+        en: `${localePrefix('en')}/docs`,
+        'x-default': `${localePrefix(i18n.defaultLanguage)}/docs`,
       },
       // llmstxt.org 规范的发现方式：/llms.txt + <link rel="alternate">。
       // 按语言指向：cn→/llms.txt，en→/en/llms.txt，让各语言页各自发现对应文件。
@@ -166,7 +170,7 @@ export default async function Layout({
           dangerouslySetInnerHTML={{ __html: JSON.stringify(softwareApplicationJsonLd) }}
         />
         <Script
-          src="https://www.googletagmanager.com/gtag/js?id=G-3YQJ477Z5W"
+          src={`https://www.googletagmanager.com/gtag/js?id=${GA_MEASUREMENT_ID}`}
           strategy="afterInteractive"
         />
         <Script id="google-analytics" strategy="afterInteractive">
@@ -174,7 +178,7 @@ export default async function Layout({
             window.dataLayer = window.dataLayer || [];
             function gtag(){dataLayer.push(arguments);}
             gtag('js', new Date());
-            gtag('config', 'G-3YQJ477Z5W');
+            gtag('config', '${GA_MEASUREMENT_ID}');
           `}
         </Script>
         <RootProvider i18n={provider(lang)}>{children}</RootProvider>

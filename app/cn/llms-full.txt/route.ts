@@ -1,10 +1,9 @@
 import { buildLlmsFull, llmsResponse } from '@/lib/llms';
-import { i18n } from '@/lib/i18n';
 
 // content/ 不进入 standalone 产物，必须构建期预渲染。
 export const dynamic = 'force-static';
 
-// 主 llms-full.txt 用默认语言（.com 中文 / .ai 英文）。另一语言见前缀版。
+// 中文全文 llms-full.txt 的带前缀入口（说明见 app/cn/llms.txt/route.ts）。
 export async function GET() {
-  return llmsResponse(await buildLlmsFull(i18n.defaultLanguage));
+  return llmsResponse(await buildLlmsFull('cn'));
 }

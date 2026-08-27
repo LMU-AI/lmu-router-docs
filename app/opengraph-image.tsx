@@ -1,9 +1,18 @@
 import { readFileSync } from 'node:fs';
 import { join } from 'node:path';
 import { ImageResponse } from 'next/og';
-import { SITE_NAME } from '@/lib/site';
+import { SITE_NAME, SITE_NAME_EN } from '@/lib/site';
+import { IS_AI, OG_DOMAIN } from '@/lib/variant';
 
-export const alt = `${SITE_NAME} — Claude / Codex / Cursor 一站式 AI API 接入`;
+// OG 图文案按变体走：.com 中文（默认语言中文）/ .ai 英文（默认语言英文）。
+// 改任何一句都要重新生成字体子集（两变体文案的并集），见 assets/README.md。
+const OG_TITLE = IS_AI ? SITE_NAME_EN : SITE_NAME;
+const OG_LINE2 = 'Claude Code / Codex CLI / Cursor';
+const OG_LINE3 = IS_AI ? 'One-stop AI API integration guide' : '一站式 AI API 接入指南';
+
+export const alt = IS_AI
+  ? `${SITE_NAME_EN} — one-stop AI API integration for Claude / Codex / Cursor`
+  : `${SITE_NAME} — Claude / Codex / Cursor 一站式 AI API 接入`;
 export const size = { width: 1200, height: 630 };
 export const contentType = 'image/png';
 
@@ -33,7 +42,7 @@ export default function OpengraphImage() {
         }}
       >
         <div style={{ fontSize: 96, fontWeight: 700, letterSpacing: '-0.02em' }}>
-          {SITE_NAME}
+          {OG_TITLE}
         </div>
         <div
           style={{
@@ -44,7 +53,7 @@ export default function OpengraphImage() {
             maxWidth: 980,
           }}
         >
-          Claude Code / Codex CLI / Cursor
+          {OG_LINE2}
         </div>
         <div
           style={{
@@ -55,7 +64,7 @@ export default function OpengraphImage() {
             maxWidth: 980,
           }}
         >
-          一站式 AI API 接入指南
+          {OG_LINE3}
         </div>
         <div
           style={{
@@ -66,7 +75,7 @@ export default function OpengraphImage() {
             opacity: 0.8,
           }}
         >
-          docs.lmuai.com
+          {OG_DOMAIN}
         </div>
       </div>
     ),
