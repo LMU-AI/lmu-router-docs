@@ -1,0 +1,88 @@
+---
+title: Compliance & Filings
+description: "LMU AI compliance: ICP-filed domain, account data stored only within China, no persisted request content, contracts, VAT invoices and DPA signing."
+ogDescription: "LMU AI compliance at a glance for enterprises: officially verifiable ICP and public-security filings, account data stored only within China, request content never persisted, with procurement contracts, VAT invoices, DPA signing and supporting materials for compliance inquiries."
+keywords:
+  - Claude API compliance
+  - AI API ICP filing
+  - enterprise AI compliance
+  - AI API invoice
+  - Claude API contract
+  - AI API data residency China
+  - AI API DPA
+  - LLM API compliance
+alternateNames:
+  - LMU AI compliance statement
+  - AI API compliance and filings
+  - Claude API enterprise compliance
+faq:
+  - q: Does LMU AI have an ICP filing?
+    a: Yes. The primary domain lmuai.com holds ICP filing 京ICP备2020034311号-7 and public-security filing 京公网安备11010602202500号, both verifiable by domain or number in the MIIT and MPS filing systems.
+  - q: Where is my data stored when using LMU AI?
+    a: Account data (email, phone number, orders, API keys) is stored only within China and is never transferred across borders; request and response content is never persisted, and call metadata is kept within China for 90 days.
+  - q: Can you sign contracts and issue VAT invoices?
+    a: Yes. The enterprise tiers support signing a procurement contract and issuing VAT invoices; submit the invoice title and tax ID when ordering or during the business contact.
+  - q: Can you sign a DPA or provide materials for compliance inquiries?
+    a: Yes. The enterprise tiers support signing a data processing agreement (DPA) and can provide supporting materials for MLPS, GDPR and SOC 2 compliance inquiries — contact business@lmuai.com.
+---
+
+When a company procures an AI API service, legal, finance, and security each bring their own checklist. This page gathers the compliance-relevant facts about LMU AI in one place so you can check them off item by item; every entry links to a way to verify it yourself or to the detailed documentation.
+
+## Compliance at a glance
+
+| Item | Status | Verify / details |
+|------|--------|------------------|
+| ICP filing | Primary domain lmuai.com: 京ICP备2020034311号-7 | [MIIT filing system](https://beian.miit.gov.cn/) |
+| Public-security filing | 京公网安备11010602202500号 | [MPS filing lookup](https://beian.mps.gov.cn/#/query/webSearch?code=11010602202500) |
+| Account-data residency | Email, phone number, orders and API keys stored only within China | [Data & privacy](/en/docs/guide/privacy) |
+| Request-content retention | Prompts / responses never persisted; call metadata kept 90 days | [Data & privacy](/en/docs/guide/privacy) |
+| Contracts & invoices | Enterprise tiers support procurement contracts and VAT invoices | [Enterprise plans](/en/docs/enterprise) |
+| DPA | Enterprise tiers support signing a data processing agreement | Business contact |
+| Audit logs | Optional for enterprise tiers; encrypted, access controlled by your admins | [Enterprise plans](/en/docs/enterprise) |
+| Availability commitment | Enterprise tiers: 99.5% availability target + monthly report | [Reliability](/en/docs/guide/reliability) |
+
+## Filings
+
+The LMU AI primary domain **lmuai.com** holds:
+
+- **ICP filing**: 京ICP备2020034311号-7, verifiable by entering the domain in the [MIIT ICP filing system](https://beian.miit.gov.cn/)
+- **Public-security filing**: 京公网安备11010602202500号, verifiable by number on the [national internet security service platform](https://beian.mps.gov.cn/#/query/webSearch?code=11010602202500)
+
+## Data residency and retention
+
+The three principles that matter most to enterprises (full details in [Data & privacy](/en/docs/guide/privacy)):
+
+- **Account data never leaves China**: email, phone number, orders, API keys and other account data are stored only within China, with no cross-border transfer
+- **Request content is never persisted**: prompts and model responses are released from memory once forwarding completes — never written to any database or file
+- **Metadata kept for 90 days**: call time, model, and token usage needed for billing and troubleshooting are retained for 90 days, stored within China
+
+<Callout type="warn" title="Honest disclosure on cross-border channels">
+
+Upstream model providers (Claude, GPT, etc.) run their servers overseas, so request and response bodies pass through overseas channels in transit — the necessary technical path for reaching overseas LLMs. The channels persist no data, carry no account identity, and are TLS-encrypted end to end. Do not send state secrets, trade secrets, national ID numbers, or other highly sensitive content through the API; if you have such requirements, discuss a private gateway with the business team.
+
+</Callout>
+
+## Procurement and finance
+
+- **Contracts**: enterprise tiers support signing a procurement contract
+- **Invoices**: VAT invoices supported; submit the invoice title and tax ID when ordering or during the business contact
+- **Reconciliation**: the console provides usage detail, and the [usage-export API](/en/docs/api/usage-export) enables automated reconciliation
+
+## Enterprise compliance support
+
+The following are arranged through the business channel (email business@lmuai.com, WeChat 18599001010):
+
+- Data processing agreement (DPA) signing
+- Custom log-retention policies and optional audit logs
+- Private gateway deployment (request content bypasses shared channels)
+- Supporting materials for MLPS (等保), GDPR, and SOC 2 compliance inquiries
+
+<Callout type="info" title="How we word this page">
+
+This page lists only items that are verified, externally checkable, or contractually committable today. For certifications or qualifications not covered here, please confirm through the business contact; the contract governs.
+
+</Callout>
+
+## Getting started
+
+Once your compliance review passes, onboarding takes three steps: [create an account](https://api.lmuai.com/register?ref=vJaWWr4T) → choose a plan (for enterprise needs see [Enterprise plans](/en/docs/enterprise)) → follow [Getting started](/en/docs/guide/getting-started) to create an API key and start calling. Pricing is per the [official pricing page](https://api.lmuai.com/pricing).
