@@ -1,4 +1,4 @@
 {
   "title": "用户指南",
-  "pages": ["getting-started", "api-protocols", "models", "how-to-use-token", "referral", "faq", "errors", "key-security", "reliability", "privacy"]
+  "pages": ["getting-started", "api-protocols", "models", "how-to-use-token", "referral", "faq", "errors", "key-security", "reliability", "privacy", "compliance"]
 }
