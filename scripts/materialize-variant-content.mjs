@@ -37,6 +37,35 @@ const DATES_OUT = 'content-ai-dates.json';
 const HOST_FROM = 'api.lmuai.com';
 const HOST_TO = 'api.lmuai.ai';
 
+// —— .ai 变体排除的整页 ——
+// 合规/备案是中国大陆专属概念（ICP / 公安 / 人工智能服务备案、账户数据境内驻留），
+// 对海外新加坡线路（api.lmuai.ai）并不成立，放到 .ai 站会误导用户。故整页排除，
+// 中英两版都不物化。相对 content/docs 的路径为 key。配套还要摘掉导航 meta 里的
+// slug 与其它页的交叉链接（见 COMPLIANCE_LINKS），并在物化后做断链兜底扫描（文件末尾）。
+const VARIANT_EXCLUDE = new Set([
+  'guide/compliance.mdx',
+  'guide/compliance.en.mdx',
+]);
+
+// —— 随排除页一并摘除的交叉引用（整块精确字符串） ——
+// 在 transform() 最前面跑（早于端点/语言前缀替换），故按原文口径写 /docs、/en/docs。
+// 中英字符串各自只出现在对应语言文件里，全局 split/join 不会互串。若将来措辞变动
+// 导致这里匹配不上，文件末尾的断链扫描会让 .ai 构建**响亮失败**，不静默漏断链上线。
+// 来源行号截至本次改动：
+const COMPLIANCE_LINKS = [
+  // 导航 meta.json / meta.en.json 的 pages 数组（compliance 为最后一项）
+  ', "compliance"',
+  // index.mdx:52 / index.en.mdx:63（列表整条 bullet，连前导换行一起删）
+  '\n- [合规与备案](/docs/guide/compliance) — ICP / 公安备案可查验，合同、发票、DPA 支持',
+  '\n- [Compliance & filings](/en/docs/guide/compliance) — verifiable ICP / public-security filings, contracts, invoices, DPA',
+  // enterprise.mdx:81 / enterprise.en.mdx:81（段落内句子；删后前一句「…给出建议。」/「…requirements.」自然收尾）
+  '备案、数据驻留、合同发票与 DPA 等合规事项的速查见[合规与备案](/docs/guide/compliance)。',
+  ' For filings, data residency, contracts, invoices and DPA, see [Compliance & filings](/en/docs/guide/compliance).',
+  // privacy.mdx:130 / privacy.en.mdx:130（段落首句；删后「企业档客户…」/「Enterprise customers…」成为段首）
+  '备案信息、合同发票与合规事项速查见[合规与备案](/docs/guide/compliance)。',
+  'For filings, contracts, invoices and a compliance checklist, see [Compliance & filings](/en/docs/guide/compliance). ',
+];
+
 // —— frontmatter 区的定位话术替换（枚举对，只在 frontmatter 块内生效） ——
 // 只替换对新加坡线路**为假**的断言（网关在境内/国内直连/domestic）；对海外仍然
 // 成立的话术（如 no proxy needed —— 海外直连 api.lmuai.ai 确实无需代理）保留。
@@ -128,6 +157,9 @@ function renameFor(name) {
 
 function transform(content, role) {
   let out = content;
+  // 0) 摘除被排除页（compliance）的交叉引用与导航 slug。放最前：这些串按原文
+  //    /docs、/en/docs 前缀书写，须早于下面的端点/语言前缀替换。
+  for (const s of COMPLIANCE_LINKS) out = out.split(s).join('');
   // 1) 定位话术：只动 frontmatter 块（--- 与 --- 之间）。先于端点替换跑，
   //    使字典可以按原文（api.lmuai.com）口径书写。
   if (out.startsWith('---\n')) {
@@ -170,6 +202,7 @@ mkdirSync(OUT, { recursive: true });
 let pages = 0;
 for (const src of walk(SRC)) {
   const rel = relative(SRC, src);
+  if (VARIANT_EXCLUDE.has(rel)) continue; // .ai 排除整页（compliance），不物化
   const base = rel.split('/').pop();
   const newName = renameFor(base);
   if (newName === null) continue;
@@ -200,12 +233,31 @@ if (violations.length > 0) {
   process.exit(1);
 }
 
+// 断链兜底扫描（VARIANT_EXCLUDE / COMPLIANCE_LINKS）：排除页删干净后，产物里不应
+// 再出现指向 compliance 的站内链接（/docs/guide/compliance、/cn|en/… 皆含此子串），
+// 导航 meta 里也不应残留 "compliance" slug。若某条交叉引用因措辞变动没匹配上，
+// 这里让构建响亮失败，而不是把断链/空导航项静默发到 .ai。
+const danglers = [];
+for (const p of walk(OUT)) {
+  const bn = p.split('/').pop();
+  if (!/\.(mdx|json)$/.test(bn)) continue;
+  const body = readFileSync(p, 'utf8');
+  if (body.includes('docs/guide/compliance')) danglers.push(`${p}: 残留链接`);
+  if (/^meta(\.cn)?\.json$/.test(bn) && body.includes('"compliance"')) danglers.push(`${p}: 残留导航项`);
+}
+if (danglers.length > 0) {
+  console.error('✗ .ai 物化产物残留 compliance 引用（交叉引用措辞可能已改，请更新 COMPLIANCE_LINKS）：');
+  for (const d of danglers) console.error('  ' + d);
+  process.exit(1);
+}
+
 // 日期表重映射：key 是相对 content/docs 的路径，按同样规则改名。
 let dateCount = 0;
 if (existsSync(DATES_IN)) {
   const dates = JSON.parse(readFileSync(DATES_IN, 'utf8'));
   const remapped = {};
   for (const [key, iso] of Object.entries(dates)) {
+    if (VARIANT_EXCLUDE.has(key)) continue; // 排除页不留日期
     const parts = key.split('/');
     const newName = renameFor(parts.pop());
     if (newName === null) continue;
@@ -215,4 +267,4 @@ if (existsSync(DATES_IN)) {
   dateCount = Object.keys(remapped).length;
 }
 
-console.log(`✓ content-ai/docs：${pages} 个 MDX 已物化（en↔cn 角色对调、端点→${HOST_TO}）；日期重映射 ${dateCount} 条`);
+console.log(`✓ content-ai/docs：${pages} 个 MDX 已物化（en↔cn 角色对调、端点→${HOST_TO}、compliance 整页排除）；日期重映射 ${dateCount} 条`);
