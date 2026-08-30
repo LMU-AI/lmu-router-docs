@@ -6,7 +6,7 @@ description: 发布上线灵眸文档站——同时更新国内 docs.lmuai.com 
 # 发布上线灵眸文档站（docs.lmuai.com + docs.lmuai.ai）
 
 > **「发布上线」默认 = 两个站一起发**：国内 `.com`（北京 amd64）与海外 `.ai`（新加坡 arm64）同一次 tag、同时部署。
-> 即使某次改动只影响其中一个变体，另一个也走一遍——内容没变时它就是一次无害的 no-op（digest 不翻转，见 §6）。
+> 每次发布两个变体都会重新构建、镜像 digest 都会翻转——即使某次改动只影响其中一个变体（另一个变体 RENDERED 内容不变，但仍是新构建的镜像）。「这次有没有真实变化」看页面/prodcheck，不是看 digest（见 §6）。
 
 这份 skill 提交在仓库里，**任何 clone 到本仓库的成员都能用**，不依赖任何个人机器上的本地 skill。照着做即可把「代码写完」发到两台生产机。
 
@@ -215,9 +215,11 @@ docker tag submit2mxh/lmu-router-docs:v0.1.35-ai submit2mxh/lmu-router-docs:late
 
 ---
 
-## 6. no-op 是正常的
+## 6. digest 每次都翻转；「no-op」指拉不到新镜像
 
-某次改动只影响一个变体时（例：只改 `.ai` 的内容排除），另一个变体镜像内容不变、**digest 不翻转**，那台机的部署就是一次无害 no-op。**不用惊慌、不用重试。** 只有当你以为该变的那个变体 digest 也没动时，才回步 3 查 CI 是否真出了新镜像。
+每次成功发布，CI 都重新构建 com 与 ai 两个变体，**两个镜像 digest 都会翻转**——哪怕某次改动只影响一个变体（另一个变体 RENDERED 内容不变，但镜像是新构建的：`COPY . .` 的缓存键、层 mtime 都变了）。所以「某变体这次有没有真实变化」要看**页面内容 / prodcheck**，不是看 digest。
+
+真正的 **no-op = `docker compose pull` 拉不到比在跑的更新的镜像**（digest 不翻转）。几乎总是因为 CI 还没出新 `:latest`/`:latest-ai`：build 还在跑、被 guard skip、或 failed。遇到就回步 3 查 CI，**别在机器上反复 pull**。
 
 ---
 
