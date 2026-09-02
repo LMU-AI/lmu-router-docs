@@ -1,4 +1,4 @@
-# docs.lmuai.ai（海外站变体）—— 部署在新加坡机 work@8.222.155.17:/home/work/docs
+# docs.lmuai.ai（海外站变体）—— 部署在海外机 work@8.222.155.17:/home/work/docs
 # 与北京机的 routerDocs（docs.lmuai.com，:latest，host 3004）完全独立。
 #
 # 镜像 tag 用 :latest-ai（docker-build.yml 矩阵的 ai 腿产物）。与 .com 同理，

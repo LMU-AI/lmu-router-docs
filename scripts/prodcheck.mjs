@@ -511,7 +511,7 @@ async function main() {
     modHtml.includes('和你用哪种协议调用无关'),
     modHtml.length === 0 ? '页面取不到' : '未声明与协议无关');
 
-  // .ai 变体专属：大陆定位话术（对新加坡线路为假）不得出现在任何页面 ——
+  // .ai 变体专属：大陆定位话术（对国际站线路为假）不得出现在任何页面 ——
   // 抓的是 <CN>/<Intl> 标记漏包或物化替换失效。
   if (IS_AI) {
     const leak = [];
@@ -520,6 +520,20 @@ async function main() {
       if (/国内直连|免代理|无需魔法|proxy-free|hosted inside mainland China/.test(t)) leak.push(p);
     }
     check('next', '.ai 页面无大陆定位话术残留', leak.length === 0, leak.slice(0, 6).join('; ') || '干净');
+  }
+
+  // 两站通用：对外文案不出现「新加坡/Singapore」（2026-09-02 统一口径：.ai 只称
+  // 「国际站」，不提具体节点城市）。页面 + 两份 llms.txt 一起扫。
+  {
+    const leak = [];
+    for (const [p, html] of byPath) {
+      if (/新加坡|Singapore/i.test(textOf(html))) leak.push(p);
+    }
+    for (const p of ['/llms.txt', `${OTHER_SEG}/llms.txt`]) {
+      if (/新加坡|Singapore/i.test((await get(p)).body)) leak.push(p);
+    }
+    check('next', '无「新加坡/Singapore」字样（页面+llms）', leak.length === 0,
+      leak.slice(0, 6).join('; ') || '干净');
   }
 
   // --- 7d. 统计归属 --------------------------------------------------------

@@ -5,9 +5,9 @@ const COPY = {
   cn: {
     ariaLabel: '注册灵眸 API',
     heading: '开通灵眸 API，立即用上 Claude / Codex 等主流 AI 工具',
-    // 「国内直连」只对 .com（北京网关）为真；.ai（新加坡网关）说境外直连。
+    // 「国内直连」只对 .com（北京网关）为真；.ai（国际站网关）说境外直连。
     body: IS_AI
-      ? '零门槛注册、套餐灵活、境外直连新加坡节点。支持 Claude Code、Codex CLI、Cursor、VS Code 插件、OpenCode、Cherry Studio 等工具接入。'
+      ? '零门槛注册、套餐灵活、国际站境外直连。支持 Claude Code、Codex CLI、Cursor、VS Code 插件、OpenCode、Cherry Studio 等工具接入。'
       : '零门槛注册、套餐灵活、国内直连。支持 Claude Code、Codex CLI、Cursor、VS Code 插件、OpenCode、Cherry Studio 等工具接入。',
     cta: '前往注册',
   },

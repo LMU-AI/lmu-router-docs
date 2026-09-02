@@ -39,7 +39,7 @@ const HOST_TO = 'api.lmuai.ai';
 
 // —— .ai 变体排除的整页 ——
 // 合规/备案是中国大陆专属概念（ICP / 公安 / 人工智能服务备案、账户数据境内驻留），
-// 对海外新加坡线路（api.lmuai.ai）并不成立，放到 .ai 站会误导用户。故整页排除，
+// 对国际站线路（api.lmuai.ai）并不成立，放到 .ai 站会误导用户。故整页排除，
 // 中英两版都不物化。相对 content/docs 的路径为 key。配套还要摘掉导航 meta 里的
 // slug 与其它页的交叉链接（见 COMPLIANCE_LINKS），并在物化后做断链兜底扫描（文件末尾）。
 const VARIANT_EXCLUDE = new Set([
@@ -67,21 +67,22 @@ const COMPLIANCE_LINKS = [
 ];
 
 // —— frontmatter 区的定位话术替换（枚举对，只在 frontmatter 块内生效） ——
-// 只替换对新加坡线路**为假**的断言（网关在境内/国内直连/domestic）；对海外仍然
+// 只替换对国际站线路**为假**的断言（网关在境内/国内直连/domestic）；对海外仍然
 // 成立的话术（如 no proxy needed —— 海外直连 api.lmuai.ai 确实无需代理）保留。
-// 每一对都只陈述已核实事实（新加坡节点、境外直连、账号打通），不得出现编造的
-// 延迟/在线率数字。正文的定位差异不走这里，走 <CN>/<Intl> 标记（lib/remark-variant.ts）。
+// 每一对都只陈述已核实事实（境外直连、账号打通），不得出现编造的延迟/在线率
+// 数字；对外口径只称「国际站」，不提具体节点城市（2026-09-02 用户定）。
+// 正文的定位差异不走这里，走 <CN>/<Intl> 标记（lib/remark-variant.ts）。
 // 顺序敏感：具体长句在前，泛化短语兜底在后。跑在端点替换之前（原文口径书写）。
 const FRONTMATTER_PHRASES = [
   // —— cn 整句（faq 答案 / ogDescription） ——
   ['可以。接入网关部署在中国国内，国内网络可直接调用，无需自建代理或科学上网。',
-   '可以。海外接入网关部署在新加坡节点，境外网络可直接调用。'],
+   '可以。国际站接入网关，境外网络可直接调用。'],
   ['不需要。灵眸接入网关部署在中国国内，国内网络可直接调用，无需 VPN 或代理。',
-   '可以直接使用。海外接入网关部署在新加坡节点，境外网络可直接调用，无需 VPN 或代理。'],
+   '可以直接使用。国际站接入网关，境外网络可直接调用，无需 VPN 或代理。'],
   ['灵眸网关部署在中国境内、国内直连，关闭所有代理后重试即可',
-   '灵眸海外网关部署在新加坡节点、境外直连，关闭所有代理后重试即可'],
+   '灵眸国际站网关、境外直连，关闭所有代理后重试即可'],
   ['不需要。灵眸接入网关部署在中国境内，api.lmuai.com 国内直连即可获得最快速度与最稳定的连接。',
-   '可以。灵眸海外网关部署在新加坡节点，api.lmuai.com 境外直连即可。'],
+   '可以。灵眸国际站网关，api.lmuai.com 境外直连即可。'],
   ['国内能直接使用吗，需要科学上网吗？', '海外能直接使用吗？'],
   ['国内能直接使用吗？', '海外能直接使用吗？'],
   ['灵眸 API 需要科学上网吗？', '灵眸 API 境外可以直连吗？'],
@@ -106,9 +107,9 @@ const FRONTMATTER_PHRASES = [
   ['免代理', '境外直连'],
   // —— en 整句（faq 答案） ——
   ['The LMU AI gateway is hosted inside mainland China with direct domestic access — turn off every proxy and retry.',
-   'The LMU AI overseas gateway runs on a Singapore node with direct access — turn off every proxy and retry.'],
+   'The LMU AI international gateway offers direct access — turn off every proxy and retry.'],
   ['No. The LMU AI gateway is hosted inside mainland China; api.lmuai.com is reachable directly from within China for the fastest, most stable connection.',
-   'Yes, directly. The LMU AI overseas gateway runs on a Singapore node; api.lmuai.com is reachable directly from outside mainland China.'],
+   'Yes, directly. The LMU AI international gateway makes api.lmuai.com reachable directly from outside mainland China.'],
   ['Does the LMU AI API need a VPN?', 'Can I reach the LMU AI API directly from overseas?'],
   // —— en 整句（工具页 faq 答案） ——
   ["it's a direct domestic connection with no proxy", "it connects directly with no proxy"],
@@ -116,7 +117,7 @@ const FRONTMATTER_PHRASES = [
   ['`api.lmuai.com` is a direct domestic connection. But', '`api.lmuai.com` connects directly. But'],
   ['which may still need network optimization in China', 'which in some regions may still need network optimization'],
   // —— en 短语 / 关键词 ——
-  ['is hosted inside mainland China', 'runs on a Singapore node'],
+  ['is hosted inside mainland China', 'is hosted overseas'],
   ['direct connection in China with no proxy', 'direct overseas connection'],
   ['a direct connection in China and no proxy needed', 'a direct overseas connection'],
   ['a direct connection in China and no proxy', 'a direct overseas connection'],

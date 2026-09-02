@@ -1,6 +1,6 @@
 // 站点变体开关：同一套代码库按构建期环境变量 SITE_VARIANT 产出两个站点。
 //   - 未设置 / 非 'ai' → 'com'：docs.lmuai.com（国内站，中文默认，北京网关）
-//   - 'ai'             → docs.lmuai.ai（海外站，英文默认，新加坡网关）
+//   - 'ai'             → docs.lmuai.ai（国际站，英文默认，海外网关）
 //
 // 铁律：SITE_VARIANT 未设置时，本文件所有导出必须与引入变体机制之前 lib/site.ts
 // 里的字面量逐字相同 —— .com 的构建产物要能与旧代码逐字节对上（发布闸门会 diff）。
@@ -21,7 +21,7 @@ export const SITE_URL = IS_AI ? 'https://docs.lmuai.ai' : 'https://docs.lmuai.co
 export const OG_DOMAIN = IS_AI ? 'docs.lmuai.ai' : 'docs.lmuai.com';
 
 // —— API 网关 ——
-// .com → 北京网关（境内线路）；.ai → 新加坡网关（海外线路）。账号/Key/计费两边通用，
+// .com → 境内网关（国内线路）；.ai → 国际站网关（海外线路）。账号/Key/计费两边通用，
 // 仅端点与线路不同（已实测：两域名 /register 均 200、/v1/models 均 401 要鉴权）。
 export const API_BASE_URL = IS_AI ? 'https://api.lmuai.ai' : 'https://api.lmuai.com';
 // 正文里以裸主机名出现的写法（如「`api.lmuai.com` 国内可直接访问」）。

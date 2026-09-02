@@ -31,14 +31,15 @@ export function productName(locale: string): string {
   return locale === 'en' ? PRODUCT_NAME_EN : PRODUCT_NAME;
 }
 
-// 定位描述按变体走：.com 陈述北京网关（境内直连免代理）；.ai 陈述新加坡网关
+// 定位描述按变体走：.com 陈述北京网关（境内直连免代理）；.ai 陈述国际站网关
 // （境外直连、账号与大陆端点互通）。均只写已核实事实，不带延迟/在线率数字。
+// 对外口径（2026-09-02 用户定）：.ai 一律称「国际站」，不提具体节点城市。
 // com 分支字面量与引入变体机制前逐字一致（构建产物 diff 闸门依赖这一点）。
 export const PRODUCT_DESCRIPTION = IS_AI
-  ? '灵眸 AI 是大模型 API 中转服务，一把 API Key 即可调用 Claude、OpenAI GPT、Gemini 与国产大模型；海外网关部署在新加坡节点，境外可直接访问，账号、密钥与余额与大陆端点通用，兼容 Claude Code、Codex CLI、Cursor、Cherry Studio 等主流 AI 工具。'
+  ? '灵眸 AI 是大模型 API 中转服务，一把 API Key 即可调用 Claude、OpenAI GPT、Gemini 与国产大模型；国际站网关境外可直接访问，账号、密钥与余额与大陆端点通用，兼容 Claude Code、Codex CLI、Cursor、Cherry Studio 等主流 AI 工具。'
   : '灵眸 AI 是面向中国大陆用户的大模型 API 中转服务，一把 API Key 即可调用 Claude、OpenAI GPT、Gemini 与国产大模型，网关部署在中国境内、国内直连免代理，兼容 Claude Code、Codex CLI、Cursor、Cherry Studio 等主流 AI 工具。';
 export const PRODUCT_DESCRIPTION_EN = IS_AI
-  ? 'LMU AI (Lingmou AI) is a large-model API relay. One API key calls Claude, OpenAI GPT, Gemini and leading Chinese models; the overseas gateway runs on a Singapore node for direct access from outside mainland China, and the same account, key and balance also work on the mainland endpoint. Compatible with mainstream AI tools such as Claude Code, Codex CLI, Cursor and Cherry Studio.'
+  ? 'LMU AI (Lingmou AI) is a large-model API relay. One API key calls Claude, OpenAI GPT, Gemini and leading Chinese models; the international gateway offers direct access from outside mainland China, and the same account, key and balance also work on the mainland endpoint. Compatible with mainstream AI tools such as Claude Code, Codex CLI, Cursor and Cherry Studio.'
   : 'LMU AI (Lingmou AI) is a large-model API relay for users in mainland China. One API key calls Claude, OpenAI GPT, Gemini and leading Chinese models; the gateway is hosted inside mainland China for direct, proxy-free access, and it is compatible with mainstream AI tools such as Claude Code, Codex CLI, Cursor and Cherry Studio.';
 export function productDescription(locale: string): string {
   return locale === 'en' ? PRODUCT_DESCRIPTION_EN : PRODUCT_DESCRIPTION;
@@ -49,7 +50,7 @@ export function productDescription(locale: string): string {
 export const PRODUCT_FEATURES = [
   '一把 API Key 通用 Anthropic、OpenAI 兼容、Gemini 原生三种协议',
   '兼容 Claude Code、Codex CLI、Cursor、Cherry Studio 等主流 AI 编程工具',
-  IS_AI ? '海外网关部署在新加坡节点，境外直接访问' : '网关部署在中国境内，国内直连、低延迟、免代理',
+  IS_AI ? '国际站网关，境外直接访问' : '网关部署在中国境内，国内直连、低延迟、免代理',
   '多源故障转移',
   '覆盖 Claude、GPT、Gemini 及通义千问、DeepSeek、GLM、Kimi、MiniMax、MiMo 等国产大模型',
   '提供文生图与图片编辑 API',
@@ -58,7 +59,7 @@ export const PRODUCT_FEATURES_EN = [
   'One API key works across the Anthropic, OpenAI-compatible and Gemini native protocols',
   'Compatible with mainstream AI coding tools such as Claude Code, Codex CLI, Cursor and Cherry Studio',
   IS_AI
-    ? 'Overseas gateway on a Singapore node for direct access from outside mainland China'
+    ? 'International gateway with direct access from outside mainland China'
     : 'Gateway hosted inside mainland China for direct, low-latency, proxy-free access',
   'Multi-source failover',
   'Covers Claude, GPT, Gemini and Chinese models including Qwen, DeepSeek, GLM, Kimi, MiniMax and MiMo',
