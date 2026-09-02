@@ -76,9 +76,10 @@ interface LlmsStrings {
 }
 
 function strings(lang: string, pfx: string): LlmsStrings {
-  // 定位句按变体走：.com 站陈述北京网关的「境内直连免代理」；.ai 站陈述新加坡
-  // 网关的「境外直连」。两边都只写已核实事实（节点位置、账号互通），不带
-  // 延迟/在线率等未核实数字（no-invented-facts）。com 分支字面量与旧版逐字一致。
+  // 定位句按变体走：.com 站陈述北京网关的「境内直连免代理」；.ai 站陈述国际站
+  // 网关的「境外直连」（对外口径只称「国际站」，不提具体节点城市）。两边都只写
+  // 已核实事实（账号互通等），不带延迟/在线率等未核实数字（no-invented-facts）。
+  // com 分支字面量与旧版逐字一致。
   // pfx = localePrefix(lang)：语言路径前缀跟默认语言走（.com 上 cn=''、en='/en'；
   // .ai 上 en=''、cn='/cn'），不能写死。
   if (lang === 'en') {
@@ -87,7 +88,7 @@ function strings(lang: string, pfx: string): LlmsStrings {
       sep: ', ',
       indexHeading: (name) => `# ${name} (Lingmou AI)`,
       blockquote: IS_AI
-        ? '> LMU AI (Lingmou AI) is a large-model API relay. One API key calls Claude, OpenAI GPT and leading Chinese models; the overseas gateway runs on a Singapore node for direct access from outside mainland China, and the same account, key and balance also work on the mainland endpoint. This site is its integration documentation, covering how to configure mainstream AI tools such as Claude Code, Codex CLI, Cursor, Trae and Chatbox, plus the image-generation API and the usage-export API.'
+        ? '> LMU AI (Lingmou AI) is a large-model API relay. One API key calls Claude, OpenAI GPT and leading Chinese models; the international gateway offers direct access from outside mainland China, and the same account, key and balance also work on the mainland endpoint. This site is its integration documentation, covering how to configure mainstream AI tools such as Claude Code, Codex CLI, Cursor, Trae and Chatbox, plus the image-generation API and the usage-export API.'
         : '> LMU AI (Lingmou AI) is a large-model API relay for users in mainland China. One API key calls Claude, OpenAI GPT and leading Chinese models; the gateway is hosted inside mainland China for direct, proxy-free access. This site is its integration documentation, covering how to configure mainstream AI tools such as Claude Code, Codex CLI, Cursor, Trae and Chatbox, plus the image-generation API and the usage-export API.',
       bullets: {
         apiBase: `- API Base URL: ${API_BASE_URL}`,
@@ -103,14 +104,14 @@ function strings(lang: string, pfx: string): LlmsStrings {
       keyFacts: [
         `- **Protocol determines the Base URL**: the Anthropic protocol uses \`${API_BASE_URL}\` (**without** \`/v1\`); the OpenAI-compatible protocol uses \`${API_BASE_URL}/v1\` (**must include** \`/v1\`); the Gemini native protocol uses \`${API_BASE_URL}/v1beta/models/...\`. Using the address of the wrong protocol returns 401 or 404.`,
         IS_AI
-          ? `- **Overseas gateway on a Singapore node**: \`${API_HOST}\` is reachable directly from outside mainland China. The same account, key and billing also work on the mainland endpoint.`
+          ? `- **International gateway, direct overseas access**: \`${API_HOST}\` is reachable directly from outside mainland China. The same account, key and billing also work on the mainland endpoint.`
           : `- **Direct access inside mainland China, no proxy needed**: the gateway is deployed inside mainland China and \`${API_HOST}\` is directly reachable there. Running a VPN / system proxy can instead cause dropouts, because the proxy switches your egress IP.`,
         '- **One key for all three protocols**: the same `sk-` key generated in the console works with the Anthropic, OpenAI-compatible and Gemini native protocols — no need to request a separate key per tool.',
         '- **The Claude Max group supports the Anthropic protocol only**: that group is for Claude Code and does not support OpenAI-protocol endpoints; the other groups support both protocols. The actual set of callable models is whatever the console’s “Available models” page shows.',
       ],
       fullHeading: (name) => `# ${name} (Lingmou AI) — Full Documentation`,
       fullBlockquote: IS_AI
-        ? `> LMU AI (Lingmou AI) is a large-model API relay. One API key calls Claude, OpenAI GPT and leading Chinese models; the overseas gateway runs on a Singapore node. API Base URL: ${API_BASE_URL}`
+        ? `> LMU AI (Lingmou AI) is a large-model API relay. One API key calls Claude, OpenAI GPT and leading Chinese models; the international gateway offers direct overseas access. API Base URL: ${API_BASE_URL}`
         : `> LMU AI (Lingmou AI) is a large-model API relay for users in mainland China. One API key calls Claude, OpenAI GPT and leading Chinese models. API Base URL: ${API_BASE_URL}`,
     };
   }
@@ -119,7 +120,7 @@ function strings(lang: string, pfx: string): LlmsStrings {
     sep: '、',
     indexHeading: (name) => `# ${name}（灵眸 AI）`,
     blockquote: IS_AI
-      ? '> 灵眸 AI 是大模型 API 中转服务，一把 API Key 即可调用 Claude、OpenAI GPT 与国产大模型；海外网关部署在新加坡节点，境外可直接访问，账号、密钥与余额与大陆端点通用。本站是它的接入文档，覆盖 Claude Code、Codex CLI、Cursor、Trae、Chatbox 等主流 AI 工具的配置方法，以及生图 API 与用量导出 API。'
+      ? '> 灵眸 AI 是大模型 API 中转服务，一把 API Key 即可调用 Claude、OpenAI GPT 与国产大模型；国际站网关境外可直接访问，账号、密钥与余额与大陆端点通用。本站是它的接入文档，覆盖 Claude Code、Codex CLI、Cursor、Trae、Chatbox 等主流 AI 工具的配置方法，以及生图 API 与用量导出 API。'
       : '> 灵眸 AI 是面向中国大陆用户的大模型 API 中转服务，一把 API Key 即可调用 Claude、OpenAI GPT 与国产大模型，网关部署在中国境内、国内直连免代理。本站是它的接入文档，覆盖 Claude Code、Codex CLI、Cursor、Trae、Chatbox 等主流 AI 工具的配置方法，以及生图 API 与用量导出 API。',
     bullets: {
       apiBase: `- API Base URL：${API_BASE_URL}`,
@@ -135,14 +136,14 @@ function strings(lang: string, pfx: string): LlmsStrings {
     keyFacts: [
       `- **协议决定 Base URL**：Anthropic 协议用 \`${API_BASE_URL}\`（**不带** \`/v1\`）；OpenAI 兼容协议用 \`${API_BASE_URL}/v1\`（**必须带** \`/v1\`）；Gemini 原生协议走 \`${API_BASE_URL}/v1beta/models/...\`。填错协议对应的地址会直接返回 401 或 404。`,
       IS_AI
-        ? `- **海外网关部署在新加坡节点**：\`${API_HOST}\` 境外可直接访问；账号、密钥与计费与大陆端点通用。`
+        ? `- **国际站网关，境外直连**：\`${API_HOST}\` 境外可直接访问；账号、密钥与计费与大陆端点通用。`
         : `- **国内直连，无需代理**：接入网关部署在中国境内，\`${API_HOST}\` 国内可直接访问。反而是挂着 VPN / 系统代理时，代理自动切换出口 IP 容易造成断流。`,
       '- **一把密钥通用三种协议**：后台生成的同一个 `sk-` 开头密钥可用于 Anthropic、OpenAI 兼容与 Gemini 原生三种协议，无需为不同工具申请不同密钥。',
       '- **Claude Max 分组仅支持 Anthropic 协议**：该分组只供 Claude Code 使用，不支持 OpenAI 协议端点；其余分组两种协议都可用。实际可调用的模型范围以后台「可用模型」页为准。',
     ],
     fullHeading: (name) => `# ${name}（灵眸 AI）完整文档`,
     fullBlockquote: IS_AI
-      ? `> 灵眸 AI 是大模型 API 中转服务，一把 API Key 即可调用 Claude、OpenAI GPT 与国产大模型；海外网关部署在新加坡节点。API Base URL：${API_BASE_URL}`
+      ? `> 灵眸 AI 是大模型 API 中转服务，一把 API Key 即可调用 Claude、OpenAI GPT 与国产大模型；国际站网关境外可直接访问。API Base URL：${API_BASE_URL}`
       : `> 灵眸 AI 是面向中国大陆用户的大模型 API 中转服务，一把 API Key 即可调用 Claude、OpenAI GPT 与国产大模型。API Base URL：${API_BASE_URL}`,
   };
 }

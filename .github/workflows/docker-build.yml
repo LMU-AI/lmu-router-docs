@@ -65,7 +65,7 @@ jobs:
   # ---------------------------------------------------------------------------
   # 2) 构建并推送镜像（站点变体矩阵）
   #    com → docs.lmuai.com：tag 名与历史完全一致（latest / vX.Y.Z），北京机在用
-  #    ai  → docs.lmuai.ai ：tag 加 -ai 后缀（latest-ai / vX.Y.Z-ai），新加坡机在用
+  #    ai  → docs.lmuai.ai ：tag 加 -ai 后缀（latest-ai / vX.Y.Z-ai），海外机在用
   #    fail-fast: false —— arm64 QEMU 偶发 SIGILL（见 deploy skill 坑 5），一条腿
   #    抖动不应拖死另一条；单腿重跑用 workflow_dispatch 即可（矩阵会两腿都跑，
   #    已成功的那腿仅是重复推同内容，无害）。

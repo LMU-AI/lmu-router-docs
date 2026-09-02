@@ -18,7 +18,7 @@
 |------|--------|--------|
 | API 端点 | `https://api.lmuai.ai` | `https://api.lmuai.com` |
 | 模型范围 | **全部模型**：Claude、GPT / Codex、Gemini、Grok 及国产大模型 | **仅国产大模型**：通义千问、DeepSeek、GLM、Kimi、MiniMax、MiMo 等 |
-| 网关位置 | 新加坡节点，境外直连 | 中国境内，国内直连 |
+| 网关线路 | 国际站，境外直连 | 中国境内，国内直连 |
 | 配套文档 | [docs.lmuai.ai](https://docs.lmuai.ai) | [docs.lmuai.com](https://docs.lmuai.com) |
 
 账号、API 密钥与余额两个站点通用——按需要的模型范围与所处网络环境选择端点即可。

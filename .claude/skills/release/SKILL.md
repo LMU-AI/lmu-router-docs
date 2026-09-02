@@ -1,11 +1,11 @@
 ---
 name: release
-description: 发布上线灵眸文档站——同时更新国内 docs.lmuai.com 与海外 docs.lmuai.ai 两台机。当有人说「发布上线 / 发版 / 上线 / 部署文档 / release / deploy docs」时用。流程：提交代码→PR 合并进 main→在 main 打 tag→GitHub Action 出「双架构（amd64+arm64）× 双变体（com/ai）」镜像→北京+新加坡两台机 pull 部署→双站验证。
+description: 发布上线灵眸文档站——同时更新国内 docs.lmuai.com 与海外 docs.lmuai.ai 两台机。当有人说「发布上线 / 发版 / 上线 / 部署文档 / release / deploy docs」时用。流程：提交代码→PR 合并进 main→在 main 打 tag→GitHub Action 出「双架构（amd64+arm64）× 双变体（com/ai）」镜像→北京+海外两台机 pull 部署→双站验证。
 ---
 
 # 发布上线灵眸文档站（docs.lmuai.com + docs.lmuai.ai）
 
-> **「发布上线」默认 = 两个站一起发**：国内 `.com`（北京 amd64）与海外 `.ai`（新加坡 arm64）同一次 tag、同时部署。
+> **「发布上线」默认 = 两个站一起发**：国内 `.com`（北京 amd64）与海外 `.ai`（海外 arm64）同一次 tag、同时部署。
 > 每次发布两个变体都会重新构建、镜像 digest 都会翻转——即使某次改动只影响其中一个变体（另一个变体 RENDERED 内容不变，但仍是新构建的镜像）。「这次有没有真实变化」看页面/prodcheck，不是看 digest（见 §6）。
 
 这份 skill 提交在仓库里，**任何 clone 到本仓库的成员都能用**，不依赖任何个人机器上的本地 skill。照着做即可把「代码写完」发到两台生产机。
@@ -17,7 +17,7 @@ description: 发布上线灵眸文档站——同时更新国内 docs.lmuai.com 
 | | 国内 `.com` | 海外 `.ai` |
 |---|---|---|
 | 域名 | docs.lmuai.com | docs.lmuai.ai |
-| 机器 | `work@47.92.165.32`（北京，**amd64**） | `work@8.222.155.17`（新加坡，**arm64/aarch64**） |
+| 机器 | `work@47.92.165.32`（北京，**amd64**） | `work@8.222.155.17`（海外，**arm64/aarch64**） |
 | 项目目录 | `/home/work/routerDocs` | `/home/work/docs` |
 | compose service | `limao-docs` | `limao-docs-ai` |
 | 镜像 tag | `submit2mxh/lmu-router-docs:latest` | `submit2mxh/lmu-router-docs:latest-ai` |
@@ -36,9 +36,9 @@ description: 发布上线灵眸文档站——同时更新国内 docs.lmuai.com 
 | tag | 变体 | 架构（同一 manifest 内） | 谁用 |
 |---|---|---|---|
 | `latest` / `vX.Y.Z` | com | linux/amd64 **+** linux/arm64 | 北京机 |
-| `latest-ai` / `vX.Y.Z-ai` | ai | linux/amd64 **+** linux/arm64 | 新加坡机 |
+| `latest-ai` / `vX.Y.Z-ai` | ai | linux/amd64 **+** linux/arm64 | 海外机 |
 
-- `PLATFORMS: linux/amd64,linux/arm64` → 每个 tag 都是**多架构 manifest**，`docker pull` 会自动挑本机架构。**arm64 镜像一直都有**——新加坡偶发拉不动是那台机的 DNS/mirror 问题（见 §7 的中转 fallback），不是镜像缺 arm 架构。
+- `PLATFORMS: linux/amd64,linux/arm64` → 每个 tag 都是**多架构 manifest**，`docker pull` 会自动挑本机架构。**arm64 镜像一直都有**——海外偶发拉不动是那台机的 DNS/mirror 问题（见 §7 的中转 fallback），不是镜像缺 arm 架构。
 - 变体矩阵 `{com, suffix:''}` / `{ai, suffix:'-ai'}`，`fail-fast:false`（一条腿抖动不拖死另一条）。
 - 每变体独立 buildcache（`:buildcache` / `:buildcache-ai`），互不覆盖。
 - GitHub Release 只在 com 腿创建（一个 tag 一个 Release）。
@@ -100,7 +100,7 @@ gh run view <id> --log 2>/dev/null | grep "篇有 git 时间"
 
 ```bash
 ssh work@47.92.165.32 'docker pull -q submit2mxh/lmu-router-docs:v0.1.36 2>&1 | head -3'      # com
-ssh work@8.222.155.17 'docker pull -q --platform linux/arm64 submit2mxh/lmu-router-docs:v0.1.36-ai 2>&1 | head -3'  # ai（新加坡是 arm64）
+ssh work@8.222.155.17 'docker pull -q --platform linux/arm64 submit2mxh/lmu-router-docs:v0.1.36-ai 2>&1 | head -3'  # ai（海外是 arm64）
 # "manifest unknown" = 没产出；能拉 = 有
 ```
 
@@ -133,7 +133,7 @@ curl -sSI -m 8 http://127.0.0.1:3004/docs/enterprise | head -1'
 
 预期：`/` → **308**（跳 /docs，正常），`/docs/enterprise` → **200**。
 
-#### 4b — 新加坡 `.ai`
+#### 4b — 海外 `.ai`
 
 先确认 compose 文件名（机器上可能叫 `docker-compose.yml`，也可能保留 `docker-compose.ai.yml`；后者要 `-f`）：
 
@@ -208,7 +208,7 @@ ssh work@47.92.165.32 'cd /home/work/routerDocs
 docker image ls submit2mxh/lmu-router-docs --format "{{.Tag}} {{.ID}} {{.CreatedSince}}" | head
 docker tag submit2mxh/lmu-router-docs:v0.1.35 submit2mxh/lmu-router-docs:latest && docker compose up -d'
 
-# 新加坡 .ai（注意 -ai 后缀）
+# 海外 .ai（注意 -ai 后缀）
 ssh work@8.222.155.17 'cd /home/work/docs
 docker tag submit2mxh/lmu-router-docs:v0.1.35-ai submit2mxh/lmu-router-docs:latest-ai && docker compose up -d'
 ```
@@ -226,20 +226,20 @@ docker tag submit2mxh/lmu-router-docs:v0.1.35-ai submit2mxh/lmu-router-docs:late
 ## 7. 坑 & fallback
 
 1. **arm64 QEMU SIGILL（间歇）**：`docker-build.yml` 的 arm64 腿偶发
-   `qemu: uncaught target signal 4 (Illegal instruction)` → `SIGILL`，出现在 `Generating static pages`。**不是代码问题**（同 commit 重跑即过，amd64 从不失败）。处理：`gh workflow run docker-build.yml --ref v0.1.36 -f ref=v0.1.36`。同 tag 连挂 2 次以上，再考虑临时把 `PLATFORMS` 收成 `linux/amd64`（仅当那次不急着更新新加坡机时）。
+   `qemu: uncaught target signal 4 (Illegal instruction)` → `SIGILL`，出现在 `Generating static pages`。**不是代码问题**（同 commit 重跑即过，amd64 从不失败）。处理：`gh workflow run docker-build.yml --ref v0.1.36 -f ref=v0.1.36`。同 tag 连挂 2 次以上，再考虑临时把 `PLATFORMS` 收成 `linux/amd64`（仅当那次不急着更新海外机时）。
 
-2. **新加坡机 pull 卡死（DNS/mirror）**：那台机 `systemd-resolved` 上游是阿里内网、`daemon.json` 首个 mirror 是腾讯内网，都可能不可达 → `docker compose pull` 挂住。**绕过 = 从能正常拉的机器中转**（北京机、或 Apple Silicon Mac 都能出 arm64）：
+2. **海外机 pull 卡死（DNS/mirror）**：那台机 `systemd-resolved` 上游是阿里内网、`daemon.json` 首个 mirror 是腾讯内网，都可能不可达 → `docker compose pull` 挂住。**绕过 = 从能正常拉的机器中转**（北京机、或 Apple Silicon Mac 都能出 arm64）：
 
    ```bash
-   # 在北京机（或本地 arm64 机器）拉 arm64 镜像，save 后 ssh 灌进新加坡机
+   # 在北京机（或本地 arm64 机器）拉 arm64 镜像，save 后 ssh 灌进海外机
    ssh work@47.92.165.32 'docker pull --platform linux/arm64 submit2mxh/lmu-router-docs:v0.1.36-ai && docker save submit2mxh/lmu-router-docs:v0.1.36-ai' \
      | ssh work@8.222.155.17 'docker load'
-   # 灌好后在新加坡机 retag 成 latest-ai 并起容器
+   # 灌好后在海外机 retag 成 latest-ai 并起容器
    ssh work@8.222.155.17 'docker tag submit2mxh/lmu-router-docs:v0.1.36-ai submit2mxh/lmu-router-docs:latest-ai
      cd /home/work/docs && docker compose up -d'
    ```
 
-   **坑：新加坡机是 aarch64——中转必须 `--platform linux/arm64`**，默认会拉 amd64，容器起不来（`exec format error`）。回滚素材是 dangling 的旧 arm64 image（`docker image ls -a --filter dangling=true` 找 ID retag）。
+   **坑：海外机是 aarch64——中转必须 `--platform linux/arm64`**，默认会拉 amd64，容器起不来（`exec format error`）。回滚素材是 dangling 的旧 arm64 image（`docker image ls -a --filter dangling=true` 找 ID retag）。
    根治方向（需运维/有 sudo）：修 resolved 上游，或把 `daemon.json` mirror 换成该机可达的（如 daocloud）。
 
 3. **Cloudflare 拦 AI 爬虫（仅 .ai，代码外）**：`docs.lmuai.ai` 的 DNS 在 Cloudflare 橙云代理，zone 开了 AI 爬虫拦截 → GPTBot/ClaudeBot/Perplexity 等 403，且 CF 覆写 `robots.txt`。**这与海外站做 GEO 的目的直接冲突**，需在 **CF 面板关**（AI Crawl Control / Block AI bots），代码侧无解。Googlebot/Baidu/Bing 正常。
@@ -258,6 +258,6 @@ docker tag submit2mxh/lmu-router-docs:v0.1.35-ai submit2mxh/lmu-router-docs:late
 
 - CI 主 workflow：`.github/workflows/docker-build.yml`（双架构 × 双变体矩阵 + guard + Release + 日期刷新步）
 - CI 补构建：`.github/workflows/rebuild-on-merge.yml`
-- compose 参考：`docker-compose.yml`（com）、`docker-compose.ai.yml`（ai，含新加坡 Caddy vhost 示例）
+- compose 参考：`docker-compose.yml`（com）、`docker-compose.ai.yml`（ai，含海外 Caddy vhost 示例）
 - 变体机制单一事实源：`lib/variant.ts`；`.ai` 内容物化：`scripts/materialize-variant-content.mjs`
 - 生产测试套件：`scripts/prodcheck.mjs`（`--variant com|ai`）
