@@ -522,6 +522,20 @@ async function main() {
     check('next', '.ai 页面无大陆定位话术残留', leak.length === 0, leak.slice(0, 6).join('; ') || '干净');
   }
 
+  // --- 7d. 统计归属 --------------------------------------------------------
+  // 2026-09 起两站分 GA 媒体资源：.com=G-3YQJ477Z5W、.ai=G-QNRSEGSX5D。
+  // 挂错/混用会把海外流量灌进国内报表且无任何报错。layout 全局注入，验一页即可。
+  group('7d. 统计归属（GA 分站）');
+  {
+    const GA_SELF = IS_AI ? 'G-QNRSEGSX5D' : 'G-3YQJ477Z5W';
+    const GA_OTHER = IS_AI ? 'G-3YQJ477Z5W' : 'G-QNRSEGSX5D';
+    const docsHtml = (await get('/docs')).body;
+    check('next', `GA 衡量 ID 为本站专属（${GA_SELF}）`, docsHtml.includes(GA_SELF),
+      docsHtml.includes(GA_SELF) ? '已挂本站 ID' : '页面上找不到本站 GA ID');
+    check('next', '未混入另一站的 GA ID', !docsHtml.includes(GA_OTHER),
+      docsHtml.includes(GA_OTHER) ? `混入了 ${GA_OTHER}` : '干净');
+  }
+
   // --- 8. 站内链接与锚点 ---------------------------------------------------
   group('8. 站内链接完整性');
 

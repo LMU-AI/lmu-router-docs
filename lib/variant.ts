@@ -38,5 +38,7 @@ export const REGISTER_URL = `${API_BASE_URL}/register?ref=vJaWWr4T`;
 export const DEFAULT_LANGUAGE: 'cn' | 'en' = IS_AI ? 'en' : 'cn';
 
 // —— 统计 ——
-// 两个站默认共用同一个 GA 媒体资源；将来要分开时给 .ai 构建传 SITE_GA_ID 即可。
-export const GA_MEASUREMENT_ID = process.env.SITE_GA_ID ?? 'G-3YQJ477Z5W';
+// 两个站各挂各的 GA 媒体资源，报表分开（2026-09 起）：混用会把海外流量灌进国内
+// 报表。SITE_GA_ID 仅留作构建期兜底覆盖，正常发布不传。
+export const GA_MEASUREMENT_ID =
+  process.env.SITE_GA_ID ?? (IS_AI ? 'G-QNRSEGSX5D' : 'G-3YQJ477Z5W');
