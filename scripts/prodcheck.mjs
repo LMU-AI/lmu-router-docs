@@ -314,6 +314,45 @@ async function main() {
   check('next', 'Link 头 describedby 指向的资源可达（llms.txt）',
     describedRes?.status === 200, `${describedBy ?? '缺失'} → ${describedRes?.status ?? '-'}`);
 
+  // /auth.md（v0.1.40 起，自包含形态）：文档说的每一条鉴权行为都拿网关实测对照——
+  // 文档与网关一旦不一致（后端改了鉴权头或错误码），这里先红。
+  const authMd = await get('/auth.md');
+  check('next', '/auth.md 200 且为 text/markdown',
+    authMd.status === 200 && /text\/markdown/.test(authMd.headers['content-type'] ?? ''),
+    `status=${authMd.status} type=${authMd.headers['content-type']}`);
+  check('next', 'auth.md 首行 H1 含「auth.md」', /^#\s.*auth\.md/m.test(authMd.body.split('\n')[0] ?? ''),
+    authMd.body.split('\n')[0]);
+  check('next', 'auth.md 不宣称 OAuth / 自助注册端点（网关没有）',
+    !/oauth-authorization-server|oauth-protected-resource|agent_auth|register_uri|\/agent\/auth/.test(authMd.body), '');
+  check('next', `auth.md 端点与文档链接均为本站变体（${API_HOST} / ${new URL(BASE).host === '127.0.0.1' ? '本地' : new URL(BASE).host}）`,
+    authMd.body.includes(API_HOST) && !authMd.body.includes(IS_AI ? 'api.lmuai.com' : 'api.lmuai.ai'), '');
+  // 对照网关：无凭据 401 的 body 里列出的三个头，auth.md 必须都写了。
+  const noCred = await get(`https://${API_HOST}/v1/models`);
+  const noCredBody = (() => { try { return JSON.parse(noCred.body); } catch { return {}; } })();
+  check('next', `网关无凭据返回 401 API_KEY_REQUIRED（auth.md 所述）`,
+    noCred.status === 401 && noCredBody.code === 'API_KEY_REQUIRED', `status=${noCred.status} code=${noCredBody.code}`);
+  const headersInGateway = ['Authorization', 'x-api-key', 'x-goog-api-key'].filter((h) => (noCredBody.message ?? '').includes(h));
+  check('next', 'auth.md 列出的鉴权头与网关 401 提示一致（3 个）',
+    headersInGateway.length === 3 && headersInGateway.every((h) => authMd.body.includes(h)),
+    `网关提示含: ${headersInGateway.join(', ')}`);
+  check('next', 'auth.md 写明 INVALID_API_KEY 与 api_key_in_query_deprecated（网关真实错误码）',
+    authMd.body.includes('INVALID_API_KEY') && authMd.body.includes('api_key_in_query_deprecated'), '');
+  // auth.md 里的站内链接全部可达（含锚点）。链接是线上绝对地址，origin 重写成 --base
+  //（与 sitemap 的做法一致，否则 --base 本地会静默变成测线上）。
+  const SITE_HOST = IS_AI ? 'docs.lmuai.ai' : 'docs.lmuai.com';
+  const authLinks = [...authMd.body.matchAll(/https?:\/\/[^\s)`|>]+/g)].map((m) => m[0])
+    .filter((u) => new URL(u).host === SITE_HOST);
+  const badAuthLinks = [];
+  for (const u of new Set(authLinks)) {
+    const parsed = new URL(u);
+    const r = await get(parsed.pathname);
+    const id = decodeURIComponent(parsed.hash.slice(1));
+    if (r.status !== 200) badAuthLinks.push(`${u} → ${r.status}`);
+    else if (id && !r.body.includes(`id="${id}"`)) badAuthLinks.push(`${u} 锚点不存在`);
+  }
+  check('next', `auth.md 站内链接全部可达（${new Set(authLinks).size} 条）`,
+    authLinks.length > 0 && badAuthLinks.length === 0, badAuthLinks.join('; '));
+
   // --- 4. sitemap 质量 -----------------------------------------------------
   group('4. sitemap 质量');
 
