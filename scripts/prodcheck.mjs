@@ -322,8 +322,30 @@ async function main() {
     `status=${authMd.status} type=${authMd.headers['content-type']}`);
   check('next', 'auth.md 首行 H1 含「auth.md」', /^#\s.*auth\.md/m.test(authMd.body.split('\n')[0] ?? ''),
     authMd.body.split('\n')[0]);
-  check('next', 'auth.md 不宣称 OAuth / 自助注册端点（网关没有）',
-    !/oauth-authorization-server|oauth-protected-resource|agent_auth|register_uri|\/agent\/auth/.test(authMd.body), '');
+  check('next', 'auth.md 不宣称 OAuth 元数据 / agent_auth（网关没有）',
+    !/well-known\/oauth-authorization-server|agent_auth|register_uri|\/agent\/identity\b.*POST|POST \/agent\//.test(authMd.body), '');
+  // auth.md 写的注册链路前提要与网关公开设置一致：注册开放、邮箱验证开、captcha 全关。
+  // 任何一项翻转（如运维重新开 Turnstile），auth.md 就在教 agent 走一条走不通的路。
+  const pub = await get(`https://${API_HOST}/api/v1/settings/public`);
+  const pubData = (() => { try { return JSON.parse(pub.body).data ?? {}; } catch { return {}; } })();
+  check('next', 'auth.md 注册链路前提成立：registration_enabled + email_verify_enabled',
+    pubData.registration_enabled === true && pubData.email_verify_enabled === true,
+    JSON.stringify({ registration_enabled: pubData.registration_enabled, email_verify_enabled: pubData.email_verify_enabled }));
+  check('next', 'auth.md 注册链路前提成立：三家 captcha 全关（否则 agent 走不通）',
+    pubData.turnstile_enabled === false && pubData.tencent_captcha_enabled === false && pubData.aliyun_captcha_enabled === false,
+    JSON.stringify({ turnstile: pubData.turnstile_enabled, tencent: pubData.tencent_captcha_enabled, aliyun: pubData.aliyun_captcha_enabled }));
+  // auth.md 引用的账号 API 端点都真实存在（无 body / 无鉴权探测：400 或 401 = 端点在；404 = 不在）。
+  const acct = [
+    ['POST', '/api/v1/auth/send-verify-code', 400], ['POST', '/api/v1/auth/register', 400],
+    ['POST', '/api/v1/auth/login', 400], ['POST', '/api/v1/keys', 401], ['GET', '/api/v1/keys', 401],
+  ];
+  const badAcct = [];
+  for (const [method, path, expect] of acct) {
+    const r = await get(`https://${API_HOST}${path}`, { method });
+    if (r.status !== expect) badAcct.push(`${method} ${path} → ${r.status}（期望 ${expect}）`);
+    if (!authMd.body.includes(path)) badAcct.push(`${path} 未写入 auth.md`);
+  }
+  check('next', `auth.md 所列账号 API 端点均真实存在（${acct.length} 个）`, badAcct.length === 0, badAcct.join('; '));
   check('next', `auth.md 端点与文档链接均为本站变体（${API_HOST} / ${new URL(BASE).host === '127.0.0.1' ? '本地' : new URL(BASE).host}）`,
     authMd.body.includes(API_HOST) && !authMd.body.includes(IS_AI ? 'api.lmuai.com' : 'api.lmuai.ai'), '');
   // 对照网关：无凭据 401 的 body 里列出的三个头，auth.md 必须都写了。
