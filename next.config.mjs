@@ -3,8 +3,12 @@ import { createMDX } from 'fumadocs-mdx/next';
 const withMDX = createMDX();
 
 // Agent 发现用的 Link 头值（RFC 8288）。/llms.txt 在默认语言裸路径，两站各自正确。
-const AGENT_LINK_HEADER =
-  '</.well-known/api-catalog>; rel="api-catalog", </llms.txt>; rel="describedby"; type="text/plain"';
+// /auth.md 不在这里：Auth.md 没有定义/注册 Link 关系类型，agent 按固定路径发现它；
+// 自造一个 rel URI 就是编造，不做。
+const AGENT_LINK_HEADER = [
+  '</.well-known/api-catalog>; rel="api-catalog"',
+  '</llms.txt>; rel="describedby"; type="text/plain"',
+].join(', ');
 
 /** @type {import('next').NextConfig} */
 const config = {
