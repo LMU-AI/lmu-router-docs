@@ -25,9 +25,29 @@ const LOCALES = i18n.languages as readonly string[];
 export default function proxy(request: NextRequest): NextResponse {
   const { pathname } = request.nextUrl;
   const seg = pathname.split('/')[1] ?? '';
+  const hasLocale = LOCALES.includes(seg);
+
+  // Markdown for Agents：Accept: text/markdown 的 docs 页请求，内部改写到 /md 静态树
+  // （app/md/[lang]/docs/[[...slug]]，每页 processed markdown）。同一地址栏 URL 既出
+  // HTML（浏览器）也出 markdown（agent）。判据只认精确的 text/markdown——浏览器默认
+  // Accept 是 text/html,...，永不含它，故 HTML 主流程一字不动。
+  //
+  // /md/* 已在下方 matcher 排除，改写目标不会再次进入本函数，无 307 回环风险。
+  // 缓存正确性：HTML 侧靠 CF 对 docs HTML 恒为 cf-cache-status: DYNAMIC（边缘不缓存）
+  // 保证不被跨投；markdown 响应自身带 Vary: Accept（见 lib/llms.ts markdownResponse）。
+  if ((request.headers.get('accept') ?? '').includes('text/markdown')) {
+    const lang = hasLocale ? seg : DEFAULT_LOCALE;
+    const docsBase = hasLocale ? `/${seg}/docs` : '/docs';
+    if (pathname === docsBase || pathname.startsWith(`${docsBase}/`)) {
+      const rest = pathname.slice(docsBase.length); // '' 或 '/guide/models'
+      const url = request.nextUrl.clone();
+      url.pathname = `/md/${lang}/docs${rest}`;
+      return NextResponse.rewrite(url);
+    }
+  }
 
   // 已带语言前缀（/cn/... 或 /en/...）：交给 [lang] 路由渲染，不做任何跳转。
-  if (LOCALES.includes(seg)) {
+  if (hasLocale) {
     return NextResponse.next();
   }
 
@@ -40,9 +60,11 @@ export default function proxy(request: NextRequest): NextResponse {
 export const config = {
   // 只对需要 i18n 的页面路径运行。排除：
   // - api / _next（接口与构建产物）
+  // - md（Markdown for Agents 静态树 /md/[lang]/docs/...）——它已是终点，既是 Accept
+  //   协商的 rewrite 目标、也是被直接抓取的地址，若不排除会被再套一层默认语言前缀而错乱。
   // - opengraph-image（无扩展名的元数据路由，必须显式排除）
   // - 任何带「.」的路径：sitemap.xml / robots.txt / llms.txt / llms-full.txt /
   //   manifest.webmanifest / icon.svg / apple-icon.png / favicon.ico / public 静态资源
   //   —— 若不排除，/sitemap.xml 会被改写成 /cn/sitemap.xml 而 404。
-  matcher: ['/((?!api|_next|opengraph-image|.*\\..*).*)'],
+  matcher: ['/((?!api|_next|md|opengraph-image|.*\\..*).*)'],
 };

@@ -28,6 +28,7 @@ const VARIANT = args.includes('--variant')
 const IS_AI = VARIANT === 'ai';
 const OTHER_PREFIX = IS_AI ? '/cn/' : '/en/'; // 非默认语言的路径前缀（带尾斜杠，供 startsWith）
 const OTHER_SEG = IS_AI ? '/cn' : '/en'; // 同上（不带尾斜杠，供拼接）
+const DEFAULT_LANG = IS_AI ? 'en' : 'cn'; // 默认语言码（裸路径对应），供 /md/{lang}/... 直链
 const DEFAULT_HTML_LANG = IS_AI ? 'en' : 'zh-CN';
 const OTHER_HTML_LANG = IS_AI ? 'zh-CN' : 'en';
 const API_HOST = IS_AI ? 'api.lmuai.ai' : 'api.lmuai.com';
@@ -51,8 +52,8 @@ const check = (since, name, cond, detail) => record(since, name, !!cond, detail)
 // --- HTTP 帮助函数 ---------------------------------------------------------
 const cache = new Map();
 
-async function get(path, { ua, method = 'GET', redirect = 'manual' } = {}) {
-  const key = `${method} ${path} ${ua ?? ''} ${redirect}`;
+async function get(path, { ua, method = 'GET', redirect = 'manual', accept } = {}) {
+  const key = `${method} ${path} ${ua ?? ''} ${redirect} ${accept ?? ''}`;
   if (cache.has(key)) return cache.get(key);
   const url = path.startsWith('http') ? path : BASE + path;
   const t0 = Date.now();
@@ -63,6 +64,7 @@ async function get(path, { ua, method = 'GET', redirect = 'manual' } = {}) {
       redirect,
       headers: {
         'accept-encoding': 'gzip, br',
+        ...(accept ? { accept } : {}),
         ...(ua ? { 'user-agent': ua } : { 'user-agent': 'prodcheck/1.0' }),
       },
       signal: AbortSignal.timeout(30000),
@@ -178,6 +180,13 @@ async function main() {
   check('live', 'robots.txt 含 Sitemap 指向', /Sitemap:\s*https:\/\//.test(robots.body),
     robots.body.match(/Sitemap:.*/)?.[0] ?? '缺失');
   check('live', 'robots.txt 未整站 Disallow', !/^Disallow:\s*\/\s*$/m.test(robots.body), '');
+  // Content Signals（v0.1.34 起）：主动声明肯定授权（允许训练），且绝不能出现 CDN
+  // 「托管 robots」注入的 ai-train=no 段——那会把本站从 GEO 目标里悄悄除名。
+  check('next', 'robots.txt 含 Content-Signal 且允许训练（ai-train=yes）',
+    /Content-Signal:[^\n]*ai-train=yes/.test(robots.body),
+    robots.body.match(/Content-Signal:.*/)?.[0] ?? '缺失');
+  check('next', 'robots.txt 未被注入 ai-train=no / 托管 robots 段',
+    !/ai-train=no/.test(robots.body) && !/Cloudflare Managed content/i.test(robots.body), '');
 
   const llms = await get('/llms.txt');
   check('live', '/llms.txt 200', llms.status === 200, `status=${llms.status}`);
@@ -225,6 +234,29 @@ async function main() {
   }
   const asGpt = await get('/llms.txt', { ua: 'GPTBot/1.0' });
   check('live', 'GPTBot 抓 /llms.txt 得 200', asGpt.status === 200, `status=${asGpt.status}`);
+
+  // Markdown for Agents（v0.1.34 起）：Accept 协商 + /md 静态树 + HTML 头部发现面。
+  // 取一个双站都存在的正文页做样本（models 页中英皆有）。
+  const MD_SAMPLE = '/docs/guide/models';
+  const mdNeg = await get(MD_SAMPLE, { accept: 'text/markdown' });
+  check('next', 'Accept: text/markdown 协商返回 markdown',
+    mdNeg.status === 200 && /text\/markdown/.test(mdNeg.headers['content-type'] ?? ''),
+    `status=${mdNeg.status} type=${mdNeg.headers['content-type']}`);
+  check('next', 'markdown 协商响应是正文而非 HTML',
+    /^#\s/m.test(mdNeg.body) && !/<html/i.test(mdNeg.body), '');
+  const mdDirect = await get(`/md/${DEFAULT_LANG}/docs/guide/models`);
+  check('next', `/md/${DEFAULT_LANG}/docs/... 直链返回 markdown`,
+    mdDirect.status === 200 && /text\/markdown/.test(mdDirect.headers['content-type'] ?? ''),
+    `status=${mdDirect.status} type=${mdDirect.headers['content-type']}`);
+  // 协商不能误伤浏览器：带 text/html 的 Accept 仍返回 HTML。
+  const mdHtml = await get(MD_SAMPLE, { accept: 'text/html,application/xhtml+xml' });
+  check('next', 'text/html 请求仍返回 HTML（协商不误伤浏览器）',
+    mdHtml.status === 200 && /text\/html/.test(mdHtml.headers['content-type'] ?? ''),
+    `status=${mdHtml.status} type=${mdHtml.headers['content-type']}`);
+  // HTML 头部声明 markdown 备用链接（Accept 协商之外的显式发现面）。
+  const modelsHtml = byPathAll.get('/docs/guide/models') ?? mdHtml.body;
+  check('next', 'docs 页 HTML 声明 text/markdown 备用链接',
+    /<link[^>]+type="text\/markdown"/.test(modelsHtml), '');
 
   // --- 4. sitemap 质量 -----------------------------------------------------
   group('4. sitemap 质量');
