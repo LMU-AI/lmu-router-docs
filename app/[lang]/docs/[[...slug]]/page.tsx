@@ -182,6 +182,10 @@ export async function generateMetadata({
   const canonicalPath = docsPath(lang, slug);
   const ogDescription = page.data.ogDescription ?? page.data.description;
 
+  // Markdown for Agents：声明本页的 markdown 备用表述（/md/{lang}/docs/{slug}），
+  // 渲染成 <link rel="alternate" type="text/markdown">，作为 Accept 协商之外的显式发现面。
+  const mdPath = `/md/${lang}/docs${slug && slug.length > 0 ? `/${slug.join('/')}` : ''}`;
+
   // hreflang：只在两种语言都真实存在该页面时互指，避免指向 404。
   // x-default 指默认语言（.com 中文 / .ai 英文）；仅站内互指，不做跨域 alternates。
   const cnExists = !!source.getPage(slug, 'cn');
@@ -204,6 +208,7 @@ export async function generateMetadata({
     alternates: {
       canonical: canonicalPath,
       ...(languages ? { languages } : {}),
+      types: { 'text/markdown': mdPath },
     },
     openGraph: {
       type: 'article',
