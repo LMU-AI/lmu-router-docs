@@ -2,6 +2,10 @@ import { createMDX } from 'fumadocs-mdx/next';
 
 const withMDX = createMDX();
 
+// Agent 发现用的 Link 头值（RFC 8288）。/llms.txt 在默认语言裸路径，两站各自正确。
+const AGENT_LINK_HEADER =
+  '</.well-known/api-catalog>; rel="api-catalog", </llms.txt>; rel="describedby"; type="text/plain"';
+
 /** @type {import('next').NextConfig} */
 const config = {
   output: 'standalone',
@@ -21,6 +25,19 @@ const config = {
           { key: 'Referrer-Policy', value: 'strict-origin-when-cross-origin' },
           { key: 'X-Frame-Options', value: 'SAMEORIGIN' },
         ],
+      },
+      {
+        // Agent 发现（RFC 8288 Link 头）：根路径与文档首页（含两个语言前缀）都带上——
+        // 扫描器/agent 读 / 时拿到 308，跟到 /docs 再读一次，两处都要能看到。
+        //   api-catalog → RFC 9727 目录（/.well-known/api-catalog）
+        //   describedby → 本站的机器可读说明（llms.txt）
+        // 只指向真实存在的资源；相对路径按响应的 origin 解析，两站各自正确。
+        source: '/',
+        headers: [{ key: 'Link', value: AGENT_LINK_HEADER }],
+      },
+      {
+        source: '/:lang(cn|en)?/docs',
+        headers: [{ key: 'Link', value: AGENT_LINK_HEADER }],
       },
     ];
   },

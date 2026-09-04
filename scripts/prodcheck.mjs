@@ -258,6 +258,62 @@ async function main() {
   check('next', 'docs 页 HTML 声明 text/markdown 备用链接',
     /<link[^>]+type="text\/markdown"/.test(modelsHtml), '');
 
+  // API catalog（RFC 9727，v0.1.40 起）+ 首页 Link 头（RFC 8288）。
+  // 只断言「存在、格式合规、每个引用都真实可达」——目录里写了什么由 lib/api-catalog.ts 决定，
+  // 这里替 agent 走一遍：读到 URL 就去 GET，任何一条不可达都算红。
+  const catalog = await get('/.well-known/api-catalog', { accept: 'application/linkset+json' });
+  check('next', '/.well-known/api-catalog 200 且为 application/linkset+json',
+    catalog.status === 200 && /application\/linkset\+json/.test(catalog.headers['content-type'] ?? ''),
+    `status=${catalog.status} type=${catalog.headers['content-type']}`);
+  check('next', 'api-catalog 带 RFC 9727 profile 参数',
+    /profile="https:\/\/www\.rfc-editor\.org\/info\/rfc9727"/.test(catalog.headers['content-type'] ?? ''), '');
+  check('next', 'api-catalog 响应带 rel="api-catalog" 的 Link 头（RFC 9727 §2）',
+    /rel="api-catalog"/.test(catalog.headers.link ?? ''), catalog.headers.link ?? '缺失');
+  let linkset = [];
+  try { linkset = JSON.parse(catalog.body).linkset ?? []; } catch { /* 下面断言会红 */ }
+  check('next', `api-catalog linkset 非空（现 ${linkset.length} 条）`, linkset.length > 0, '');
+  check('next', `api-catalog 每条 anchor 指向本站网关 ${API_HOST}`,
+    linkset.length > 0 && linkset.every((e) => typeof e.anchor === 'string' && new URL(e.anchor).host === API_HOST),
+    linkset.map((e) => e.anchor).join(' '));
+  // 不编造：目录里不该出现 service-desc（网关没有发布 OpenAPI 规范）。
+  check('next', 'api-catalog 不含 service-desc（网关无 OpenAPI，禁止指向假 spec）',
+    linkset.every((e) => !('service-desc' in e)), '');
+  // 每条引用都实测：service-doc 是本站真实页面（含锚点 id），status 是网关 /health。
+  const docRefs = linkset.flatMap((e) => e['service-doc'] ?? []);
+  check('next', 'api-catalog 每条都有 service-doc 且 hreflang 为数组（RFC 9264 §4.2.4.1）',
+    linkset.length > 0 && linkset.every((e) =>
+      Array.isArray(e['service-doc']) && e['service-doc'].length > 0 &&
+      e['service-doc'].every((d) => Array.isArray(d.hreflang) && typeof d.type === 'string')), '');
+  const badDocs = [];
+  for (const d of docRefs) {
+    const u = new URL(d.href);
+    const r = await get(u.origin === new URL(BASE).origin ? u.pathname : u.origin + u.pathname);
+    const id = decodeURIComponent(u.hash.slice(1));
+    if (r.status !== 200) badDocs.push(`${d.href} → ${r.status}`);
+    else if (id && !r.body.includes(`id="${id}"`)) badDocs.push(`${d.href} 锚点 #${id} 不存在`);
+  }
+  check('next', `api-catalog 的 service-doc 全部可达且锚点存在（${docRefs.length} 条）`,
+    docRefs.length > 0 && badDocs.length === 0, badDocs.join('; '));
+  const statusRefs = [...new Set(linkset.flatMap((e) => (e.status ?? []).map((s) => s.href)))];
+  const badStatus = [];
+  for (const href of statusRefs) {
+    const r = await get(href);
+    if (r.status !== 200 || !/"status"\s*:\s*"ok"/.test(r.body)) badStatus.push(`${href} → ${r.status} ${r.body.slice(0, 40)}`);
+  }
+  check('next', `api-catalog 的 status 端点真实健康（${statusRefs.length} 个）`,
+    statusRefs.length > 0 && badStatus.length === 0, badStatus.join('; '));
+  // 首页 Link 头：/（308）与 /docs（200）两跳都要带，且指向的资源要可达。
+  for (const p of ['/', '/docs']) {
+    const r = await get(p);
+    const link = r.headers.link ?? '';
+    check('next', `${p} 响应带 rel="api-catalog" 与 rel="describedby" 的 Link 头`,
+      /rel="api-catalog"/.test(link) && /rel="describedby"/.test(link), link || '缺失');
+  }
+  const describedBy = (root.headers.link ?? '').match(/<([^>]+)>;\s*rel="describedby"/)?.[1];
+  const describedRes = describedBy ? await get(describedBy) : null;
+  check('next', 'Link 头 describedby 指向的资源可达（llms.txt）',
+    describedRes?.status === 200, `${describedBy ?? '缺失'} → ${describedRes?.status ?? '-'}`);
+
   // --- 4. sitemap 质量 -----------------------------------------------------
   group('4. sitemap 质量');
 
