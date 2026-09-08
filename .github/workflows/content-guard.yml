@@ -1,0 +1,47 @@
+# =============================================================================
+# 内容门禁：PR 合并前硬校验「双语对照 + 双站变体」
+# -----------------------------------------------------------------------------
+# 与根 CLAUDE.md / docs-contributing skill 的两条硬规则一一对应：
+#   ① 双语 1:1 + 导航齐全          -> scripts/check-i18n-parity.mjs
+#   ② .ai 变体不漏大陆话术 / 不断链 -> scripts/materialize-variant-content.mjs (SITE_VARIANT=ai)
+#
+# 说明：
+# - 两个脚本都零依赖（仅 node: 内置模块）、且只写 gitignore 产物（content-ai/），
+#   所以这里不需要 `npm ci`，秒级完成。
+# - 故意【不加 paths 过滤】：把本 check 设为分支保护的 required check 时，带 paths
+#   过滤的 workflow 在「未命中路径」的 PR 上永远不上报状态，会把那些 PR 卡死。
+#   本门禁很快，索性每个到 main 的 PR 都跑。
+# - 生效方式：合并本文件后，去 Settings → Branches → main 的保护规则里，把
+#   「content-guard」勾成 Required status check，红了就合不了。
+# =============================================================================
+name: Content Guard
+
+on:
+  pull_request:
+    branches: [main]
+  workflow_dispatch:
+
+permissions:
+  contents: read
+
+jobs:
+  content-guard:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v5
+        with:
+          persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: ① 双语对照（中英 1:1 + 导航齐全）
+        run: node scripts/check-i18n-parity.mjs
+
+      - name: ② .ai 变体守卫（大陆话术泄漏 / 断链）
+        env:
+          SITE_VARIANT: ai
+        run: node scripts/materialize-variant-content.mjs
