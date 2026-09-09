@@ -1,0 +1,262 @@
+---
+title: Crush
+description: 在终端 AI 编程工具 Crush 中接入灵眸 API：用 crushrc 添加自定义 provider，即可使用 Claude、GPT 与国产大模型。
+ogDescription: Crush 终端 AI 编程工具接入灵眸 AI：通过 crushrc 的 provider add / model add 配置 openai-compat 或 anthropic 类型的自定义供应商，在 CLI / TUI 里使用 Claude Opus 5、GPT-5.6、智谱 GLM、通义千问 Qwen、DeepSeek 等模型。
+keywords:
+  - Crush
+  - Crush 配置
+  - Crush 第三方 API
+  - Crush 中转
+  - Crush 接入 Claude
+  - Crush 国产模型
+  - crushrc
+  - crush.json
+  - Charm Crush
+  - 终端 AI 编程工具
+alternateNames:
+  - Crush 接入灵眸
+  - Crush 如何配置第三方 API
+  - Charm Crush 中转配置
+faq:
+  - q: Crush 的配置文件在哪？
+    a: 全局配置是 `~/.config/crush/crushrc`（Windows 为 `%USERPROFILE%\.config\crush\crushrc`）。它是一个 Bash 脚本，Crush 启动时执行。项目级配置可以放当前目录的 `./.crushrc` 或 `./crushrc`，优先级高于全局。注意 `~/.local/share/crush/`（Windows 为 `%LOCALAPPDATA%\crush\`）里的 `crush.json` 是程序自己维护的状态文件，**不要手改**。
+  - q: 网上教程让我改 crush.json，还能用吗？
+    a: 还能用，但已被官方标记为**弃用**（deprecated）——官方明确说新配置项只会加到 Bash 配置里，JSON 不再收新特性。建议直接用 `crushrc`。如果你已有 JSON 配置，可以启动 Crush 后直接用自然语言让它帮你转换成 crushrc。
+  - q: provider 的 `--type` 该填什么？
+    a: 接灵眸的 OpenAI 兼容接口填 `openai-compat`，接 Anthropic 协议填 `anthropic`。**不要填 `openai`** —— 按官方说明，`openai` 用于请求真正经由 OpenAI 转发的场景，非 OpenAI 厂商的兼容接口一律用 `openai-compat`，填错会影响使用体验。
+  - q: Base URL 要不要带 `/v1`？
+    a: 两种类型规则相反。`--type anthropic` 填 `https://api.lmuai.com`（**不带** `/v1`，Crush 会自己拼 `/v1/messages`；填了会变成 `/v1/v1/messages` 报 404）。`--type openai-compat` 填 `https://api.lmuai.com/v1`（**要带** `/v1`）。
+  - q: 配好了但 `/models` 里看不到灵眸的模型？
+    a: Crush 内置模型清单来自 Catwalk 数据库，灵眸的模型 ID 不在其中，需要自己用 `model add <provider>/<模型ID>` 注册一遍。注册后重启 Crush，在会话里执行 `/models` 就能选到。
+  - q: API Key 直接写在 crushrc 里可以吗？
+    a: 可以，`--api-key` 后面直接填灵眸后台生成的 `sk-` 开头密钥即可，这是最常见的用法。需要注意的是官方提醒：crushrc 和 crush.json 都属于**受信任代码**，启动前会以你的 shell 权限执行，所以不要在没审阅过配置的目录里启动 Crush。
+---
+
+Crush 是 [Charm](https://charm.land) 出品的终端 AI 编程工具，同时提供 CLI 与 TUI 界面，可在命令行环境下完成代码生成、调试、对话、文件操作与多任务处理。它支持自定义供应商，本页说明如何接入灵眸。
+
+---
+
+## 安装 Crush
+
+按你的系统选择任一方式：
+
+<Tabs items={['Homebrew（macOS 推荐）', 'NPM（跨平台）', 'Windows', 'Arch Linux', 'Nix']}>
+<Tab value="Homebrew（macOS 推荐）">
+
+```bash
+brew install charmbracelet/tap/crush
+```
+
+</Tab>
+<Tab value="NPM（跨平台）">
+
+```bash
+npm install -g @charmland/crush
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+winget install charmbracelet.crush
+```
+
+或使用 Scoop：
+
+```powershell
+scoop bucket add charm https://github.com/charmbracelet/scoop-bucket.git
+scoop install crush
+```
+
+</Tab>
+<Tab value="Arch Linux">
+
+```bash
+yay -S crush-bin
+```
+
+</Tab>
+<Tab value="Nix">
+
+```bash
+nix run github:numtide/nix-ai-tools#crush
+```
+
+</Tab>
+</Tabs>
+
+---
+
+## 配置灵眸
+
+Crush 用 **Bash 脚本**做配置。编辑全局配置文件：
+
+- **macOS / Linux**：`~/.config/crush/crushrc`
+- **Windows**：`%USERPROFILE%\.config\crush\crushrc`
+
+配置分两步：先用 `provider add` 添加灵眸这个供应商，再用 `model add` 注册要用的模型。按你要使用的模型类型选择对应协议：
+
+<Tabs items={['GPT / 通用（openai-compat）', 'Claude / 国产模型（anthropic）']}>
+<Tab value="GPT / 通用（openai-compat）">
+
+适用于 `gpt-5.6-sol`、`gpt-5.5` 等 OpenAI 模型；Claude 与国产模型也可以走这个协议（灵眸后端会做协议转换）。
+
+```bash
+# 添加灵眸供应商（OpenAI 兼容协议）
+provider add lmuai \
+  --type openai-compat \
+  --base-url "https://api.lmuai.com/v1" \
+  --api-key "sk-你的灵眸API密钥"
+
+# 注册要用的模型
+model add lmuai/gpt-5.6-sol --name "GPT-5.6 Sol" --context-window 400000
+model add lmuai/claude-opus-5 --name "Claude Opus 5" --context-window 200000
+
+# 设为默认的大模型槽位
+model large lmuai/claude-opus-5
+```
+
+<Callout type="warn" title="类型要填 openai-compat，不是 openai">
+
+Crush 对 OpenAI 有两种类型，按官方说明：`openai` 用于请求**真正经由 OpenAI 转发**的场景，`openai-compat` 用于**非 OpenAI 厂商提供的 OpenAI 兼容接口**。接灵眸属于后者，填 `openai-compat`。
+
+</Callout>
+
+</Tab>
+<Tab value="Claude / 国产模型（anthropic）">
+
+适用于 `claude-opus-5`、`claude-sonnet-5`、`qwen3.8-max-preview`、`deepseek-v4-pro`、`glm-5.2`、`kimi-k3` 等走 Anthropic 协议的模型。
+
+```bash
+# 添加灵眸供应商（Anthropic 协议）
+provider add lmuai-anthropic \
+  --type anthropic \
+  --base-url "https://api.lmuai.com" \
+  --api-key "sk-你的灵眸API密钥" \
+  --extra-header anthropic-version 2023-06-01
+
+# 注册要用的模型
+model add lmuai-anthropic/claude-opus-5 \
+  --name "Claude Opus 5" \
+  --context-window 200000 \
+  --can-reason true \
+  --supports-images true
+
+model add lmuai-anthropic/glm-5.2 --name "GLM-5.2" --context-window 200000
+
+# 设为默认的大模型槽位
+model large lmuai-anthropic/claude-opus-5
+```
+
+<Callout type="warn" title="Anthropic 协议的地址不要带 /v1">
+
+`--base-url` 填 `https://api.lmuai.com` 即可，**不要**写成 `https://api.lmuai.com/v1` —— Crush 会自己在后面拼 `/v1/messages`。多填一层会请求到 `/v1/v1/messages`，报错：
+
+```
+not found: POST "https://api.lmuai.com/v1/v1/messages": 404 Not Found
+```
+
+这一点和 `openai-compat` 相反（那边要带 `/v1`），别混用。
+
+</Callout>
+
+</Tab>
+</Tabs>
+
+<Callout type="warn" title="配置文件是受信任代码">
+
+官方提醒：`crushrc` 会以你的 shell 权限在界面出现前执行，`crush.json` 里的 `$(...)` 也会在加载时运行。**不要在没审阅过配置的目录里启动 Crush**，也不要直接 `source` 来路不明的配置。
+
+</Callout>
+
+---
+
+## 开始使用
+
+配置完成后重启 Crush：
+
+```bash
+crush
+```
+
+在会话里输入以下命令切换模型：
+
+```
+/models
+```
+
+<Callout type="info" title="/models 里看不到灵眸的模型？">
+
+Crush 内置的模型清单来自 [Catwalk](https://github.com/charmbracelet/catwalk) 数据库，灵眸的模型 ID 不在其中。必须先用 `model add <供应商>/<模型ID>` 注册，重启后才会出现在 `/models` 列表里。
+
+</Callout>
+
+---
+
+## 常用模型 ID
+
+| 模型 ID | 说明 |
+|------|------|
+| `claude-opus-5` | Claude Opus 5（旗舰，推荐） |
+| `claude-sonnet-5` | Claude Sonnet 5（平衡） |
+| `claude-haiku-4-5` | Claude Haiku 4.5（高速） |
+| `gpt-5.6-sol` | GPT-5.6 Sol |
+| `glm-5.2` | 智谱 GLM-5.2 |
+| `qwen3.8-max-preview` | 通义千问 3.8 Max Preview |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k3` | Kimi K3 |
+
+不知道填什么模型？前往 [模型广场](../guide/models) 查看全部可用模型 ID 并一键复制。
+
+---
+
+## 旧版 JSON 配置
+
+<Callout type="warn" title="crush.json 已被官方标记为弃用">
+
+Crush 早期使用 `crush.json`，现已**弃用**——官方明确说明会继续支持，但新配置项只会加到 Bash 配置（`crushrc`）里。网上不少教程还在教 JSON 写法，**新配置建议直接用上面的 `crushrc`**。
+
+已有 JSON 配置想迁移？启动 Crush 后直接用自然语言让它帮你转换即可。
+
+</Callout>
+
+如果你确实要用 JSON，格式如下（放在项目目录或 `~/.config/crush/` 下的 `crush.json`）：
+
+```json
+{
+  "$schema": "https://charm.land/crush.json",
+  "providers": {
+    "lmuai": {
+      "id": "lmuai",
+      "name": "LMU AI",
+      "type": "openai-compat",
+      "base_url": "https://api.lmuai.com/v1",
+      "api_key": "sk-你的灵眸API密钥",
+      "models": [
+        {
+          "id": "claude-opus-5",
+          "name": "Claude Opus 5",
+          "context_window": 200000,
+          "default_max_tokens": 32000
+        }
+      ]
+    }
+  }
+}
+```
+
+<Callout type="warn" title="JSON 里 type 和 models 不能省">
+
+只写 `id` / `name` / `base_url` / `api_key` 四个字段是配不起来的：`type` 决定用哪种协议（不写会走默认判断），`models` 决定 `/models` 里能选到什么。这是照抄简化示例最常见的失败原因。
+
+</Callout>
+
+---
+
+## 注意事项
+
+- 配置文件是 `~/.config/crush/crushrc`（Windows 为 `%USERPROFILE%\.config\crush\crushrc`）；`~/.local/share/crush/crush.json` 是程序状态文件，**别手改**
+- 接灵眸的 OpenAI 兼容接口用 `--type openai-compat`（**不是** `openai`）；接 Anthropic 协议用 `--type anthropic`
+- **两种类型的 `--base-url` 写法相反**：`anthropic` 填 `https://api.lmuai.com`（不带 `/v1`），`openai-compat` 填 `https://api.lmuai.com/v1`（带 `/v1`）。Anthropic 多填 `/v1` 会拼成 `/v1/v1/messages` 报 404
+- API Key 直接填灵眸后台生成的 `sk-` 开头密钥即可
+- 灵眸的模型不在 Crush 内置清单中，必须 `model add` 注册后才会出现在 `/models` 里
