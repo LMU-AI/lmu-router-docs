@@ -1,0 +1,133 @@
+---
+title: ZCode
+description: Add a custom provider in the ZCode editor to connect to the LMU AI API — one entry holds both the Anthropic and OpenAI endpoints, giving you Claude, GPT and Chinese models.
+ogDescription: Connect the ZCode editor to LMU AI — go to Settings → Model Providers → Add provider, enter the Anthropic / OpenAI endpoints and your sk- key, then add model IDs manually to use Claude Opus 5, GPT-5.6, GLM, Qwen, DeepSeek and more.
+keywords:
+  - ZCode
+  - ZCode config
+  - ZCode third-party API
+  - ZCode relay
+  - ZCode custom provider
+  - Connect ZCode to Claude
+  - ZCode Chinese models
+  - ZCode add model
+  - Agentic Development Environment
+alternateNames:
+  - Connect ZCode to LMU AI
+  - How to configure a third-party API in ZCode
+  - ZCode custom provider setup
+faq:
+  - q: How do I connect ZCode to LMU AI?
+    a: 'Open **Settings → Model Providers**, click "Add provider" at the bottom of the provider list on the left, give it any name (e.g. `LMU AI`), set the Anthropic endpoint to `https://api.lmuai.com` and the OpenAI endpoint to `https://api.lmuai.com/v1`, enter the `sk-` key generated in the LMU AI console, then save, click "Add model" to enter a model ID manually (e.g. `claude-opus-5`), and switch the enable toggle on.'
+  - q: Do the endpoints need a `/v1` suffix?
+    a: The two protocols differ. The **Anthropic endpoint** takes `https://api.lmuai.com` (**no** `/v1` — the client appends `/v1/messages` itself), while the **OpenAI endpoint** takes `https://api.lmuai.com/v1` (**with** `/v1`). This matches the official examples for third-party providers, where Anthropic-style entries use the bare host and OpenAI-style entries go down to `/v1`.
+  - q: LMU AI models don't appear in the model picker
+    a: 'Custom providers don''t fetch a model list automatically. After saving the provider, click "**Add model**" and enter the model ID by hand (e.g. `claude-opus-5`, `glm-5.2`), then switch the enable toggle on. It will then be selectable in the model picker in the chat box.'
+  - q: Can I change the context window for a custom provider's models?
+    a: Yes. In **Settings → Model Providers**, open a model and expand "**Advanced**" to set the context window and max output tokens for that individual model. LMU AI's mainline Claude models support a 1M context window — use a model ID with the `[1M]` suffix (e.g. `claude-opus-5[1M]`) to enable it.
+  - q: Why are the thinking-effort levels different from the official endpoint?
+    a: This is documented ZCode behaviour — a third-party deployment of a same-named model may accept different effort levels than the official endpoint, and custom models typically offer only an on/off pair or no levels at all, depending on the model configuration. Functionality is unaffected; just use it as normal.
+  - q: Does ZCode's HTTP proxy setting affect requests to LMU AI?
+    a: Yes. The HTTP proxy in ZCode's settings isn't a global proxy, but model requests are among the traffic that goes through it. If a proxy is stopping you from connecting, turn it off and retry — and note that the `HTTP_PROXY` / `HTTPS_PROXY` environment variables apply too, and ZCode needs a restart after changing them.
+---
+
+ZCode is an Agentic Development Environment (ADE) desktop app built for long-horizon tasks. It supports custom providers for any model service that speaks the Anthropic or OpenAI protocol — this page covers connecting it to LMU AI.
+
+---
+
+## Install ZCode
+
+Download and install the build for your operating system from the official site:
+
+- Website: [https://zcode.z.ai](https://zcode.z.ai)
+
+---
+
+## Add LMU AI as a provider
+
+Open **Settings → Model Providers** and click "**Add provider**" at the **bottom** of the provider list on the left, then fill in:
+
+| Field | Value |
+|------|------|
+| **Name** | anything you like, e.g. `LMU AI` |
+| **Anthropic endpoint** | `https://api.lmuai.com` |
+| **OpenAI endpoint** | `https://api.lmuai.com/v1` |
+| **API Key** | the `sk-` key generated in the LMU AI console |
+
+<Callout type="warn" title="The two endpoints take different /v1 forms">
+
+- **Anthropic endpoint**: `https://api.lmuai.com` — **no** `/v1`; the client appends `/v1/messages` itself
+- **OpenAI endpoint**: `https://api.lmuai.com/v1` — **must** include `/v1`
+
+Mixing them up produces a 401 or 404. Both addresses can live in the same provider entry — ZCode uses whichever protocol matches the model you pick.
+
+</Callout>
+
+---
+
+## Add models
+
+Custom providers **don't fetch a model list automatically**, so add them by hand:
+
+1. Save the provider configuration
+2. Click "**Add model**"
+3. Enter the model ID manually, e.g. `claude-opus-5`
+4. Switch the **enable toggle** on
+
+Repeat for each model you want. Common model IDs:
+
+| Model ID | Notes |
+|------|------|
+| `claude-opus-5` | Claude Opus 5 (flagship, recommended) |
+| `claude-sonnet-5` | Claude Sonnet 5 (balanced) |
+| `claude-haiku-4-5` | Claude Haiku 4.5 (fast) |
+| `gpt-5.6-sol` | GPT-5.6 Sol |
+| `glm-5.2` | GLM-5.2 |
+| `qwen3.8-max-preview` | Qwen 3.8 Max Preview |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k3` | Kimi K3 |
+
+Not sure which model to enter? Go to the [Model Gallery](/en/docs/guide/models) to see every available model ID and copy it with one click.
+
+---
+
+## Enable the 1M context window
+
+Mainline models such as `claude-opus-5` and `claude-sonnet-5` support a 1M token context window — add the `[1M]` suffix to the model ID to enable it:
+
+```
+claude-opus-5[1M]
+```
+
+Enter the full ID with the suffix using the "Add model" steps above.
+
+<Callout type="info" title="The context window can be tuned per model">
+
+In **Settings → Model Providers**, open a model and expand "**Advanced**" to set the **context window** and **max output tokens** for that individual model. Both are editable for a custom provider's models.
+
+Leaving max output tokens empty is recommended (it then follows the model's own limit). Note that output space shares the same context as your conversation history, so the higher you set it, the less history can be carried and the sooner automatic compaction kicks in.
+
+</Callout>
+
+---
+
+## Verify the setup
+
+**Restart ZCode** once configured, select your newly added model in the chat box's model picker, and send a simple instruction to test. A normal reply means you're set.
+
+<Callout type="info" title="Can't connect? Check the proxy first">
+
+The HTTP proxy in ZCode's settings isn't a global proxy, but **model requests do go through it**. If a proxy is breaking the connection, turn it off and retry. The `HTTP_PROXY` / `HTTPS_PROXY` environment variables apply as well, and ZCode needs a restart after you change them.
+
+</Callout>
+
+---
+
+## Notes
+
+- LMU AI is a third-party / custom provider, so create it with "**Add provider**" at the bottom of the list — don't modify the built-in vendor entries
+- The **Anthropic endpoint** takes `https://api.lmuai.com` (no `/v1`); the **OpenAI endpoint** takes `https://api.lmuai.com/v1` (with `/v1`)
+- For the API Key, enter the `sk-` key generated in the LMU AI console
+- Custom providers require adding each model by hand and switching its enable toggle on before it shows up in the picker
+- A third-party deployment of a same-named model may offer different **thinking-effort levels** than the official endpoint; custom models typically expose only an on/off pair, or none at all
+- If you hit image-related errors with a custom model, confirm the model itself accepts image input and declare its image capability in the model configuration
