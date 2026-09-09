@@ -1,0 +1,214 @@
+---
+title: CodeBuddy
+description: 在腾讯云代码助手 CodeBuddy 中用 models.json 接入灵眸 API：填入完整的 /chat/completions 端点即可使用 Claude、GPT 与国产大模型。
+ogDescription: CodeBuddy 接入灵眸 AI：编辑 ~/.codebuddy/models.json 自定义模型，url 填 https://api.lmuai.com/v1/chat/completions 与 sk- 密钥，即可在对话框里使用 Claude Opus 5、GPT-5.6、通义千问 Qwen、DeepSeek 等模型；支持热重载与项目级配置。
+keywords:
+  - CodeBuddy
+  - CodeBuddy 配置
+  - CodeBuddy 第三方 API
+  - CodeBuddy 中转
+  - CodeBuddy models.json
+  - CodeBuddy 自定义模型
+  - CodeBuddy 接入 Claude
+  - 腾讯云代码助手
+  - availableModels
+alternateNames:
+  - CodeBuddy 接入灵眸
+  - CodeBuddy 如何配置第三方 API
+  - 腾讯云代码助手接入灵眸
+faq:
+  - q: CodeBuddy 的 models.json 放在哪？
+    a: 两个级别都支持。**用户级**（推荐）：`~/.codebuddy/models.json`，全局生效；**项目级**：`<项目根目录>/.codebuddy/models.json`，优先级更高。合并优先级从高到低是：项目级 → 用户级 → 内置默认配置，相同 `id` 的模型会被覆盖。
+  - q: url 字段填 base URL 还是完整路径？
+    a: 必须填**完整路径**，一般以 `/chat/completions` 结尾。灵眸填 `https://api.lmuai.com/v1/chat/completions`。官方明确把 `https://api.example.com/v1` 和 `https://api.myservice.com` 这类只填到一半的写法列为**错误示例**，很多教程照抄会配不起来。
+  - q: CodeBuddy 支持 Anthropic 协议吗？
+    a: 不支持。官方说明「目前仅支持 OpenAI 接口格式的 API」，所以接灵眸要走 OpenAI 兼容协议（`/v1/chat/completions`）。想用 Claude 系列模型也没问题——把 `claude-opus-5` 这类模型 ID 填进去即可，灵眸后端会做 OpenAI ↔ Anthropic 协议转换。
+  - q: 配好了但模型下拉列表里看不到？
+    a: 依次检查：① `availableModels` 字段如果配了，只有列在里面的模型 ID 才会显示（不配或配空数组则显示全部）；② JSON 格式是否合法（少了逗号、多了尾逗号都会导致整个文件失效）；③ 必填的 `id` 字段是否有；④ 文件是否真的保存到磁盘了。
+  - q: 改完配置要重启 CodeBuddy 吗？
+    a: 不用。models.json 支持**热重载**，文件变更会被自动检测（有 1 秒防抖延迟），配置更新后自动同步到应用。如果没生效，先确认文件确实已保存。
+  - q: 怎么只显示灵眸的模型、把内置模型藏起来？
+    a: 用 `availableModels` 字段列出你只想看到的模型 ID。注意它在项目级会**完全覆盖**用户级（不做合并）。另外官方提醒：删除 `availableModels` 字段时，要把上一行 `models` 数组末尾多出来的逗号一起删掉，否则 JSON 不合法。
+---
+
+CodeBuddy（腾讯云代码助手）是一款 AI 代码编辑器，支持通过 `models.json` 配置文件自定义模型列表。本页说明如何接入灵眸。
+
+---
+
+## 安装并登录
+
+1. 前往官网下载并安装适合你操作系统的版本：[https://www.codebuddy.cn](https://www.codebuddy.cn/home/)
+2. 按提示完成 CodeBuddy 账号登录
+
+---
+
+## 配置灵眸
+
+### 第 1 步：确定配置文件位置
+
+| 级别 | 路径 | 说明 |
+|------|------|------|
+| **用户级**（推荐） | `~/.codebuddy/models.json` | 全局配置，适用于所有项目 |
+| **项目级** | `<项目根目录>/.codebuddy/models.json` | 项目专属，优先级高于用户级 |
+
+文件不存在就新建。合并优先级从高到低：项目级 → 用户级 → 内置默认配置。
+
+### 第 2 步：写入配置
+
+以用户级 `~/.codebuddy/models.json` 为例：
+
+```json
+{
+  "models": [
+    {
+      "id": "claude-opus-5",
+      "name": "Claude Opus 5（灵眸）",
+      "vendor": "LMU AI",
+      "apiKey": "sk-你的灵眸API密钥",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 32000,
+      "supportsToolCall": true,
+      "supportsImages": true,
+      "supportsReasoning": true
+    },
+    {
+      "id": "gpt-5.6-sol",
+      "name": "GPT-5.6 Sol（灵眸）",
+      "vendor": "LMU AI",
+      "apiKey": "sk-你的灵眸API密钥",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "maxInputTokens": 400000,
+      "maxOutputTokens": 32000,
+      "supportsToolCall": true
+    }
+  ]
+}
+```
+
+<Callout type="warn" title="url 必须是完整路径，不是 Base URL">
+
+`url` 字段要填**接口完整路径**，以 `/chat/completions` 结尾：
+
+- ✅ 正确：`https://api.lmuai.com/v1/chat/completions`
+- ❌ 错误：`https://api.lmuai.com/v1`
+- ❌ 错误：`https://api.lmuai.com`
+
+这是照抄简化示例最常见的失败原因——很多教程把它当成 Base URL 填，CodeBuddy 会请求不到接口。
+
+</Callout>
+
+<Callout type="info" title="CodeBuddy 只支持 OpenAI 接口格式">
+
+官方说明目前**仅支持 OpenAI 接口格式**的 API，所以接灵眸走 OpenAI 兼容协议。
+
+想用 Claude 系列也没问题：把 `claude-opus-5` 这类模型 ID 直接填进去，灵眸后端会做 OpenAI ↔ Anthropic 协议转换。
+
+</Callout>
+
+### 第 3 步：选择模型开始对话
+
+保存文件即可 —— models.json **支持热重载**（1 秒防抖），不用重启 CodeBuddy。在对话框的模型选择器里选中刚配置的模型即可使用。
+
+通过 models.json 添加的模型会自动带上 `custom` 标签，方便在 UI 里识别。
+
+---
+
+## 字段说明
+
+`models` 数组里每一项的可用字段：
+
+| 字段 | 类型 | 必填 | 说明 |
+|------|------|------|------|
+| `id` | string | ✓ | 模型唯一标识符，填灵眸的模型 ID |
+| `name` | string | - | 下拉列表里显示的名称 |
+| `vendor` | string | - | 供应商名称，自定义即可 |
+| `apiKey` | string | - | 灵眸后台生成的 `sk-` 开头密钥（填实际密钥值，不是环境变量名） |
+| `url` | string | - | 接口完整路径，灵眸填 `https://api.lmuai.com/v1/chat/completions` |
+| `maxInputTokens` | number | - | 最大输入 token 数 |
+| `maxOutputTokens` | number | - | 最大输出 token 数 |
+| `supportsToolCall` | boolean | - | 是否支持工具调用 |
+| `supportsImages` | boolean | - | 是否支持图片输入 |
+| `supportsReasoning` | boolean | - | 是否支持推理模式 |
+
+---
+
+## 只显示指定模型
+
+用顶层的 `availableModels` 字段控制下拉列表里显示哪些模型：
+
+```json
+{
+  "models": [
+    {
+      "id": "claude-opus-5",
+      "name": "Claude Opus 5（灵眸）",
+      "apiKey": "sk-你的灵眸API密钥",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "supportsToolCall": true
+    }
+  ],
+  "availableModels": ["claude-opus-5"]
+}
+```
+
+- 不配置或配成空数组 → 显示所有模型
+- 配置后 → 只显示列出的模型 ID（可同时包含内置模型与自定义模型）
+- 项目级的 `availableModels` 会**完全覆盖**用户级，不做合并
+
+<Callout type="warn" title="删掉 availableModels 时注意逗号">
+
+官方提醒：删除 `availableModels` 字段后，要把上方 `models` 数组末尾多出来的 `,` 一起删掉，否则 JSON 不合法、整个配置都不生效。
+
+</Callout>
+
+---
+
+## 常用模型 ID
+
+| 模型 ID | 说明 |
+|------|------|
+| `claude-opus-5` | Claude Opus 5（旗舰，推荐） |
+| `claude-sonnet-5` | Claude Sonnet 5（平衡） |
+| `claude-haiku-4-5` | Claude Haiku 4.5（高速） |
+| `gpt-5.6-sol` | GPT-5.6 Sol |
+| `glm-5.2` | 智谱 GLM-5.2 |
+| `qwen3.8-max-preview` | 通义千问 3.8 Max Preview |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k3` | Kimi K3 |
+
+不知道填什么模型？前往 [模型广场](../guide/models) 查看全部可用模型 ID 并一键复制。
+
+需要 1M 长上下文时，把模型 ID 写成带 `[1M]` 后缀的形式（如 `claude-opus-5[1M]`）并把 `maxInputTokens` 调大即可。
+
+---
+
+## 常见问题
+
+### 配置没生效？
+
+1. 检查 **JSON 格式**是否合法（缺逗号、尾逗号是最常见原因）
+2. 确认**文件路径**正确（`~/.codebuddy/models.json`）
+3. 确认必填的 `id` 字段都有
+4. 确认文件确实**保存到磁盘**了（热重载有 1 秒防抖延迟）
+
+### 模型不在下拉列表里？
+
+- 如果配了 `availableModels`，检查模型 ID 是否列在其中
+- 检查 `models` 数组里的配置是否完整
+
+### 报 401 / 404？
+
+- **401**：`apiKey` 是不是灵眸后台生成的 `sk-` 开头密钥
+- **404**：`url` 十有八九漏了 `/chat/completions`，必须是完整路径
+
+---
+
+## 注意事项
+
+- `url` 必须是**接口完整路径** `https://api.lmuai.com/v1/chat/completions`，不能只填到 `/v1` 或域名
+- CodeBuddy **只支持 OpenAI 接口格式**，Claude 系列模型走灵眸的协议转换即可
+- `apiKey` 填实际密钥值，不支持填环境变量名
+- 配置支持**热重载**，保存即生效，无需重启
+- 每个模型条目都要各自写一份 `apiKey` 和 `url`
+- 项目级配置会按 `id` 覆盖用户级；`availableModels` 则是整字段覆盖、不合并
