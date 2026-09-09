@@ -38,6 +38,25 @@ const OTHER_UPDATED_MARK = IS_AI ? '最后更新' : 'Last updated';
 // 页面是否英文页（description 长度阈值等按此分流）。
 const isEnPath = (p) => (IS_AI ? !p.startsWith('/cn/') : p.startsWith('/en/'));
 
+// —— 多语言模型（与 lib/i18n.ts 同源；prodcheck 为 .mjs 不能 import .ts，故在此镜像一份） ——
+// 站点变体只决定「哪个语言在裸路径」（com 裸=cn、ai 裸=en）；其余语言一律带 /<code>/ 前缀。
+// 扩语言时改这里（连同 lib/i18n.ts）即可，下面所有按页断言随之泛化到 N 语。
+const HTML_LANG = { cn: 'zh-CN', en: 'en', ja: 'ja', ko: 'ko', es: 'es', pt: 'pt-BR', de: 'de', fr: 'fr', ru: 'ru', ar: 'ar' };
+const ALL_LANGS = Object.keys(HTML_LANG);
+const ROOT_LANG = IS_AI ? 'en' : 'cn'; // 裸路径承载的语言码
+// CJK 表意/音节文字描述天然紧凑，其余（拉丁/西里尔/阿拉伯）更长 —— description 长度按此分档。
+const CJK_LANGS = new Set(['cn', 'ja', 'ko']);
+// 路径 → 语言码：首段是「已注册且非裸」语言则取之，否则为裸语言。
+const langOf = (p) => {
+  const seg = (p.match(/^\/([a-z]{2})(?:\/|$)/) || [])[1];
+  return seg && ALL_LANGS.includes(seg) && seg !== ROOT_LANG ? seg : ROOT_LANG;
+};
+// 去掉非裸语言前缀 → 该逻辑页的「裸 slug」（同一页各语言版本归一到同一 slug）。
+const slugOf = (p) => {
+  const m = p.match(/^\/([a-z]{2})(\/.*)$/);
+  return m && ALL_LANGS.includes(m[1]) && m[1] !== ROOT_LANG ? m[2] : p;
+};
+
 const results = [];
 let currentGroup = '';
 
@@ -451,7 +470,8 @@ async function main() {
       // 英文描述天然更长（同一句信息量，拉丁字符数远多于汉字），SERP 截断也按像素/字符
       // 更宽——中文按 40–100 卡，英文放宽到 70–160，避免把合规的英文页误判越界。
       // 英文页的判定随变体走：com 上英文带 /en 前缀；ai 上英文在裸路径。
-      const [descLo, descHi] = isEnPath(p) ? [70, 160] : [40, 100];
+      // 按脚本分档：CJK（中日韩）紧凑，其余（拉丁/西里尔/阿拉伯）更长，SERP 截断也更宽。
+      const [descLo, descHi] = CJK_LANGS.has(langOf(p)) ? [40, 120] : [70, 170];
       if (len < descLo || len > descHi) issues.descLen.push(`${p}: ${len} 字`);
     }
 
@@ -459,30 +479,30 @@ async function main() {
     if (h1s.length !== 1) issues.h1.push(`${p}: ${h1s.length} 个`);
 
     if (!meta(html, 'og:title') || !meta(html, 'og:description')) issues.og.push(p);
-    const wantLang = p.startsWith(OTHER_PREFIX) ? OTHER_HTML_LANG : DEFAULT_HTML_LANG;
+    const wantLang = HTML_LANG[langOf(p)];
     if (!new RegExp(`<html[^>]+lang="${wantLang}"`).test(html)) issues.lang.push(`${p}: 期望 ${wantLang}`);
   }
   check('live', `每页 canonical 存在且自指（${pageBodies.size} 页）`, issues.canonical.length === 0,
     issues.canonical.slice(0, 6).join('; '));
   check('live', '每页有非空 <title>', issues.title.length === 0, issues.title.slice(0, 6).join('; '));
   check('live', '每页有 meta description', issues.desc.length === 0, issues.desc.slice(0, 6).join('; '));
-  check('next', 'description 长度合规（中文 40–100 / 英文 70–160）', issues.descLen.length === 0,
+  check('next', 'description 长度合规（CJK 40–120 / 其余 70–170）', issues.descLen.length === 0,
     `${issues.descLen.length} 页越界: ` + issues.descLen.slice(0, 8).join('; '));
   check('next', '每页恰好 1 个 <h1>', issues.h1.length === 0, issues.h1.slice(0, 6).join('; '));
   check('live', '每页有 og:title / og:description', issues.og.length === 0, issues.og.slice(0, 6).join('; '));
-  check('live', `每页 <html lang> 与语言匹配（裸=${DEFAULT_HTML_LANG} / ${OTHER_SEG}=${OTHER_HTML_LANG}）`, issues.lang.length === 0, issues.lang.slice(0, 6).join('; '));
+  check('live', `每页 <html lang> 与语言匹配（${ALL_LANGS.length} 语，裸=${HTML_LANG[ROOT_LANG]}）`, issues.lang.length === 0, issues.lang.slice(0, 6).join('; '));
 
   const docsHome = byPathAll.get('/docs') ?? (await get('/docs')).body;
   check('live', '首页 twitter:card 已设', !!meta(docsHome, 'twitter:card'), meta(docsHome, 'twitter:card'));
   check('live', '未误发 noindex', !/<meta[^>]+name="robots"[^>]+noindex/i.test(docsHome), '');
 
-  // --- 6b. hreflang 双语互指 -----------------------------------------------
-  // 双语站的核心不变量：两版存在时必须互挂 hreflang（zh-CN↔en，x-default→默认语言），
-  // 且**只在两版都存在时**互挂——只有一版的页面绝不能发 hreflang（会指向 404，
-  // 稀释信号）。这条与 app/sitemap.ts、page.tsx 的规则同源，抓的是「翻译补齐后
-  // 某页 hreflang 没跟上」或「未翻译页误发了指向 404 的链接」这类渲染期回归。
-  // 默认语言随变体：com 裸=zh-CN、/en=en；ai 裸=en、/cn=zh-CN。x-default 恒指裸路径。
-  group('6b. hreflang 双语互指');
+  // --- 6b. hreflang 多语互指 -----------------------------------------------
+  // 多语站的核心不变量：同一逻辑页凡存在多个语言版本，各版必须互挂 hreflang
+  // （每个存在的语言一条 + x-default→裸路径版），且**只在存在的版本间**互挂——
+  // 单语页绝不能发 hreflang、也不得挂向不存在语言版的链接（都会指向 404、稀释信号）。
+  // 这条与 app/sitemap.ts、page.tsx 的规则同源，抓的是「翻译补齐后某页 hreflang
+  // 没跟上」或「未翻译页误发了指向 404 的链接」这类渲染期回归。x-default 恒指裸路径。
+  group('6b. hreflang 多语互指');
   const hrefLangs = (html) => {
     const out = {};
     for (const m of (html ?? '').matchAll(/<link\b[^>]*\bhreflang="([^"]+)"[^>]*>/gi)) {
@@ -493,29 +513,38 @@ async function main() {
   };
   const hrefPath = (u) => { try { return new URL(u, BASE).pathname; } catch { return u ?? ''; } };
   const pathToHtml = new Map([...pageBodies].map(([l, h]) => [new URL(l).pathname, h]));
+  // 同一逻辑页的各语言版本归组：slug（去掉非裸语言前缀）→ { 语言码: 路径 }。
+  const bySlug = new Map();
+  for (const p of pathToHtml.keys()) {
+    const slug = slugOf(p);
+    if (!bySlug.has(slug)) bySlug.set(slug, {});
+    bySlug.get(slug)[langOf(p)] = p;
+  }
   const hreflangProblems = [];
-  let hreflangPairs = 0;
-  for (const [p, html] of pathToHtml) {
-    if (p.startsWith(OTHER_PREFIX)) continue; // 从默认语言页迭代，另一语言作为对偶取
-    const otherP = `${OTHER_SEG}${p}`;
-    const langs = hrefLangs(html);
-    if (pathToHtml.has(otherP)) {
-      hreflangPairs++;
-      const want = {
-        [DEFAULT_HTML_LANG]: p,
-        [OTHER_HTML_LANG]: otherP,
-        'x-default': p,
-      };
-      const otherLangs = hrefLangs(pathToHtml.get(otherP));
-      for (const [k, v] of Object.entries(want)) {
-        if (hrefPath(langs[k]) !== v) hreflangProblems.push(`${p}: hreflang ${k} 缺/错`);
-        if (hrefPath(otherLangs[k]) !== v) hreflangProblems.push(`${otherP}: hreflang ${k} 缺/错`);
+  let hreflangGroups = 0;
+  for (const [, byLang] of bySlug) {
+    const langsPresent = Object.keys(byLang);
+    const multi = langsPresent.length > 1;
+    // 期望 alternates：每个存在的语言各一条（键用 HTML lang 码）+ x-default→裸路径版。
+    const want = {};
+    for (const l of langsPresent) want[HTML_LANG[l]] = byLang[l];
+    if (byLang[ROOT_LANG]) want['x-default'] = byLang[ROOT_LANG];
+    if (multi) hreflangGroups++;
+    for (const l of langsPresent) {
+      const emitted = hrefLangs(pathToHtml.get(byLang[l]));
+      if (!multi) {
+        if (Object.keys(emitted).length > 0) hreflangProblems.push(`${byLang[l]}: 单语页却发了 hreflang`);
+        continue;
       }
-    } else if (Object.keys(langs).length > 0) {
-      hreflangProblems.push(`${p}: 无另一语言版却发了 hreflang（会指向 404）`);
+      for (const [k, v] of Object.entries(want)) {
+        if (hrefPath(emitted[k]) !== v) hreflangProblems.push(`${byLang[l]}: hreflang ${k} 缺/错`);
+      }
+      for (const k of Object.keys(emitted)) {
+        if (k !== 'x-default' && !(k in want)) hreflangProblems.push(`${byLang[l]}: hreflang ${k} 多余（无该语言版）`);
+      }
     }
   }
-  check('next', `hreflang 双语页互指且自洽（${hreflangPairs} 对）`, hreflangProblems.length === 0,
+  check('next', `hreflang 多语页互指且自洽（${hreflangGroups} 组）`, hreflangProblems.length === 0,
     hreflangProblems.slice(0, 6).join('; '));
 
   // --- 7. 结构化数据 -------------------------------------------------------
