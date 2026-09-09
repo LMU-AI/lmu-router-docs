@@ -1,0 +1,133 @@
+---
+title: ZCode
+description: 在 ZCode 编辑器中添加自定义供应商接入灵眸 API：一个条目同时填 Anthropic 与 OpenAI 接口地址，即可使用 Claude、GPT 与国产大模型。
+ogDescription: ZCode 编辑器接入灵眸 AI：设置 → 模型供应商 → 添加供应商，填入 Anthropic / OpenAI 接口地址与 sk- 密钥，再手动添加模型 ID，即可使用 Claude Opus 5、GPT-5.6、智谱 GLM、通义千问 Qwen、DeepSeek 等模型。
+keywords:
+  - ZCode
+  - ZCode 配置
+  - ZCode 第三方 API
+  - ZCode 中转
+  - ZCode 自定义供应商
+  - ZCode 接入 Claude
+  - ZCode 国产模型
+  - ZCode 添加模型
+  - Agentic Development Environment
+alternateNames:
+  - ZCode 接入灵眸
+  - ZCode 如何配置第三方 API
+  - ZCode 自定义供应商配置
+faq:
+  - q: ZCode 怎么接入灵眸？
+    a: 打开 **设置 → 模型供应商**，在左侧供应商列表底部点击「添加供应商」，名称自定义（如 `LMU AI`），Anthropic 接口地址填 `https://api.lmuai.com`、OpenAI 接口地址填 `https://api.lmuai.com/v1`，API Key 填灵眸后台生成的 `sk-` 开头密钥，保存后点「添加模型」手动填入模型 ID（如 `claude-opus-5`），开启启用开关即可。
+  - q: 接口地址要不要带 `/v1`？
+    a: 两个协议不一样。**Anthropic 接口地址**填 `https://api.lmuai.com`（**不带** `/v1`，客户端会自己拼 `/v1/messages`）；**OpenAI 接口地址**填 `https://api.lmuai.com/v1`（**要带** `/v1`）。这与官方给第三方供应商的示例写法一致（Anthropic 类填裸主机、OpenAI 类填到 `/v1`）。
+  - q: 模型下拉里没有灵眸的模型怎么办？
+    a: 自定义供应商不会自动拉取模型清单，需要保存供应商后点击「**添加模型**」手动填写模型 ID（如 `claude-opus-5`、`glm-5.2`），并开启启用开关。之后在对话框的模型选择器里就能选到。
+  - q: 自定义供应商的模型可以改上下文窗口吗？
+    a: 可以。在 **设置 → 模型供应商** 里点开某个模型、展开「**高级**」，能为这个模型单独设置上下文窗口和最大输出 Token。灵眸的 Claude 主线模型支持 1M 长上下文，用 `[1M]` 后缀的模型 ID（如 `claude-opus-5[1M]`）即可启用。
+  - q: 为什么思考强度（推理档位）跟官方端点不一样？
+    a: 这是 ZCode 已说明的行为——同名模型的第三方部署，接受的档位可能与官方端点不一致；自定义模型通常只有「开启 / 关闭」两档或不提供档位，具体由模型配置决定。功能不受影响，正常使用即可。
+  - q: ZCode 里设置的 HTTP 代理会影响灵眸的请求吗？
+    a: 会。ZCode 设置里的 HTTP 代理并非全局代理，但模型请求属于走代理的流量。如果你配了代理又发现连不上，先把代理关掉重试，并注意 `HTTP_PROXY` / `HTTPS_PROXY` 环境变量也会生效，改完需要重启 ZCode。
+---
+
+ZCode 是一款面向长周期任务（Long Horizon Task）的 Agentic Development Environment（ADE）桌面应用，支持自定义供应商接入兼容 Anthropic / OpenAI 协议的模型服务。本页说明如何接入灵眸。
+
+---
+
+## 安装 ZCode
+
+前往官网下载并安装适合你操作系统的版本：
+
+- 官网：[https://zcode.z.ai](https://zcode.z.ai)
+
+---
+
+## 添加灵眸供应商
+
+打开 **设置 → 模型供应商**，在左侧供应商列表**底部**点击「**添加供应商**」，按下表填写：
+
+| 字段 | 取值 |
+|------|------|
+| **名称** | 自定义，例如 `LMU AI` |
+| **Anthropic 接口地址** | `https://api.lmuai.com` |
+| **OpenAI 接口地址** | `https://api.lmuai.com/v1` |
+| **API Key** | 灵眸后台生成的 `sk-` 开头密钥 |
+
+<Callout type="warn" title="两个接口地址的 /v1 写法不同">
+
+- **Anthropic 接口地址**：`https://api.lmuai.com` —— **不带** `/v1`，客户端会自己拼 `/v1/messages`
+- **OpenAI 接口地址**：`https://api.lmuai.com/v1` —— **必须带** `/v1`
+
+填反会出现 401 / 404。两个地址可以同时填在同一个供应商条目里，ZCode 会按所选模型走对应协议。
+
+</Callout>
+
+---
+
+## 添加模型
+
+自定义供应商**不会自动拉取模型清单**，需要手动添加：
+
+1. 保存供应商配置
+2. 点击「**添加模型**」
+3. 手动填写模型 ID，例如 `claude-opus-5`
+4. 开启**启用开关**
+
+需要多个模型就重复添加。常用模型 ID：
+
+| 模型 ID | 说明 |
+|------|------|
+| `claude-opus-5` | Claude Opus 5（旗舰，推荐） |
+| `claude-sonnet-5` | Claude Sonnet 5（平衡） |
+| `claude-haiku-4-5` | Claude Haiku 4.5（高速） |
+| `gpt-5.6-sol` | GPT-5.6 Sol |
+| `glm-5.2` | 智谱 GLM-5.2 |
+| `qwen3.8-max-preview` | 通义千问 3.8 Max Preview |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k3` | Kimi K3 |
+
+不知道填什么模型？前往 [模型广场](../guide/models) 查看全部可用模型 ID 并一键复制。
+
+---
+
+## 启用 1M 长上下文
+
+`claude-opus-5`、`claude-sonnet-5` 等主线模型支持 1M token 长上下文，在模型 ID 后加 `[1M]` 后缀即可启用：
+
+```
+claude-opus-5[1M]
+```
+
+按上面「添加模型」的步骤把带后缀的完整 ID 填进去即可。
+
+<Callout type="info" title="上下文窗口可以单独调">
+
+在 **设置 → 模型供应商** 里点开某个模型、展开「**高级**」，可以为这一个模型单独设置**上下文窗口**与**最大输出 Token**。自定义供应商的模型支持修改这两项。
+
+最大输出 Token 建议默认留空（跟随模型自身上限）。注意输出空间与历史对话共用同一个上下文，调得越高能带的历史对话越少，自动压缩也会来得更早。
+
+</Callout>
+
+---
+
+## 验证配置
+
+配置完成后**重启 ZCode**，在对话框的模型选择器里选中刚添加的模型，发送一句简单指令测试。能正常回复即配置成功。
+
+<Callout type="info" title="连不上？先检查代理">
+
+ZCode 设置里的 HTTP 代理不是全局代理，但**模型请求会走代理**。如果配了代理导致连不上，关掉代理重试即可。另外 `HTTP_PROXY` / `HTTPS_PROXY` 环境变量同样生效，改完需要重启 ZCode。
+
+</Callout>
+
+---
+
+## 注意事项
+
+- 灵眸属于「第三方供应商 / 自定义供应商」，请用列表底部的「**添加供应商**」新建，不要改动内置的智谱、Z.ai 等条目
+- **Anthropic 接口地址**填 `https://api.lmuai.com`（不带 `/v1`）；**OpenAI 接口地址**填 `https://api.lmuai.com/v1`（带 `/v1`）
+- API Key 填灵眸后台生成的 `sk-` 开头密钥
+- 自定义供应商必须手动「添加模型」并开启启用开关，模型才会出现在选择器里
+- 同名模型的第三方部署，可用的**思考强度档位**可能与官方端点不同，自定义模型通常只有「开启 / 关闭」两档或不提供档位
+- 使用自定义模型时若遇到图片相关报错，请确认该模型本身支持图片输入，并在模型配置中明确声明图片能力
