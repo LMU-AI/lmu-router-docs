@@ -1,0 +1,47 @@
+---
+title: Cómo usar los tokens
+description: "Gestión de tokens de LMU AI: tokens personales vs. tokens de canal, ver el uso en la consola, establecer una cuota total y una lista blanca de modelos, restablecer la cuota y revocar tokens."
+ogDescription: "Guía de gestión de tokens de LMU AI: distinguir entre tokens personales y tokens de canal, ver la cantidad de llamadas y el consumo de tokens por día / mes en la consola, establecer una cuota total, solicitudes por minuto y una lista blanca de modelos al crear un token, restablecer la cuota y revocar un token en cualquier momento."
+keywords:
+  - uso de tokens de LMU AI
+  - límites de cuota de API key
+  - lista blanca de modelos de API key
+  - estadísticas de uso de tokens
+  - token personal vs token de canal
+  - revocación de API key
+  - límite de solicitudes por minuto
+alternateNames:
+  - gestión de tokens de LMU AI
+  - Ver cuota y uso de API key
+  - Lista blanca y revocación de tokens
+---
+
+
+## Tipos de token
+
+| Tipo | Descripción |
+|------|------|
+| Token personal | Vinculado a tu cuenta, usa tu cuota |
+| Token de canal | Asignado por un administrador, con gestión de cuota independiente |
+
+## Ver el uso
+
+Ve a **consola → Estadísticas de uso** para ver:
+
+- Cantidad de llamadas por día / mes
+- Consumo de tokens
+- Desglose de costos
+- Proporción de uso por modelo
+
+## Límites de cuota
+
+Cuando creas un token, puedes establecer los siguientes límites:
+
+- **Cuota total**: la cuota máxima que este token puede consumir (deja el campo vacío para no tener límite)
+- **Solicitudes por minuto**: protección de límite de velocidad
+- **Lista blanca de modelos**: restringe este token para que solo llame a los modelos especificados
+
+## Restablecer y revocar
+
+- **Restablecer cuota**: puedes restablecer manualmente la cuota usada en la página de gestión de tokens
+- **Revocar token**: eliminar un token surte efecto de inmediato; las solicitudes ya enviadas no se ven afectadas

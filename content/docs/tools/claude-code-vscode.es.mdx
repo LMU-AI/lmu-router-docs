@@ -1,0 +1,203 @@
+---
+title: Extensión de Claude Code (VS Code / Cursor / Trae / Antigravity)
+description: "Descarga VS Code, instala la extensión de Claude Code y conéctala a la API de IA de LMU: un recorrido completo que comparte un mismo settings.json con la CLI."
+ogDescription: "Instala la extensión de Claude Code en VS Code / Cursor / Trae / Antigravity + la API de IA de LMU: usa Claude 4 sin proxy, compartiendo settings.json con la CLI."
+keywords:
+  - Extensión de Claude Code para VS Code
+  - Claude Code Cursor
+  - Claude Code Trae
+  - Claude Code Antigravity
+  - Extensión de Claude para VS Code
+  - Conectar Cursor con Claude
+  - Conectar Trae con Claude
+  - Relé de IDE de Claude
+  - Anthropic VS Code
+  - Descargar VS Code
+  - Guía de instalación de VS Code
+alternateNames:
+  - Conectar Claude Code VS Code / Cursor / Trae con LMU AI
+faq:
+  - q: ¿Qué hago si descargar VS Code desde el sitio oficial es lento?
+    a: "Suele ser porque el navegador descarga el instalador de 100–200 MB en un solo hilo. Copiar los enlaces directos oficiales en una herramienta de descarga que admita multihilo suele ser mucho más rápido; por ejemplo, el instalador de usuario para Windows https://update.code.visualstudio.com/latest/win32-x64-user/stable y la compilación Universal para macOS https://update.code.visualstudio.com/latest/darwin-universal/stable. Estos enlaces directos no contienen número de versión y siempre apuntan a la última versión estable."
+  - q: ¿La extensión de Claude Code necesita configurar su API key por separado?
+    a: "No. La extensión lee ~/.claude/settings.json, exactamente igual que la CLI de Claude Code: reutiliza automáticamente la clave y la Base URL que configuraste en la CLI. VS Code, Cursor, Trae y Antigravity también comparten esta misma configuración, así que un cambio se aplica en todas partes."
+  - q: ¿Cómo soluciono un error 401 / Unauthorized en la extensión?
+    a: "El mismo enfoque que en la CLI: suele deberse a las variables de entorno del shell ANTHROPIC_BASE_URL / ANTHROPIC_API_KEY que anulan la configuración de settings.json. Elimina esas variables de tu archivo de configuración del shell y reinicia el editor."
+  - q: ¿Qué hago si no encuentro la extensión de Claude Code en Cursor / Trae / Antigravity?
+    a: "Algunos editores derivados de VS Code usan una tienda de extensiones privada (como Open VSX); cuando no la encuentres, instálala sin conexión: primero descarga el paquete .vsix desde la página oficial del marketplace de extensiones de VS Code y luego elige Instalar desde VSIX en el menú '…' de la esquina superior derecha del panel de extensiones del editor."
+  - q: ¿Cómo cambio a un modelo chino en la extensión?
+    a: "Agrega \"model\": \"qwen3.8-max-preview\" a ~/.claude/settings.json, y la CLI y todos los editores de la familia VS Code usarán ese modelo automáticamente. Consulta la Galería de modelos para ver la lista de modelos disponibles."
+  - q: ¿Debería elegir la extensión de Claude Code o la CLI?
+    a: "Ninguna es funcionalmente mejor que la otra: elige según tu preferencia. Si te gusta programar dentro del editor, usa la extensión, donde todo tu contexto permanece en el editor; si necesitas trabajar entre editores, escribir scripts o ejecutar tareas por lotes, usa la CLI, que es más flexible. Ambas leen la misma configuración y se pueden usar al mismo tiempo."
+---
+
+La extensión oficial de VS Code **Claude Code for VS Code** te permite usar Claude Code directamente en la barra lateral del editor, sin cambiar a la terminal. **Comparte un mismo archivo de configuración** con la CLI de Claude Code, así que la clave / Base URL que configuraste en la CLI funcionan directamente en la extensión, sin necesidad de configurarlas de nuevo.
+
+<Callout type="info" title="También funciona con Cursor / Trae / Antigravity y otros editores">
+
+Cualquier editor basado en el núcleo de VS Code (**Cursor, Trae, Antigravity**, etc.) puede **buscar en su tienda de extensiones integrada la misma extensión `Claude Code for VS Code`** para instalarla y configurarla; los pasos son exactamente los mismos que en VS Code.
+
+Todas las capturas de pantalla y comandos de esta página usan VS Code como ejemplo; los usuarios de Cursor / Trae / Antigravity pueden seguirlos tal cual.
+
+</Callout>
+
+---
+
+## Descargar e instalar VS Code
+
+<Callout type="info" title="¿Usas Cursor / Trae / Antigravity?">
+
+Estos son editores independientes: descarga el instalador correcto desde el sitio oficial de cada uno (no el de VS Code) y, una vez instalado, ve directamente a la siguiente sección, [Instalar la extensión](#install-the-extension); el marketplace de extensiones y los pasos de instalación son los mismos que en VS Code.
+
+</Callout>
+
+Ve a [code.visualstudio.com](https://code.visualstudio.com/) y haz clic en el botón **Download**; el sitio detecta tu sistema operativo automáticamente. También puedes usar los enlaces directos oficiales de abajo (sin número de versión, siempre apuntan a la última versión estable, sin necesidad de visitar el sitio primero):
+
+<Tabs items={['Windows', 'macOS', 'Linux']}>
+<Tab value="Windows">
+
+**Descargar**: [Instalador de usuario para Windows (x64)](https://update.code.visualstudio.com/latest/win32-x64-user/stable) — no requiere permisos de administrador, se instala en el directorio del usuario actual y es la recomendación oficial. Para dispositivos ARM, usa la [compilación ARM64](https://update.code.visualstudio.com/latest/win32-arm64-user/stable).
+
+**Instalar**:
+
+1. Haz doble clic en el archivo descargado `VSCodeUserSetup-*.exe`
+2. Haz clic en "Siguiente" a lo largo de los pasos y, en "Seleccionar tareas adicionales", **marca**:
+   - "Agregar a PATH" (marcado por defecto, déjalo así) — permite que la terminal use el comando `code`
+   - "Registrar Code como editor para los tipos de archivo compatibles"
+   - "Agregar la acción 'Abrir con Code' al menú contextual del Explorador de Windows" (opcional, cómodo)
+3. Inicia VS Code al terminar
+
+</Tab>
+<Tab value="macOS">
+
+**Descargar**: [Compilación Universal para macOS](https://update.code.visualstudio.com/latest/darwin-universal/stable) — un solo paquete compatible con chips Apple Silicon e Intel.
+
+**Instalar**:
+
+1. Obtienes `VSCode-darwin-universal.zip`; haz doble clic para descomprimirlo
+2. Arrastra la app extraída **Visual Studio Code.app** a la carpeta **Aplicaciones** en Finder
+3. Abre VS Code desde el Launchpad
+4. (Recomendado) Presiona `Cmd+Shift+P` para abrir la Paleta de comandos y ejecuta **Shell Command: Install 'code' command in PATH**; después podrás abrir el directorio actual en la terminal con `code .`
+
+</Tab>
+<Tab value="Linux">
+
+Elige según tu distribución:
+
+- **Debian / Ubuntu**: descarga el [paquete .deb](https://update.code.visualstudio.com/latest/linux-deb-x64/stable), luego `sudo apt install ./code_*.deb`
+- **RHEL / Fedora / openSUSE**: descarga el [paquete .rpm](https://update.code.visualstudio.com/latest/linux-rpm-x64/stable), luego `sudo rpm -i code-*.rpm` (o `sudo dnf install code-*.rpm`)
+
+La instalación de `.deb` / `.rpm` agrega automáticamente `code` al PATH y se integra con las actualizaciones de software del sistema. Una vez instalado, ejecuta `code` en la terminal o inícialo desde el menú de aplicaciones.
+
+</Tab>
+</Tabs>
+
+<Callout type="info" title="¿El sitio oficial o la descarga van lentos?">
+
+El instalador pesa entre 100 y 200 MB, y las descargas del navegador en un solo hilo pueden ser lentas en ocasiones en China. Copiar los **enlaces directos oficiales** de arriba en una herramienta de descarga que admita multihilo suele ser mucho más rápido; estos enlaces directos no contienen número de versión y siempre apuntan a la última versión estable.
+
+</Callout>
+
+---
+
+## Instalar la extensión
+
+1. Abre VS Code (o Cursor / Trae / Antigravity) y ve al panel de Extensiones (atajo `Cmd+Shift+X` / `Ctrl+Shift+X`)
+2. Busca **`Claude Code for VS Code`** y asegúrate de que sea la versión oficial de Anthropic
+3. Haz clic en **Install**; una vez instalada, aparecerá un icono de Claude en la barra lateral
+
+<Callout type="warn" title="Una nota para Cursor / Trae / Antigravity">
+
+Algunos editores derivados de VS Code usan una tienda de extensiones privada (como Open VSX). Si no encuentras `Claude Code for VS Code`:
+
+1. Ve a la página oficial del marketplace de extensiones de VS Code y descarga el paquete `.vsix`
+2. En el menú `…` de la esquina superior derecha del panel de Extensiones del editor, elige **Install from VSIX**
+
+</Callout>
+
+---
+
+## Configurar la API de IA de LMU
+
+<Callout type="info" title="Si ya configuraste la CLI de Claude Code, puedes omitir esta sección">
+
+La extensión lee `~/.claude/settings.json`, exactamente igual que la CLI. **La clave y la Base URL que configuraste en la [configuración de la CLI de Claude Code](/es/docs/tools/claude-code) se reutilizan automáticamente en la extensión, sin pasos adicionales.**
+
+Eso también significa que **VS Code, Cursor, Trae y Antigravity comparten la misma configuración**: cámbiala una vez en cualquier editor y se aplicará a los demás editores y a la CLI.
+
+</Callout>
+
+Si es la primera vez que la configuras, crea el archivo de configuración así:
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+mkdir -p ~/.claude && touch ~/.claude/settings.json
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+mkdir "$env:USERPROFILE\.claude" -Force
+New-Item "$env:USERPROFILE\.claude\settings.json" -Force
+```
+
+</Tab>
+</Tabs>
+
+Agrega lo siguiente (reemplaza la clave por la tuya):
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
+    "ANTHROPIC_AUTH_TOKEN": "sk-your-lmu-ai-api-key",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  }
+}
+```
+
+Para más detalles (incluidos los ajustes del modelo chino por defecto, el ajuste de `effortLevel` y más), consulta la [configuración de la CLI de Claude Code](/es/docs/tools/claude-code); **todas las opciones de configuración aplican**.
+
+---
+
+## Iniciar la extensión
+
+1. En el editor, presiona `Cmd+Shift+P` / `Ctrl+Shift+P` para abrir la Paleta de comandos
+2. Escribe **`Claude Code: Open`**, o simplemente haz clic en el icono de Claude en la barra lateral
+3. En el panel de chat que se abre, puedes hablar con Claude Code, generar código y dejar que edite archivos automáticamente
+
+<Callout type="info" title="Una configuración, utilizable en todas partes">
+
+- Ejecuta `claude` en la terminal → usa la CLI de Claude Code
+- Haz clic en el icono de Claude en la barra lateral de **VS Code / Cursor / Trae / Antigravity** → usa la extensión
+
+**Ambas leen el mismo `~/.claude/settings.json`**, así que la clave, la Base URL, el modelo y los ajustes de tiempo de espera surten efecto en todas partes cuando se cambian en un solo lugar.
+
+</Callout>
+
+---
+
+## Problemas comunes
+
+### 401 / Unauthorized en la extensión
+
+El mismo enfoque que en la CLI: suele deberse a las variables de entorno del shell `ANTHROPIC_BASE_URL` / `ANTHROPIC_API_KEY` que anulan `settings.json`. Consulta [configuración de la CLI de Claude Code → Problemas comunes](/es/docs/tools/claude-code#common-issues) para solucionarlo.
+
+### Usar un modelo chino / cambiar el modelo por defecto
+
+Agrega `"model": "qwen3.8-max-preview"` a `settings.json`, y la CLI y todos los editores de la familia VS Code usarán ese modelo automáticamente. Consulta la [Galería de modelos](/es/docs/guide/models) para ver la lista de modelos disponibles.
+
+### No encuentro la extensión en Cursor / Trae / Antigravity
+
+Sigue la nota anterior "Una nota para Cursor / Trae / Antigravity" e instálala sin conexión mediante VSIX.
+
+### ¿Extensión o CLI? ¿Cuál debería elegir?
+
+- Si prefieres programar dentro del editor → usa la extensión, donde todo tu contexto permanece en el editor
+- Si trabajas entre editores, escribes scripts o realizas tareas por lotes → usa la CLI, que es más flexible
+
+**Ninguna es funcionalmente mejor**: elige la que más te convenga.

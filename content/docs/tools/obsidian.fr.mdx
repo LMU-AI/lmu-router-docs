@@ -1,0 +1,234 @@
+---
+title: Obsidian
+description: Connectez Obsidian à l'API LMU AI — configurez les plugins Claudian et Copilot pour utiliser Claude et les grands modèles chinois dans vos notes, sans proxy.
+ogDescription: Un guide pour connecter Obsidian à LMU AI — le plugin Claudian réutilise votre configuration Claude Code, le plugin Copilot ajoute des modèles personnalisés, et vous pouvez utiliser Claude / GPT / les grands modèles chinois directement dans vos notes et votre base de connaissances.
+keywords:
+  - API Claude Obsidian
+  - Plugin IA Obsidian
+  - Connecter Obsidian à Claude
+  - Utiliser l'API Claude dans Obsidian
+  - Claudian
+  - Configuration Claudian
+  - Plugin Obsidian Claudian
+  - Obsidian Copilot
+  - Configuration Obsidian Copilot
+  - Obsidian Claude Code
+  - Modèles chinois Obsidian
+alternateNames:
+  - Connecter Obsidian à LMU AI
+  - Configurer l'API Claude dans Obsidian
+faq:
+  - q: Que dois-je faire si un plugin Obsidian renvoie une erreur 401 / Unauthorized ?
+    a: "La clé API est incorrecte, ou la requête est encore envoyée vers le point de terminaison officiel. Pour Claudian, confirmez que le ANTHROPIC_AUTH_TOKEN que vous avez saisi est bien votre clé LMU AI et qu'il n'est pas remplacé par une variable d'environnement du shell ; pour Copilot, confirmez que le Base URL est https://api.lmuai.com et que la clé API est votre clé LMU AI sk-, et non une clé officielle Anthropic / OpenAI."
+  - q: Comment corriger une erreur CORS lors de l'ajout d'un modèle dans Copilot ?
+    a: "Dans la boîte de dialogue Add Custom Chat Model, cochez l'option CORS avant de cliquer sur Test pour contourner la restriction cross-origin du navigateur."
+  - q: Que dois-je faire si Claudian signale « Claude CLI not found » ?
+    a: "Le plugin n'a pas pu localiser Claude Code automatiquement. Exécutez which claude dans votre terminal (utilisez where claude sous Windows) et collez le chemin obtenu dans Settings → Claudian → Claude → Claude CLI path."
+  - q: Que faire en cas de délais d'attente de réponse ou d'interruptions de flux dans Obsidian ?
+    a: "Assurez-vous que API_TIMEOUT_MS est défini sur 3000000 pour éviter les délais d'attente lors de tâches longues, et désactivez tout VPN / proxy / proxy système — la passerelle internationale LMU AI se connecte directement, et une connexion directe est la plus rapide et la plus stable."
+---
+
+Obsidian est une application de gestion des connaissances et de prise de notes reposant sur des fichiers Markdown locaux, couramment utilisée pour construire une base de connaissances personnelle, des notes reliées de manière bidirectionnelle et un « second cerveau ». Grâce aux plugins de la communauté, vous pouvez appeler l'API Claude directement dans vos notes pour la rédaction assistée par IA, l'organisation de contenu, les questions-réponses sur votre base de connaissances et la génération de code.
+
+Cette page couvre deux plugins populaires pour se connecter à l'API LMU AI — choisissez celui qui correspond à vos besoins :
+
+| Plugin | Moteur | Idéal pour |
+|------|------|----------|
+| **Claudian** | Claude Code CLI | Déjà utilisateur de Claude Code et souhaitant appeler un agent IA directement dans vos notes |
+| **Copilot** | API directe | Vouloir un chat léger et des questions-réponses sur la base de connaissances sans installer d'outil en ligne de commande |
+
+---
+
+## Prérequis : activer les plugins de la communauté
+
+Les deux plugins sont des plugins de la communauté, vous devez donc activer la fonctionnalité des plugins de la communauté avant de les installer.
+
+Ouvrez Obsidian → le menu en haut à gauche **Obsidian → Settings** (ou le raccourci `Cmd/Ctrl + ,`), allez dans **Community plugins**, et cliquez sur **Turn on community plugins** :
+
+![Ouvrir les paramètres d'Obsidian et activer les plugins de la communauté](/images/tools/obsidian/copilot/1.png)
+
+Une fois activé, cliquez sur le bouton **Browse** à droite de la page **Community plugins** pour ouvrir la place de marché des plugins :
+
+![Cliquer sur Browse sur la page Community plugins pour ouvrir la place de marché des plugins](/images/tools/obsidian/copilot/2.png)
+
+---
+
+## Plugin Claudian : utiliser l'API Claude dans Obsidian
+
+[Claudian](https://github.com/YishenTu/claudian) intègre des agents de codage IA comme Claude Code et Codex dans la barre latérale d'Obsidian. L'ensemble de votre coffre (vault) devient le répertoire de travail de l'agent, avec prise en charge de la lecture/écriture de fichiers, de la recherche, des @mentions, des commandes slash, et plus encore.
+
+Le mode Claude de Claudian appelle le **Claude Code CLI** en arrière-plan, alors installez d'abord cet outil en ligne de commande, puis connectez-vous à l'API LMU AI en utilisant l'une des méthodes ci-dessous.
+
+### Étape 1 — Installer le Claude Code CLI
+
+Claudian appelle la commande locale `claude`, vous devez donc d'abord installer le Claude Code CLI : après avoir installé Node.js, exécutez `npm install -g @anthropic-ai/claude-code` (pour les étapes détaillées, consultez le [guide de configuration du Claude Code CLI](/fr/docs/tools/claude-code)).
+
+<Callout type="info">
+
+Cette étape ne couvre que l'installation ; **l'API LMU AI se configure à l'étape 3**.
+
+</Callout>
+
+### Étape 2 — Installer le plugin Claudian
+
+Dans la place de marché des plugins (**Browse**), recherchez **Claudian**, cliquez sur **Install**, puis cliquez sur **Enable** une fois l'installation terminée.
+
+<Callout type="info" title="Vous ne trouvez pas Claudian ?">
+
+Si la place de marché ne répertorie pas encore Claudian, vous pouvez l'installer depuis GitHub via le plugin **BRAT** : installez et activez d'abord `Obsidian42 - BRAT` depuis Browse, puis exécutez la commande **BRAT: Add a beta plugin for testing** et saisissez l'URL du dépôt `https://github.com/YishenTu/claudian`.
+
+</Callout>
+
+### Étape 3 — Configurer l'API LMU AI (choisissez-en une)
+
+Allez dans l'onglet **Settings → Claudian → Claude** et saisissez le Base URL et la clé LMU AI en utilisant l'une des méthodes ci-dessous.
+
+<Tabs items={['Méthode A — réutiliser votre configuration Claude Code', 'Méthode B — la saisir directement dans le plugin']}>
+<Tab value="Méthode A — réutiliser votre configuration Claude Code">
+
+Idéal pour les utilisateurs qui ont déjà configuré le Claude Code CLI. Écrivez d'abord la configuration LMU AI dans `~/.claude/settings.json` :
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
+    "ANTHROPIC_AUTH_TOKEN": "sk-your-lmu-ai-api-key",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  }
+}
+```
+
+Ensuite, activez le bouton **Load user Claude settings** dans l'onglet Claude, et Claudian chargera ce fichier afin que le Base URL, la clé et les paramètres du modèle prennent tous effet.
+
+![Activer le bouton Load user Claude settings dans l'onglet Claude des paramètres de Claudian](/images/tools/obsidian/claudian/9.png)
+
+</Tab>
+<Tab value="Méthode B — la saisir directement dans le plugin">
+
+Pas besoin de créer `~/.claude/settings.json` — saisissez les variables d'environnement directement dans les paramètres du plugin.
+
+Dans l'onglet Claude, faites défiler jusqu'à la section **Environment** et collez les lignes suivantes une par une dans la zone **Custom variables** (remplacez la clé par la vôtre) :
+
+```
+ANTHROPIC_BASE_URL: https://api.lmuai.com
+ANTHROPIC_AUTH_TOKEN: sk-your-lmu-ai-api-key
+ANTHROPIC_MODEL: claude-haiku-4-5
+CLAUDE_CODE_USE_BEDROCK=1
+CLAUDE_CODE_ATTRIBUTION_HEADER: 0
+```
+
+![Renseigner les variables d'environnement dans la zone Custom variables de la section Environment des paramètres de Claudian](/images/tools/obsidian/claudian/11.png)
+
+- `ANTHROPIC_MODEL` est le modèle par défaut ; vous pouvez le remplacer par un autre ID de modèle LMU AI
+- Cette méthode ne nécessite pas d'activer **Load user Claude settings**
+- Cliquez sur le **+** à côté de **Snippets** pour enregistrer les variables d'environnement actuelles comme instantané afin de faciliter le changement ultérieur
+
+</Tab>
+</Tabs>
+
+**Autres paramètres facultatifs :**
+
+| Paramètre | Description |
+|--------|------|
+| **Claude CLI path** | Laissez vide pour la détection automatique. Si vous voyez `Claude CLI not found`, exécutez `which claude` dans votre terminal (utilisez `where claude` sous Windows) et collez le chemin obtenu |
+| **Safe mode** | Le mode de permission ; conservez-le sur `acceptEdits` (recommandé) |
+| **Custom models** | Ajoutez des ID de modèles LMU AI un par ligne pour qu'ils apparaissent dans le sélecteur de modèles, par ex. `qwen3.8-max-preview`, `claude-opus-5` |
+
+### Étape 4 — Commencer à l'utiliser
+
+Cliquez sur l'icône Claudian dans la barre latérale gauche (ou utilisez la palette de commandes) pour ouvrir la barre latérale de chat ; choisissez un modèle en bas, et vous pouvez discuter avec l'IA à côté de vos notes et lui faire lire et écrire des documents dans votre coffre :
+
+![Utilisation de la barre latérale de chat Claudian dans Obsidian](/images/tools/obsidian/claudian/10.png)
+
+<Callout type="info" title="Utiliser les modèles chinois">
+
+LMU AI prend en charge les modèles chinois comme Qwen, DeepSeek et GLM. Changez-en en plaçant l'ID du modèle dans la configuration de l'étape 3 : pour la Méthode A, ajoutez `"model": "qwen3.6-plus"` à settings.json ; pour la Méthode B, changez la valeur de `ANTHROPIC_MODEL`. Ajouter des ID de modèles un par ligne sous **Custom models** les fait également apparaître dans le sélecteur de modèles. Consultez la liste complète des ID de modèles dans la [Galerie de modèles](/fr/docs/guide/models).
+
+</Callout>
+
+---
+
+## Plugin Copilot : utiliser l'API Claude dans Obsidian
+
+[Copilot](https://github.com/logancyang/obsidian-copilot) est le plugin d'assistant IA le plus populaire pour Obsidian, prenant en charge le chat, les questions-réponses sur la base de connaissances, le résumé de notes, et plus encore. Il vous permet d'ajouter des modèles personnalisés et **se connecte directement à l'API LMU AI sans installer aucun outil en ligne de commande**.
+
+### Étape 1 — Installer le plugin Copilot
+
+Dans la place de marché des plugins (**Browse**), recherchez **Copilot** et choisissez le **Copilot** de **Logan Yang** (le premier résultat), puis cliquez sur **Install** et **Enable** :
+
+![Rechercher Copilot dans la place de marché des plugins et choisir la version de Logan Yang](/images/tools/obsidian/copilot/3.png)
+
+### Étape 2 — Ajouter un modèle personnalisé
+
+Allez dans l'onglet **Settings → Copilot → Model** et cliquez sur **+ Add Model** dans le coin supérieur droit :
+
+![Cliquer sur Add Model dans l'onglet Model des paramètres de Copilot](/images/tools/obsidian/copilot/4.png)
+
+Remplissez les champs suivants dans la boîte de dialogue **Add Custom Chat Model** :
+
+| Champ | Valeur |
+|------|------|
+| **Model Name** | un ID de modèle LMU AI, par ex. `claude-sonnet-5` |
+| **Display Name** | le nom d'affichage ; peut être identique au Model Name |
+| **Provider** | choisissez `Anthropic` |
+| **Base URL** | `https://api.lmuai.com` |
+| **API Key** | la clé `sk-` générée dans la console LMU AI |
+| **Model Capabilities** | cochez selon les capacités du modèle ; pour la série Claude, vous pouvez cocher `Reasoning` |
+
+Une fois terminé, cliquez sur **Test** pour vérifier ; une coche verte signifie que la connexion a réussi, cliquez ensuite sur **Add Model** pour enregistrer :
+
+![Renseigner la configuration au protocole Anthropic dans la boîte de dialogue Add Custom Chat Model](/images/tools/obsidian/copilot/6.png)
+
+### Étape 3 — Ajouter un modèle OpenAI (facultatif)
+
+Pour utiliser les modèles de la série GPT, cliquez à nouveau sur **+ Add Model**, changez **Provider** en **OpenAI**, et remplissez le reste de la même manière :
+
+| Champ | Valeur |
+|------|------|
+| **Model Name** | un ID de modèle OpenAI, par ex. `gpt-5.6-sol` |
+| **Provider** | choisissez `OpenAI` |
+| **Base URL** | `https://api.lmuai.com` |
+| **API Key** | la clé `sk-` générée dans la console LMU AI |
+
+![Renseigner la configuration au protocole OpenAI dans la boîte de dialogue Add Custom Chat Model](/images/tools/obsidian/copilot/7.png)
+
+### Étape 4 — Sélectionner un modèle et commencer à l'utiliser
+
+Ouvrez le panneau de chat de Copilot, choisissez le modèle que vous venez d'ajouter dans le menu déroulant des modèles en haut, et vous pouvez commencer à discuter et à poser des questions sur vos notes.
+
+<Callout type="info" title="Où trouver les ID de modèles ?">
+
+Le Model Name doit être un ID de modèle exact pris en charge par LMU AI. Rendez-vous sur la [Galerie de modèles](/fr/docs/guide/models) pour voir tous les modèles disponibles et les copier d'un simple clic.
+
+</Callout>
+
+---
+
+## Problèmes courants
+
+### Erreur 401 / Unauthorized
+
+La clé API est incorrecte, ou les requêtes sont encore envoyées vers le point de terminaison officiel. Veuillez confirmer :
+
+- Claudian : vérifiez que le `ANTHROPIC_AUTH_TOKEN` que vous avez saisi à l'étape 3 est bien votre clé LMU AI ; pour la Méthode A, confirmez également qu'il n'est pas remplacé par une variable d'environnement du shell (voir les [problèmes courants de Claude Code](/fr/docs/tools/claude-code#common-issues) pour savoir comment vérifier)
+- Copilot : le Base URL est `https://api.lmuai.com` et l'API Key est votre clé LMU AI `sk-`, et non une clé officielle Anthropic / OpenAI
+
+### Erreur CORS lors de l'ajout d'un modèle dans Copilot
+
+Dans la boîte de dialogue **Add Custom Chat Model**, cochez l'option **CORS** avant de cliquer sur **Test** pour contourner la restriction cross-origin du navigateur.
+
+### Claudian signale « Claude CLI not found »
+
+Le plugin n'a pas pu localiser Claude Code automatiquement. Exécutez `which claude` dans votre terminal (utilisez `where claude` sous Windows) et collez le chemin obtenu dans **Settings → Claudian → Claude → Claude CLI path**.
+
+### Délais d'attente de réponse ou interruptions de flux
+
+<CN>
+- Assurez-vous que `API_TIMEOUT_MS` est défini sur `3000000` pour éviter les délais d'attente lors de tâches longues
+- Désactivez tout VPN / proxy / proxy système — LMU AI est une connexion directe nationale, et une connexion directe est la plus rapide et la plus stable
+</CN>
+<Intl>
+- Assurez-vous que `API_TIMEOUT_MS` est défini sur `3000000` pour éviter les délais d'attente lors de tâches longues
+- Désactivez tout VPN / proxy / proxy système — la passerelle internationale LMU AI se connecte directement, et une connexion directe est la plus rapide et la plus stable
+</Intl>

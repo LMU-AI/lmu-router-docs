@@ -1,0 +1,111 @@
+---
+title: Hermes Agent
+description: Connectez Hermes Agent à LMU AI — modifiez ~/.hermes/config.yaml avec une base_url incluant /v1 et votre clé sk- pour basculer vers n'importe quel modèle disponible.
+ogDescription: Connectez Hermes Agent à LMU AI — personnalisez la base_url et le modèle pour que Hermes Agent puisse appeler Claude / GPT / Gemini via LMU AI.
+keywords:
+  - Hermes Agent
+  - Configurer Hermes Agent
+  - Connecter Hermes à Claude
+  - Hermes Agent en Chine
+  - Hermes base url
+  - Relais API pour agent IA
+alternateNames:
+  - Connecter Hermes Agent à LMU AI
+faq:
+  - q: Comment connecter Hermes Agent à LMU AI ?
+    a: "Modifiez ~/.hermes/config.yaml et ajoutez un nouveau fournisseur sous providers : définissez base_url sur https://api.lmuai.com/v1, définissez api_key sur la clé sk- générée dans la console LMU AI, et définissez model sur l'ID du modèle souhaité (par ex. glm-5.2) ; puis pointez provider vers celui-ci dans la section model de premier niveau. Enregistrez et exécutez hermes chat pour vérifier."
+  - q: Que faire si Hermes Agent renvoie 401 Unauthorized ?
+    a: "La clé API est incorrecte ou expirée. Vérifiez l'état de la clé dans la console LMU AI, puis saisissez-la à nouveau dans le champ api_key de config.yaml."
+  - q: Que faire si Hermes Agent renvoie 404 Not Found ?
+    a: "La base_url est incorrecte. Hermes utilise le protocole OpenAI, l'adresse doit donc inclure le suffixe /v1 — la forme correcte est https://api.lmuai.com/v1, et https://api.lmuai.com renvoie un 404."
+---
+
+## Prérequis
+
+Avant de commencer, assurez-vous d'avoir :
+
+1. Créé un compte LMU AI et l'avoir crédité ([Démarrage rapide](/fr/docs/guide/getting-started))
+2. Une clé API commençant par `sk-`
+3. Installé Hermes Agent ([GitHub](https://github.com/nousresearch/hermes-agent))
+
+## Configurer les modèles LMU AI
+
+### Méthode 1 — Créer la configuration en une seule commande
+
+Ouvrez un terminal et exécutez la commande suivante :
+
+```bash
+mkdir -p ~/.hermes
+cat > ~/.hermes/config.yaml << 'EOF'
+providers:
+  lumai:
+    name: lumai
+    base_url: https://api.lmuai.com/v1
+    api_key: YOUR_API_KEY
+    model: glm-5.2
+
+model:
+  provider: lumai
+  model: glm-5.2
+EOF
+```
+
+<Callout type="warn" title="Remarque">
+
+Remplacez `YOUR_API_KEY` par la clé `sk-` réelle que vous avez créée dans la console LMU AI.
+
+</Callout>
+
+### Méthode 2 — Modifier le fichier de configuration manuellement
+
+Si `~/.hermes/config.yaml` existe déjà, ouvrez-le dans un éditeur :
+
+```bash
+hermes config edit
+```
+
+Ajoutez ou modifiez ce qui suit dans le fichier :
+
+```yaml
+providers:
+  lumai:
+    name: lumai
+    base_url: https://api.lmuai.com/v1
+    api_key: sk-your-actual-key
+    model: glm-5.2
+
+model:
+  provider: lumai
+  model: glm-5.2
+```
+
+Enregistrez et quittez.
+
+## Modèles disponibles
+
+Dans le champ `model`, vous pouvez substituer n'importe quel nom de modèle pris en charge par LMU AI. Pour la liste complète des modèles, consultez la [Galerie de modèles](/fr/docs/guide/models).
+
+## Vérifier la configuration
+
+Exécutez la commande suivante pour tester si la configuration fonctionne :
+
+```bash
+hermes chat -q 'Hello, please reply in one sentence' -Q
+```
+
+Si vous recevez une réponse de l'IA, la configuration fonctionne.
+
+## Problèmes courants
+
+### Erreur 401 Unauthorized
+
+La clé API est incorrecte ou a expiré. Vérifiez l'état de la clé dans la console LMU AI.
+
+### Erreur 404 Not Found
+
+La `base_url` est incorrecte. Hermes utilise le protocole OpenAI, l'adresse doit donc inclure le suffixe `/v1` :
+
+```
+https://api.lmuai.com/v1    ✅ Correct
+https://api.lmuai.com       ❌ Wrong
+```

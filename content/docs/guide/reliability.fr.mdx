@@ -1,0 +1,128 @@
+---
+title: Architecture de fiabilité
+description: "Architecture de fiabilité de l'IA LMU AI : routage multi-sources, sondes de santé et basculement automatique à trois niveaux ; objectif de disponibilité de 99,5 % sur les offres Standard et Enterprise."
+ogDescription: "Un relais d'API Claude stable et fiable : LMU AI utilise un routage multi-sources, un basculement à trois niveaux (officiel / amont / secours) et un sondage de santé pour offrir un service de relais d'API Claude / GPT / Gemini à haute disponibilité et faible latence."
+keywords:
+  - relais API Claude stable
+  - haute disponibilité API Claude
+  - basculement API Claude
+  - que faire quand l'API Claude est instable
+  - SLA relais API IA
+  - routage multi-sources
+  - relais Claude en Chine
+  - fiabilité relais API grands modèles
+  - relais API IA fiable
+  - relais Claude Code stable
+alternateNames:
+  - Aperçu de la fiabilité du relais d'API Claude
+  - Architecture de fiabilité LMU AI
+  - Relais à haute disponibilité pour Claude / GPT / Gemini
+faq:
+  - q: Le relais d'API Claude de LMU AI est-il stable ?
+    a: LMU AI utilise une architecture de basculement à trois niveaux (canal officiel → canal amont → canal de secours) et exécute en continu des sondes de santé sur chaque amont ; les canaux défaillants sont automatiquement déclassés ou retirés, les pannes ponctuelles sont transparentes pour les utilisateurs finaux, ce qui maintient l'API Claude / GPT / Gemini hautement disponible et à faible latence.
+  - q: Pourquoi la connexion directe à l'API Claude officielle est-elle instable ?
+    a: La connexion directe à l'API officielle entraîne souvent des limitations de débit régionales, des contrôles de risque sur les comptes, des problèmes de compatibilité lors des changements de version, des pics de latence du premier jeton, et plus encore. Si un relais n'est qu'un simple proxy, ces problèmes sont transmis tels quels. LMU AI conçoit son système sur le postulat que « les amonts sont instables », en masquant ces variations grâce au pooling multi-sources, aux nouvelles tentatives automatiques et au routage à plusieurs niveaux.
+  - q: En quoi le relais LMU AI diffère-t-il d'un site miroir ordinaire ?
+    a: Un site miroir ordinaire est généralement un unique amont accompagné d'un proxy transparent ; LMU AI connecte plusieurs canaux indépendants derrière le même modèle et sélectionne dynamiquement un amont en fonction de votre niveau d'offre, du modèle, de la santé et de la charge, tout en fournissant une page de statut publique, des nouvelles tentatives automatiques en cas d'erreur, le passthrough en streaming et la cohérence de facturation.
+---
+
+Nous considérons la « stabilité » comme la fonctionnalité numéro un du produit. Cette page explique comment nous y parvenons et ce qui se passe quand quelque chose tourne mal.
+
+## Pourquoi la fiabilité est-elle si difficile ?
+
+Les développeurs qui se connectent directement à l'API officielle rencontrent des problèmes tels que :
+
+- Limitation de débit régionale / indisponibilité
+- Un unique canal de paiement ou compte se faisant bannir
+- Problèmes de compatibilité lors des changements de version de modèle
+- File d'attente aux heures de pointe et pics de latence du premier jeton
+
+Si un service de relais n'est qu'un simple proxy, ces problèmes sont **transmis tels quels** aux utilisateurs, voire aggravés. Notre approche consiste à concevoir le système sur le postulat que « les amonts sont instables », plutôt que de traiter cela comme une exception.
+
+## Notre architecture de routage multi-sources
+
+Pour chaque appel d'API, la requête est traitée selon le chemin suivant :
+
+<Mermaid chart={`flowchart TD
+    U([User request]) --> E[Edge gateway<br/>Auth / rate limiting / parameter validation]
+    E --> R[Routing decision layer<br/>Select upstream by plan tier / model / health / load]
+
+    R -->|First priority| O1[Official channel A primary]
+    R -->|First priority| O2[Official channel B backup]
+    R -.->|When official is unavailable| P1[Upstream channel A]
+    R -.->|When official is unavailable| P2[Upstream channel B]
+    R -.->|When the first two tiers are unavailable| F1[Fallback channel A]
+    R -.->|When the first two tiers are unavailable| F2[Fallback channel B]
+
+    O1 --> A[Response aggregation layer<br/>Error retries / streaming passthrough / billing]
+    O2 --> A
+    P1 --> A
+    P2 --> A
+    F1 --> A
+    F2 --> A
+    A --> Ret([Return to user])
+`} />
+
+**Mécanismes fondamentaux :**
+
+- **Pool multi-amonts** : plusieurs canaux indépendants se trouvent derrière le même modèle, évitant les points de défaillance uniques
+- **Sondage de santé** : nous surveillons en continu le taux de réussite, la latence du premier jeton et le taux de limitation de débit de chaque amont, et **les canaux défaillants sont automatiquement déclassés ou retirés**
+- **Basculement automatique** : lorsque le canal principal renvoie des erreurs 5xx / une limitation de débit / des délais d'attente, la requête bascule vers un canal de secours en quelques millisecondes, **généralement sans impact de votre côté**
+- **Reconnexion en cas d'interruption de flux** : lorsqu'une réponse en streaming est coupée en cours de route, nous tentons de la reprendre sur les protocoles qui le prennent en charge
+
+## Niveau de service (SLA)
+
+Nos engagements externes reposent sur « ce que nous pouvons réellement offrir » — nous ne faisons pas de promesses en l'air.
+
+| Niveau | Objectif de disponibilité | Rapport mensuel | Contrat professionnel |
+|------|-----------|---------|---------|
+| Economy | Au mieux (best-effort) | — | Non applicable |
+| Standard | 99,5 % | — | Non applicable |
+| Enterprise | 99,5 % | Fourni | SLA supérieur et clauses de compensation disponibles |
+
+> Le niveau Economy s'adresse aux développeurs individuels qui recherchent le meilleur rapport qualité-prix et qui peuvent tolérer des fluctuations occasionnelles ; si votre activité a des exigences strictes de fiabilité, choisissez le niveau Enterprise ou contactez notre équipe commerciale pour un plan sur mesure.
+
+Comment la disponibilité est mesurée :
+- Nous ne comptons que le taux de réussite des requêtes « du côté de LMU AI », **en excluant les problèmes de réseau côté utilisateur, les erreurs de paramètres et les refus de contenu du modèle amont lui-même**
+- Une panne unique de moins de 60 secondes n'est pas comptabilisée
+- Le rapport mensuel inclut les taux de réussite et la latence P95 ventilés par modèle et par période
+
+## Que se passe-t-il lors d'un incident
+
+**Variations brèves (< 5 minutes)**
+- La couche de routage bascule automatiquement d'amont, sans annonce
+- La [page de statut](https://api.lmuai.com/monitor) enregistre l'événement
+
+**Panne d'un seul amont (< 1 heure)**
+- La couche de routage effectue le basculement ; si cela est visible pour certains utilisateurs/modèles, nous le publions sur la page de statut
+- Les utilisateurs Standard et Enterprise sont notifiés par e-mail
+
+**Impact régional ou simultané sur plusieurs amonts**
+- L'événement est épinglé sur la page de statut avec des mises à jour périodiques
+- Les utilisateurs Enterprise reçoivent des mises à jour de progression par e-mail en temps réel
+- Un rapport post-mortem est publié dans les 48 heures suivant la fin de l'événement
+
+## Ce que nous ne faisons pas
+
+Pour éviter d'induire les utilisateurs en erreur, nous ne promettons actuellement **pas** ce qui suit :
+
+- **Basculement sans latence ni interruption** : le basculement introduit une latence supplémentaire de l'ordre de la milliseconde à la seconde, il ne sera donc jamais totalement transparent
+- **Compensation de compatibilité inter-modèles** : si un modèle amont lui-même est retiré (par exemple, si une version de modèle est abandonnée par le fournisseur), nous l'annonçons plutôt que de basculer silencieusement vers un autre modèle
+- **Nouvelles tentatives illimitées** : les requêtes échouées sont retentées un nombre limité de fois selon la politique en vigueur, de sorte que vous ne payez pas pour des appels répétés inattendus
+
+## FAQ
+
+<Callout type="info" title="Pourquoi est-ce que je rencontre encore parfois des échecs ?">
+
+Aucun système n'est disponible à 100 %. Notre objectif est de maintenir la disponibilité globale au-dessus de 99,5 % et de récupérer rapidement en cas de panne. Si vous rencontrez des échecs persistants (par exemple, le même type de requête qui échoue plusieurs fois en moins de 5 minutes), veuillez contacter le support avec votre request ID et nous prioriserons l'investigation.
+
+</Callout>
+
+<Callout type="info" title="Comment demander le niveau Enterprise ?">
+
+Consultez la page [Offres Enterprise](/fr/docs/enterprise), ou contactez directement l'équipe commerciale :
+
+- E-mail : business@lmuai.com
+- WeChat / téléphone : 18599001010
+
+</Callout>

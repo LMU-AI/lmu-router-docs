@@ -1,0 +1,101 @@
+---
+title: Cherry Studio
+description: قم بربط Cherry Studio بواجهة LMU AI البرمجية وإعداد قنوات نماذج Claude والنماذج الصينية وOpenAI، مع اتصال مباشر بالخارج.
+ogDescription: قم بربط Cherry Studio بـ LMU AI — أضف قنوات نماذج Claude / OpenAI / Gemini / النماذج الصينية بنقرة واحدة، مع اتصال مباشر بالخارج.
+keywords:
+  - Cherry Studio
+  - Cherry Studio Claude
+  - إعداد واجهة Cherry Studio البرمجية
+  - استخدام Cherry Studio في الصين
+  - Cherry Studio OpenAI
+  - Cherry Studio Gemini
+  - ترحيل واجهة Cherry Studio البرمجية
+alternateNames:
+  - ربط Cherry Studio بـ LMU AI
+---
+
+Cherry Studio هو عميل سطح مكتب متعدد النماذج للذكاء الاصطناعي.
+
+---
+
+## التنزيل والتثبيت
+
+- **الموقع الرسمي لسطح المكتب**: [https://www.cherry-ai.com/](https://www.cherry-ai.com/)
+- **الهاتف المحمول (Android و iOS)**: [https://github.com/CherryHQ/cherry-studio-app/releases](https://github.com/CherryHQ/cherry-studio-app/releases)
+  - Android: نزّل ملف `.apk`
+  - iOS: نزّل ملف `.ipa`
+
+عملية التثبيت على الهاتف المحمول تشبه إلى حد كبير عملية التثبيت على سطح المكتب — ألقِ نظرة أقرب وستكتشف كيفية القيام بها.
+
+---
+
+## البروتوكولان
+
+تدعم LMU AI بروتوكولين للاتصال؛ اختر أحدهما بناءً على نوع النموذج:
+
+| البروتوكول | النماذج |
+|------|----------|
+| **Anthropic** | نماذج Claude، النماذج الصينية (DeepSeek، Qwen، إلخ) |
+| **OpenAI-Response** | نماذج OpenAI (GPT-4، GPT-5، إلخ) |
+
+---
+
+## الطريقة الأولى: بروتوكول Anthropic (نماذج Claude والنماذج الصينية)
+
+### الخطوة 1 — إضافة مزوّد
+
+انتقل إلى إعدادات Cherry Studio → انقر على إضافة مزوّد:
+
+1. **اسم المزوّد**: أي اسم تريده (مثل `LMU AI`)
+2. **نوع المزوّد**: اختر **`Anthropic`** من القائمة المنسدلة
+
+![إضافة مزوّد Anthropic](/images/tools/cherry-studio/c-studio-1.png)
+
+### الخطوة 2 — إدخال تفاصيل واجهة البرمجة
+
+- **API Key**: أدخل مفتاح `sk-` الذي تم إنشاؤه في وحدة التحكم
+- **API Host**: أدخل عنوان طلب ترحيل واجهة البرمجة
+
+```
+https://api.lmuai.com
+```
+
+انقر على جلب قائمة النماذج لاسترداد النماذج المتاحة؛ ستُحمّل سلسلة Claude والنماذج الصينية تلقائيًا.
+
+![اكتمل إعداد Anthropic](/images/tools/cherry-studio/c-studio-2.png)
+
+---
+
+## الطريقة الثانية: بروتوكول OpenAI-Response (نماذج OpenAI)
+
+### الخطوة 1 — إضافة مزوّد
+
+انتقل إلى إعدادات Cherry Studio → انقر على إضافة مزوّد:
+
+1. **اسم المزوّد**: أي اسم تريده (مثل `LMU AI`)
+2. **نوع المزوّد**: اختر **`OpenAI-Response`** من القائمة المنسدلة (الخيار الثاني، وليس الأول OpenAI)
+
+### الخطوة 2 — إدخال تفاصيل واجهة البرمجة
+
+- **API Key**: أدخل مفتاح `sk-` الذي تم إنشاؤه في وحدة التحكم
+- **API Host**: أدخل عنوان طلب ترحيل واجهة البرمجة
+
+```
+https://api.lmuai.com
+```
+
+انقر على جلب قائمة النماذج لاسترداد النماذج المتاحة؛ ستُحمّل سلسلة GPT تلقائيًا.
+
+![اكتمل إعداد OpenAI-Response](/images/tools/cherry-studio/c-studio-3.png)
+
+بمجرد الانتهاء من الإعداد، يمكنك تحديد النموذج واستخدامه في شاشة الدردشة:
+
+![شاشة الدردشة](/images/tools/cherry-studio/c-studio-4.png)
+
+---
+
+## ملاحظات
+
+- يعمل نفس API Key و API Host مع كلا البروتوكولين؛ ما عليك سوى إضافة مزوّدين حسب الحاجة
+- بالنسبة لنوع OpenAI-Response، تأكد من اختيار الخيار الثاني، وليس الأول OpenAI
+- أدخل عنوان ترحيل واجهة البرمجة كعنوان واجهة البرمجة؛ لا تُدخل العنوان الرسمي لـ OpenAI أو Anthropic

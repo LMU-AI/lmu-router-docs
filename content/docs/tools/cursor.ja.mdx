@@ -1,0 +1,169 @@
+---
+title: Cursorでサードパーティ APIを設定する
+description: Cursorでサードパーティ APIを設定する — Override OpenAI Base URLをオンにし、sk- キーを入力すれば、Chatパネルで Claude、GPT などを利用できます。
+ogDescription: Cursorでサードパーティ APIを設定するステップバイステップガイド — 設定 → Models → Override OpenAI Base URL + LMU AI のアドレス + あなたの sk- キーで、Cursor の Chat パネルが Claude Opus / Sonnet、GPT-5、Zhipu GLM、Qwen、DeepSeek などとプロキシなしで直接通信できます。Verify、ルーティングの競合、Composer の制限に関する注意事項を含みます。
+keywords:
+  - Cursorでサードパーティ APIを設定する方法
+  - Cursor 中継 API 設定
+  - Cursor Override OpenAI Base URL
+  - Cursor カスタムモデル
+  - Cursor BYOK
+  - Cursor で Claude を使う
+  - claude-opus-5
+  - gpt-5.6-sol
+  - glm-5.2
+  - Cursor 中国系モデル
+  - Cursor Composer 制限
+  - サブスクリプションなしの Cursor
+alternateNames:
+  - Cursorでサードパーティ APIを設定する方法
+  - Cursorでサードパーティ APIを接続する方法
+  - Cursorでサードパーティ APIを使う
+  - Cursor カスタム API 設定ガイド
+  - Cursor Override OpenAI Base URL ガイド
+  - Cursor でサードパーティ中継を使う
+  - Cursor を LMU AI に接続する
+  - Cursor で Claude / GLM / Qwen を中継経由で使う
+  - Cursor BYOK 設定
+  - Cursor カスタム OpenAI 互換エンドポイント
+faq:
+  - q: Cursorでサードパーティ APIをどう設定しますか？
+    a: 手順 — 設定を開き（Cmd/Ctrl + Shift + J）→ 左側の Models → 組み込みのデフォルトモデルをオフにする → Add Model でカスタムモデル ID（例：`claude-opus-5`、`gpt-5.6-sol`、`glm-5.2`）を入力 → OpenAI API Key をオンにして `sk-` キーを貼り付ける → Override OpenAI Base URL をオンにして `https://api.lmuai.com/v1` を入力 → Verify をクリック → Cmd/Ctrl + L で Chat パネルを開き、そのモデルに切り替える。**Chat / Plan パネルのみがサードパーティ APIを使用する**点に注意してください。Cursor のネイティブ機能である Composer / Tab 自動補完などは引き続き公式バックエンドを使用します。
+  - q: Cursor はどのサードパーティ APIプロトコルをサポートしていますか？
+    a: サポートしているのは **OpenAI 互換プロトコル**（`/v1/chat/completions`）のみで、設定 → Models → Override OpenAI Base URL で上書きします。現在ネイティブの「Override Anthropic Base URL」トグルはありません。Chat パネルで Claude モデルを使うには、OpenAI 互換エンドポイント上でカスタムモデルとして Claude のモデル ID を追加すると、LMU AI バックエンドが OpenAI ↔ Anthropic のプロトコル変換を行います。
+  - q: Cursor ではサードパーティ中継のほうが安いですか？
+    a: 通常はそうです。中継は実際のトークン使用量に応じて課金され、ヘビーユーザー（特に Opus / GPT-5 を頻繁に使う場合）には Cursor Pro の月額サブスクリプションより費用対効果が高くなります。1 つのキーで Claude / GPT / GLM / Qwen / DeepSeek をまとめて利用できます。なお、Cursor の Composer / Tab 自動補完はサードパーティ APIを使えず、引き続き Cursor サブスクリプションのクォータを消費します。
+  - q: Cursor はサードパーティ中継 APIを使えますか？
+    a: 使えますが、**Chat / Plan パネルのみ**です。Cursor の設定 → Models には「Override OpenAI Base URL」トグルがあり、オンにすると Chat / Plan パネル（Cmd/Ctrl + L）からのリクエストがサードパーティ中継を経由します。一方、Composer / Tab 自動補完 / Apply / Inline Edit といったネイティブのエージェント機能は Cursor 公式バックエンドに固定されたままです。
+  - q: Cursor で Claude / GLM / Qwen をどう使いますか？
+    a: 設定 → Models（Cmd/Ctrl + Shift + J）を開く → カスタムモデルを追加（モデル ID は `claude-opus-5` / `claude-sonnet-5` / `glm-5.2` など）→ Override OpenAI Base URL をオンにする → Base URL を `https://api.lmuai.com/v1` に設定 → API Key を LMU AI コンソールで生成した `sk-` キーに設定します。
+  - q: Override OpenAI Base URL をオンにしたら、Cursor の組み込み Claude 3.5 が突然動かなくなりました？
+    a: これは既知の Cursor ルーティング競合です — OpenAI Base URL の上書きをオンにすると、Cursor の組み込み Anthropic ブランチが中断されます。Chat パネルで Claude を使い続けるには、Claude のモデル ID（例：`claude-opus-5`）をカスタムモデルとして追加してください。LMU AI バックエンドが OpenAI ↔ Anthropic のプロトコル変換を行います。
+  - q: Cursor の Composer / Tab 自動補完は LMU AI を使えますか？
+    a: いいえ。Cursor のコアエージェント機能 — Composer、Tab 自動補完、Apply、Inline Edit — は Cursor 公式バックエンドに固定されており、サードパーティ中継が引き継ぐことはできません。Cursor で「フル機能」の LMU AI 体験を得るには、[公式 Codex 拡張機能](/ja/docs/tools/vscode-plugin) または [Claude Code for VS Code 拡張機能](/ja/docs/tools/claude-code-vscode) をインストールしてください（Cursor は VS Code 拡張機能マーケットプレイスと互換性があります）。
+  - q: モデルを追加すると Verify が失敗します？
+    a: "よくあることです — 非公式の OpenAI モデル名（例：`claude-opus-5`、`glm-5.2`）は Cursor の接続チェックを通過しません。回避策：まず `gpt-4` のような公式 OpenAI 名を追加して Verify を通過させ（Base URL + キーが接続できることを確認）、その後で使いたいカスタムモデル ID を別途追加します。Verify は警告を出しますが、**実際には正常に動作します**。"
+  - q: Base URL に `/v1` は必要ですか？
+    a: はい。`https://api.lmuai.com/v1` を入力すると、Cursor が `/chat/completions` を付加し、最終的なリクエストは `https://api.lmuai.com/v1/chat/completions` になります。`/v1` を省くと 404 になります。
+  - q: LMU AI を Cursor で使うのに VPN は必要ですか？
+    a: LMU AI 用に設定された Chat パネルの部分には不要です — `api.lmuai.com` は直接接続します。ただし、Cursor のアカウントサインイン、Composer、Tab 自動補完は Cursor 公式バックエンドを使用しており、地域によってはネットワーク最適化が必要な場合があります。
+---
+
+Cursor は **Override OpenAI Base URL** を使って、Chat / Plan パネルのリクエストをサードパーティ中継 APIに向けることができます。このページでは、そのネイティブ手法を使って LMU AI に接続する方法を説明します。
+
+<Callout type="warn" title="重要な制限：Chat / Plan パネルのみに影響">
+
+Cursor の Override OpenAI Base URL は **Chat / Plan パネルのみに影響します**（Cmd/Ctrl + L で開く会話）。Cursor のコアエージェント機能 — **Composer、Tab 自動補完、Apply、Inline Edit** — はすべて Cursor 公式バックエンドに固定されており、サードパーティ中継が引き継ぐことはできません。
+
+Cursor で「フル機能」のエージェント体験（Composer 系機能を含む）が必要な場合は、代わりに以下をインストールしてください（Cursor は VS Code 拡張機能マーケットプレイスと互換性があります）：
+
+- [公式 Codex 拡張機能](/ja/docs/tools/vscode-plugin) — LMU AI の OpenAI プロトコル上で動く Codex エージェント
+- [Claude Code for VS Code 拡張機能](/ja/docs/tools/claude-code-vscode) — LMU AI の Anthropic プロトコル上で動く Claude Code エージェント
+
+</Callout>
+
+---
+
+## 設定手順
+
+### ステップ 1 — Cursor の設定を開く
+
+**Cmd + Shift + J**（macOS）または **Ctrl + Shift + J**（Windows / Linux）を押して設定を開き、左サイドバーの **Models** をクリックします。
+
+### ステップ 2 — デフォルトモデルをオフにする（推奨）
+
+Cursor には多くのデフォルトモデル（GPT-4 / Claude-3.5 など）が付属しており、有効のままだとカスタムルーティングと競合します。Models ページのモデルリストで、それらをすべて **オフ**（左側のトグルをグレーアウト）にします。
+
+### ステップ 3 — カスタムモデルを追加する
+
+**Add Model** をクリックし、使いたい LMU AI のモデル ID を入力します。例：
+
+- `claude-opus-5`
+- `claude-sonnet-5`
+- `gpt-5.6-sol`
+- `glm-5.2`
+- `qwen3.8-max-preview`
+- `deepseek-v4-pro`
+- `kimi-k3`
+
+**各モデルは一度だけ追加してください。** 利用可能なモデルの全リストは [モデルギャラリー](/ja/docs/guide/models) を参照してください。
+
+### ステップ 4 — Override OpenAI Base URL をオンにする
+
+Models ページの **OpenAI API Key** エリアまでスクロールします：
+
+1. **OpenAI API Key** トグルをオンにする
+2. LMU AI コンソールのキー（`sk-` で始まる）を API Key ボックスに貼り付ける
+3. **Override OpenAI Base URL** トグルをオンにする
+4. Base URL を以下に設定する：
+   ```
+   https://api.lmuai.com/v1
+   ```
+5. **Verify** をクリックして接続を確認する
+
+<Callout type="info" title="Verify が失敗しても設定ミスとは限りません">
+
+Cursor の Verify は入力した **モデル名** を使ってチェックするため、非公式の OpenAI 名（`claude-opus-5`、`glm-5.2` など）は通過しません。回避策：**まず `gpt-4` を追加して Verify を通過させ**（Base URL + キーが接続できることを確認）、その後で使いたいカスタムモデル ID を別途追加します。Verify は警告を出しますが、実際には正常に動作します。
+
+</Callout>
+
+### ステップ 5 — モデルを切り替えて使う
+
+**Cmd/Ctrl + L** を押して Chat パネルを開く → 上部のモデルドロップダウンからステップ 3 で追加したカスタムモデルを選ぶ → チャットを開始すると、リクエストは LMU AI を経由します。
+
+---
+
+## よく使うモデル ID
+
+| モデル ID | 説明 |
+|------|------|
+| `claude-opus-5` | Claude Opus 5（フラッグシップ、推奨） |
+| `claude-sonnet-5` | Claude Sonnet 5（バランス型） |
+| `claude-haiku-4-5` | Claude Haiku 4.5（高速） |
+| `gpt-5.6-sol` | GPT-5.6 Sol |
+| `glm-5.2` | Zhipu GLM-5.2 |
+| `qwen3.8-max-preview` | Qwen 3.8 Max Preview |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k3` | Kimi K3 |
+| `claude-opus-4-8` | Claude Opus 4.8（前世代） |
+| `claude-sonnet-4-6` | Claude Sonnet 4.6（前世代） |
+| `gpt-5.5` | GPT-5.5（前世代） |
+| `glm-5.1` | Zhipu GLM-5.1（前世代） |
+
+全リストは [モデルギャラリー](/ja/docs/guide/models) を参照してください。
+
+---
+
+## よくある問題
+
+### Composer / Tab 自動補完でも LMU AI を使いたい？
+
+ネイティブの Override OpenAI Base URL ではできません — これらの Cursor コア機能は公式バックエンドに固定されています。すべてを LMU AI 経由にするには、以下を使ってください：
+
+- [公式 Codex 拡張機能](/ja/docs/tools/vscode-plugin) — OpenAI プロトコルのエージェント
+- [Claude Code for VS Code 拡張機能](/ja/docs/tools/claude-code-vscode) — Anthropic プロトコルのエージェント
+
+Cursor は VS Code 拡張機能マーケットプレイスと互換性があるため、どちらの拡張機能も Cursor に直接インストールできます。
+
+### Base URL に `/v1` は必要ですか？
+
+**はい。** `https://api.lmuai.com/v1` を入力します。Cursor が `/chat/completions` を付加し、最終的なリクエストは `https://api.lmuai.com/v1/chat/completions` になります。`/v1` を省くと 404 になります。
+
+### Override をオンにしたら組み込み Claude 3.5 がエラーになる？
+
+これは既知の Cursor ルーティング競合です — OpenAI Base URL の上書きをオンにすると Anthropic ブランチが中断されます。Chat パネルで Claude を使い続けるには、Claude のモデル ID（例：`claude-opus-5`）をカスタムモデルとして追加してください。LMU AI バックエンドが OpenAI ↔ Anthropic のプロトコル変換を行います。
+
+### 401 / 403 エラー？
+
+以下の順に確認してください：
+
+1. **API Key** は LMU AI コンソールで生成した `sk-` キーですか（公式 OpenAI のキーではなく）？
+2. **Base URL** は `https://api.lmuai.com/v1` ですか（**必ず `/v1` を含める**）？
+3. **モデル ID** は LMU AI がサポートするものですか（[モデルギャラリー](/ja/docs/guide/models) を参照）？
+4. 現在のプラン / 課金グループに、呼び出そうとしているモデルが含まれていますか？
+
+### BYOK は Cursor サブスクリプションに影響しますか？
+
+- BYOK の使用は Cursor の月間ファストリクエストクォータを **消費しません**
+- Composer / Tab 自動補完などのコア機能は引き続き Cursor サブスクリプションのクォータを **消費します**（これらは BYOK を使わないため）
+- Cursor サブスクリプションを完全に手放すには、上記の Codex / Claude Code 拡張機能のアプローチを参照してください

@@ -1,0 +1,214 @@
+---
+title: CodeBuddy
+description: Conecte o CodeBuddy à LMU AI API via models.json — informe o endpoint completo /chat/completions para usar modelos Claude, GPT e chineses.
+ogDescription: Conecte o CodeBuddy à LMU AI — edite ~/.codebuddy/models.json para adicionar modelos personalizados com url definido como https://api.lmuai.com/v1/chat/completions e sua chave sk-, e então use Claude Opus 5, GPT-5.6, Qwen, DeepSeek e outros diretamente da caixa de chat; suporta hot reload e configuração no nível do projeto.
+keywords:
+  - CodeBuddy
+  - configuração do CodeBuddy
+  - API de terceiros no CodeBuddy
+  - relay do CodeBuddy
+  - CodeBuddy models.json
+  - modelo personalizado no CodeBuddy
+  - Conectar CodeBuddy ao Claude
+  - Tencent Cloud CodeBuddy
+  - availableModels
+alternateNames:
+  - Conectar CodeBuddy à LMU AI
+  - Como configurar uma API de terceiros no CodeBuddy
+  - Tencent Cloud CodeBuddy com LMU AI
+faq:
+  - q: Onde fica o models.json do CodeBuddy?
+    a: 'Ambos os níveis são suportados. **Nível de usuário** (recomendado): `~/.codebuddy/models.json`, aplicando-se globalmente; **nível de projeto**: `<raiz-do-projeto>/.codebuddy/models.json`, que tem prioridade. A ordem de mesclagem, do mais alto ao mais baixo, é nível de projeto → nível de usuário → padrões embutidos, e modelos com o mesmo `id` são substituídos.'
+  - q: url deve ser uma URL base ou um caminho completo?
+    a: 'Deve ser o **caminho completo**, normalmente terminando em `/chat/completions` — para a LMU AI, `https://api.lmuai.com/v1/chat/completions`. A documentação oficial lista explicitamente formas incompletas como `https://api.example.com/v1` e `https://api.myservice.com` como **exemplos incorretos**, então tutoriais que os copiam não vão funcionar.'
+  - q: O CodeBuddy suporta o protocolo Anthropic?
+    a: Não. A documentação oficial afirma que, no momento, apenas APIs no formato OpenAI são suportadas, então conecte-se à LMU AI pelo protocolo compatível com OpenAI (`/v1/chat/completions`). Os modelos Claude continuam funcionando — basta informar um ID de modelo como `claude-opus-5` e o backend da LMU AI cuida da conversão OpenAI ↔ Anthropic.
+  - q: Configurei, mas o modelo não aparece no menu suspenso
+    a: Verifique estes itens na ordem — (1) se `availableModels` estiver definido, apenas os IDs listados ali são exibidos (omita-o ou deixe-o vazio para mostrar tudo); (2) o JSON é válido (uma vírgula ausente ou uma vírgula sobrando invalida o arquivo inteiro); (3) o campo obrigatório `id` está presente; (4) o arquivo foi realmente salvo no disco.
+  - q: Preciso reiniciar o CodeBuddy após editar a configuração?
+    a: Não. O models.json suporta **hot reload** — as mudanças são detectadas automaticamente (com um debounce de 1 segundo) e sincronizadas com o aplicativo. Se nada acontecer, primeiro confirme que o arquivo foi realmente salvo.
+  - q: Como mostro apenas os modelos da LMU AI e oculto os embutidos?
+    a: Use o campo `availableModels` para listar apenas os IDs de modelo que você quer ver. Observe que, no nível de projeto, ele **substitui completamente** o nível de usuário em vez de mesclar. Além disso, conforme a documentação oficial, ao remover o campo `availableModels` lembre-se de remover a vírgula agora sobrando após o array `models`, ou o JSON se torna inválido.
+---
+
+O CodeBuddy (assistente de programação da Tencent Cloud) é um editor de código com IA que suporta uma lista de modelos personalizada via um arquivo de configuração `models.json`. Esta página aborda como conectá-lo à LMU AI.
+
+---
+
+## Instalar e fazer login
+
+1. Baixe e instale a versão para o seu sistema operacional pelo site oficial: [https://www.codebuddy.cn](https://www.codebuddy.cn/home/)
+2. Faça login na sua conta CodeBuddy quando solicitado
+
+---
+
+## Configurar a LMU AI
+
+### Passo 1: Escolha a localização do arquivo de configuração
+
+| Nível | Caminho | Observações |
+|------|------|------|
+| **Nível de usuário** (recomendado) | `~/.codebuddy/models.json` | Configuração global, aplica-se a todos os projetos |
+| **Nível de projeto** | `<raiz-do-projeto>/.codebuddy/models.json` | Específica do projeto, tem prioridade sobre o nível de usuário |
+
+Crie o arquivo se ele não existir. Ordem de mesclagem, do mais alto ao mais baixo: nível de projeto → nível de usuário → padrões embutidos.
+
+### Passo 2: Escreva a configuração
+
+Usando o `~/.codebuddy/models.json` de nível de usuário como exemplo:
+
+```json
+{
+  "models": [
+    {
+      "id": "claude-opus-5",
+      "name": "Claude Opus 5 (LMU AI)",
+      "vendor": "LMU AI",
+      "apiKey": "sk-your-lmu-ai-api-key",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 32000,
+      "supportsToolCall": true,
+      "supportsImages": true,
+      "supportsReasoning": true
+    },
+    {
+      "id": "gpt-5.6-sol",
+      "name": "GPT-5.6 Sol (LMU AI)",
+      "vendor": "LMU AI",
+      "apiKey": "sk-your-lmu-ai-api-key",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "maxInputTokens": 400000,
+      "maxOutputTokens": 32000,
+      "supportsToolCall": true
+    }
+  ]
+}
+```
+
+<Callout type="warn" title="url deve ser o caminho completo, não uma URL base">
+
+O campo `url` recebe o **caminho completo do endpoint**, terminando em `/chat/completions`:
+
+- ✅ Correto: `https://api.lmuai.com/v1/chat/completions`
+- ❌ Errado: `https://api.lmuai.com/v1`
+- ❌ Errado: `https://api.lmuai.com`
+
+Esse é o motivo mais comum de um exemplo mínimo copiado e colado falhar — muitos tutoriais o tratam como uma URL base, e então o CodeBuddy não consegue alcançar o endpoint.
+
+</Callout>
+
+<Callout type="info" title="O CodeBuddy suporta apenas o formato OpenAI">
+
+A documentação oficial afirma que, no momento, apenas APIs no **formato OpenAI** são suportadas, então conecte-se à LMU AI pelo protocolo compatível com OpenAI.
+
+Os modelos Claude também funcionam sem problemas: informe um ID de modelo como `claude-opus-5` diretamente, e o backend da LMU AI cuida da conversão OpenAI ↔ Anthropic.
+
+</Callout>
+
+### Passo 3: Escolha o modelo e comece a conversar
+
+Basta salvar o arquivo — o models.json suporta **hot reload** (debounce de 1 segundo), então não é preciso reiniciar o CodeBuddy. Selecione o modelo recém-configurado no seletor de modelos da caixa de chat e pronto.
+
+Modelos adicionados via models.json são automaticamente marcados como `custom`, o que facilita identificá-los na interface.
+
+---
+
+## Referência de campos
+
+Campos disponíveis em cada entrada do array `models`:
+
+| Campo | Tipo | Obrigatório | Observações |
+|------|------|------|------|
+| `id` | string | ✓ | Identificador único do modelo — use o ID de modelo da LMU AI |
+| `name` | string | - | Nome de exibição no menu suspenso |
+| `vendor` | string | - | Nome do fornecedor; o que você quiser |
+| `apiKey` | string | - | A chave `sk-` gerada no console da LMU AI (o valor real da chave, não o nome de uma variável de ambiente) |
+| `url` | string | - | Caminho completo do endpoint; para a LMU AI, `https://api.lmuai.com/v1/chat/completions` |
+| `maxInputTokens` | number | - | Máximo de tokens de entrada |
+| `maxOutputTokens` | number | - | Máximo de tokens de saída |
+| `supportsToolCall` | boolean | - | Se há suporte a chamada de ferramentas |
+| `supportsImages` | boolean | - | Se há suporte a entrada de imagens |
+| `supportsReasoning` | boolean | - | Se há suporte a modo de raciocínio |
+
+---
+
+## Mostrar apenas modelos específicos
+
+Use o campo de nível superior `availableModels` para controlar quais modelos aparecem no menu suspenso:
+
+```json
+{
+  "models": [
+    {
+      "id": "claude-opus-5",
+      "name": "Claude Opus 5 (LMU AI)",
+      "apiKey": "sk-your-lmu-ai-api-key",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "supportsToolCall": true
+    }
+  ],
+  "availableModels": ["claude-opus-5"]
+}
+```
+
+- Omitido ou um array vazio → todos os modelos são exibidos
+- Uma vez definido → apenas os IDs de modelo listados aparecem (tanto embutidos quanto personalizados)
+- Um `availableModels` de nível de projeto **substitui completamente** o de nível de usuário em vez de mesclar
+
+<Callout type="warn" title="Atenção à vírgula ao remover availableModels">
+
+Conforme a documentação oficial: após excluir o campo `availableModels`, lembre-se de remover a `,` agora sobrando após o array `models` acima dele, ou o JSON se torna inválido e toda a configuração para de funcionar.
+
+</Callout>
+
+---
+
+## IDs de modelo comuns
+
+| ID de modelo | Observações |
+|------|------|
+| `claude-opus-5` | Claude Opus 5 (carro-chefe, recomendado) |
+| `claude-sonnet-5` | Claude Sonnet 5 (equilibrado) |
+| `claude-haiku-4-5` | Claude Haiku 4.5 (rápido) |
+| `gpt-5.6-sol` | GPT-5.6 Sol |
+| `glm-5.2` | GLM-5.2 |
+| `qwen3.8-max-preview` | Qwen 3.8 Max Preview |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k3` | Kimi K3 |
+
+Não sabe qual modelo informar? Acesse a [Galeria de Modelos](/pt/docs/guide/models) para ver todos os IDs de modelo disponíveis e copiá-los com um clique.
+
+Para uma janela de contexto de 1M, escreva o ID do modelo com o sufixo `[1M]` (por exemplo, `claude-opus-5[1M]`) e aumente `maxInputTokens` de acordo.
+
+---
+
+## Solução de problemas
+
+### A configuração não está fazendo efeito?
+
+1. Verifique se o **JSON é válido** (uma vírgula ausente ou sobrando é o culpado de sempre)
+2. Confirme se o **caminho do arquivo** está certo (`~/.codebuddy/models.json`)
+3. Confirme se cada entrada tem o campo obrigatório `id`
+4. Confirme se o arquivo foi realmente **salvo no disco** (o hot reload tem um debounce de 1 segundo)
+
+### Modelo ausente no menu suspenso?
+
+- Se `availableModels` estiver definido, verifique se o ID do modelo está listado ali
+- Verifique se a entrada no array `models` está completa
+
+### Recebendo um 401 / 404?
+
+- **401**: `apiKey` é a chave `sk-` gerada no console da LMU AI?
+- **404**: o `url` quase certamente está sem `/chat/completions` — deve ser o caminho completo
+
+---
+
+## Observações
+
+- O `url` deve ser o **caminho completo do endpoint** `https://api.lmuai.com/v1/chat/completions`, não apenas `/v1` ou o domínio nu
+- O CodeBuddy suporta **apenas o formato OpenAI**; os modelos Claude passam pela conversão de protocolo da LMU AI
+- O `apiKey` recebe o valor real da chave — nomes de variáveis de ambiente não são suportados
+- A configuração faz **hot reload**, então basta salvar; não é preciso reiniciar
+- Cada entrada de modelo precisa do seu próprio `apiKey` e `url`
+- A configuração de nível de projeto substitui a de nível de usuário por `id`, enquanto `availableModels` é substituído por inteiro em vez de mesclado

@@ -1,0 +1,198 @@
+---
+title: Codex CLI (Mac/Linux)
+description: ثبّت واضبط Codex CLI على Mac / Linux للاتصال بواجهة LMU AI API، بما في ذلك كيفية تفعيل السياق الطويل بسعة مليون توكن في config.toml.
+ogDescription: ثبّت Codex CLI على Mac / Linux واربطه بـ LMU AI — استخدم OpenAI Codex وGPT وClaude دون وكيل؛ سطران في config.toml (model_context_window / model_auto_compact_token_limit) يفعّلان السياق الطويل بسعة مليون توكن.
+keywords:
+  - تثبيت Codex CLI على Mac
+  - تثبيت Codex CLI على Linux
+  - إعداد Codex CLI
+  - مُرحّل OpenAI Codex
+  - Codex base url
+  - سياق Codex بمليون توكن
+  - model_context_window
+  - model_auto_compact_token_limit
+  - Codex config.toml
+  - Codex بدون وكيل
+alternateNames:
+  - ربط Codex CLI على Mac/Linux بـ LMU AI
+  - تفعيل سياق المليون توكن في Codex
+  - دليل ضبط سياق المليون توكن في Codex
+faq:
+  - q: كيف أوجّه Codex CLI إلى واجهة API لطرف ثالث على Mac / Linux؟
+    a: "بعد تثبيت Node.js 20+ وCodex CLI، أنشئ ملفين يدويًا داخل ~/.codex/: ملف config.toml، حيث تضبط model_provider وbase_url على https://api.lmuai.com، وملف auth.json، حيث تضع مفتاح sk- المُولَّد في وحدة تحكم LMU AI. لا حاجة إلى أداة ضبط من طرف ثالث، ويتصل مباشرةً دون وكيل."
+  - q: كيف أفعّل السياق الطويل بسعة مليون توكن في Codex CLI؟
+    a: "أضف model_context_window = 1000000 وmodel_auto_compact_token_limit = 900000 في المستوى الأعلى من ~/.codex/config.toml (قبل أي [section])، ثم احفظ وأعد الدخول إلى Codex. اضبط القيمة الثانية على نحو 90٪ من حجم النافذة؛ فأي قيمة أكبر يقصّها Codex."
+  - q: فعّلت سياق المليون لكن /status لا يزال يظهر 272K — ماذا أفعل الآن؟
+    a: "تحقّق بالترتيب: هل السطران في المستوى الأعلى من الملف (داخل [profiles.xxx] لا يُفعّلان)؛ هل هما في ملف ~/.codex/config.toml على مستوى المستخدم (قد يُتجاهَل ملف .codex/config.toml على مستوى المشروع)؛ هل يدعم النموذج الحالي المليون (gpt-5.4 وgpt-5.5 يدعمانه؛ أما gpt-5.3-codex فمحدود بـ 272K)؛ وأخيرًا حدّث عبر npm i -g @openai/codex@latest وأعد المحاولة. ظهور نحو 950K في بعض الإصدارات أمر طبيعي — هامش أمان محجوز نسبته 5٪."
+  - q: هل يكلّف سياق المليون توكن أكثر؟
+    a: "نعم. يستهلك السياق الأطول توكنات أكثر لكل طلب، ويُحاسَب الجزء الذي يتجاوز 272K وفق شريحة السياق الطويل الأعلى سعرًا. فعّله فقط عند الحاجة الفعلية — مراجعة مستودع كبير، تحليل سجلات طويلة — وليس بشكل دائم."
+---
+
+
+بعد تثبيت Codex CLI، أنشئ ملفَّي ضبط يدويًا (`config.toml` + `auth.json`) للاتصال بواجهة LMU AI API — دون الحاجة إلى أداة ضبط من طرف ثالث.
+
+---
+
+## الخطوة 1 — تثبيت Node.js
+
+تحتاج إلى **Node.js 20+** — التنزيل: [https://nodejs.org/en/download](https://nodejs.org/en/download)
+
+انتقل خلال المُثبِّت، ثم تحقّق في الطرفية:
+
+```bash
+node --version
+# A version number (e.g. v23.7.0) means it installed correctly
+```
+
+## الخطوة 2 — تثبيت Codex CLI
+
+```bash
+npm i -g @openai/codex
+```
+
+إذا واجهت مشكلات شبكية، فبدّل إلى مرآة صينية أولًا:
+
+```bash
+npm config set registry https://registry.npmmirror.com
+npm i -g @openai/codex
+```
+
+تحقّق من التثبيت:
+
+```bash
+codex --version
+# A version number means it installed correctly
+```
+
+## الخطوة 3 — إنشاء ملفات الضبط
+
+مجلد الضبط هو **`~/.codex/`** (أنشئه إن كان مفقودًا؛ واستبدل أي ملفات قديمة). أنشئ/استبدل هذين الملفين داخله:
+
+### config.toml
+
+```toml
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+disable_response_storage = true
+sandbox_mode = "danger-full-access"
+windows_wsl_setup_acknowledged = true
+approval_policy = "never"
+file_opener = "vscode"
+model_provider = "codex"
+web_search = "cached"
+suppress_unstable_features_warning = true
+
+[history]
+persistence = "save-all"
+
+[tui]
+notifications = true
+
+[shell_environment_policy]
+inherit = "all"
+ignore_default_excludes = false
+
+[sandbox_workspace_write]
+network_access = true
+
+[features]
+plan_tool = true
+apply_patch_freeform = true
+view_image_tool = true
+unified_exec = false
+streamable_shell = false
+rmcp_client = true
+elevated_windows_sandbox = true
+
+[profiles.auto-max]
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+
+[profiles.review]
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[notice]
+hide_gpt5_1_migration_prompt = true
+
+[model_providers.codex]
+name = "codex"
+base_url = "https://api.lmuai.com"
+wire_api = "responses"
+requires_openai_auth = true
+```
+
+### auth.json
+
+```json
+{
+  "OPENAI_API_KEY": "your sk- key generated in the console"
+}
+```
+
+## الخطوة 4 — تشغيل Codex CLI
+
+بعد حفظ ملفات الضبط، أعد فتح الطرفية وشغّل الأمر التالي للتشغيل وتسجيل الدخول تلقائيًا:
+
+```bash
+codex --dangerously-bypass-approvals-and-sandbox
+```
+
+أو الصيغة المختصرة:
+
+```bash
+codex --yolo
+```
+
+> أمر التشغيل هذا يتخطّى موافقات الأمان، فلا تُوافق على كل خطوة تُنفَّذ تلقائيًا.
+
+عند نجاح التشغيل، تُظهر الواجهة النموذج الحالي بصيغة `gpt-5.4 xhigh` (النموذج المحدَّد بحقل `model` في `config.toml`).
+
+<Callout type="info" title="حول تبديل النماذج">
+
+إذا بدّلت بالخطأ إلى نموذج مختلف في جلسة، فأعد ضبط حقل `model` في `~/.codex/config.toml` إلى `gpt-5.4` وأعد تشغيل الطرفية لاستعادته.
+
+</Callout>
+
+---
+
+## تفعيل سياق المليون توكن في Codex (اختياري)
+
+يدعم `gpt-5.4` **نافذة سياق طويلة بسعة مليون توكن** (272K افتراضيًا)، وهي مفيدة لمراجعة المستودعات الكبيرة وتحليل السجلات الطويلة وإعادة الهيكلة عبر الملفات. لا يفعّل Codex نافذة المليون افتراضيًا؛ إذ يجب أن تُعلنها صراحةً في `config.toml`.
+
+### كيفية الضبط: أضف سطرين إلى config.toml
+
+حرّر `~/.codex/config.toml` وأضف ما يلي في **المستوى الأعلى** (قبل أي `[section]`، مثلًا مباشرةً بعد `model = "gpt-5.4"`):
+
+```toml
+model_context_window = 1000000
+model_auto_compact_token_limit = 900000
+```
+
+احفظ، وأعد فتح الطرفية، وأعد الدخول إلى Codex لتطبيقه.
+
+**مرجع الحقول**
+
+| الحقل | الغرض |
+|------|------|
+| `model_context_window` | يُعلن نافذة السياق القابلة للاستخدام للنموذج بالتوكنات؛ `1000000` يساوي مليونًا. إن لم يُضبط، يستخدم قيمة النموذج الافتراضية (272K) |
+| `model_auto_compact_token_limit` | عتبة التوكنات التي تُطلق الضغط التلقائي للسجل؛ اضبطها على نحو 90٪ من حجم النافذة (`900000` لسياق المليون). القيم التي تتجاوز 90٪ من النافذة يقصّها Codex، فلا جدوى من قيمة أكبر |
+
+### التحقق من أنه صار ساري المفعول
+
+بعد إعادة الدخول إلى Codex، اكتب `/status` وتحقّق ممّا إذا كان `context window` يُظهر نحو مليون (تُظهر بعض الإصدارات نحو 950K — هامش أمان محجوز نسبته 5٪ من Codex). يمكنك أيضًا استخدام `/statusline` لإضافة استهلاك السياق إلى شريط الحالة للمراقبة الحيّة.
+
+### إذا كنت تستخدم CC Switch
+
+إذا كنت تدير ضبط Codex عبر [CC Switch](/ar/docs/tools/cc-switch)، فأضف السطرين نفسيهما في محرّر ضبط Codex فيه وطبّق — والنتيجة مماثلة:
+
+![ضبط model_context_window = 1000000 وmodel_auto_compact_token_limit = 900000 لضبط Codex في CC Switch لتفعيل السياق الطويل بسعة مليون توكن](/images/tools/codex/codex-ccs.png)
+
+<Callout type="warn" title="ملاحظات الاستخدام">
+
+- **يجب أن يكونا في المستوى الأعلى**: لا يُفعَّل هذان الحقلان داخل قسم `[profiles.xxx]` (قيد معروف في Codex)؛ وضعهما أيضًا في ملف `~/.codex/config.toml` على مستوى المستخدم، لأن ملف `.codex/config.toml` على مستوى المشروع قد يُتجاهَل
+- **دعم النماذج**: يدعم `gpt-5.4` و`gpt-5.5` المليون عبر قناة API؛ أما نماذج مثل `gpt-5.3-codex` فمحدودة بـ 272K، ولا يمكن لأي قيمة ضبط أن تتجاوز حد النموذج نفسه
+- **تكلفة أعلى**: يستهلك السياق الأطول توكنات أكثر لكل طلب؛ ويُحاسَب الجزء الذي يتجاوز 272K وفق شريحة السياق الطويل الأعلى سعرًا، فلا تُبقِه مفعّلًا إلا للمهام الطويلة جدًا
+- **اختلافات الإصدارات**: تقرأ بعض إصدارات Codex الأحدث حجم النافذة من كتالوج النماذج أولًا؛ إذا لا يزال `/status` يُظهر القيمة القديمة، فحدّث إلى الأحدث (`npm i -g @openai/codex@latest`) وأعد المحاولة
+
+</Callout>

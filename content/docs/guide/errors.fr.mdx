@@ -1,0 +1,131 @@
+---
+title: Codes d'erreur
+description: "Référence des codes d'erreur de LMU AI : significations et corrections pour les statuts 401 / 403 / 404 / 429 / 5xx, les codes métier des images par lots, et recherche à partir du texte d'erreur brut vers une correction."
+ogDescription: Aide-mémoire des codes d'erreur de LMU AI — une seule page couvrant la cause et la correction typiques pour 400 / 401 / 402 / 403 / 404 / 413 / 429 / 500 / 502 / 503 / 504, les codes métier des images par lots BATCH_IMAGE_*, et des liens de saut pour les erreurs brutes courantes comme stream disconnected, Incorrect API key, No available accounts et Invalid signature in thinking block.
+keywords:
+  - codes d'erreur LMU AI
+  - erreur 401 de l'API Claude
+  - erreur 403 de l'API Claude
+  - limite de débit 429 de l'API Claude
+  - API 503 No available accounts
+  - Invalid signature in thinking block
+  - Incorrect API key provided
+  - stream disconnected
+  - codes d'erreur BATCH_IMAGE
+  - dépannage API IA
+alternateNames:
+  - tableau des codes d'erreur LMU AI
+  - référence des codes de statut API Claude / GPT
+  - comment corriger les erreurs d'API
+  - codes d'erreur de l'API relais
+# Only entries that actually appear in the tables below. The 6 lookup-by-raw-text
+# cases are all in faq.en.mdx, which owns the FAQPage; this page only tables and links.
+faq:
+  - q: "Quelle est la cause habituelle d'une erreur 404 Not Found ?"
+    a: "Le plus souvent, l'URL de base ne correspond pas au protocole : une URL de protocole OpenAI sans /v1, une URL Anthropic qui inclut à tort /v1, ou un chemin Gemini qui n'utilise pas le point de terminaison complet /v1beta/models/... Revérifiez l'URL de base et le point de terminaison par rapport à la page Protocoles d'API."
+  - q: "Dois-je réessayer sur une erreur 5xx, ou contacter directement le support ?"
+    a: "Une erreur 5xx est une défaillance transitoire en amont ou du relais. Réessayez un nombre limité de fois avec un backoff exponentiel et enregistrez l'ID de requête depuis les en-têtes de la réponse. Si le même type de requête continue d'échouer dans les 5 minutes, envoyez l'ID de requête au support — n'envoyez jamais votre clé d'API complète."
+---
+
+Cette page rassemble les codes d'erreur dispersés dans les documentations d'API individuelles en un seul aide-mémoire. **Repérez d'abord la classe générale par code de statut HTTP, puis trouvez la correction spécifique par le texte d'erreur brut.**
+
+<Callout type="info" title="Notez l'ID de requête avant de dépanner">
+
+L'ID de requête présent dans les en-têtes de la réponse est l'information la plus utile pour diagnostiquer un problème. Lorsque vous contactez le support, incluez l'ID de requête et le texte d'erreur complet — **n'envoyez pas votre clé d'API complète**.
+
+</Callout>
+
+---
+
+## Codes de statut HTTP
+
+| Statut | Cause typique | Que faire |
+|---:|---|---|
+| `400` | Corps de requête, paramètre, ID de modèle ou chemin de modèle invalide ; format / encodage d'image incorrect | Corrigez la requête — **ne vous contentez pas de réessayer** ; changer de compte ou réessayer ne réussira pas |
+| `401` | Clé d'API manquante, invalide ou désactivée ; l'URL de base ne correspond pas au protocole ; l'IDE n'a pas été redémarré, donc l'ancienne configuration est toujours active | Vérifiez la clé et l'URL de base (voir [Protocoles d'API](/fr/docs/guide/api-protocols)), redémarrez l'IDE ; détails dans [Problème 3](/fr/docs/guide/faq#issue-3) |
+| `402` | Solde insuffisant | Rechargez ou réduisez la charge de travail |
+| `403` | Deux possibilités, toutes deux envisageables : ① le **groupe de la clé d'API n'a pas la génération d'images activée** ; ② **solde, abonnement, éligibilité à la facturation ou permission insuffisants** | Confirmez d'abord le solde du compte et le statut de l'abonnement, puis confirmez que le groupe dispose de la capacité ; si les deux sont corrects et que l'erreur persiste, contactez le support |
+| `404` | URL de protocole OpenAI sans `/v1`, URL Anthropic incluant à tort `/v1`, Gemini n'utilisant pas `/v1beta/models/...` ; ou le point de terminaison n'est pas pris en charge par le groupe actuel | Revérifiez l'URL de base et le point de terminaison complet par rapport à [Protocoles d'API](/fr/docs/guide/api-protocols) |
+| `413` | Corps de requête image-vers-image trop volumineux | Compressez l'image d'entrée |
+| `429` | ① Quota quotidien épuisé ; ② concurrence, RPM ou quota amont limité | Pour un quota épuisé, voir [Problème 2](/fr/docs/guide/faq#issue-2) ; pour la limitation de débit, appliquez un backoff exponentiel et réduisez la concurrence et le RPM |
+| `500` | Erreur interne ou de capacité | Notez le code d'erreur et l'ID de requête, réessayez un nombre limité de fois |
+| `502` | Échec temporaire de l'authentification, de la permission ou du service en amont | Appliquez un backoff et réessayez ; contactez le support si nécessaire |
+| `503` | Aucun compte amont disponible ou amont surchargé ; peut aussi être **une variable d'environnement qui remplace la clé** | Vérifiez d'abord les variables d'environnement (voir [Problème 6](/fr/docs/guide/faq#issue-6)), puis réessayez avec un délai et réduisez le trafic |
+| `504` | Délai d'attente de la passerelle ou de l'amont dépassé | Réémettez comme une nouvelle requête indépendante |
+
+<Callout type="warn" title="Quoi réessayer, et quoi corriger à la place">
+
+- **Ne pas réessayer** : `400`, `401`, et toute erreur explicite de solde, de permission, de paramètre ou de politique de contenu — la requête elle-même est invalide, et tout compte amont renverra le même résultat. Vous devez d'abord corriger la requête.
+- **Sûr à réessayer** : `429`, `502`, `503`, `504`, ainsi que les coupures réseau, réinitialisations de connexion et délais d'attente en lecture — toutes des défaillances transitoires. Utilisez un backoff exponentiel pour un nombre **limité** de tentatives (2 à 3 recommandées) afin d'éviter de payer pour des appels répétés ; sur un `429`, réduisez aussi la concurrence et le RPM.
+
+Cette classification provient des recommandations de réessai des API d'images — voir [Gemini Image · Recommandations de réessai](/fr/docs/api/gemini-image#retry-recommendations).
+
+</Callout>
+
+Descriptions complètes des erreurs pour chaque API : [Gemini Image](/fr/docs/api/gemini-image), [GPT Image](/fr/docs/api/gpt-image), [Grok Image](/fr/docs/api/grok-image), [Gemini Batch Image](/fr/docs/api/gemini-image-batch).
+
+---
+
+## Codes d'erreur métier (images par lots)
+
+Au-delà des codes de statut HTTP, l'[API Gemini Batch Image](/fr/docs/api/gemini-image-batch) renvoie également des codes d'erreur métier, affichés dans la console sous la forme `error code: BATCH_IMAGE_XXX` accompagné d'un ID de requête.
+
+| Code d'erreur | HTTP | Signification | Que faire |
+|---|---:|---|---|
+| `BATCH_IMAGE_DISABLED` | 404 | Génération d'images par lots désactivée globalement | Envoyez le code d'erreur et l'ID de requête à l'administrateur |
+| `BATCH_IMAGE_GROUP_DISABLED` | 403 | Le groupe de la clé actuelle n'autorise pas les images par lots ou n'est pas un groupe Gemini | Changez de clé ou demandez à l'administrateur d'activer la permission du groupe |
+| `BATCH_IMAGE_NO_ACCOUNT_AVAILABLE` | 502 | Aucune ressource d'exécution par lots actuellement disponible | Enregistrez l'ID de requête et contactez l'administrateur |
+| `BATCH_IMAGE_SETTLEMENT_PRICING_MISSING` | 400 | Le modèle par lots n'a pas de tarif de facturation | Demandez à l'administrateur de configurer le tarif du modèle |
+| `BATCH_IMAGE_INVALID_MODEL` | 400 | Aucun modèle fourni | Utilisez un modèle de la liste des modèles par lots |
+| `BATCH_IMAGE_INVALID_ITEMS` | 400 | Items, résolution ou champs de requête invalides | Vérifiez le corps de la requête ; seul le 1K est pris en charge pour l'instant |
+| `BATCH_IMAGE_DUPLICATE_CUSTOM_ID` | 400 | `custom_id` en double | Assurez-vous qu'il est unique au sein du lot |
+| `BATCH_IMAGE_PROMPT_TOO_LONG` | 400 | Prompt trop long | Raccourcissez le prompt |
+| `BATCH_IMAGE_TOO_MANY_OUTPUT_IMAGES` | 400 | Le nombre d'images après expansion dépasse la limite | Réduisez les items ou output_count |
+| `BATCH_IMAGE_INVALID_REFERENCE_IMAGE` | 400 | Format, taille ou URI de l'image de référence invalide | Vérifiez le MIME, le Base64 et le file_uri |
+| `BATCH_IMAGE_INSUFFICIENT_BALANCE` | 402 | Solde trop faible pour réserver le montant | Rechargez ou réduisez la charge de travail |
+| `BATCH_IMAGE_IDEMPOTENCY_CONFLICT` | 409 | La même clé d'idempotence correspond à un corps de requête différent | Utilisez une nouvelle Idempotency-Key |
+| `BATCH_IMAGE_PROVIDER_SUBMIT_FAILED` | 502 | La création de la tâche par lots en amont a échoué | Enregistrez l'ID de requête, réessayez un nombre limité de fois, ou contactez l'administrateur |
+| `BATCH_IMAGE_QUEUE_FAILED` | 502 | Le service de tâches asynchrones est temporairement indisponible | Enregistrez l'ID de requête et contactez l'administrateur |
+| `BATCH_IMAGE_NOT_READY` | 409 | Tentative de téléchargement avant l'achèvement de la tâche | Attendez que le statut passe à completed |
+| `BATCH_IMAGE_OUTPUT_DELETED` | 410 | La sortie a déjà été nettoyée | Elle ne peut plus être téléchargée ; recréez la tâche |
+| `BATCH_IMAGE_ITEM_FAILED` | 409 | L'item de tâche spécifié n'a aucune image réussie | Vérifiez item.error |
+| `BATCH_IMAGE_DOWNLOAD_LIMITED` | 429 | Trop de téléchargements simultanés | Réessayez plus tard |
+
+---
+
+## Recherche par texte d'erreur brut
+
+Faites correspondre le texte d'erreur que vous voyez réellement au tableau ci-dessous et accédez directement à la correction détaillée.
+
+| Texte d'erreur brut | Signification | Correction détaillée |
+|---|---|---|
+| `stream disconnected before completion` | Le flux a été interrompu, généralement à cause d'un VPN / proxy / proxy système qui fait tourner l'IP de sortie | [Problème 1](/fr/docs/guide/faq#issue-1) |
+| `exceeded retry limit, last status: 429 Too Many Requests` | Quota quotidien épuisé | [Problème 2](/fr/docs/guide/faq#issue-2) |
+| `401 Unauthorized: Incorrect API key provided` | La requête est toujours partie vers le point de terminaison officiel, et non vers le relais LMU AI | [Problème 3](/fr/docs/guide/faq#issue-3) |
+| `running scripts is disabled on this system` (Windows) | Restriction de la politique d'exécution PowerShell | [Problème 4](/fr/docs/guide/faq#issue-4) |
+| `CODEX is not recognized as a cmdlet` (Windows) | Node.js non installé ou PATH cassé | [Problème 5](/fr/docs/guide/faq#issue-5) |
+| `503 No available accounts` | Une variable d'environnement du shell remplace la clé configurée dans l'IDE | [Problème 6](/fr/docs/guide/faq#issue-6) |
+| `400 Invalid signature in thinking block` | Changement de modèle entre groupes au sein d'une même conversation ; la signature de réflexion ne peut pas être vérifiée | [Problème 7](/fr/docs/guide/faq#issue-7) |
+| `400 Unknown parameter: 'tools[0].n'` | Un paramètre `tools` a été envoyé par erreur à un point de terminaison d'image | [Problème 8](/fr/docs/guide/faq#issue-8) |
+| `No available accounts` / modèle indisponible | Appel d'un modèle en dehors de la plage disponible du groupe actuel | [Protocoles d'API → Dépannage](/fr/docs/guide/api-protocols#troubleshooting) |
+
+---
+
+## Erreurs sur l'API d'export de l'utilisation
+
+L'[API d'export de l'utilisation](/fr/docs/api/usage-export) utilise l'authentification JWT, donc sa sémantique d'erreur diffère du canal par clé d'API ci-dessus :
+
+| Statut | Cause | Que faire |
+|---:|---|---|
+| `401` | JWT expiré | Renouvelez avec le `refresh_token`, ou reconnectez-vous |
+| `403` | Accès non autorisé (par ex. interrogation d'un `api_key_id` qui ne vous appartient pas) | Vérifiez si la clé appartient au compte actuel |
+| `400` | Paramètre incorrect (par ex. mauvais format de `start_date`) | Vérifiez le format `YYYY-MM-DD` et que le `timezone` est valide |
+
+---
+
+## Toujours bloqué ?
+
+- Des cas concrets pas à pas se trouvent dans la [FAQ](/fr/docs/guide/faq)
+- Les règles d'URL de base / de point de terminaison se trouvent dans [Protocoles d'API](/fr/docs/guide/api-protocols)
+- La protection contre une clé volée se trouve dans [Sécurité des clés](/fr/docs/guide/key-security)
+- Lorsque vous contactez le support, incluez l'**ID de requête** et le texte d'erreur complet

@@ -1,0 +1,131 @@
+---
+title: エラーコード
+description: "LMU AI エラーコードリファレンス：401 / 403 / 404 / 429 / 5xx ステータスの意味と対処法、バッチ画像のビジネスコード、そして生のエラーテキストから対処法への逆引き。"
+ogDescription: LMU AI エラーコードチートシート — 400 / 401 / 402 / 403 / 404 / 413 / 429 / 500 / 502 / 503 / 504 の典型的な原因と対処法、BATCH_IMAGE_* バッチ画像ビジネスコード、そして stream disconnected、Incorrect API key、No available accounts、Invalid signature in thinking block といったよくある生のエラーへのジャンプリンクを1ページに集約。
+keywords:
+  - LMU AI エラーコード
+  - Claude API 401 エラー
+  - Claude API 403 エラー
+  - Claude API 429 レート制限
+  - API 503 No available accounts
+  - Invalid signature in thinking block
+  - Incorrect API key provided
+  - stream disconnected
+  - BATCH_IMAGE エラーコード
+  - AI API トラブルシューティング
+alternateNames:
+  - LMU AI エラーコード表
+  - Claude / GPT API ステータスコードリファレンス
+  - API エラーの対処法
+  - リレー API エラーコード
+# Only entries that actually appear in the tables below. The 6 lookup-by-raw-text
+# cases are all in faq.en.mdx, which owns the FAQPage; this page only tables and links.
+faq:
+  - q: "404 Not Found の一般的な原因は何ですか？"
+    a: "最も多いのは Base URL がプロトコルと一致していないケースです：OpenAI プロトコルの URL に /v1 がない、Anthropic の URL に誤って /v1 が含まれている、あるいは Gemini のパスが完全な /v1beta/models/... エンドポイントを使っていない、などです。Base URL とエンドポイントを API Protocols ページと照合し直してください。"
+  - q: "5xx はリトライすべきですか、それとも直接サポートに連絡すべきですか？"
+    a: "5xx は上流またはリレーの一時的な障害です。指数バックオフで限られた回数だけリトライし、レスポンスヘッダーの request ID を保存してください。同種のリクエストが5分以内に繰り返し失敗する場合は、request ID をサポートに送ってください — 決して完全な API キーは送らないでください。"
+---
+
+このページは、個々の API ドキュメントに散らばっているエラーコードを1つのチートシートにまとめたものです。**まず HTTP ステータスコードで大まかな分類を特定し、次に生のエラーテキストで具体的な対処法を見つけてください。**
+
+<Callout type="info" title="トラブルシューティングの前に request ID を記録">
+
+レスポンスヘッダー内の request ID は、問題を診断するうえで最も有用な情報です。サポートに連絡する際は、request ID と完全なエラーテキストを添えてください — **完全な API キーは送らないでください**。
+
+</Callout>
+
+---
+
+## HTTP ステータスコード
+
+| ステータス | 典型的な原因 | 対処法 |
+|---:|---|---|
+| `400` | リクエストボディ、パラメータ、モデル ID またはモデルパスが無効。画像フォーマット / エンコーディングが不正 | リクエストを修正する — **単にリトライしない**。アカウントの切り替えやリトライでは成功しません |
+| `401` | API キーが欠落・無効・無効化されている。Base URL がプロトコルと一致していない。IDE を再起動していないため古い設定がまだ有効 | キーと Base URL を確認し（[API Protocols](/ja/docs/guide/api-protocols) 参照）、IDE を再起動する。詳細は [Issue 3](/ja/docs/guide/faq#issue-3) |
+| `402` | 残高不足 | チャージするか作業量を減らす |
+| `403` | 2つの可能性があり、どちらもありえます：① API キーの**グループで画像生成が有効になっていない**。② **残高、サブスクリプション、課金資格、または権限が不足している** | まずアカウントの残高とサブスクリプション状態を確認し、次にグループがその機能を持っているか確認する。両方とも問題なくてもエラーが出る場合はサポートに連絡 |
+| `404` | OpenAI プロトコルの URL に `/v1` がない、Anthropic の URL に誤って `/v1` が含まれている、Gemini が `/v1beta/models/...` を使っていない。または現在のグループがそのエンドポイントに対応していない | Base URL と完全なエンドポイントを [API Protocols](/ja/docs/guide/api-protocols) と照合し直す |
+| `413` | 画像から画像へのリクエストボディが大きすぎる | 入力画像を圧縮する |
+| `429` | ① 1日のクォータを使い切った。② 同時実行数、RPM、または上流のクォータが制限されている | クォータ枯渇については [Issue 2](/ja/docs/guide/faq#issue-2) を参照。レート制限の場合は指数バックオフで待機し、同時実行数と RPM を下げる |
+| `500` | 内部エラーまたは容量エラー | エラーコードと request ID を記録し、限られた回数だけリトライ |
+| `502` | 上流の認証・権限・サービスが一時的に失敗 | バックオフしてリトライ。必要ならサポートに連絡 |
+| `503` | 利用可能な上流アカウントがない、または上流が過負荷。**環境変数がキーを上書きしている**可能性もある | まず環境変数を確認し（[Issue 6](/ja/docs/guide/faq#issue-6) 参照）、次に遅延を入れてトラフィックを下げてリトライ |
+| `504` | ゲートウェイまたは上流のタイムアウト | 新しい独立したリクエストとして出し直す |
+
+<Callout type="warn" title="リトライすべきものと、代わりに修正すべきもの">
+
+- **リトライしない**：`400`、`401`、および明示的な残高・権限・パラメータ・コンテンツポリシーのエラー — リクエスト自体が無効であり、どの上流アカウントも同じ結果を返します。まずリクエストを修正する必要があります。
+- **リトライ可能**：`429`、`502`、`503`、`504`、およびネットワーク切断、接続リセット、読み取りタイムアウト — すべて一時的な障害です。指数バックオフで**限られた**回数（推奨は2〜3回）リトライし、繰り返し呼び出しへの課金を避けてください。`429` の場合はさらに同時実行数と RPM を下げてください。
+
+この分類は画像 API のリトライガイダンスに由来します — [Gemini Image · リトライガイダンス](/ja/docs/api/gemini-image#retry-recommendations) を参照。
+
+</Callout>
+
+各 API の完全なエラー説明：[Gemini Image](/ja/docs/api/gemini-image)、[GPT Image](/ja/docs/api/gpt-image)、[Grok Image](/ja/docs/api/grok-image)、[Gemini Batch Image](/ja/docs/api/gemini-image-batch)。
+
+---
+
+## ビジネスエラーコード（バッチ画像）
+
+HTTP ステータスコードに加えて、[Gemini Batch Image API](/ja/docs/api/gemini-image-batch) はビジネスエラーコードも返します。コンソールには `error code: BATCH_IMAGE_XXX` と request ID として表示されます。
+
+| エラーコード | HTTP | 意味 | 対処法 |
+|---|---:|---|---|
+| `BATCH_IMAGE_DISABLED` | 404 | バッチ画像生成がグローバルに無効化されている | エラーコードと request ID を管理者に送る |
+| `BATCH_IMAGE_GROUP_DISABLED` | 403 | 現在のキーのグループがバッチ画像を許可していない、または Gemini グループではない | キーを変更するか、管理者にグループ権限の有効化を依頼 |
+| `BATCH_IMAGE_NO_ACCOUNT_AVAILABLE` | 502 | 現在利用可能なバッチ実行リソースがない | request ID を保存し、管理者に連絡 |
+| `BATCH_IMAGE_SETTLEMENT_PRICING_MISSING` | 400 | バッチモデルに課金価格が設定されていない | 管理者にモデル価格の設定を依頼 |
+| `BATCH_IMAGE_INVALID_MODEL` | 400 | モデルが指定されていない | バッチモデルリストのモデルを使用する |
+| `BATCH_IMAGE_INVALID_ITEMS` | 400 | items、解像度、またはリクエストフィールドが無効 | リクエストボディを確認。現在は 1K のみ対応 |
+| `BATCH_IMAGE_DUPLICATE_CUSTOM_ID` | 400 | `custom_id` が重複している | バッチ内で一意になるようにする |
+| `BATCH_IMAGE_PROMPT_TOO_LONG` | 400 | プロンプトが長すぎる | プロンプトを短くする |
+| `BATCH_IMAGE_TOO_MANY_OUTPUT_IMAGES` | 400 | 展開後の画像数が上限を超えた | items または output_count を減らす |
+| `BATCH_IMAGE_INVALID_REFERENCE_IMAGE` | 400 | 参照画像のフォーマット、サイズ、または URI が無効 | MIME、Base64、file_uri を確認 |
+| `BATCH_IMAGE_INSUFFICIENT_BALANCE` | 402 | 課金を予約するには残高が低すぎる | チャージするか作業量を減らす |
+| `BATCH_IMAGE_IDEMPOTENCY_CONFLICT` | 409 | 同じ冪等キーが異なるリクエストボディに対応している | 新しい Idempotency-Key を使う |
+| `BATCH_IMAGE_PROVIDER_SUBMIT_FAILED` | 502 | 上流のバッチタスク作成に失敗 | request ID を保存し、限られた回数リトライするか管理者に連絡 |
+| `BATCH_IMAGE_QUEUE_FAILED` | 502 | 非同期タスクサービスが一時的に利用不可 | request ID を保存し、管理者に連絡 |
+| `BATCH_IMAGE_NOT_READY` | 409 | タスク完了前にダウンロードを試みた | ステータスが completed になるまで待つ |
+| `BATCH_IMAGE_OUTPUT_DELETED` | 410 | 出力がすでにクリーンアップされている | ダウンロードできません。タスクを再作成してください |
+| `BATCH_IMAGE_ITEM_FAILED` | 409 | 指定されたタスク項目に成功した画像がない | item.error を確認 |
+| `BATCH_IMAGE_DOWNLOAD_LIMITED` | 429 | 同時ダウンロードが多すぎる | 後でリトライ |
+
+---
+
+## 生のエラーテキストで逆引き
+
+実際に表示されるエラーテキストを下の表と照合し、詳細な対処法へ直接ジャンプしてください。
+
+| 生のエラーテキスト | 意味 | 詳細な対処法 |
+|---|---|---|
+| `stream disconnected before completion` | ストリームが切断された。通常は VPN / プロキシ / システムプロキシが出口 IP をローテーションしている | [Issue 1](/ja/docs/guide/faq#issue-1) |
+| `exceeded retry limit, last status: 429 Too Many Requests` | 1日のクォータを使い切った | [Issue 2](/ja/docs/guide/faq#issue-2) |
+| `401 Unauthorized: Incorrect API key provided` | リクエストが LMU AI リレーではなく公式エンドポイントに送られている | [Issue 3](/ja/docs/guide/faq#issue-3) |
+| `running scripts is disabled on this system`（Windows） | PowerShell の実行ポリシー制限 | [Issue 4](/ja/docs/guide/faq#issue-4) |
+| `CODEX is not recognized as a cmdlet`（Windows） | Node.js がインストールされていない、または PATH が壊れている | [Issue 5](/ja/docs/guide/faq#issue-5) |
+| `503 No available accounts` | シェルの環境変数が IDE で設定したキーを上書きしている | [Issue 6](/ja/docs/guide/faq#issue-6) |
+| `400 Invalid signature in thinking block` | 1つの会話でグループをまたいでモデルを切り替えた。thinking シグネチャを検証できない | [Issue 7](/ja/docs/guide/faq#issue-7) |
+| `400 Unknown parameter: 'tools[0].n'` | `tools` パラメータが誤って画像エンドポイントに送られた | [Issue 8](/ja/docs/guide/faq#issue-8) |
+| `No available accounts` / モデル利用不可 | 現在のグループの利用可能範囲外のモデルを呼び出した | [API Protocols → トラブルシューティング](/ja/docs/guide/api-protocols#troubleshooting) |
+
+---
+
+## Usage export API のエラー
+
+[Usage export API](/ja/docs/api/usage-export) は JWT 認証を使うため、そのエラーの意味は上記の API キーチャンネルとは異なります：
+
+| ステータス | 原因 | 対処法 |
+|---:|---|---|
+| `401` | JWT の有効期限切れ | `refresh_token` で更新するか、再度サインインする |
+| `403` | 不正なアクセス（例：自分のものではない `api_key_id` を照会） | キーが現在のアカウントに属しているか確認する |
+| `400` | パラメータが不正（例：`start_date` のフォーマットが誤り） | `YYYY-MM-DD` フォーマットと `timezone` が有効か確認する |
+
+---
+
+## それでも解決しない場合
+
+- 手順を追った実例は [FAQ](/ja/docs/guide/faq) にあります
+- Base URL / エンドポイントのルールは [API Protocols](/ja/docs/guide/api-protocols) にあります
+- 盗まれたキーからの保護は [Key Security](/ja/docs/guide/key-security) にあります
+- サポートに連絡する際は、**request ID** と完全なエラーテキストを添えてください

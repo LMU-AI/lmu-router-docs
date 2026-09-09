@@ -1,0 +1,118 @@
+---
+title: Primeros pasos
+description: "Comienza con la API de LMU AI en tres pasos: crea una cuenta, suscríbete o recarga saldo, crea una clave API, y luego conecta Claude Code, Codex CLI y Cursor."
+ogDescription: LMU AI en tres pasos — regístrate, suscríbete o recarga saldo, crea una clave API y usa Claude / GPT / Gemini en Claude Code, Codex CLI y Cursor en minutos.
+keywords:
+  - registro en LMU AI
+  - clave API de Claude
+  - configuración de Claude Code
+  - configuración de Codex CLI
+  - configuración de Cursor con Claude
+  - inicio rápido de API de IA
+faq:
+  - q: ¿Cómo obtengo una clave API de LMU AI?
+    a: Registra una cuenta de LMU AI → suscríbete o recarga saldo → crea una nueva clave en la página "API Keys" de la consola, luego pégala en Claude Code / Codex CLI / Cursor y otras herramientas.
+  - q: ¿Debo suscribirme o recargar saldo primero?
+    a: Una suscripción te da una cuota mensual fija y es ideal para el desarrollo diario constante; recargar saldo es pago por uso y flexible entre modelos. Ambas opciones se eligen en la página "Recargar / Suscribirse" de la consola.
+  - q: ¿Cómo contacto al soporte de LMU AI?
+    a: LMU AI gestiona dos grupos de QQ. El grupo de preventa 1042851564 está abierto para unirse y hacer preguntas sobre planes, modelos y configuración. El grupo de posventa 1044817922 requiere tu número de orden de pago para la aprobación — únete a él justo después de la compra.
+---
+
+
+Para consejos sobre planes y cotizaciones, únete al **grupo de preventa**. Después de la compra, únete primero al **grupo de posventa** para recibir ayuda directa.
+
+<div className="grid gap-6 sm:grid-cols-2">
+
+<div>
+
+**Grupo de preventa de QQ: 1042851564** — preguntas sobre planes, modelos y configuración; abierto para unirse
+
+<div style={{ maxWidth: 220 }}>
+
+![Código QR del grupo de preventa de QQ de LMU AI 1042851564](/images/tools/qq-qrimg/presales-qq-group-qr.png)
+
+</div>
+
+</div>
+
+<div>
+
+**Grupo de posventa de QQ: 1044817922** — la aprobación requiere tu **número de orden de pago**
+
+<div style={{ maxWidth: 220 }}>
+
+![Código QR del grupo de posventa de QQ de LMU AI 1044817922](/images/tools/qq-qrimg/customer-service-qr.png)
+
+</div>
+
+</div>
+
+</div>
+
+---
+
+## Paso 1 — Crea una cuenta
+
+Ve a la página de registro: [https://api.lmuai.com/register?ref=vJaWWr4T](https://api.lmuai.com/register?ref=vJaWWr4T)
+
+Ingresa tu correo electrónico y una contraseña para finalizar el registro.
+
+## Paso 2 — Suscríbete o recarga saldo
+
+Después de iniciar sesión, haz clic en "**Recargar / Suscribirse**" en el menú de la izquierda:
+
+- **Suscribirse**: elige un plan y obtén una cuota mensual fija
+- **Recargar saldo**: agrega saldo según lo necesites y usa cualquier modelo con flexibilidad
+
+Estarás listo para comenzar en cuanto se complete el pago.
+
+## Paso 3 — Crea una clave API [#create-key]
+
+1. Haz clic en "**API Keys**" en el menú de la izquierda
+2. Haz clic en "Crear clave" y dale cualquier nombre
+3. Una vez creada, **guarda tu clave API** (el valor que comienza con `sk-`)
+
+## Paso 4 — Configura tu herramienta
+
+**URL base de la API:**
+
+Elige la URL base que coincida con el protocolo de tu herramienta:
+
+**Protocolo Anthropic** (Claude Code, Cherry Studio, Trae, Kilo Code con Claude / modelos chinos, etc.):
+
+```
+https://api.lmuai.com
+```
+
+**Protocolo OpenAI** (Codex CLI, Codex App, VS Code / Cursor con GPT, Kilo Code con modelos de OpenAI, etc.):
+
+```
+https://api.lmuai.com/v1
+```
+
+<Callout type="warn" title="La diferencia (el error más común)">
+
+- El **protocolo Anthropic** **no** tiene el sufijo `/v1`
+- El **protocolo OpenAI** **debe** incluir el sufijo `/v1`
+
+Usar el protocolo incorrecto causa errores 401 / 404. Para conocer todos los detalles de los protocolos, ejemplos de SDK / curl y los límites del grupo Claude Max, consulta **[Protocolos de API →](/es/docs/guide/api-protocols)**.
+
+</Callout>
+
+Ten a mano estas tres cosas — cada configuración de herramienta a continuación las necesita:
+- **Clave API**: la clave `sk-` que creaste en la consola (compartida por ambos protocolos)
+- **URL base de Anthropic**: `https://api.lmuai.com`
+- **URL base de OpenAI**: `https://api.lmuai.com/v1`
+
+---
+
+## Próximos pasos
+
+Elige la guía de configuración para tu herramienta:
+
+| Herramienta | Guía |
+|------|------|
+| CC Switch (importación con un clic, recomendado) | [Guía de CC Switch](/es/docs/tools/cc-switch) |
+| Claude Code | [Guía de Claude Code](/es/docs/tools/claude-code) |
+| Codex CLI (Mac / Linux) | [Guía de Mac / Linux](/es/docs/tools/codex-cli-mac) |
+| Cursor | [Guía de Cursor](/es/docs/tools/cursor) |

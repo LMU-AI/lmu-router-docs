@@ -14,7 +14,7 @@ import {
   siteDescription,
   siteName,
 } from '@/lib/site';
-import { HTML_LANG, OG_LOCALE, i18n, localePrefix } from '@/lib/i18n';
+import { DIR, HTML_LANG, OG_LOCALE, i18n, localePrefix } from '@/lib/i18n';
 import { GA_MEASUREMENT_ID } from '@/lib/variant';
 import { provider } from '@/lib/i18n-ui';
 import '../global.css';
@@ -52,22 +52,27 @@ export async function generateMetadata({
     alternates: {
       // `/`(或 /en) 是通往文档首页的跳转，canonical 指向跳转终点。
       canonical: `${prefix}/docs`,
-      // 语言路径由 localePrefix 派生（默认语言无前缀）；x-default 指默认语言
-      // （.com 中文 / .ai 英文）。仅站内 cn↔en 互指，不做跨域 alternates ——
-      // 两个域名按既定决策各自独立收录。
+      // 语言路径由 localePrefix 派生（默认语言无前缀）；遍历所有语种，x-default 指默认
+      // 语言（.com 中文 / .ai 英文）。index 在每个语种都存在（对照门禁保证），故列全语种。
+      // 仅站内互指，不做跨域 alternates —— 两个域名按既定决策各自独立收录。
       languages: {
-        'zh-CN': `${localePrefix('cn')}/docs`,
-        en: `${localePrefix('en')}/docs`,
+        ...Object.fromEntries(
+          i18n.languages.map((l) => [HTML_LANG[l], `${localePrefix(l)}/docs`]),
+        ),
         'x-default': `${localePrefix(i18n.defaultLanguage)}/docs`,
       },
-      // llmstxt.org 规范的发现方式：/llms.txt + <link rel="alternate">。
-      // 按语言指向：cn→/llms.txt，en→/en/llms.txt，让各语言页各自发现对应文件。
-      types: {
-        'text/plain': [
-          { url: `${prefix}/llms.txt`, title: 'llms.txt' },
-          { url: `${prefix}/llms-full.txt`, title: 'llms-full.txt' },
-        ],
-      },
+      // llmstxt.org 规范的发现方式：/llms.txt + <link rel="alternate">。初期仅 cn/en 出
+      // llms.txt，故只在这两种语言页广告该备用链，新语种不指向不存在的 /{lang}/llms.txt。
+      ...(lang === 'cn' || lang === 'en'
+        ? {
+            types: {
+              'text/plain': [
+                { url: `${prefix}/llms.txt`, title: 'llms.txt' },
+                { url: `${prefix}/llms-full.txt`, title: 'llms-full.txt' },
+              ],
+            },
+          }
+        : {}),
     },
     openGraph: {
       type: 'website',
@@ -141,7 +146,7 @@ export default async function Layout({
     alternateName: lang === 'en' ? ['灵眸 AI', 'Lingmou AI'] : ['LMU AI', 'Lingmou AI'],
     applicationCategory: 'DeveloperApplication',
     applicationSubCategory:
-      lang === 'en' ? 'Large-model API relay' : '大模型 API 中转服务',
+      lang === 'cn' ? '大模型 API 中转服务' : 'Large-model API relay',
     operatingSystem: 'Web',
     url: API_BASE_URL,
     description: productDescription(lang),
@@ -155,7 +160,7 @@ export default async function Layout({
   };
 
   return (
-    <html lang={inLanguage} suppressHydrationWarning>
+    <html lang={inLanguage} dir={DIR[lang] ?? 'ltr'} suppressHydrationWarning>
       <body suppressHydrationWarning>
         <script
           type="application/ld+json"

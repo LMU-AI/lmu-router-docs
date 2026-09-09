@@ -1,0 +1,293 @@
+---
+title: GPT Image API
+description: "text-to-image、画像編集、パラメータ、Base64 保存、モデル照会、エラー修正のために、LMU AI OpenAI Images 互換 API を通じて gpt-image-2 を呼び出します。"
+ogDescription: "LMU AI GPT Image API 統合ガイド：text-to-image のための POST /v1/images/generations、画像編集のための POST /v1/images/edits、gpt-image-2 の使用と Base64 画像結果の解析。"
+keywords:
+  - GPT Image API
+  - gpt-image-2 API
+  - OpenAI Images API
+  - images generations
+  - images edits
+  - GPT 画像編集
+  - LMU AI GPT 画像生成
+alternateNames:
+  - GPT 画像生成 API
+  - OpenAI Images 互換 API
+faq:
+  - q: GPT の画像生成はどのエンドポイントを使用しますか？
+    a: "text-to-image は POST /v1/images/generations を使用し、画像編集は POST /v1/images/edits を使用します。OpenAI SDK の base_url を https://api.lmuai.com/v1 に設定してください。"
+  - q: 現在推奨されている GPT の画像モデルはどれですか？
+    a: "GET /v1/models を使用して現在の API キーを照会してください。現在の GPT 画像グループは gpt-image-2 をサポートしており、呼び出し時に model を明示的に設定することを推奨します。"
+  - q: GPT の画像結果は URL と Base64 のどちらで返されますか？
+    a: "gpt-image-2 は通常 data[].b64_json に Base64 画像を返します。チャネルによる違いに対応するため、クライアントは data[].url も確認してください。"
+  - q: GPT は /v1/images/batches を呼び出せますか？
+    a: "現在はできません。/v1/images/batches は今のところ Gemini のバッチジョブのみをサポートしています。"
+---
+
+LMU AI は、`gpt-image-2` を使用した **text-to-image** および **画像編集 / image-to-image** のための OpenAI Images 互換 API を提供します。
+
+<Callout type="info" title="Base URL">
+
+OpenAI SDK:
+
+```text
+https://api.lmuai.com/v1
+```
+
+HTTP リクエストを手動で記述する場合は、完全なエンドポイントを使用してください：
+
+```text
+POST https://api.lmuai.com/v1/images/generations
+POST https://api.lmuai.com/v1/images/edits
+```
+
+</Callout>
+
+## 1. API の概要
+
+| Method | Path | Content-Type | 説明 |
+|---|---|---|---|
+| `GET` | `/v1/models` | — | 現在の API キーで利用可能なモデルを照会します |
+| `POST` | `/v1/images/generations` | `application/json` | GPT text-to-image、同期レスポンス |
+| `POST` | `/v1/images/edits` | `multipart/form-data` | GPT 画像編集 / image-to-image、同期レスポンス |
+
+<Callout type="warn" title="GPT のマルチアイテムバッチ API はまだありません">
+
+`/v1/images/batches` は現在 Gemini のみをサポートしており、`gpt-image-2` を受け付けることはできません。複数の GPT 画像を生成するには、クライアントから 1 件ずつリクエストを送信し、同時実行数と RPM を自分で管理してください。
+
+本番環境では現在、非同期の画像ジョブエンドポイントも有効化されていないため、このページにある 2 つの同期 API を利用してください。
+
+</Callout>
+
+## 2. 認証
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+API キーをブラウザのフロントエンドコード、公開リポジトリ、URL のクエリ文字列、ログに置かないでください。自分のサーバーから呼び出すことを推奨します。
+
+## 3. モデルの照会
+
+```bash
+curl https://api.lmuai.com/v1/models \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+レスポンスの `data[].id` から画像モデルを探してください。例えば：
+
+```json
+{
+  "object": "list",
+  "data": [
+    {"id": "gpt-image-2", "object": "model"}
+  ]
+}
+```
+
+モデルリストは、あなたの API キーが属するグループによって決まります。同じサイト上でも異なる API キーは異なるモデルを返す場合があります。
+
+## 4. text-to-image
+
+### `POST /v1/images/generations`
+
+```bash
+curl https://api.lmuai.com/v1/images/generations \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-image-2",
+    "prompt": "A red ceramic mug, centered on a light-gray studio background, soft side lighting, no text",
+    "n": 1,
+    "size": "1024x1024",
+    "quality": "low",
+    "output_format": "png"
+  }'
+```
+
+### Python SDK
+
+```python
+from openai import OpenAI
+import base64
+
+client = OpenAI(
+    api_key="YOUR_API_KEY",
+    base_url="https://api.lmuai.com/v1",
+)
+
+result = client.images.generate(
+    model="gpt-image-2",
+    prompt="A red ceramic mug, light-gray studio background, soft side lighting, no text",
+    size="1024x1024",
+    quality="low",
+)
+
+item = result.data[0]
+
+if item.b64_json:
+    with open("gpt-output.png", "wb") as f:
+        f.write(base64.b64decode(item.b64_json))
+elif item.url:
+    print(item.url)
+else:
+    raise RuntimeError("No valid image in the response")
+```
+
+### JavaScript
+
+```javascript
+import OpenAI from "openai";
+import fs from "node:fs";
+
+const client = new OpenAI({
+  apiKey: process.env.LMU_API_KEY,
+  baseURL: "https://api.lmuai.com/v1",
+});
+
+const result = await client.images.generate({
+  model: "gpt-image-2",
+  prompt: "A red ceramic mug, light-gray studio background, soft side lighting, no text",
+  size: "1024x1024",
+  quality: "low",
+  output_format: "png",
+});
+
+const item = result.data?.[0];
+if (item?.b64_json) {
+  fs.writeFileSync("gpt-output.png", Buffer.from(item.b64_json, "base64"));
+} else if (item?.url) {
+  console.log(item.url);
+} else {
+  throw new Error("No valid image in the response");
+}
+```
+
+## 5. text-to-image のパラメータ
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---:|---:|---|
+| `model` | string | 推奨 | 現在は `gpt-image-2` |
+| `prompt` | string | はい | 画像の説明 |
+| `n` | integer | いいえ | 画像の枚数。利用可能な範囲はモデルと上流チャネルによって決まります |
+| `size` | string | いいえ | 要求するサイズ（例：`1024x1024`）。実際のピクセル寸法は返された画像に従います |
+| `quality` | string | いいえ | 品質ティア（例：`low`、`medium`、`high`）。モデルの機能に依存します |
+| `background` | string | いいえ | 背景設定（例：透明背景）。モデルの機能に依存します |
+| `output_format` | string | いいえ | `png`、`jpeg`、`webp` など。モデルの機能に依存します |
+| `output_compression` | integer | いいえ | JPEG / WebP などのフォーマットの圧縮品質 |
+| `response_format` | string | いいえ | レスポンスフォーマットの互換パラメータ。クライアントは引き続き `b64_json` と `url` の両方を確認してください |
+| `moderation` | string | いいえ | コンテンツモデレーションパラメータ。モデルの機能に依存します |
+| `stream` | boolean | いいえ | 画像レスポンスのストリーミング切り替え。通常のサーバーサイド呼び出しでは非ストリーミングを推奨します |
+| `partial_images` | integer | いいえ | ストリーミングシナリオでの部分画像の数。モデルの機能に依存します |
+
+<Callout type="warn" title="size は保証されたクロップではありません">
+
+上流アカウントや画像バックエンドが異なると、`size` が各々の機能にマッピングまたは正規化される場合があります。`1024x1024` を要求しても、実際の画像ピクセルは異なる可能性があります。固定の比率やピクセルサイズが必要な場合は、出力ファイルの寸法を読み取り、自分の側でクロップまたはリサイズしてください。
+
+</Callout>
+
+## 6. 画像編集 / image-to-image
+
+### `POST /v1/images/edits`
+
+GPT の画像編集は `multipart/form-data` を使用します：
+
+```bash
+curl https://api.lmuai.com/v1/images/edits \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -F "model=gpt-image-2" \
+  -F "prompt=Keep the mug's shape, composition, and lighting; change the mug from red to green; no text" \
+  -F "image=@./input.png" \
+  -F "size=1024x1024" \
+  -F "quality=low" \
+  -F "output_format=png"
+```
+
+Python SDK:
+
+```python
+from openai import OpenAI
+import base64
+
+client = OpenAI(
+    api_key="YOUR_API_KEY",
+    base_url="https://api.lmuai.com/v1",
+)
+
+with open("input.png", "rb") as image_file:
+    result = client.images.edit(
+        model="gpt-image-2",
+        image=image_file,
+        prompt="Keep the subject and composition; change the background to a neon street on a rainy night",
+        size="1024x1024",
+        quality="low",
+    )
+
+item = result.data[0]
+if item.b64_json:
+    with open("gpt-edited.png", "wb") as f:
+        f.write(base64.b64decode(item.b64_json))
+```
+
+モデルとチャネルがマスク編集をサポートしている場合は、次を追加できます：
+
+```bash
+-F "mask=@./mask.png"
+```
+
+edits エンドポイントは `input_fidelity`、`background`、`output_format`、`output_compression` などのパラメータも受け付けます。正確な効果はモデルの機能に依存します。
+
+## 7. レスポンス形式
+
+典型的な GPT 画像レスポンス：
+
+```json
+{
+  "created": 1760000000,
+  "data": [
+    {
+      "b64_json": "iVBORw0KGgoAAA..."
+    }
+  ],
+  "background": "opaque",
+  "output_format": "png",
+  "quality": "low",
+  "size": "1024x1024",
+  "model": "gpt-image-2",
+  "usage": {
+    "input_tokens": 48,
+    "output_tokens": 186,
+    "total_tokens": 234
+  }
+}
+```
+
+クライアントは 3 段階の検証を行ってください：
+
+1. HTTP ステータスコードが `2xx` かどうか；
+2. `data` が空でない配列かどうか；
+3. `data[]` 内に空でない `b64_json` または `url` が存在するかどうか。
+
+HTTP 200 を受け取ったが有効な画像フィールドがない場合は、ビジネスレベルの失敗として扱ってください。
+
+## 8. よくあるエラー
+
+| HTTP | よくある原因 | 推奨対応 |
+|---:|---|---|
+| `400` | 不正なリクエストボディ、画像フォーマット、パラメータ、またはモデル | JSON / multipart、フィールド名、モデル ID を確認してください |
+| `401` | 無効な API キー | Bearer ヘッダーを確認し、キーの前後にスペースを追加しないでください |
+| `403` | あなたの API キーが属するグループで画像生成が有効化されていない | 管理者に連絡してグループの画像権限を確認してください |
+| `404` | パスが間違っている、または現在のグループで画像 API がサポートされていない | `/v1/images/generations` または `/v1/images/edits` を使用しているか確認してください |
+| `429` | 同時実行数、RPM、または上流のクォータ制限 | 指数バックオフを使用し、同時実行数と RPM を下げてください |
+| `5xx` | 上流または API リレーが一時的に利用できない | リクエスト ID を記録し、回数を制限して再試行してください |
+
+トラブルシューティングの際は、レスポンスヘッダーからリクエスト ID を保存して管理者に提供してください。完全な API キーは送らないでください。
+
+## 9. 他の画像 API との違い
+
+| ニーズ | 推奨ドキュメント |
+|---|---|
+| Gemini ネイティブの text-to-image、image-to-image、1K / 2K / 4K | [Gemini Image API](/ja/docs/api/gemini-image) |
+| GPT の text-to-image と編集 | このページ |
+| Grok の text-to-image と編集 | [Grok Image API](/ja/docs/api/grok-image) |
+| 複数の Gemini プロンプトを一度に送信 | [Gemini Batch Image API](/ja/docs/api/gemini-image-batch) |

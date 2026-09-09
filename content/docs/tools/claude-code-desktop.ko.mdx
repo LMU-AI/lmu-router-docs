@@ -1,0 +1,152 @@
+---
+title: Claude Code Desktop
+description: "Claude Code for Desktop 클라이언트를 LMU AI API에 연결하세요: 개발자 모드를 활성화한 다음, 서드파티 추론 엔드포인트를 설정합니다."
+ogDescription: "Claude Code 데스크톱 앱 연결하기: 개발자 모드 활성화 → 서드파티 추론 설정 → LMU AI 기본 URL과 API 키를 입력하여 Claude 4 사용하기(데스크톱 클라이언트는 외부 인터넷에 접속할 수 있는 프록시가 필요합니다)."
+keywords:
+  - Claude Code 데스크톱 앱
+  - Claude Code for Desktop
+  - Claude Code 개발자 모드
+  - 서드파티 추론 설정
+  - Claude 데스크톱 클라이언트 릴레이
+  - Claude Code Mac
+  - Claude Code Windows
+  - Claude Desktop
+alternateNames:
+  - Claude Code Desktop을 LMU AI에 연결하기
+faq:
+  - q: 데스크톱 앱에 Configure Third-Party Inference 옵션이 없으면 어떻게 하나요?
+    a: "데스크톱 버전이 너무 오래되었습니다. 이 옵션은 최신 버전에서만 추가되었습니다 — 공식 사이트에서 최신 버전을 다운로드하여 재설치하세요."
+  - q: Developer 메뉴가 나타나지 않으면 어떻게 하나요?
+    a: "먼저 Help → Troubleshooting → Enable Developer Mode가 체크되어 있는지 확인하세요. 그래도 나타나지 않으면 클라이언트를 완전히 종료했다가 다시 시작하세요(Mac에서는 Dock 아이콘을 우클릭하고 Quit을 선택하세요 — 창을 닫는 것만으로는 작동하지 않습니다)."
+  - q: 데스크톱 앱에서 401 / Unauthorized 오류는 어떻게 해결하나요?
+    a: "세 가지를 확인하세요: API Key가 전부 복사되었는지(sk-로 시작); Base URL이 https://api.lmuai.com인지(/v1 없이); 그리고 LMU AI 콘솔에서 해당 키가 속한 그룹에 아직 사용 가능한 할당량이 남아 있는지."
+  - q: 데스크톱 앱이 다운로드 / 로그인 / 시작 화면에서 멈추는 이유는 무엇인가요?
+    a: "데스크톱 클라이언트 다운로드와 그 기본 네트워킹(로그인, 활성화, 버전 확인)은 모두 해외 서버에 대한 직접 연결이 필요합니다. 외부 인터넷 프록시가 켜져 있고 정상 작동하는지 확인한 다음 클라이언트를 다시 열어 보세요. 이 제한은 LMU AI Base URL을 설정했는지 여부와는 무관합니다."
+  - q: 공식 Anthropic 엔드포인트로 다시 전환하려면 어떻게 하나요?
+    a: "Developer → Configure Third-Party Inference에서 설정을 지우거나 기본값을 선택하여 다시 전환하세요."
+---
+
+**Claude Code for Desktop**은 Anthropic의 공식 데스크톱 클라이언트입니다. 최신 버전부터는 사용자 지정 서드파티 추론 엔드포인트를 지원하므로, LMU AI API에 직접 연결할 수 있습니다. `settings.json`을 손으로 편집할 필요가 없습니다 — 모든 작업을 GUI에서 처리합니다.
+
+<Callout type="info" title="나에게 맞는 것은 무엇일까요?">
+
+- 터미널에서 사용하고 싶다면 → [Claude Code CLI](/ko/docs/tools/claude-code)
+- VS Code 안에서 사용하고 싶다면 → [VS Code 확장](/ko/docs/tools/claude-code-vscode)
+- **독립 실행형 데스크톱 앱을 원한다면** → 이 페이지
+
+세 가지 모두 동일한 LMU AI API Key를 사용합니다 — 원하는 것을 선택하세요.
+
+</Callout>
+
+<Callout type="warn" title="데스크톱 앱은 외부 인터넷에 접속할 수 있는 네트워크가 필요합니다">
+
+CLI와 달리 **Claude Code 데스크톱 클라이언트 자체는 해외 네트워크에 정상적으로 접속할 수 있어야 합니다**: 다운로드 페이지와 클라이언트의 로그인, 활성화, 버전 확인 흐름이 모두 Anthropic의 공식 서버에 직접 연결됩니다.
+
+따라서 Base URL을 LMU AI로 지정하더라도 여전히 **외부 인터넷에 접속할 수 있는 네트워크 프록시(흔히 VPN / 우회 도구라고 부름)**를 켜야 합니다. 그렇지 않으면 다운로드나 시작 단계에서 멈춥니다. LMU AI를 설정하고 나면 모델 대화 자체는 LMU AI 노드를 통해 진행되지만, 클라이언트의 기본 네트워킹은 여전히 외부 인터넷 프록시에 의존합니다.
+
+</Callout>
+
+---
+
+## 1단계 — 최신 버전 다운로드
+
+<Callout type="warn">
+
+**반드시 최신 버전을 사용해야 합니다.** 오래된 데스크톱 클라이언트는 사용자 지정 서드파티 엔드포인트를 지원하지 않습니다(즉, `Configure Third-Party Inference` 옵션이 없습니다).
+
+</Callout>
+
+[Claude 다운로드 페이지](https://claude.ai/download)로 이동하여 사용 중인 플랫폼에 맞는 클라이언트를 다운로드하고 설치한 다음, 설치가 완료되면 앱을 실행하세요.
+
+> 다운로드 페이지는 해외에 호스팅되어 있으므로, 페이지를 열고 설치 파일을 다운로드하려면 **먼저 외부 인터넷 프록시(VPN)를 켜야 합니다**.
+
+---
+
+## 2단계 — 개발자 모드 활성화
+
+서드파티 엔드포인트 설정 진입점은 기본적으로 숨겨져 있으므로, 먼저 개발자 모드를 켜야 합니다.
+
+1. 상단 메뉴 바에서 **Help**를 클릭합니다
+2. **Troubleshooting**을 선택합니다
+3. **Enable Developer Mode**를 클릭합니다
+
+활성화되면 **상단 메뉴 바에 새로운 `Developer` 메뉴가 나타납니다**.
+
+---
+
+## 3단계 — LMU AI API 설정
+
+1. 상단 메뉴 바에서 **Developer**를 클릭합니다
+2. **`Configure Third-Party Inference …`**를 선택합니다
+3. 열리는 설정 패널(**Connection → Gateway**)에서 다음을 입력합니다:
+
+| 필드 | 값 |
+|------|------|
+| **Credential kind** | `Static API key` |
+| **Gateway base URL** | `https://api.lmuai.com` |
+| **Gateway API key** | LMU AI 콘솔에서 생성한 `sk-` 키 |
+| **Gateway auth scheme** | `bearer` |
+
+![Claude Code 데스크톱의 Configure third-party inference 패널에서 LMU AI Gateway base URL과 API 키를 입력하는 모습](/images/tools/claude-desktop/claude-code-desktop.png)
+
+4. 오른쪽 하단의 **`Apply locally`**를 클릭하여 저장한 다음, 적용되도록 **클라이언트를 재시작**하세요
+
+<Callout type="info">
+
+Base URL은 **`https://api.lmuai.com`**로 설정하세요(`/v1` 접미사 없이). 데스크톱 앱과 CLI 모두 Anthropic 프로토콜을 사용합니다.
+
+</Callout>
+
+<Callout type="warn">
+
+설정 패널이 나타나기 전에 클라이언트는 먼저 온라인 로그인/활성화를 완료해야 하며, 이 단계는 **외부 인터넷 프록시(VPN)가 필요합니다**. 클라이언트를 열고 설정하는 전체 과정 내내 프록시를 사용할 수 있도록 유지하는 것을 권장합니다.
+
+</Callout>
+
+---
+
+## 설정 확인
+
+아무 대화나 열어 Claude에게 메시지를 보내 보세요. 정상적으로 응답하면 설정이 작동하는 것입니다. 요청이 실제로 LMU AI를 통해 전달되었는지 확인하려면:
+
+- LMU AI 콘솔의 **API Keys → Usage stats** 페이지에서 요청이 실시간으로 기록됩니다
+- 클라이언트 오른쪽 하단의 상태 표시기는 보통 현재 모델을 보여줍니다
+
+---
+
+## 모델 전환 / 중국 모델 사용
+
+중국 모델(Qwen, DeepSeek, GLM, Kimi 등)을 사용하려면 `Configure Third-Party Inference`의 **Model** 필드에 해당 모델 ID를 입력하세요. 예를 들면:
+
+- `qwen3.8-max-preview`
+- `deepseek-v4-pro`
+- `glm-5.2`
+- `kimi-k3`
+
+사용 가능한 전체 모델 목록은 [Model Gallery](/ko/docs/guide/models)를 참조하세요. 여기서 아무 ID나 한 번의 클릭으로 복사할 수 있습니다.
+
+---
+
+## 자주 발생하는 문제
+
+### `Configure Third-Party Inference` 옵션이 없음
+
+데스크톱 버전이 너무 오래되었습니다 — 공식 사이트에서 최신 버전을 다운로드하여 재설치하세요. 이 옵션은 최신 버전에서만 추가되었습니다.
+
+### Developer 메뉴가 나타나지 않음
+
+`Help → Troubleshooting → Enable Developer Mode`가 체크되어 있는지 확인하세요. 그래도 나타나지 않으면 **클라이언트를 완전히 종료했다가 다시 시작하세요**(Mac에서는 Dock 아이콘을 우클릭하고 Quit을 선택하세요 — 단순히 창을 닫는 것이 아닙니다).
+
+### 401 / Unauthorized 오류
+
+- API Key가 전부 복사되었는지 확인하세요(`sk-`로 시작)
+- Base URL이 `https://api.lmuai.com`인지 확인하세요(`/v1` **없이**)
+- LMU AI 콘솔에서 해당 키가 속한 그룹에 사용 가능한 할당량이 있는지 확인하세요
+
+### 다운로드 / 로그인 / 시작 화면에서 멈춤
+
+데스크톱 클라이언트 다운로드와 그 기본 네트워킹(로그인, 활성화, 버전 확인)은 모두 해외 서버에 대한 직접 연결이 필요합니다. **외부 인터넷 프록시(VPN)가 켜져 있고 정상 작동하는지** 확인한 다음 클라이언트를 다시 열어 보세요. 이 제한은 LMU AI Base URL 설정 여부와는 무관합니다.
+
+### 공식 Anthropic 엔드포인트로 다시 전환
+
+`Developer → Configure Third-Party Inference`에서 설정을 지우거나 기본값을 선택하여 다시 전환하세요.

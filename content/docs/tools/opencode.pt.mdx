@@ -1,0 +1,210 @@
+---
+title: OpenCode
+description: Configure a API de IA da LMU no OpenCode como um backend compatível com OpenAI / Anthropic para usar Claude, Codex, GLM e outros modelos.
+ogDescription: Conecte o OpenCode à LMU AI — uma única configuração habilita Claude / GPT / Codex / GLM de uma só vez, compatível com os protocolos OpenAI e Anthropic.
+keywords:
+  - OpenCode
+  - configuração do OpenCode
+  - OpenCode Claude
+  - OpenCode na China
+  - OpenCode compatível com Anthropic
+  - OpenCode GLM
+  - OpenCode Codex
+alternateNames:
+  - Conectar o OpenCode à LMU AI
+---
+
+
+Basta instalar o OpenCode seguindo a documentação oficial — o site tem um tutorial detalhado:
+
+- Documentação oficial: [https://opencode.ai/docs/](https://opencode.ai/docs/)
+
+---
+
+## Configurar modelos
+
+Após a instalação, edite o arquivo de configuração `~/.config/opencode/opencode.json`. O OpenCode suporta dois protocolos para se conectar a serviços upstream — basta escolher o que corresponde ao seu provedor.
+
+### Escolhendo um protocolo
+
+| Protocolo | `npm` | Formato da `baseURL` | Quando usar |
+| --- | --- | --- | --- |
+| Protocolo OpenAI | `@ai-sdk/openai` | Termina em `/v1`, ex.: `https://xxx.com/v1` | GPT, Codex e a maioria dos serviços compatíveis com OpenAI |
+| Protocolo Anthropic | `@ai-sdk/anthropic` | Também termina em `/v1`, ex.: `https://xxx.com/v1` | O protocolo nativo do Claude, além de modelos chineses que declaram o protocolo Anthropic (como o GLM) |
+
+<Callout type="warn" title="Uma armadilha comum da baseURL">
+
+Para os protocolos OpenAI e Anthropic, a `baseURL` **deve ir até o nível `/v1`**. O SDK só acrescenta o endpoint específico depois disso (como `/chat/completions` ou `/messages`); se você omitir o `/v1`, a requisição é silenciosamente descartada — o modelo não retorna erro, mas responde com conteúdo vazio.
+
+</Callout>
+
+### Exemplo 1 — Protocolo OpenAI
+
+Uma configuração mínima funcional (você pode configurar vários modelos sob um único provedor):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "openai": {
+      "options": {
+        "baseURL": "https://api.lmuai.com/v1"
+      },
+      "models": {
+        "gpt-5.5": { "name": "GPT-5.5" },
+        "gpt-5.4": { "name": "GPT-5.4" }
+      }
+    }
+  }
+}
+```
+
+<Callout type="info" title="Por que usar `openai` como o id do provedor?">
+
+O OpenCode reconhece `openai` como um **id de provedor embutido**, portanto ele carrega automaticamente o `@ai-sdk/openai` e usa o endpoint `/v1/responses` (com suporte total a modelos de raciocínio). Assim, ao se conectar a um serviço de protocolo OpenAI, basta nomear o id do provedor como `openai` e apontar a `baseURL` para o seu próprio gateway — não é necessário escrever o campo `npm` manualmente.
+
+</Callout>
+
+Se você precisar refinar a declaração de capacidade de um modelo (comprimento de contexto, variantes de esforço de raciocínio etc.), basta adicionar campos à entrada desse modelo:
+
+```json
+"gpt-5.5": {
+  "name": "GPT-5.5",
+  "limit": { "context": 1050000, "output": 128000 },
+  "options": { "store": false },
+  "variants": { "low": {}, "medium": {}, "high": {}, "xhigh": {} }
+}
+```
+
+Aqui `variants` define os níveis de esforço de raciocínio alternáveis; alterne entre eles em tempo de execução no OpenCode pressionando `Ctrl + T`.
+
+### Exemplo 2 — Protocolo Anthropic (comum para modelos chineses)
+
+Alguns modelos chineses (como o GLM) são fornecidos por fabricantes nacionais, mas seguem o **protocolo Anthropic** em sua API, então precisam do `@ai-sdk/anthropic`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "lmuai": {
+      "npm": "@ai-sdk/anthropic",
+      "name": "lmuai",
+      "options": {
+        "baseURL": "https://api.lmuai.com/v1"
+      },
+      "models": {
+        "glm-5.1": {
+          "name": "GLM-5.1"
+        }
+      }
+    }
+  }
+}
+```
+
+<Callout type="info" title="Como saber qual é o protocolo?">
+
+Verifique o exemplo de requisição na documentação do provedor:
+- Endpoint é `/v1/chat/completions` → protocolo OpenAI
+- Endpoint é `/v1/messages` com um cabeçalho de requisição `anthropic-version` → protocolo Anthropic
+
+</Callout>
+
+### Exemplo 3 — Modelos nativos do Claude
+
+Para conectar um **modelo nativo do Claude** (como `claude-sonnet-4-6`), o id do provedor deve usar o embutido `anthropic` — você não pode usar um nome personalizado:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "anthropic": {
+      "npm": "@ai-sdk/anthropic",
+      "options": {
+        "baseURL": "https://api.lmuai.com/v1"
+      }
+    }
+  }
+}
+```
+
+Verifique:
+
+```bash
+opencode run --model anthropic/claude-sonnet-4-6 "Hello"
+```
+
+<Callout type="warn" title="Por que os modelos Claude não podem usar um id de provedor personalizado?">
+
+Assim como `openai`, `anthropic` é um **id de provedor embutido** no OpenCode, e o OpenCode traz definições embutidas para toda a linha de modelos Claude (`claude-sonnet-4-6`, etc.) sob ele.
+
+É por isso que `opencode run --model anthropic/claude-sonnet-4-6 "Hello"` funciona; mas se você mudar o id do provedor para um nome personalizado (como `lmuai/claude-sonnet-4-6`), o OpenCode não consegue encontrar a definição do modelo e o teste falha.
+
+Em resumo: **use `anthropic` para modelos nativos do Claude e use um id de provedor personalizado (como `lmuai`) apenas para modelos personalizados como o GLM.**
+
+</Callout>
+
+Se você precisar usar vários protocolos e vários provedores ao mesmo tempo, basta colocá-los todos sob `provider` — eles não interferem uns nos outros. Por exemplo, a LMU AI oferece a série GPT (`openai`), a série Claude (`anthropic`) e a série GLM (`lmuai`, protocolo Anthropic) ao mesmo tempo, e todos os três provedores podem compartilhar um único gateway.
+
+---
+
+## Configurar chaves
+
+### Método 1 — linha de comando (recomendado)
+
+```bash
+# Log in or update the key for a provider
+opencode auth login
+
+# List all configured providers and their key status
+opencode auth list
+
+# Remove the key for a specific provider
+opencode auth logout <provider-name>
+```
+
+### Método 2 — editar o arquivo de configuração manualmente
+
+Adicione a chave de API do provedor correspondente em `~/.local/share/opencode/auth.json`:
+
+```json
+{
+  "provider-name": {
+    "type": "api",
+    "key": "your-api-key"
+  }
+}
+```
+
+<Callout type="warn" title="Observação">
+
+O nome do provedor em `auth.json` deve **corresponder exatamente** ao nome do provedor em `opencode.json`.
+
+Não coloque `apiKey` no bloco `options` do `opencode.json` — o OpenCode não lê a chave ali; ela deve passar por `auth.json` ou `opencode auth login`.
+
+</Callout>
+
+---
+
+## Verificar a configuração
+
+Uma vez configurado, verifique rapidamente com um único comando:
+
+```bash
+opencode run --model provider-name/model-name "Hello"
+```
+
+Por exemplo, `opencode run --model lmuai/glm-5.1 "Hello"`. Uma resposta normal significa que a configuração funciona.
+
+Se não houver nenhuma saída (nem um erro nem uma resposta), geralmente é um destes dois problemas:
+
+1. **A baseURL está sem o `/v1`** — veja a dica na seção "Escolhendo um protocolo" acima.
+2. **A chave não está configurada no `auth.json`** — verifique se o `opencode auth list` mostra o provedor correspondente.
+
+Para mais informações de depuração, adicione `--print-logs --log-level INFO`.
+
+---
+
+## Dica
+
+No OpenCode, pressione `Ctrl + T` para alternar entre os níveis de esforço de raciocínio (variantes).

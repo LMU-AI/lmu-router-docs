@@ -1,0 +1,140 @@
+---
+title: Configurar o Trae com uma API de terceiros
+description: Configure uma API de terceiros no Trae (relay de IA da LMU) — sem plugin; em Configurações → Modelos → Adicionar Modelo, escolha Anthropic e insira a URL de requisição e a chave sk-.
+ogDescription: Um guia ilustrado para configurar uma API de terceiros no Trae — sem necessidade do plugin Codex; use o recurso nativo Adicionar Modelo Personalizado do Trae para conectar-se diretamente pelo protocolo Anthropic ao Claude Opus / Sonnet, Zhipu GLM, Qwen, DeepSeek e mais; escolha Anthropic como provedor e defina a URL de requisição como /v1/messages, tudo sem proxy.
+keywords:
+  - Como configurar uma API de terceiros no Trae
+  - Configuração de API relay do Trae
+  - Adicionar modelo personalizado no Trae
+  - Protocolo Anthropic no Trae
+  - Configuração sem plugin no Trae
+  - Conectar o Trae ao Claude
+  - claude-opus-5
+  - glm-5.2
+  - qwen3.8-max-preview
+  - Modelos chineses no Trae
+  - Trae BYOK
+  - Trae sem proxy
+alternateNames:
+  - Como configurar uma API de terceiros no Trae
+  - Como conectar uma API de terceiros no Trae
+  - Como usar uma API de terceiros no Trae
+  - Guia de configuração de API personalizada no Trae
+  - Guia para usar um relay de terceiros no Trae
+  - Conectar o Trae à LMU AI
+  - Configuração do Claude no editor Trae
+  - Adicionar modelos Claude / GLM no Trae
+  - Integração nativa de modelos de IA no Trae
+  - Configuração BYOK (traga sua própria chave de API) no Trae
+faq:
+  - q: Como configuro uma API de terceiros no Trae?
+    a: "Passos — abra Configurações do Trae → Modelos → Adicionar Modelo → escolha **Anthropic** como provedor → defina Modelo como **Modelo Personalizado** e insira um ID de modelo (como `claude-opus-5` ou `glm-5.2`) → defina a URL de requisição personalizada como `https://api.lmuai.com/v1/messages` → defina a chave de API como a chave `sk-` do console da LMU AI → salve. Todo o fluxo acontece na interface gráfica, **sem plugin para instalar e sem arquivo de configuração para escrever** — a maneira mais simples de conectar uma API de terceiros em qualquer editor."
+  - q: Qual protocolo de API de terceiros o Trae suporta?
+    a: "Ele suporta o **protocolo compatível com Anthropic** (`/v1/messages`) — basta escolher Anthropic na lista de provedores integrada do Trae. Os modelos Claude, GLM, Qwen, DeepSeek e Kimi da LMU AI usam todos o protocolo Anthropic e são configurados exatamente da mesma forma; você só precisa trocar o ID do modelo."
+  - q: Qual a vantagem de usar um relay de terceiros no Trae em vez de instalar o plugin Codex?
+    a: "É mais simples — totalmente baseado na interface gráfica, sem arquivos config.toml / auth.json para escrever e sem necessidade de reiniciar o editor; ele também usa o protocolo Anthropic, então você pode usar toda a linha Claude e os grandes modelos chineses diretamente (o plugin Codex usa o protocolo OpenAI e é mais adequado para a série GPT / Codex). As duas abordagens podem coexistir."
+  - q: O Trae suporta modelos de IA personalizados?
+    a: "Sim. O editor Trae tem um recurso integrado Adicionar Modelo Personalizado que conecta modelos oficiais Claude e grandes modelos chineses (GLM, Qwen, DeepSeek, Kimi, etc.) diretamente pelo protocolo Anthropic, sem plugin necessário."
+  - q: Qual a diferença entre o método nativo do Trae e a instalação do plugin Codex?
+    a: "O plugin Codex usa o protocolo OpenAI e requer escrever à mão os arquivos config.toml e auth.json; o método nativo do Trae usa o protocolo Anthropic e só precisa que provedor / URL / chave sejam preenchidos pela interface gráfica. O método nativo é mais simples se você quiser Claude ou modelos chineses; use o método do plugin se quiser a série GPT / Codex. As duas abordagens podem coexistir."
+  - q: Como uso o Claude Opus no Trae?
+    a: "Configurações → Modelos → Adicionar Modelo → escolha Anthropic como provedor → defina Modelo como Modelo Personalizado → insira o ID do modelo `claude-opus-5` (ou `claude-sonnet-5`) → defina a URL de requisição personalizada como `https://api.lmuai.com/v1/messages` → defina a chave de API como a chave `sk-` gerada no console da LMU AI."
+  - q: O Trae pode usar grandes modelos chineses como GLM / Qwen?
+    a: "Sim. Os grandes modelos chineses da LMU AI usam todos o protocolo Anthropic e são configurados exatamente como o Claude — basta mudar o ID do modelo para `glm-5.2`, `qwen3.8-max-preview`, `deepseek-v4-pro`, etc. O provedor continua sendo Anthropic e a URL de requisição continua sendo `/v1/messages`."
+  - q: Por que a URL de requisição precisa terminar em /v1/messages?
+    a: "A URL de requisição personalizada do Trae exige o **endpoint completo** (ao contrário de ferramentas como o Chatbox, que anexam o caminho automaticamente). O endpoint de chat do protocolo Anthropic é sempre `/v1/messages`, então a URL completa é `https://api.lmuai.com/v1/messages`."
+  - q: E se um modelo não funcionar ou der erro depois que eu o adicionar no Trae?
+    a: "Verifique nesta ordem: (1) o provedor está definido como **Anthropic** (não OpenAI); (2) você escolheu Modelo Personalizado no menu suspenso de modelos e depois digitou o ID do modelo manualmente; (3) a URL de requisição termina em `/v1/messages`; (4) a chave de API é a chave `sk-` gerada no console da LMU AI. Se ainda falhar, salve e reinicie o Trae uma vez."
+  - q: Preciso de uma VPN para usar o Trae?
+    a: "Não. O domínio da API da LMU AI `api.lmuai.com` conecta diretamente, então, uma vez configurado o método nativo do Trae, ele simplesmente funciona, sem necessidade de proxy."
+---
+
+O editor [Trae](https://www.trae.ai/) **suporta nativamente a conexão a uma API de terceiros** (o protocolo compatível com Anthropic), sem plugin para instalar e sem arquivo de configuração para escrever — a maneira mais simples de conectar uma API de terceiros de qualquer editor. **Ele suporta tanto os modelos oficiais Claude quanto os grandes modelos chineses (GLM, Qwen, DeepSeek, Kimi, etc.)**.
+
+<Callout type="info" title="Método nativo vs plugin Codex — qual escolher?">
+
+- **Quer Claude / modelos chineses** → o método nativo desta página (protocolo Anthropic, alguns cliques na interface gráfica)
+- **Quer a série GPT-5 / Codex** → veja o [plugin oficial Codex](/pt/docs/tools/vscode-plugin) (protocolo OpenAI, arquivo de configuração escrito à mão)
+
+As duas abordagens podem coexistir — se você quiser usar ambos os tipos de modelo, basta configurar os dois.
+
+</Callout>
+
+---
+
+## Passos de configuração
+
+1. Abra o Trae e vá em **Configurações → Modelos → Adicionar Modelo**
+2. Defina **Provedor** como **Anthropic**
+3. Defina **Modelo** como **Modelo Personalizado** (no fim do menu suspenso), depois insira o nome do modelo na caixa **ID do Modelo** abaixo (veja a tabela de modelos comuns adiante)
+4. Defina a **URL de requisição personalizada** como:
+   ```
+   https://api.lmuai.com/v1/messages
+   ```
+5. Defina a **chave de API** como a chave que você gerou no console da LMU AI (começa com `sk-`)
+6. Clique em **Confirmar** para salvar, depois mude para esse modelo para começar a usá-lo
+
+---
+
+## Exemplo: configurando um modelo chinês (GLM-5.1)
+
+A captura de tela abaixo usa o **GLM-5.1** como exemplo de como preencher um modelo personalizado. Note que você deve escolher **Modelo Personalizado** no menu suspenso **Modelo** e depois digitar o ID do modelo manualmente; a URL de requisição é sempre `https://api.lmuai.com/v1/messages`:
+
+![Configurando um modelo chinês como o GLM-5 no Trae, com Provedor definido como Anthropic, Modelo definido como Modelo Personalizado e a URL de requisição personalizada terminando em /v1/messages](/images/tools/trae/trae-config-glm.png)
+
+---
+
+## Referência de modelos comuns
+
+**Modelos oficiais Claude**
+
+| ID do Modelo | Descrição |
+|------|------|
+| `claude-opus-5` | Claude Opus 5 (carro-chefe, recomendado) |
+| `claude-sonnet-5` | Claude Sonnet 5 (equilibrado) |
+| `claude-haiku-4-5` | Claude Haiku 4.5 (alta velocidade) |
+| `claude-opus-4-8` | Claude Opus 4.8 (geração anterior) |
+| `claude-opus-4-7` | Claude Opus 4.7 (geração anterior) |
+| `claude-sonnet-4-6` | Claude Sonnet 4.6 (geração anterior) |
+
+**Grandes modelos chineses** (escolha **Modelo Personalizado** e digite o ID manualmente)
+
+| ID do Modelo | Descrição |
+|------|------|
+| `glm-5.2` | Zhipu GLM-5.2 |
+| `qwen3.8-max-preview` | Qwen 3.8 Max Preview |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k3` | Kimi K3 |
+| `glm-5.1` | Zhipu GLM-5.1 (geração anterior) |
+| `qwen3.7-max` | Qwen 3.7 Max |
+| `kimi-k2.6` | Kimi K2.6 (geração anterior) |
+
+Os modelos realmente disponíveis são determinados pela lista **Modelos Disponíveis** no console da LMU AI; para a lista completa, veja a [Galeria de Modelos](/pt/docs/guide/models).
+
+---
+
+## Problemas comuns
+
+### Método nativo ou o plugin Codex?
+
+- **Método nativo (esta página)**: usa o protocolo Anthropic e leva apenas alguns cliques na interface gráfica — melhor para usuários que querem modelos como **Claude / GLM / Qwen**
+- **[Método do plugin Codex](/pt/docs/tools/vscode-plugin)**: usa o protocolo OpenAI e requer um arquivo de configuração escrito à mão — melhor para usuários que querem a série **GPT / Codex**
+
+As duas abordagens podem coexistir — se você quiser usar ambos os tipos de modelo, basta configurar os dois.
+
+### Por que a URL de requisição precisa terminar em `/v1/messages`?
+
+A URL de requisição personalizada do Trae exige o **endpoint completo** (ao contrário de ferramentas como o Chatbox, que anexam o caminho automaticamente). O endpoint de chat do protocolo Anthropic é sempre `/v1/messages`, então a URL completa é `https://api.lmuai.com/v1/messages`.
+
+### Onde encontro os IDs dos modelos?
+
+Veja a lista completa de modelos disponíveis na [Galeria de Modelos](/pt/docs/guide/models). Clique em qualquer card para copiar seu ID de modelo e cole-o diretamente na caixa ID do Modelo do Trae.
+
+### Sem resposta ou erro após adicionar?
+
+- O provedor está definido como **Anthropic** (não OpenAI)?
+- Você escolheu Modelo Personalizado no menu suspenso de modelos e depois digitou o ID do modelo manualmente?
+- A URL de requisição termina em `/v1/messages`?
+- A chave de API é a chave `sk-` gerada no console da LMU AI?
+
+Salve e reinicie o cliente Trae uma vez.

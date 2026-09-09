@@ -1,0 +1,47 @@
+---
+title: Como usar tokens
+description: "Gerenciamento de tokens da LMU AI: tokens pessoais vs. tokens de canal, visualizar o uso no console, definir uma cota total e uma lista de permissões de modelos, redefinir a cota e revogar tokens."
+ogDescription: "Guia de gerenciamento de tokens da LMU AI: diferencie tokens pessoais de tokens de canal, veja a contagem de chamadas e o consumo de tokens por dia / mês no console, defina uma cota total, requisições por minuto e uma lista de permissões de modelos ao criar um token, redefina a cota e revogue um token a qualquer momento."
+keywords:
+  - uso de tokens da LMU AI
+  - limites de cota da API key
+  - lista de permissões de modelos da API key
+  - estatísticas de uso de tokens
+  - token pessoal vs token de canal
+  - revogação de API key
+  - limite de requisições por minuto
+alternateNames:
+  - gerenciamento de tokens da LMU AI
+  - Visualizar cota e uso da API key
+  - Lista de permissões e revogação de tokens
+---
+
+
+## Tipos de token
+
+| Tipo | Descrição |
+|------|------|
+| Token pessoal | Vinculado à sua conta, usa a sua cota |
+| Token de canal | Atribuído por um administrador, com gerenciamento de cota independente |
+
+## Visualizar uso
+
+Vá até **console → Estatísticas de uso** para visualizar:
+
+- Contagem de chamadas por dia / mês
+- Consumo de tokens
+- Detalhamento de custos
+- Participação de uso por modelo
+
+## Limites de cota
+
+Ao criar um token, você pode definir os seguintes limites:
+
+- **Cota total**: a cota máxima que este token pode consumir (deixe em branco para sem limite)
+- **Requisições por minuto**: proteção por limitação de taxa
+- **Lista de permissões de modelos**: restringe este token a chamar apenas os modelos especificados
+
+## Redefinir e revogar
+
+- **Redefinir cota**: você pode redefinir manualmente a cota usada na página de gerenciamento de tokens
+- **Revogar token**: excluir um token tem efeito imediato; requisições já enviadas não são afetadas

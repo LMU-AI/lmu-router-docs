@@ -1,0 +1,169 @@
+---
+title: Cursor mit einer Drittanbieter-API konfigurieren
+description: Konfigurieren Sie eine Drittanbieter-API in Cursor — aktivieren Sie „Override OpenAI Base URL“, geben Sie Ihren sk--Schlüssel ein und nutzen Sie Claude, GPT und mehr im Chat-Panel.
+ogDescription: Eine Schritt-für-Schritt-Anleitung zur Konfiguration einer Drittanbieter-API in Cursor — Settings → Models → Override OpenAI Base URL + die LMU-AI-Adresse + Ihr sk--Schlüssel ermöglichen es dem Cursor-Chat-Panel, direkt mit Claude Opus / Sonnet, GPT-5, Zhipu GLM, Qwen, DeepSeek und mehr zu kommunizieren, ohne Proxy; enthält Hinweise zu Verify, Routing-Konflikten und Composer-Beschränkungen.
+keywords:
+  - Wie konfiguriert man eine Drittanbieter-API in Cursor
+  - Cursor Relay-API-Konfiguration
+  - Cursor Override OpenAI Base URL
+  - Cursor benutzerdefiniertes Modell
+  - Cursor BYOK
+  - Cursor mit Claude
+  - claude-opus-5
+  - gpt-5.6-sol
+  - glm-5.2
+  - Cursor chinesische Modelle
+  - Cursor Composer-Beschränkungen
+  - Cursor ohne Abonnement
+alternateNames:
+  - Wie konfiguriert man eine Drittanbieter-API in Cursor
+  - Wie verbindet man eine Drittanbieter-API in Cursor
+  - Verwendung einer Drittanbieter-API in Cursor
+  - Cursor Anleitung zur benutzerdefinierten API-Konfiguration
+  - Cursor Anleitung zu Override OpenAI Base URL
+  - Verwendung eines Drittanbieter-Relays in Cursor
+  - Cursor mit LMU AI verbinden
+  - Cursor mit Claude / GLM / Qwen über ein Relay
+  - Cursor BYOK-Konfiguration
+  - Cursor benutzerdefinierter OpenAI-kompatibler Endpunkt
+faq:
+  - q: Wie konfiguriere ich eine Drittanbieter-API in Cursor?
+    a: Schritte — öffnen Sie Settings (Cmd/Ctrl + Shift + J) → Models auf der linken Seite → schalten Sie die integrierten Standardmodelle aus → Add Model und geben Sie eine benutzerdefinierte Modell-ID ein (z. B. `claude-opus-5`, `gpt-5.6-sol`, `glm-5.2`) → aktivieren Sie OpenAI API Key und fügen Sie Ihren `sk-`-Schlüssel ein → aktivieren Sie Override OpenAI Base URL und geben Sie `https://api.lmuai.com/v1` ein → klicken Sie auf Verify → drücken Sie Cmd/Ctrl + L, um das Chat-Panel zu öffnen, und wechseln Sie zu diesem Modell. Beachten Sie, dass **nur das Chat- / Plan-Panel die Drittanbieter-API nutzt**; Cursors native Funktionen wie Composer / Tab-Autovervollständigung verwenden weiterhin das offizielle Backend.
+  - q: Welches Drittanbieter-API-Protokoll unterstützt Cursor?
+    a: Nur das **OpenAI-kompatible Protokoll** (`/v1/chat/completions`), überschrieben über Settings → Models → Override OpenAI Base URL. Derzeit gibt es keinen nativen „Override Anthropic Base URL“-Schalter; um Claude-Modelle im Chat-Panel zu nutzen, fügen Sie die Claude-Modell-ID als benutzerdefiniertes Modell über den OpenAI-kompatiblen Endpunkt hinzu, und das LMU-AI-Backend führt die OpenAI-↔-Anthropic-Protokollübersetzung durch.
+  - q: Ist ein Drittanbieter-Relay für Cursor günstiger?
+    a: Meist ja. Ein Relay rechnet nach tatsächlichem Token-Verbrauch ab, was für Vielnutzer kostengünstiger ist als ein Cursor-Pro-Monatsabonnement (insbesondere bei häufiger Opus-/GPT-5-Nutzung); ein Schlüssel bedient zugleich Claude / GPT / GLM / Qwen / DeepSeek. Beachten Sie, dass Cursors Composer / Tab-Autovervollständigung keine Drittanbieter-API nutzen kann und weiterhin das Cursor-Abo-Kontingent verbraucht.
+  - q: Kann Cursor eine Drittanbieter-Relay-API verwenden?
+    a: Ja, aber **nur für das Chat- / Plan-Panel**. Cursors Settings → Models hat einen „Override OpenAI Base URL“-Schalter; sobald er aktiviert ist, laufen Anfragen aus dem Chat- / Plan-Panel (Cmd/Ctrl + L) über das Drittanbieter-Relay, während native Agent-Funktionen wie Composer / Tab-Autovervollständigung / Apply / Inline Edit an das offizielle Cursor-Backend gebunden bleiben.
+  - q: Wie verwende ich Claude / GLM / Qwen in Cursor?
+    a: Öffnen Sie Settings → Models (Cmd/Ctrl + Shift + J) → fügen Sie ein benutzerdefiniertes Modell hinzu (Modell-ID `claude-opus-5` / `claude-sonnet-5` / `glm-5.2` usw.) → aktivieren Sie Override OpenAI Base URL → setzen Sie die Base URL auf `https://api.lmuai.com/v1` → setzen Sie den API Key auf den in der LMU-AI-Konsole generierten `sk-`-Schlüssel.
+  - q: Nach dem Aktivieren von Override OpenAI Base URL funktioniert Cursors integriertes Claude 3.5 plötzlich nicht mehr?
+    a: Dies ist ein bekannter Cursor-Routing-Konflikt — das Aktivieren des OpenAI-Base-URL-Overrides unterbricht Cursors integrierten Anthropic-Zweig. Um Claude im Chat-Panel weiter zu nutzen, fügen Sie die Claude-Modell-ID (z. B. `claude-opus-5`) als benutzerdefiniertes Modell hinzu, und das LMU-AI-Backend übernimmt die OpenAI-↔-Anthropic-Protokollübersetzung.
+  - q: Können Cursors Composer / Tab-Autovervollständigung LMU AI nutzen?
+    a: Nein. Cursors Kern-Agent-Funktionen — Composer, Tab-Autovervollständigung, Apply, Inline Edit — sind an das offizielle Cursor-Backend gebunden und können nicht von einem Drittanbieter-Relay übernommen werden. Für ein „vollwertiges“ LMU-AI-Erlebnis installieren Sie die [offizielle Codex-Erweiterung](/de/docs/tools/vscode-plugin) oder die [Claude Code for VS Code-Erweiterung](/de/docs/tools/claude-code-vscode) in Cursor (Cursor ist mit dem VS-Code-Erweiterungsmarktplatz kompatibel).
+  - q: Verify schlägt fehl, wenn ich ein Modell hinzufüge?
+    a: "„Häufig — inoffizielle OpenAI-Modellnamen (z. B. `claude-opus-5`, `glm-5.2`) bestehen die Verbindungsprüfung von Cursor nicht. Workaround: Fügen Sie zuerst einen offiziellen OpenAI-Namen wie `gpt-4` hinzu, um Verify zu bestehen (was bestätigt, dass Base URL + Schlüssel eine Verbindung herstellen), und fügen Sie dann die gewünschten benutzerdefinierten Modell-IDs separat hinzu; Verify warnt, aber **in der Praxis läuft es einwandfrei**.“"
+  - q: Braucht die Base URL `/v1`?
+    a: Ja. Geben Sie `https://api.lmuai.com/v1` ein, und Cursor hängt `/chat/completions` an, sodass die endgültige Anfrage an `https://api.lmuai.com/v1/chat/completions` geht. Lässt man `/v1` weg, gibt es einen 404.
+  - q: Benötige ich ein VPN, um LMU AI mit Cursor zu nutzen?
+    a: Der für LMU AI konfigurierte Teil des Chat-Panels nicht — `api.lmuai.com` verbindet sich direkt. Aber Cursors Kontoanmeldung, Composer und Tab-Autovervollständigung nutzen das offizielle Cursor-Backend, das in manchen Regionen möglicherweise noch eine Netzwerkoptimierung benötigt.
+---
+
+Cursor kann die Anfragen des Chat- / Plan-Panels über **Override OpenAI Base URL** an eine Drittanbieter-Relay-API leiten. Diese Seite erklärt, wie Sie diese native Methode nutzen, um sich mit LMU AI zu verbinden.
+
+<Callout type="warn" title="Wichtige Einschränkung: Nur das Chat- / Plan-Panel ist betroffen">
+
+Cursors Override OpenAI Base URL **betrifft nur das Chat- / Plan-Panel** (die mit Cmd/Ctrl + L geöffnete Konversation). Cursors Kern-Agent-Funktionen — **Composer, Tab-Autovervollständigung, Apply, Inline Edit** — sind alle an das offizielle Cursor-Backend gebunden und können nicht von einem Drittanbieter-Relay übernommen werden.
+
+Wenn Sie in Cursor ein „vollwertiges“ Agent-Erlebnis benötigen (einschließlich Composer-artiger Funktionen), installieren Sie stattdessen (Cursor ist mit dem VS-Code-Erweiterungsmarktplatz kompatibel):
+
+- [Offizielle Codex-Erweiterung](/de/docs/tools/vscode-plugin) — ein Codex-Agent über das LMU-AI-OpenAI-Protokoll
+- [Claude Code for VS Code-Erweiterung](/de/docs/tools/claude-code-vscode) — ein Claude-Code-Agent über das LMU-AI-Anthropic-Protokoll
+
+</Callout>
+
+---
+
+## Konfigurationsschritte
+
+### Schritt 1 — Cursor-Einstellungen öffnen
+
+Drücken Sie **Cmd + Shift + J** (macOS) oder **Ctrl + Shift + J** (Windows / Linux), um die Einstellungen zu öffnen, und klicken Sie in der linken Seitenleiste auf **Models**.
+
+### Schritt 2 — Standardmodelle deaktivieren (empfohlen)
+
+Cursor wird mit vielen Standardmodellen ausgeliefert (GPT-4 / Claude-3.5 usw.); diese aktiviert zu lassen, führt zu Konflikten mit dem benutzerdefinierten Routing. Schalten Sie sie in der Modellliste auf der Models-Seite alle **aus** (Schalter links ausgegraut).
+
+### Schritt 3 — Benutzerdefinierte Modelle hinzufügen
+
+Klicken Sie auf **Add Model** und geben Sie die gewünschten LMU-AI-Modell-IDs ein, zum Beispiel:
+
+- `claude-opus-5`
+- `claude-sonnet-5`
+- `gpt-5.6-sol`
+- `glm-5.2`
+- `qwen3.8-max-preview`
+- `deepseek-v4-pro`
+- `kimi-k3`
+
+**Fügen Sie jedes Modell einmal hinzu.** Die vollständige Liste der verfügbaren Modelle finden Sie in der [Modellgalerie](/de/docs/guide/models).
+
+### Schritt 4 — Override OpenAI Base URL aktivieren
+
+Scrollen Sie zum Bereich **OpenAI API Key** auf der Models-Seite:
+
+1. Aktivieren Sie den **OpenAI API Key**-Schalter
+2. Fügen Sie den Schlüssel aus der LMU-AI-Konsole (beginnt mit `sk-`) in das API-Key-Feld ein
+3. Aktivieren Sie den **Override OpenAI Base URL**-Schalter
+4. Setzen Sie die Base URL auf:
+   ```
+   https://api.lmuai.com/v1
+   ```
+5. Klicken Sie auf **Verify**, um die Verbindung zu prüfen
+
+<Callout type="info" title="Ein fehlgeschlagenes Verify bedeutet nicht, dass etwas falsch konfiguriert ist">
+
+Cursors Verify prüft anhand des von Ihnen eingegebenen **Modellnamens**, und inoffizielle OpenAI-Namen (`claude-opus-5`, `glm-5.2` usw.) bestehen nicht. Workaround: **Fügen Sie zuerst ein `gpt-4` hinzu, um Verify zu bestehen** (was bestätigt, dass Base URL + Schlüssel eine Verbindung herstellen), und fügen Sie dann die gewünschten benutzerdefinierten Modell-IDs separat hinzu; Verify warnt, aber in der Praxis läuft es einwandfrei.
+
+</Callout>
+
+### Schritt 5 — Modell wechseln und verwenden
+
+Drücken Sie **Cmd/Ctrl + L**, um das Chat-Panel zu öffnen → wählen Sie im Modell-Dropdown oben das in Schritt 3 hinzugefügte benutzerdefinierte Modell → beginnen Sie zu chatten, und die Anfragen laufen über LMU AI.
+
+---
+
+## Gängige Modell-IDs
+
+| Modell-ID | Beschreibung |
+|------|------|
+| `claude-opus-5` | Claude Opus 5 (Flaggschiff, empfohlen) |
+| `claude-sonnet-5` | Claude Sonnet 5 (ausgewogen) |
+| `claude-haiku-4-5` | Claude Haiku 4.5 (Hochgeschwindigkeit) |
+| `gpt-5.6-sol` | GPT-5.6 Sol |
+| `glm-5.2` | Zhipu GLM-5.2 |
+| `qwen3.8-max-preview` | Qwen 3.8 Max Preview |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k3` | Kimi K3 |
+| `claude-opus-4-8` | Claude Opus 4.8 (vorherige Generation) |
+| `claude-sonnet-4-6` | Claude Sonnet 4.6 (vorherige Generation) |
+| `gpt-5.5` | GPT-5.5 (vorherige Generation) |
+| `glm-5.1` | Zhipu GLM-5.1 (vorherige Generation) |
+
+Die vollständige Liste finden Sie in der [Modellgalerie](/de/docs/guide/models).
+
+---
+
+## Häufige Probleme
+
+### Sollen Composer / Tab-Autovervollständigung auch LMU AI nutzen?
+
+Das native Override OpenAI Base URL kann das nicht — diese Cursor-Kernfunktionen sind an das offizielle Backend gebunden. Um alles über LMU AI zu leiten, verwenden Sie:
+
+- [Offizielle Codex-Erweiterung](/de/docs/tools/vscode-plugin) — ein Agent im OpenAI-Protokoll
+- [Claude Code for VS Code-Erweiterung](/de/docs/tools/claude-code-vscode) — ein Agent im Anthropic-Protokoll
+
+Cursor ist mit dem VS-Code-Erweiterungsmarktplatz kompatibel, sodass sich beide Erweiterungen direkt in Cursor installieren lassen.
+
+### Braucht die Base URL `/v1`?
+
+**Ja.** Geben Sie `https://api.lmuai.com/v1` ein. Cursor hängt `/chat/completions` an, sodass die endgültige Anfrage an `https://api.lmuai.com/v1/chat/completions` geht. Lässt man `/v1` weg, gibt es einen 404.
+
+### Integriertes Claude 3.5 gibt nach dem Aktivieren von Override einen Fehler aus?
+
+Dies ist ein bekannter Cursor-Routing-Konflikt — das Aktivieren des OpenAI-Base-URL-Overrides unterbricht den Anthropic-Zweig. Um Claude im Chat-Panel weiter zu nutzen, fügen Sie die Claude-Modell-ID (z. B. `claude-opus-5`) als benutzerdefiniertes Modell hinzu, und das LMU-AI-Backend übernimmt die OpenAI-↔-Anthropic-Protokollübersetzung.
+
+### 401- / 403-Fehler?
+
+Prüfen Sie der Reihe nach:
+
+1. Ist der **API Key** der in der LMU-AI-Konsole generierte `sk-`-Schlüssel (nicht ein offizieller OpenAI-Schlüssel)?
+2. Ist die **Base URL** `https://api.lmuai.com/v1` (**muss `/v1` enthalten**)?
+3. Ist die **Modell-ID** eine von LMU AI unterstützte (siehe [Modellgalerie](/de/docs/guide/models))?
+4. Umfasst Ihr aktueller Plan / Ihre Abrechnungsgruppe das aufgerufene Modell?
+
+### Beeinflusst BYOK mein Cursor-Abonnement?
+
+- BYOK-Nutzung **verbraucht nicht** Cursors monatliches Fast-Request-Kontingent
+- Kernfunktionen wie Composer / Tab-Autovervollständigung **verbrauchen weiterhin** das Cursor-Abo-Kontingent (da sie BYOK nicht nutzen)
+- Um das Cursor-Abonnement vollständig aufzugeben, siehe den oben beschriebenen Ansatz mit der Codex- / Claude-Code-Erweiterung

@@ -1,0 +1,925 @@
+---
+title: API Gemini de génération d'images par lots
+description: "API asynchrone de génération d'images par lots de LMU AI : soumettez de nombreuses tâches d'images Gemini d'un seul coup, interrogez le statut et les détails, téléchargez les images ou un ZIP, avec idempotence et estimations de coût."
+ogDescription: "Documentation de l'API Gemini de génération d'images par lots de LMU AI : POST /v1/images/batches pour soumettre des tâches multi-prompts, interroger le statut, obtenir les détails, télécharger un ZIP, annuler des tâches et gérer des erreurs telles que BATCH_IMAGE_DISABLED."
+keywords:
+  - API Gemini de génération d'images par lots
+  - Gemini Batch API
+  - API de génération d'images par lots
+  - tâches par lots Gemini
+  - images batches
+  - génération d'images par lots LMU AI
+  - Gemini JSONL Batch
+  - texte-vers-image par lots
+alternateNames:
+  - API asynchrone de génération d'images par lots de LMU AI
+  - API de traitement d'images Gemini par lots
+  - Image Batches API
+faq:
+  - q: L'API de génération d'images par lots est-elle une API publique ou une API interne ?
+    a: "C'est une API d'extension que LMU AI expose aux utilisateurs. Elle s'authentifie avec votre propre clé API sk- via Authorization Bearer, et elle est aussi appelée directement par la page de génération d'images par lots de la console LMU AI."
+  - q: Puis-je utiliser gpt-image-2 avec l'API par lots ?
+    a: "Pas pour le moment. Le fournisseur backend et la validation de groupe pour /v1/images/batches ne prennent en charge que Gemini pour l'instant ; pour GPT, utilisez /v1/images/generations, /v1/images/edits, ou l'API de tâche unique asynchrone."
+  - q: Que signifie BATCH_IMAGE_DISABLED ?
+    a: "Cela signifie que le déploiement actuel du relais d'API n'a pas activé la fonctionnalité globale de génération d'images par lots ; ce n'est pas une erreur de clé API ou de prompt. Fournissez le code d'erreur et l'ID de requête à l'administrateur."
+  - q: La génération d'images par lots prend-elle en charge le 2K et le 4K ?
+    a: "L'API par lots n'accepte actuellement que le 1K. L'API Gemini generateContent en temps réel prend en charge le 1K, le 2K et le 4K ; si l'API par lots est étendue plus tard, la documentation sera mise à jour en conséquence."
+  - q: Une tâche par lots renvoie-t-elle toutes les images immédiatement après sa soumission ?
+    a: "Non. L'API par lots est une API de tâche asynchrone : après la soumission, elle renvoie un ID de lot, et le client doit interroger le statut de la tâche, puis télécharger les images individuelles ou un ZIP une fois qu'elle est terminée."
+---
+
+L'API Gemini de génération d'images par lots de LMU AI vous permet de soumettre plusieurs tâches d'images Gemini d'un seul coup. Le serveur crée la tâche par lots de manière asynchrone, suit son statut, organise les résultats et règle le coût.
+
+Point de terminaison principal :
+
+```text
+POST https://api.lmuai.com/v1/images/batches
+```
+
+<Callout type="info" title="Il s'agit d'une API d'extension LMU AI">
+
+L'API par lots se trouve à `/v1/images/batches`. C'est une API de tâche asynchrone que LMU AI expose aux utilisateurs — et non le chemin natif `/v1beta` de Google Gemini.
+
+**L'implémentation actuelle ne prend en charge que Gemini.** Bien que le corps de la requête inclue un champ générique `model`, vous ne pouvez pas soumettre `gpt-image-2` ou des modèles d'image Grok à ce point de terminaison. Pour le texte-vers-image GPT, utilisez l'[API GPT Image](/fr/docs/api/gpt-image) ; pour le texte-vers-image Grok, utilisez l'[API Grok Image](/fr/docs/api/grok-image).
+
+Si vous avez seulement besoin de générer une seule image Gemini, ou si vous avez besoin de `2K / 4K`, utilisez l'[API Gemini Image en temps réel](/fr/docs/api/gemini-image).
+
+</Callout>
+
+---
+
+## 1. Quand l'utiliser
+
+L'API par lots est un bon choix lorsque vous :
+
+- soumettez des dizaines à des centaines de prompts différents d'un seul coup ;
+- n'avez pas besoin que les tâches d'image reviennent immédiatement au sein de la même requête HTTP ;
+- avez besoin du statut des tâches, des détails d'échec, de l'annulation et du téléchargement par lots ;
+- produisez des illustrations d'articles, des ressources e-commerce, des jeux de données ou des candidats de conception hors ligne ;
+- souhaitez utiliser `Idempotency-Key` pour éviter les soumissions en double et les doubles facturations.
+
+Ce n'est pas un bon choix lorsque vous :
+
+- mesurez la latence d'une seule génération d'image en temps réel ;
+- avez besoin de `2K / 4K` ;
+- avez besoin d'attendre une image de manière synchrone et de l'afficher immédiatement ;
+- effectuez des tests de charge de concurrence ou de RPM.
+
+---
+
+## 2. Prérequis
+
+La fonctionnalité par lots nécessite que l'administrateur l'active à la fois côté déploiement et côté groupe, et qu'il configure des comptes en amont compatibles et une tarification.
+
+Vous pouvez d'abord demander la liste des modèles pour vérifier si la fonctionnalité est disponible :
+
+```http
+GET /v1/images/batches/models
+```
+
+<Callout type="warn" title="Si cela renvoie BATCH_IMAGE_DISABLED">
+
+`BATCH_IMAGE_DISABLED` signifie que la fonctionnalité globale de génération d'images par lots du relais d'API n'a pas été activée. Ce n'est pas une erreur de clé API, de modèle ou de prompt.
+
+Fournissez le code d'erreur complet et l'ID de requête des en-têtes de réponse à l'administrateur, par exemple :
+
+```text
+Error code: BATCH_IMAGE_DISABLED
+Request ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+</Callout>
+
+Conditions d'admission courantes :
+
+- le statut actuel de la clé API est actif ;
+- la plateforme de groupe de la clé API est Gemini ;
+- le groupe autorise la génération d'images par lots ;
+- des ressources d'exécution de génération d'images par lots sont disponibles ;
+- une tarification de génération d'images par lots est configurée pour le modèle ;
+- le service de tâches par lots asynchrones fonctionne normalement.
+
+---
+
+## 3. Authentification
+
+L'API par lots utilise votre propre clé API LMU AI :
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+Exemple :
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/models' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Ne placez pas votre clé API dans des URL, du code source front-end ou des dépôts publics.
+
+---
+
+## 4. Aperçu des points de terminaison
+
+| Méthode | Chemin | Description |
+|---|---|---|
+| `GET` | `/v1/images/batches/models` | Lister les modèles que la clé actuelle peut utiliser pour la génération d'images par lots |
+| `POST` | `/v1/images/batches` | Créer une tâche d'images par lots |
+| `GET` | `/v1/images/batches` | Lister les tâches par lots créées par la clé actuelle |
+| `GET` | `/v1/images/batches/{id}` | Interroger le statut d'une tâche spécifique |
+| `GET` | `/v1/images/batches/{id}/items` | Interroger les détails des éléments de la tâche |
+| `GET` | `/v1/images/batches/{id}/items/{custom_id}/content` | Télécharger l'image d'un élément de tâche unique |
+| `GET` | `/v1/images/batches/{id}/download` | Télécharger tout le lot sous forme de ZIP |
+| `POST` | `/v1/images/batches/{id}/cancel` | Annuler une tâche |
+| `DELETE` | `/v1/images/batches/{id}/outputs` | Supprimer les fichiers de sortie du lot |
+| `DELETE` | `/v1/images/batches/{id}` | Supprimer l'enregistrement de la tâche par lots |
+
+Toutes les données de tâche sont isolées par la clé API utilisée pour créer la tâche.
+
+---
+
+## 5. Lister les modèles par lots disponibles
+
+### `GET /v1/images/batches/models`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/models' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Une réponse typique (extrait) :
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "gemini-3.1-flash-image",
+      "object": "image.batch.model"
+    }
+  ]
+}
+```
+
+<Callout type="info" title="La liste des modèles par lots diffère de la liste des modèles ordinaires">
+
+Utilisez `/v1/images/batches/models` comme sélecteur de modèle pour les tâches par lots. Elle vérifie en plus les autorisations de la fonctionnalité par lots, les ressources d'exécution, la prise en charge du modèle et la configuration de facturation par lots.
+
+Tous les modèles renvoyés par les listes ordinaires `/v1/models` ou `/v1beta/models` ne peuvent pas être utilisés pour la génération d'images par lots asynchrone.
+
+</Callout>
+
+---
+
+## 6. Créer une tâche par lots
+
+### `POST /v1/images/batches`
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1/images/batches' \
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+  --header 'Idempotency-Key: client-batch-20260725-001' \
+  --header 'Content-Type: application/json' \
+  --data-raw '{
+    "model": "gemini-3.1-flash-image",
+    "task_name": "Product image batch eval 001",
+    "response_mime_type": "image/png",
+    "image_size": "1K",
+    "items": [
+      {
+        "custom_id": "image_001",
+        "prompt": "An orange tabby cat wearing an astronaut helmet, cinematic lighting",
+        "output_count": 1
+      },
+      {
+        "custom_id": "image_002",
+        "prompt": "A futuristic city in morning mist, ultra-wide-angle photography",
+        "output_count": 1
+      },
+      {
+        "custom_id": "image_003",
+        "prompt": "A seaside lighthouse at sunset, watercolor illustration, warm tones",
+        "output_count": 1
+      }
+    ]
+  }'
+```
+
+### Champs de requête de niveau supérieur
+
+| Champ | Type | Requis | Défaut | Description |
+|---|---:|:---:|---|---|
+| `model` | string | Oui | — | Doit provenir de la liste des modèles par lots |
+| `task_name` | string | Non | Auto-généré | Nom de la tâche ; le contenu trop long est tronqué |
+| `parent_batch_id` | string | Non | — | Lie une tâche parente, adapté au réessai des éléments échoués |
+| `items` | array | Oui | — | Éléments de la tâche par lots, au moins un |
+| `response_mime_type` | string | Non | `image/png` | Le type MIME de sortie attendu |
+| `aspect_ratio` | string | Non | — | Non encore transmis en amont dans la version actuelle ; ne comptez pas sur ce champ pour contrôler le rapport d'aspect |
+| `image_size` | string | Non | `1K` | Seul `1K` est actuellement pris en charge |
+| `metadata` | object | Non | — | Paires clé-valeur de chaînes personnalisées |
+
+### Champs de `items[]`
+
+| Champ | Type | Requis | Défaut | Description |
+|---|---:|:---:|---|---|
+| `custom_id` | string | Non | Auto-généré | L'ID de tâche de l'appelant, doit être unique au sein du même lot |
+| `prompt` | string | Oui | — | Chaque tâche peut utiliser un prompt différent |
+| `output_count` | integer | Non | `1` | Actuellement jusqu'à 4 par élément, selon la configuration du déploiement |
+| `reference_images` | array | Non | — | Images de référence pour l'image-vers-image |
+
+### Idempotency-Key
+
+Il est fortement recommandé d'en inclure une unique à chaque création de tâche :
+
+```http
+Idempotency-Key: client-batch-20260725-001
+```
+
+Lorsque la même clé API resoumet avec la même `Idempotency-Key` et un corps de requête identique, le serveur peut renvoyer la tâche d'origine, évitant une création en double et des retenues de coût en double après un délai d'expiration réseau.
+
+Si vous réutilisez la même `Idempotency-Key` mais avec un contenu de requête différent, cela renvoie :
+
+```text
+BATCH_IMAGE_IDEMPOTENCY_CONFLICT
+```
+
+---
+
+## 7. Limites actuelles des lots
+
+Les limites par défaut dans le code source sont ci-dessous ; le déploiement réel peut être ajusté par l'administrateur :
+
+| Limite | Défaut |
+|---|---:|
+| Nombre max d'éléments d'entrée par lot | 200 |
+| Nombre max d'images de sortie par lot | 200 |
+| `output_count` max par élément | 4 |
+| Nombre max de caractères par prompt | 8000 |
+| Taille max par image de référence en ligne | 10 MiB |
+| Nombre max d'éléments par ZIP par défaut | 200 |
+
+### Le rapport d'aspect du lot ne peut pas encore être spécifié
+
+<Callout type="warn" title="aspect_ratio n'a actuellement aucun effet">
+
+Bien que la structure de requête par lots conserve un champ `aspect_ratio`, la logique actuelle de construction de requête de Gemini Batch et de Vertex Batch ne l'écrit pas encore dans le `generationConfig.imageConfig` en amont.
+
+Par conséquent, le rapport d'aspect d'une tâche par lots est actuellement déterminé par le comportement par défaut en amont. Omettez `aspect_ratio` dans votre requête et ne comptez pas dessus comme une capacité d'API stable.
+
+Lorsque vous avez besoin d'un contrôle précis des rapports d'aspect tels que `1:1`, `16:9` ou `21:9`, utilisez l'[API Gemini Image en temps réel](/fr/docs/api/gemini-image).
+
+</Callout>
+
+### Seul le 1K est pris en charge
+
+<Callout type="warn" title="L'API par lots ne prend pas encore en charge le 2K / 4K">
+
+Le `image_size` de l'API par lots n'accepte actuellement que :
+
+```json
+{
+  "image_size": "1K"
+}
+```
+
+Soumettre `2K` ou `4K` renvoie `BATCH_IMAGE_INVALID_ITEMS`.
+
+Lorsque vous avez besoin de `2K / 4K`, utilisez l'[API Gemini Image en temps réel](/fr/docs/api/gemini-image) et gérez la concurrence multi-requêtes côté client.
+
+</Callout>
+
+### Comment output_count se déploie en tâches
+
+Si un élément définit :
+
+```json
+{
+  "custom_id": "poster",
+  "prompt": "Movie poster",
+  "output_count": 3
+}
+```
+
+le serveur le déploie en ID de tâche distincts, par exemple :
+
+```text
+poster_01
+poster_02
+poster_03
+```
+
+Le nombre total d'images après déploiement ne peut pas dépasser le nombre maximal de sorties du lot.
+
+---
+
+## 8. Image-vers-image par lots
+
+Chaque élément peut inclure `reference_images` :
+
+```json
+{
+  "model": "gemini-3.1-flash-image",
+  "task_name": "Product image style transfer",
+  "image_size": "1K",
+  "items": [
+    {
+      "custom_id": "product_001",
+      "prompt": "Place the product on a clean light-gray studio background, keeping the product structure and text accurate",
+      "reference_images": [
+        {
+          "id": "source_001",
+          "type": "reference",
+          "mime_type": "image/png",
+          "data": "BASE64_IMAGE_DATA"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Champs des images de référence
+
+| Champ | Type | Requis | Description |
+|---|---:|:---:|---|
+| `id` | string | Non | ID de l'image de référence |
+| `type` | string | Non | Un tag pour l'usage de l'image de référence |
+| `mime_type` | string | Oui | `image/png`, `image/jpeg` ou `image/webp` |
+| `data` | string | Une des deux | Le contenu Base64 de l'image |
+
+Pour l'intégration d'API publique, nous recommandons de passer les images de référence Base64 via `data`. Les autres méthodes de référence par stockage sont une capacité avancée contrôlée — contactez l'administrateur si vous en avez besoin.
+
+Le nombre d'images de référence dépend du modèle. Le service applique actuellement les limites par défaut suivantes en fonction du nom du modèle :
+
+- les noms contenant `flash-image` : jusqu'à 3 images de référence par tâche ;
+- les noms contenant `pro-image` : jusqu'à 14 images de référence par tâche.
+
+Le nombre réellement utilisable peut aussi être affecté par les capacités du modèle en amont et la configuration du déploiement.
+
+---
+
+## 9. Réponse de création de tâche
+
+Une création réussie renvoie HTTP `200` et l'objet du lot :
+
+```json
+{
+  "id": "imgbatch_abc123",
+  "object": "image.batch",
+  "task_name": "Product image batch eval 001",
+  "status": "queued",
+  "model": "gemini-3.1-flash-image",
+  "item_count": 3,
+  "success_count": 0,
+  "fail_count": 0,
+  "estimated_cost": 0.15,
+  "hold_amount": 0.09,
+  "actual_cost": null,
+  "created_at": 1784995200,
+  "submitted_at": 1784995201,
+  "settled_at": null
+}
+```
+
+### Champs clés
+
+| Champ | Description |
+|---|---|
+| `id` | L'ID du lot, utilisé pour les requêtes et téléchargements ultérieurs |
+| `status` | Le statut de la tâche exposé à l'utilisateur |
+| `item_count` | Nombre total d'éléments de tâche après déploiement |
+| `success_count` | Nombre de tâches réussies |
+| `fail_count` | Nombre de tâches échouées |
+| `estimated_cost` | Coût estimé au moment de la soumission |
+| `hold_amount` | La retenue de solde placée lors de la création de la tâche |
+| `actual_cost` | Le coût réel après règlement ; `null` tant que c'est incomplet |
+
+<Callout type="info" title="Une soumission réussie ne signifie pas que les images sont prêtes">
+
+Un `200` du point de terminaison de création signifie seulement que le lot a été accepté et soumis au pipeline de traitement asynchrone. Le client doit continuer à interroger le statut de la tâche jusqu'à ce qu'il atteigne `completed`, `failed` ou `cancelled`.
+
+</Callout>
+
+---
+
+## 10. Interroger le statut de la tâche
+
+### `GET /v1/images/batches/{id}`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/imgbatch_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+### Statuts destinés à l'utilisateur
+
+| Statut | Description | Terminal |
+|---|---|:---:|
+| `queued` | Créé, téléversé ou soumis ; en attente du traitement en amont | Non |
+| `running` | L'amont génère des images | Non |
+| `processing_results` | Téléchargement et indexation des résultats en amont | Non |
+| `settling` | Règlement du coût réel | Non |
+| `completed` | Traitement terminé ; les résultats peuvent être interrogés et téléchargés | Oui |
+| `failed` | Le lot a échoué | Oui |
+| `cancelled` | Annulé | Oui |
+| `output_deleted` | Fichiers de sortie supprimés, mais l'enregistrement de la tâche demeure | Oui |
+
+Intervalles de sondage recommandés :
+
+```text
+First 2 minutes: every 10-15 seconds
+After 2 minutes: every 30 seconds
+Long tasks: gradually increase to every 60 seconds
+```
+
+Ne sondez pas chaque seconde.
+
+<Callout type="warn" title="Les webhooks de complétion ne sont pas encore pris en charge">
+
+L'API par lots n'a actuellement pas de configuration `callback_url`, `webhook_url` ou de rappel de complétion. Elle ne notifie pas proactivement le serveur de l'appelant lorsqu'une tâche se termine.
+
+L'appelant doit sonder `GET /v1/images/batches/{id}`, arrêter le sondage une fois que le statut atteint `completed`, `failed`, `cancelled` ou `output_deleted`, puis interroger les détails ou télécharger les résultats.
+
+</Callout>
+
+---
+
+## 11. Lister les tâches
+
+### `GET /v1/images/batches`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches?status=completed&limit=20' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+### Paramètres de requête
+
+| Paramètre | Type | Description |
+|---|---|---|
+| `status` | string | `queued`, `running`, `processing_results`, `settling`, `completed`, `failed`, `cancelled`, `output_deleted` |
+| `task_name` | string | Recherche floue par nom de tâche |
+| `downloaded` | string | `true` / `false`, filtrer selon qu'elle a été téléchargée ou non |
+| `from` | string | Début de la plage de temps de création |
+| `to` | string | Fin de la plage de temps de création |
+| `limit` | integer | Défaut 20, max 100 |
+| `cursor` | string | Curseur de pagination |
+
+Réponse :
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "imgbatch_abc123",
+      "object": "image.batch",
+      "task_name": "Product image batch eval 001",
+      "status": "completed",
+      "model": "gemini-3.1-flash-image",
+          "item_count": 3,
+      "success_count": 3,
+      "fail_count": 0,
+      "estimated_cost": 0.15,
+      "hold_amount": 0.09,
+      "actual_cost": 0.12,
+      "created_at": 1784995200,
+      "submitted_at": 1784995201,
+      "settled_at": 1784998800
+    }
+  ],
+  "has_more": false
+}
+```
+
+---
+
+## 12. Interroger les détails des éléments de tâche
+
+### `GET /v1/images/batches/{id}/items`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/items?status=success&limit=100' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Valeurs `status` prises en charge :
+
+```text
+all
+pending
+success
+failed
+```
+
+Une réponse typique (extrait) :
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "custom_id": "image_001",
+      "status": "success",
+      "prompt_preview": "An orange tabby cat wearing an astronaut helmet...",
+      "mime_type": "image/png",
+      "file_extension": "png",
+      "image_count": 1,
+      "error": null
+    },
+    {
+      "custom_id": "image_002",
+      "status": "failed",
+      "prompt_preview": "A futuristic city in morning mist...",
+      "mime_type": null,
+      "file_extension": null,
+      "image_count": 0,
+      "error": {
+        "code": "PROVIDER_ITEM_FAILED",
+        "message": "image generation failed",
+        "source": "provider"
+      }
+    }
+  ],
+  "has_more": false
+}
+```
+
+Les éléments de tâche affichent par défaut 100 par page, avec un maximum de 500.
+
+---
+
+## 13. Télécharger les images
+
+### Télécharger un élément de tâche unique
+
+```bash
+curl \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/items/image_001/content' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  --output image_001.png
+```
+
+Si un élément de tâche comporte plusieurs images, vous pouvez spécifier :
+
+```text
+?image_index=0
+?image_index=1
+```
+
+`image_index` commence à 0.
+
+### Télécharger tout le lot sous forme de ZIP
+
+```bash
+curl \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/download' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  --output imgbatch_abc123.zip
+```
+
+Paramètres optionnels :
+
+```text
+?status=success
+?max_items=100
+```
+
+Le ZIP contient les images et un manifeste de résultats. Après un téléchargement réussi, la tâche enregistre un `downloaded_at`.
+
+---
+
+## 14. Annuler et supprimer
+
+### Annuler une tâche
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/cancel' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Une tâche qui a déjà atteint un état terminal ne sera pas annulée à nouveau. La possibilité d'empêcher encore les frais en amont dépend de l'état actuel de la tâche Batch en amont.
+
+### Supprimer les fichiers de sortie
+
+```bash
+curl --request DELETE \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/outputs' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Après la suppression de la sortie, le statut s'affiche comme `output_deleted` et les images ne peuvent plus être téléchargées.
+
+### Supprimer l'enregistrement de la tâche
+
+```bash
+curl --request DELETE \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Seules les tâches dans un état terminal peuvent avoir leur enregistrement supprimé. Un succès renvoie HTTP `204`.
+
+<Callout type="warn" title="Supprimer l'enregistrement et supprimer les images sont deux choses différentes">
+
+- Supprimer la sortie : nettoie les fichiers image, mais l'enregistrement de la tâche demeure ;
+- Supprimer l'enregistrement : masque la tâche de la liste des tâches de l'utilisateur actuel ;
+- Les systèmes de production doivent confirmer que les résultats ont été téléchargés et archivés avant de supprimer.
+
+</Callout>
+
+---
+
+## 15. Workflow Node.js complet
+
+```js
+import { mkdir, writeFile } from 'node:fs/promises';
+
+const BASE_URL = process.env.LMU_BASE_URL || 'https://api.lmuai.com';
+const API_KEY = process.env.LMU_API_KEY;
+
+if (!API_KEY) throw new Error('Missing LMU_API_KEY');
+
+const headers = {
+  Authorization: `Bearer ${API_KEY}`,
+};
+
+async function jsonRequest(path, options = {}) {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      ...headers,
+      ...(options.headers || {}),
+    },
+  });
+
+  const text = await response.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(`Non-JSON response: HTTP ${response.status}`);
+  }
+
+  if (!response.ok) {
+    const error = data?.error || {};
+    throw new Error(
+      `${error.code || response.status}: ${error.message || text}`,
+    );
+  }
+
+  return data;
+}
+
+const batch = await jsonRequest('/v1/images/batches', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Idempotency-Key': `client-${Date.now()}`,
+  },
+  body: JSON.stringify({
+    model: 'gemini-3.1-flash-image',
+    task_name: 'Node batch image demo',
+    image_size: '1K',
+    items: [
+      { custom_id: 'cat', prompt: 'A cinematic astronaut orange tabby cat' },
+      { custom_id: 'city', prompt: 'A futuristic city in morning mist' },
+    ],
+  }),
+});
+
+console.log('batch id:', batch.id);
+
+let job = batch;
+while (!['completed', 'failed', 'cancelled', 'output_deleted'].includes(job.status)) {
+  await new Promise((resolve) => setTimeout(resolve, 15_000));
+  job = await jsonRequest(`/v1/images/batches/${encodeURIComponent(batch.id)}`);
+  console.log('status:', job.status);
+}
+
+if (job.status !== 'completed') {
+  throw new Error(`Batch task did not complete successfully: ${job.status}`);
+}
+
+const items = await jsonRequest(
+  `/v1/images/batches/${encodeURIComponent(batch.id)}/items?status=success`,
+);
+
+await mkdir('batch-output', { recursive: true });
+
+for (const item of items.data || []) {
+  const response = await fetch(
+    `${BASE_URL}/v1/images/batches/${encodeURIComponent(batch.id)}` +
+      `/items/${encodeURIComponent(item.custom_id)}/content`,
+    { headers },
+  );
+
+  if (!response.ok) {
+    console.error('Download failed:', item.custom_id, response.status);
+    continue;
+  }
+
+  const extension = item.file_extension || 'png';
+  await writeFile(
+    `batch-output/${item.custom_id}.${extension}`,
+    Buffer.from(await response.arrayBuffer()),
+  );
+}
+```
+
+---
+
+## 16. Workflow Python complet
+
+```python
+import os
+import time
+from pathlib import Path
+import requests
+
+BASE_URL = os.getenv("LMU_BASE_URL", "https://api.lmuai.com")
+API_KEY = os.environ["LMU_API_KEY"]
+HEADERS = {"Authorization": f"Bearer {API_KEY}"}
+
+payload = {
+    "model": "gemini-3.1-flash-image",
+    "task_name": "Python batch image demo",
+    "image_size": "1K",
+    "items": [
+        {"custom_id": "cat", "prompt": "A cinematic astronaut orange tabby cat"},
+        {"custom_id": "city", "prompt": "A futuristic city in morning mist"},
+    ],
+}
+
+response = requests.post(
+    f"{BASE_URL}/v1/images/batches",
+    headers={
+        **HEADERS,
+        "Content-Type": "application/json",
+        "Idempotency-Key": f"client-{int(time.time())}",
+    },
+    json=payload,
+    timeout=300,
+)
+response.raise_for_status()
+batch = response.json()
+print("batch id:", batch["id"])
+
+terminal = {"completed", "failed", "cancelled", "output_deleted"}
+job = batch
+while job["status"] not in terminal:
+    time.sleep(15)
+    response = requests.get(
+        f"{BASE_URL}/v1/images/batches/{batch['id']}",
+        headers=HEADERS,
+        timeout=60,
+    )
+    response.raise_for_status()
+    job = response.json()
+    print("status:", job["status"])
+
+if job["status"] != "completed":
+    raise RuntimeError(f"Batch task did not complete successfully: {job['status']}")
+
+items_response = requests.get(
+    f"{BASE_URL}/v1/images/batches/{batch['id']}/items",
+    headers=HEADERS,
+    params={"status": "success"},
+    timeout=60,
+)
+items_response.raise_for_status()
+items = items_response.json().get("data", [])
+
+output_dir = Path("batch-output")
+output_dir.mkdir(exist_ok=True)
+
+for item in items:
+    content = requests.get(
+        f"{BASE_URL}/v1/images/batches/{batch['id']}"
+        f"/items/{item['custom_id']}/content",
+        headers=HEADERS,
+        timeout=300,
+    )
+    content.raise_for_status()
+    extension = item.get("file_extension") or "png"
+    (output_dir / f"{item['custom_id']}.{extension}").write_bytes(content.content)
+```
+
+---
+
+## 17. Facturation et retenues de solde
+
+Les tâches par lots suivent un flux « estimer, retenir, puis régler à la complétion » :
+
+1. Le serveur estime le coût en fonction du modèle, du nombre de tâches, du multiplicateur de groupe et de la remise par lots ;
+2. Il place une retenue `hold_amount` lors de la création de la tâche ;
+3. Une fois le traitement en amont terminé, il calcule `actual_cost` en fonction du nombre d'images réussies ;
+4. Après le règlement, il libère toute retenue excédentaire ;
+5. Si la tâche échoue ou est annulée avant la soumission, le système tente de libérer la retenue selon le statut de la tâche.
+
+Les champs de réponse :
+
+```text
+estimated_cost
+hold_amount
+actual_cost
+```
+
+représentent respectivement le montant estimé, le montant retenu et le montant réel final.
+
+<Callout type="info" title="La tarification suit la configuration de groupe actuelle">
+
+La remise par lots, le multiplicateur de groupe, le multiplicateur de compte et le prix par image peuvent tous être configurés par l'administrateur. La documentation ne promet pas de prix fixes ; le montant final facturé est déterminé par les détails d'utilisation dans la console et le `actual_cost` du lot.
+
+</Callout>
+
+---
+
+## 18. Format d'erreur
+
+L'API par lots utilise la structure d'erreur suivante :
+
+```json
+{
+  "error": {
+    "type": "invalid_request_error",
+    "code": "BATCH_IMAGE_INVALID_ITEMS",
+    "message": "batch image items are invalid"
+  }
+}
+```
+
+Enregistrez également l'ID de requête des en-têtes de réponse. Dans la console, le message d'erreur est affiché comme :
+
+```text
+Error code: BATCH_IMAGE_DISABLED
+Request ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+### Codes d'erreur courants
+
+| Code d'erreur | HTTP | Signification | Que faire |
+|---|---:|---|---|
+| `BATCH_IMAGE_DISABLED` | 404 | La génération d'images par lots globale n'est pas activée | Fournir le code d'erreur et l'ID de requête à l'administrateur |
+| `BATCH_IMAGE_GROUP_DISABLED` | 403 | Le groupe de la clé actuelle n'autorise pas la génération d'images par lots, ou n'est pas un groupe Gemini | Changer de clé ou contacter l'administrateur pour activer l'autorisation du groupe |
+| `BATCH_IMAGE_NO_ACCOUNT_AVAILABLE` | 502 | Aucune ressource d'exécution par lots n'est actuellement disponible | Enregistrer l'ID de requête et contacter l'administrateur |
+| `BATCH_IMAGE_SETTLEMENT_PRICING_MISSING` | 400 | Le modèle par lots n'a pas de prix de facturation | Contacter l'administrateur pour configurer le prix du modèle |
+| `BATCH_IMAGE_INVALID_MODEL` | 400 | Aucun modèle n'a été fourni | Utiliser un modèle de la liste des modèles par lots |
+| `BATCH_IMAGE_INVALID_ITEMS` | 400 | Les items, la résolution ou les champs de requête sont invalides | Vérifier le corps de la requête ; seul le 1K est actuellement pris en charge |
+| `BATCH_IMAGE_DUPLICATE_CUSTOM_ID` | 400 | `custom_id` en double | S'assurer qu'il est unique au sein du même lot |
+| `BATCH_IMAGE_PROMPT_TOO_LONG` | 400 | Le prompt est trop long | Raccourcir le prompt |
+| `BATCH_IMAGE_TOO_MANY_OUTPUT_IMAGES` | 400 | Le nombre d'images après déploiement dépasse la limite | Réduire les items ou output_count |
+| `BATCH_IMAGE_INVALID_REFERENCE_IMAGE` | 400 | Le format, la taille ou l'URI de l'image de référence est invalide | Vérifier le type MIME, le Base64 et le file_uri |
+| `BATCH_IMAGE_INSUFFICIENT_BALANCE` | 402 | Le solde est insuffisant pour placer la retenue | Recharger ou réduire le volume de tâches |
+| `BATCH_IMAGE_IDEMPOTENCY_CONFLICT` | 409 | La même clé d'idempotence est mappée à un corps de requête différent | Utiliser une nouvelle Idempotency-Key |
+| `BATCH_IMAGE_PROVIDER_SUBMIT_FAILED` | 502 | La création de la tâche par lots en amont a échoué | Enregistrer l'ID de requête, réessayer un nombre limité de fois ou contacter l'administrateur |
+| `BATCH_IMAGE_QUEUE_FAILED` | 502 | Le service de tâches asynchrones est temporairement indisponible | Enregistrer l'ID de requête et contacter l'administrateur |
+| `BATCH_IMAGE_NOT_READY` | 409 | Vous avez tenté de télécharger avant que la tâche ne soit terminée | Attendre que le statut devienne completed |
+| `BATCH_IMAGE_OUTPUT_DELETED` | 410 | La sortie a déjà été nettoyée | Elle ne peut pas être téléchargée à nouveau ; vous devez recréer la tâche |
+| `BATCH_IMAGE_ITEM_FAILED` | 409 | L'élément de tâche spécifié n'a aucune image réussie | Vérifier item.error |
+| `BATCH_IMAGE_DOWNLOAD_LIMITED` | 429 | Trop de téléchargements simultanés | Réessayer plus tard |
+
+---
+
+## 19. API par lots vs. API en temps réel
+
+| Aspect | Image Gemini en temps réel | Image par lots asynchrone |
+|---|---|---|
+| Point de terminaison | `/v1beta/models/{model}:generateContent` | `/v1/images/batches` |
+| Méthode de retour | Renvoie une image Base64 dans la même requête HTTP | Renvoie un ID de lot ; sondage et téléchargement ultérieurs |
+| Résolution | `1K / 2K / 4K` | N'accepte actuellement que le `1K`, et l'amont utilise sa configuration d'image par défaut |
+| Rapport d'aspect | Contrôlé par l'énumération de rapports réellement prise en charge par le modèle | Ne peut pas être spécifié actuellement ; utilise le rapport d'aspect par défaut en amont |
+| Prompts multiples | Le client effectue plusieurs requêtes | Un lot contient plusieurs items |
+| Images multiples par item | Plusieurs requêtes distinctes | `output_count`, jusqu'à 4 par défaut |
+| Gestion d'état | L'appelant en assure lui-même le suivi | Statut de tâche, détails, annulation et suppression intégrés |
+| Méthode de téléchargement | Décodage Base64 | Téléchargement d'image unique ou ZIP |
+| Coût | Facturé par requête en temps réel | Estimer, retenir le solde, régler à la complétion |
+| Idéal pour | Interaction en ligne, tests de qualité, tests de charge de performance | Production hors ligne à grande échelle |
+
+---
+
+## 20. Liste de vérification d'intégration
+
+- [ ] `/v1/images/batches/models` renvoie au moins un modèle ;
+- [ ] la clé API que vous utilisez appartient à un groupe Gemini qui autorise la génération d'images par lots ;
+- [ ] la création de tâche inclut une `Idempotency-Key` unique ;
+- [ ] `image_size` utilise `1K` ;
+- [ ] toutes les valeurs `custom_id` sont uniques ;
+- [ ] vous pouvez sonder jusqu'à `completed` ou un état terminal défini ;
+- [ ] vous pouvez interroger les détails des réussites / échecs ;
+- [ ] vous pouvez télécharger une image unique ;
+- [ ] vous pouvez télécharger le ZIP et lire le manifeste de résultats ;
+- [ ] vous pouvez identifier les éléments échoués et éviter de resoumettre tout le lot ;
+- [ ] vous avez vérifié estimated_cost, hold_amount et actual_cost ;
+- [ ] les journaux enregistrent le code d'erreur et l'ID de requête mais pas la clé API complète.
+
+---
+
+## Étapes suivantes
+
+- Texte-vers-image et image-vers-image en temps réel : [API Gemini Image](/fr/docs/api/gemini-image)
+- Interroger les détails d'utilisation et de coût : [Exporter les détails d'utilisation](/fr/docs/api/usage-export)
+- Clés API et détails de protocole : [Protocoles API](/fr/docs/guide/api-protocols)

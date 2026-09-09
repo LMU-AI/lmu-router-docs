@@ -7,6 +7,8 @@
     "build": "node scripts/build-content-dates.mjs && node scripts/materialize-variant-content.mjs && next build",
     "start": "next start",
     "check:models": "node scripts/check-model-refs.mjs",
+    "check:i18n": "node scripts/check-i18n-parity.mjs",
+    "translate": "node scripts/translate-content.mjs",
     "postinstall": "patch-package",
     "prodcheck": "node scripts/prodcheck.mjs"
   },

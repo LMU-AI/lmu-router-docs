@@ -1,0 +1,174 @@
+---
+title: Configurar modelos GPT no Claude Code
+description: "Use modelos GPT (por exemplo, gpt-5.6-sol) no Claude Code via a API da LMU AI: pré-requisitos do plano, a configuração do settings.json e a troca com /model."
+ogDescription: "Um guia para configurar os modelos GPT-5.6 Sol / GPT-5.5 / GPT-5.4 no Claude Code via a API da LMU AI: oferece suporte ao mapeamento completo de modelos padrão e também a um settings.json mínimo mais a troca manual com /model gpt-5.6-sol."
+keywords:
+  - Claude Code GPT
+  - Claude Code GPT-5.5
+  - Claude Code settings.json
+  - modelos OpenAI Claude Code
+  - gpt-5.6-sol
+  - API LMU AI GPT
+  - ANTHROPIC_DEFAULT_OPUS_MODEL
+  - ANTHROPIC_AUTH_TOKEN
+alternateNames:
+  - Usar modelos GPT no Claude Code
+  - Configurar gpt-5.6-sol no Claude Code
+  - Conectar o Claude Code ao plano GPT da LMU AI
+faq:
+  - q: Ao usar modelos GPT no Claude Code, a Base URL deve incluir /v1?
+    a: "Não. O Claude Code se conecta à API da LMU AI usando o protocolo Anthropic, então ANTHROPIC_BASE_URL deve ser https://api.lmuai.com; defini-lo como https://api.lmuai.com/v1 causará um erro."
+  - q: Posso simplesmente definir model no settings.json como gpt-5.6-sol?
+    a: "Recomendamos, em vez disso, uma de duas abordagens: primeiro, use a configuração completa, mapeando ANTHROPIC_DEFAULT_OPUS_MODEL para gpt-5.6-sol e mantendo \"model\": \"opus\"; segundo, use a configuração mínima e execute /model gpt-5.6-sol após iniciar. Ambas se encaixam melhor na abordagem de configuração por nível de modelo do Claude Code e tornam mais clara a troca e a reversão."
+  - q: Como faço para solucionar problemas se os modelos GPT ainda não funcionarem após a configuração?
+    a: "Verifique quatro coisas nesta ordem: se a API Key é uma chave gerada no console da LMU AI; se ANTHROPIC_BASE_URL é https://api.lmuai.com; se você assinou um plano GPT ou, no pagamento por uso, selecionou o grupo GPT; e se o nome do modelo está escrito corretamente (por exemplo, gpt-5.6-sol)."
+---
+
+O Claude Code pode chamar modelos GPT por meio da API da LMU AI, por exemplo `gpt-5.6-sol`, `gpt-5.6-terra` e `gpt-5.5`.
+
+<Callout type="warn" title="Pré-requisitos">
+
+Você precisa atender a uma das seguintes condições:
+
+- Ter assinado um **plano GPT**
+- Usar cobrança por uso (pay-as-you-go) e ter selecionado o **grupo GPT** no console da LMU AI
+
+Se o seu plano ou grupo atual não incluir modelos GPT, você ainda poderá receber um erro de sem-permissão ou de modelo-indisponível mesmo após a configuração.
+
+</Callout>
+
+---
+
+## Localização do arquivo de configuração
+
+O arquivo de configuração do Claude Code é o `settings.json`.
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+~/.claude/settings.json
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+C:\Users\YourUsername\.claude\settings.json
+```
+
+</Tab>
+</Tabs>
+
+---
+
+## Opção 1 — Configuração completa (recomendada)
+
+A configuração completa mapeia os modelos padrão internos Opus / Sonnet / Haiku do Claude Code para modelos GPT. Uma vez configurado, iniciar o Claude Code usa o modelo GPT correspondente por padrão.
+
+Abra o `settings.json` em um editor de texto e adicione o seguinte (substitua a chave pela sua própria API Key da LMU AI):
+
+```json
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "sk-your-lmu-ai-api-key",
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "gpt-5.4",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME": "gpt-5.4",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "gpt-5.6-sol",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "gpt-5.6-sol",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "gpt-5.5",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "gpt-5.5"
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "model": "opus"
+}
+```
+
+**Referência de campos:**
+
+| Campo | Descrição |
+|------|------|
+| `ANTHROPIC_AUTH_TOKEN` | A API Key da LMU AI — insira sua própria chave `sk-` |
+| `ANTHROPIC_BASE_URL` | O endereço da API da LMU AI; para o Claude Code, use `https://api.lmuai.com`, sem `/v1` |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL` / `ANTHROPIC_DEFAULT_OPUS_MODEL_NAME` | Mapeia o modelo padrão Opus do Claude Code para `gpt-5.6-sol` |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL` / `ANTHROPIC_DEFAULT_SONNET_MODEL_NAME` | Mapeia o modelo padrão Sonnet para `gpt-5.5` |
+| `ANTHROPIC_DEFAULT_HAIKU_MODEL` / `ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME` | Mapeia o modelo padrão Haiku para `gpt-5.4` |
+| `model` | O nível de modelo selecionado quando o Claude Code inicia; aqui é `opus`, que mapeia para `gpt-5.6-sol` acima |
+
+<Callout type="info" title="Mapeamento de modelos">
+
+Com a configuração completa acima:
+
+- Selecionar `opus` no Claude Code → na verdade chama `gpt-5.6-sol`
+- Selecionar `sonnet` no Claude Code → na verdade chama `gpt-5.5`
+- Selecionar `haiku` no Claude Code → na verdade chama `gpt-5.4`
+
+</Callout>
+
+---
+
+## Opção 2 — Configuração mínima
+
+Se você quiser apenas configurar primeiro a chave e a Base URL, pode usar a configuração mínima:
+
+```json
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "sk-your-lmu-ai-api-key",
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com"
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "model": "opus"
+}
+```
+
+A configuração mínima não mapeia `opus` para `gpt-5.6-sol` antecipadamente. Após iniciar o Claude Code, execute isto manualmente no Claude Code:
+
+```bash
+/model gpt-5.6-sol
+```
+
+A sessão atual então muda para `gpt-5.6-sol`.
+
+<Callout type="info" title="Quando usar a configuração mínima?">
+
+Se você trocar frequentemente entre diferentes modelos GPT, use a configuração mínima e especifique um com `/model <nome-do-modelo>` após cada inicialização, por exemplo `/model gpt-5.6-sol`.
+
+Se você quiser que `gpt-5.6-sol` seja o padrão em cada inicialização, use a configuração completa acima.
+
+</Callout>
+
+---
+
+## Problemas comuns
+
+### A Base URL deve incluir `/v1`?
+
+O Claude Code se conecta à API da LMU AI usando o protocolo Anthropic, então use:
+
+```text
+https://api.lmuai.com
+```
+
+Não use `https://api.lmuai.com/v1`.
+
+### Posso simplesmente definir `model` como `gpt-5.6-sol`?
+
+Recomendamos, em vez disso, uma de duas abordagens:
+
+- Use a configuração completa, mapeando `ANTHROPIC_DEFAULT_OPUS_MODEL` para `gpt-5.6-sol` e mantendo `"model": "opus"`
+- Use a configuração mínima e execute `/model gpt-5.6-sol` após iniciar
+
+Ambas se encaixam melhor na abordagem de configuração por nível de modelo do Claude Code e tornam mais clara a troca e a reversão.
+
+### E se ainda não funcionar após a configuração?
+
+Verifique o seguinte:
+
+1. Se a API Key é uma chave gerada no console da LMU AI
+2. Se `ANTHROPIC_BASE_URL` é `https://api.lmuai.com`
+3. Se você assinou um plano GPT ou, no pagamento por uso, selecionou o grupo GPT
+4. Se o nome do modelo está escrito corretamente, por exemplo `gpt-5.6-sol`
+
+Para ver os modelos atualmente suportados, consulte a [Galeria de Modelos](/pt/docs/guide/models).

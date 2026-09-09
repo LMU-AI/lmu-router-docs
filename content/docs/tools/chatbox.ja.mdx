@@ -1,0 +1,229 @@
+---
+title: Chatbox
+description: あらゆるプラットフォーム（Windows / macOS / Linux / iOS / Android / Web）で Chatbox を LMU AI API に接続 — デュアルプロトコル、海外直結。
+ogDescription: Chatbox を LMU AI に接続 — 最新モデル（Claude Opus 5 / Sonnet 5、GPT-5.6、DeepSeek、Qwen、GLM など）を Anthropic または OpenAI Responses 互換プロトコルで呼び出せる、デスクトップ＆モバイル全プラットフォーム対応の AI チャットクライアント。1 つのキーを両プロトコルで共有し、海外直結、ストリーミング出力に対応。
+keywords:
+  - Chatbox API の設定
+  - Chatbox でモデルを追加
+  - Chatbox API Host の入力方法
+  - Chatbox OpenAI Responses プロトコル
+  - Chatbox モバイル API 設定
+  - Chatbox 海外直結
+  - claude-opus-5
+  - claude-sonnet-5
+  - gpt-5.6-sol
+  - Chatbox 中国系モデル
+  - Chatbox 401 / 403 トラブルシューティング
+  - Chatbox 1 つのキーで両プロトコル
+alternateNames:
+  - Chatbox を LMU AI に接続
+  - Chatbox で Claude API を設定
+  - Chatbox 全プラットフォーム設定ガイド
+  - Chatbox から中国国内で Claude へ直結
+  - Chatbox モバイル API 設定
+faq:
+  - q: Chatbox の API Host に /v1 は必要ですか？
+    a: いいえ。Chatbox の API Host 欄には常にドメインまでだけを入力してください（`https://api.lmuai.com`）。Chatbox が `/v1` を自動的に付加します — Anthropic プロトコルは `/v1/messages`、OpenAI Responses プロトコルは `/v1/responses` になります。Host に余分な `/v1` を追加すると、`/v1/v1/...` のような壊れた 404 パスになります。
+  - q: OpenAI プロトコルでは、なぜ通常の OpenAI API Compatible ではなく Responses を選ぶのですか？
+    a: Chatbox の OpenAI API Compatible は古い `/chat/completions` エンドポイントを使います。LMU AI の OpenAI プロトコルは新しい Responses API（`/v1/responses`）を使うため、**OpenAI Responses API Compatible** を選び、API Path を `/responses` に設定する必要があります。
+  - q: Claude Opus 5 や GPT-5.6 が Chatbox のモデルリストにない場合は？
+    a: Chatbox の組み込みプリセットモデルリストは更新に遅延があるため、新しいモデルはプロバイダー設定の「モデルを追加」から手動で追加する必要があります — 対応するモデル ID（例：`claude-opus-5`、`claude-sonnet-5`、`gpt-5.6-sol`）を入力するだけです。利用可能な全モデルについては Model Gallery を参照してください。
+  - q: 設定変更が反映されません。
+    a: 保存後、Chatbox クライアントを一度再起動するか、チャット画面でモデルを選び直すことをおすすめします。モバイルでは、ネットワークを切り替えた後に再起動が必要な場合もあります。
+  - q: 401 / 403 エラーはどうトラブルシューティングすればよいですか？
+    a: "次の順で確認してください：(1) API Key は LMU AI コンソールで生成した `sk-` キーですか（公式の Anthropic / OpenAI キーではありませんか）？ (2) API Host は正しいですか（両プロトコルとも `https://api.lmuai.com`、どちらも `/v1` なし）？ (3) OpenAI プロトコルの場合、API Mode が `OpenAI Responses API Compatible`、API Path が `/responses` になっているかも確認してください。 (4) 現在のプラン / 課金グループに、呼び出しているモデルが含まれていますか？"
+  - q: Chatbox で Claude と GPT の両方に 1 つのキーを使えますか？
+    a: はい。LMU AI API キーは Anthropic と OpenAI の両プロトコルに対応しています。API Host は両方とも `https://api.lmuai.com` で、異なるのは API Mode と API Path だけです。プロバイダーを 2 つ追加して同じキーを両方に使えます — Claude / 中国系モデルは Anthropic プロトコル、GPT シリーズは OpenAI Responses プロトコルを経由します。
+  - q: Chatbox モバイル（iOS / Android）で LMU AI を設定するには？
+    a: "Chatbox を開く → 左上の ☰ メニュー → 設定 → モデルプロバイダー → 追加。そこから先の項目はデスクトップとまったく同じです：Anthropic プロトコルの場合、API Host を `https://api.lmuai.com`、キーをコンソールの `sk-` キーに設定すれば、スマホから Claude / DeepSeek / Qwen / GLM などのモデルを直接使えます。"
+  - q: Chatbox を LMU AI に接続するのに VPN は必要ですか？
+    a: いいえ。LMU AI API ドメイン `api.lmuai.com` は海外から直結でき、Chatbox のデスクトップ版もモバイル版もプロキシなしで動作します。
+---
+
+Chatbox は、あらゆるプラットフォーム — Windows / macOS / Linux / iOS / Android / Web — をカバーするマルチモデル AI チャットクライアントです。
+
+<Callout type="info" title="モバイル（iOS / Android）ですか？ ここから始めてください">
+
+Chatbox モバイルの手順ごとのセットアップ — 設定のスクリーンショットと「ネットワーク互換性を改善」スイッチを含む — は専用ページにあります：**[Chatbox モバイル](./chatbox-mobile)**。このページの残りの部分は、デスクトップとモバイルの両方に適用されます。
+
+</Callout>
+
+---
+
+## ダウンロードとインストール
+
+- **公式サイト**：[https://chatboxai.app](https://chatboxai.app)
+- お使いのプラットフォーム向けのバージョンをダウンロードしてインストールしてください — BYOK（bring your own key）モードの利用にアカウントは不要です
+
+---
+
+## 2 つのプロトコル
+
+LMU AI は 2 つの接続プロトコルに対応しています。モデルの種類に応じて選んでください：
+
+| プロトコル | モデル | API Host | API Path |
+|------|----------|----------|----------|
+| **Claude API（Anthropic Compatible）** | Claude モデル、中国系モデル（DeepSeek、Qwen、GLM、Kimi など） | `https://api.lmuai.com` | デフォルトのままで OK |
+| **OpenAI Responses API Compatible** | OpenAI モデル（GPT-5.6 / GPT-5.5 など） | `https://api.lmuai.com` | `/responses` |
+
+<Callout type="info" title="API Host には決して /v1 を含めない">
+
+Chatbox はリクエスト時に自動的にパスを付加するため、**API Host は常にドメインまでだけを入力してください — `/v1` は含めないでください**。例えば OpenAI Responses プロトコルは最終的に `https://api.lmuai.com/v1/responses` になります。
+
+</Callout>
+
+---
+
+## プロバイダー追加の入口を開く
+
+両プロトコルとも同じ入口から設定します：
+
+<Tabs items={['デスクトップ', 'モバイル']}>
+<Tab value="デスクトップ">
+
+Chatbox を開く → **左下の設定** → モデルプロバイダーへ → 一番下の「追加」をクリック。
+
+![Chatbox デスクトップでプロバイダーを追加](/images/tools/chatbox-max/chatbox-max.png)
+
+</Tab>
+<Tab value="モバイル">
+
+Chatbox を開く → **左上のメニューアイコン ☰** をタップしてサイドバーを開く → 設定をタップ → モデルプロバイダーへ → 一番下の「追加」をタップ。
+
+設定画面に入ると、項目はデスクトップ版と 1 対 1 で対応しています（モバイルでは **API Host** と **API Path** と表示されます）。以下の方法 1 / 方法 2 に従って入力してください。
+
+<Callout type="info" title="モバイルには専用の手順ガイドがあります">
+
+モバイルのフロー — **設定スクリーンショット**、**「ネットワーク互換性を改善」** スイッチ、**組み立てられたアドレスの確認** を含む — は独立したページにまとめられています：**[Chatbox モバイル](./chatbox-mobile)**。
+
+</Callout>
+
+</Tab>
+</Tabs>
+
+---
+
+## 方法 1：Anthropic プロトコル（Claude と中国系モデル）
+
+### ステップ 1 — プロバイダーを作成
+
+上記の入口から新規プロバイダーウィンドウを開いたら：
+
+1. **API Mode**：**`Claude API (Anthropic Compatible)`** を選択
+2. **Name**：好きな名前（例：`LMU AI`）
+
+### ステップ 2 — API の詳細を入力
+
+- **API Host**：LMU AI API アドレスを入力（`/v1` **なし**）
+
+  ```
+  https://api.lmuai.com
+  ```
+
+- **API Key**：コンソールで生成した `sk-` キーを入力
+
+### ステップ 3 — モデルを追加
+
+Chatbox のデフォルトリストには最新モデルが含まれていない場合があるため、手動で追加する必要があります。プロバイダー設定ページで Model セクションを見つける → 新規 / モデルを追加 をクリックしてモデル ID を入力します。例：
+
+- `claude-opus-5`
+- `claude-sonnet-5`
+- `claude-haiku-4-5`
+- `deepseek-v4-pro`
+- `qwen3.8-max-preview`
+- `glm-5.2`
+- `kimi-k3`
+
+利用可能な全モデルの一覧は [Model Gallery](/ja/docs/guide/models) を参照してください。
+
+---
+
+## 方法 2：OpenAI プロトコル（GPT モデル）
+
+<Callout type="warn" title="要件">
+
+以下のいずれかの条件を満たす必要があります：
+
+- **GPT プラン**に加入している
+- 従量課金を利用し、LMU AI コンソールで **GPT グループ**を選択している
+
+</Callout>
+
+### ステップ 1 — プロバイダーを作成
+
+上記の入口から新規プロバイダーウィンドウを開いたら：
+
+1. **API Mode**：**`OpenAI Responses API Compatible`** を選択（`OpenAI API Compatible` ではありません）
+2. **Name**：好きな名前（例：`LMUAI-GPT`）
+
+### ステップ 2 — API の詳細を入力
+
+| 項目 | 値 |
+|------|------|
+| API Key | コンソールで生成した `sk-` キー |
+| API Host | `https://api.lmuai.com` |
+| API Path | `/responses` |
+
+Chatbox は Host、`/v1`、Path を自動的に結合して完全なリクエストアドレス `https://api.lmuai.com/v1/responses` を作成し、組み立てられた完全な URL が各項目の下にリアルタイムで表示されます。
+
+上記のとおり入力すると、画面は次のようになります：
+
+![Chatbox デスクトップで GPT プロバイダーを設定する例](/images/tools/chatbox-max/chatbox-mac-gpt.png)
+
+### ステップ 3 — モデルを追加
+
+Model セクションで新規をクリックし、モデル ID を入力します：
+
+- `gpt-5.6-sol`
+- `gpt-5.6-terra`
+- `gpt-5.6-luna`
+- `gpt-5.5`
+- `gpt-5.4`
+- `gpt-5.2`
+
+---
+
+## 使い方
+
+メイン画面に戻り、上部のモデルセレクターをクリックして、追加したばかりのプロバイダーとモデルに切り替え、チャットを始めます。
+
+<Callout type="info" title="1 つのキーで両プロトコルが使える">
+
+LMU AI API キーは Anthropic と OpenAI の両プロトコルに対応しています。API Host は両方とも `https://api.lmuai.com` で、異なるのは API Mode と API Path だけです。Claude / 中国系モデルと GPT の両方を使いたい場合は、上記のとおりそれぞれにプロバイダーを 1 つずつ追加するだけで、同じキーを両方に使えます。
+
+</Callout>
+
+---
+
+## よくある問題
+
+### API Host に `/v1` は必要ですか？
+
+**いいえ。** Chatbox の API Host 欄には常にドメインまでだけを入力してください：`https://api.lmuai.com`。
+
+Chatbox が自身で `/v1` を付加します：
+
+- Anthropic プロトコル：`https://api.lmuai.com/v1/messages` になります
+- OpenAI Responses プロトコル：Path を `/responses` に設定すると `https://api.lmuai.com/v1/responses` になります
+
+Host に余分な `/v1` を追加すると、`…/v1/v1/...` のような壊れた 404 パスになります。
+
+### なぜ通常の OpenAI API Compatible ではなく OpenAI Responses を選ぶのですか？
+
+Chatbox の OpenAI API Compatible は古い `/chat/completions` エンドポイントを使います。LMU AI の OpenAI プロトコルは新しい **Responses API**（`/v1/responses`）を使うため、ここでは **OpenAI Responses API Compatible** を選び、API Path を `/responses` に設定する必要があります。
+
+### Chatbox のモデルリストに Claude Opus 5 / GPT-5.6 がない？
+
+Chatbox の組み込みプリセットモデルリストは更新に遅延があるため、新しいモデルはプロバイダー設定の「モデルを追加」から手動で追加する必要があります — 対応するモデル ID を入力するだけです。利用可能なモデルについては [Model Gallery](/ja/docs/guide/models) を参照してください。
+
+### 変更が反映されない？
+
+保存後、**Chatbox クライアントを一度再起動する**か、チャット画面でモデルを選び直すことをおすすめします。
+
+### 401 / 403 エラー？
+
+次の順で確認してください：
+
+1. API Key は LMU AI コンソールで生成した `sk-` キーですか（公式の Anthropic / OpenAI キーではありませんか）？
+2. API Host は間違っていませんか（両プロトコルとも `https://api.lmuai.com`、**どちらも** `/v1` **なし**。OpenAI プロトコルの場合は、API Mode が `OpenAI Responses API Compatible`、API Path が `/responses` になっているかも確認してください）？
+3. 現在のプラン / 課金グループに、呼び出しているモデルが含まれていますか？

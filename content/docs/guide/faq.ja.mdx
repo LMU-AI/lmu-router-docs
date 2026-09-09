@@ -1,0 +1,302 @@
+---
+title: FAQ
+description: LMU AI API のよくあるエラーとセットアップの問題への対処法 — 401 / 403 / 429 / 500、トークン課金、モデル切り替え、Claude Code / Codex CLI のトラブルシューティング。
+ogDescription: LMU AI FAQ とトラブルシューティング — 401/403/429/500 エラー、トークン課金、モデル選択、Claude Code / Codex CLI / Cursor のセットアップ失敗をまとめて解決。
+keywords:
+  - Claude API エラー
+  - Claude API 401 403 429
+  - Claude Code セットアップ失敗
+  - Codex CLI エラー
+  - Claude API トークン課金
+  - Claude API レート制限
+  - Anthropic API エラーコード
+  - OpenAI API エラーコード
+  - リレー API FAQ
+  - LMU AI トラブルシューティング
+alternateNames:
+  - LMU AI FAQ
+  - Claude / Codex API よくあるエラー
+  - Claude API トラブルシューティングガイド
+faq:
+  - q: "Claude Code で stream disconnected before completion を直すには？"
+    a: "通常、出口 IP を切り替え続けて接続を切ってしまう VPN / プロキシ / システムプロキシが原因です。LMU AI の国際ゲートウェイは直接アクセスを提供しています — すべてのプロキシをオフにして再試行してください。また、ローカルネットワークが Wi-Fi とモバイル回線を切り替え続けていないかも確認してください。"
+  - q: "exceeded retry limit, last status: 429 Too Many Requests の原因は？"
+    a: "1 日のクォータを使い切っています。My Subscription でクォータを確認し、さらに必要な場合は異なるティアのプランを購入し（例：デイパスをマンスパスに切り替える）、コンソールの API Keys で新しいプランのグループに切り替えてください。同じプランを購入すると加算ではなく更新になるため、1 日の上限は上がりません。"
+  - q: "401 Unauthorized: Incorrect API key provided をどうやって切り分ける？"
+    a: "リクエストが LMU AI リレーではなく OpenAI の公式エンドポイントにまだ送られていることを意味します。順番に確認してください：config.toml と auth.json の両方が正しく作成／置換されたか、IDE（VS Code / Cursor）を再起動して設定を読み込ませたか、以前に公式または別のプロバイダーのアカウントでサインインしていた場合はまずサインアウトしてから再設定してください。"
+  - q: "Windows で scripts are disabled on this system と出る — どう直す？"
+    a: "PowerShell で Set-ExecutionPolicy RemoteSigned -Scope CurrentUser を実行し、ターミナルを閉じて新しく開いてください。"
+  - q: "Windows で CODEX is not recognized as a cmdlet と出る — どうすればいい？"
+    a: "Node.js がインストールされていないか、PATH が壊れています。Node.js 20 以降を再インストールし、新しいターミナルを開いてください。"
+  - q: "503 No available accounts の原因は？"
+    a: "通常、~/.zshrc または ~/.bashrc に ANTHROPIC_AUTH_TOKEN / ANTHROPIC_BASE_URL / ANTHROPIC_MODEL が設定されており、それらのグローバル変数が IDE で設定した API キーを上書きしています。これらの行をシェル設定から削除するか、Claude Code CLI 起動時にだけ source する別の ~/.claude_env ファイルに移すことで解決できます。"
+  - q: "400 Invalid signature in thinking block の原因は？"
+    a: "Claude の thinking ブロックには、それを生成した特定の上流アカウントに紐づく暗号化署名が付いています。1 つの会話内でグループをまたいでモデルを切り替えると、古い履歴の署名を新しいグループの上流が検証できず、400 が返ります。グループを切り替えるときは新しい会話を始めるか、1 会話 1 グループを維持することで解決できます。このエラーは再試行では回復しません。"
+  - q: "画像エンドポイントが 400 Unknown parameter: 'tools[0].n' を返す — どうする？"
+    a: "クライアントが画像リクエストに tools 配列を入れています。/v1/images/generations と /v1/images/edits はツール呼び出しをサポートしていません — tools フィールドをまるごと削除してください。複数枚の画像を生成するにはトップレベルの n に枚数を入れます（generations のみ。edits は複数枚に非対応）。これは無効なリクエストエラーなので、アカウント切り替えや再試行では解決しません。"
+  - q: "海外から LMU AI API に直接アクセスできますか？"
+    a: "はい、直接できます。LMU AI の国際ゲートウェイにより、api.lmuai.com は中国本土外から直接アクセスできます。出口 IP を切り替える VPN やプロキシは、むしろストリーム切断を引き起こしがちです。"
+  - q: "Codex が unexpected status 401 Unauthorized: API_KEY_REQUIRED を返す — どうすればいい？"
+    a: "既知の Codex のバグです：カスタムモデルプロバイダーが responses ワイヤ API を使うと、リクエストに API キーがまったく含まれません（3 つのキーヘッダーのいずれも送られません）。config.toml の [model_providers.<your id>] 内に requires_openai_auth = true を追加して保存し、ターミナルを開き直してください。"
+---
+
+
+## Issue 1: ストリーム切断 / タイムアウト [#issue-1]
+
+**エラーメッセージ:**
+```
+stream disconnected before completion: error sending request for url
+(https://api.lmuai.com/responses)
+```
+
+**原因:** 典型的なストリーム切断で、通常は次が原因です：
+- ローカルネットワークが不安定（Wi-Fi / モバイル回線の頻繁な切り替え、電波が弱い、パケットロス）
+- **VPN / プロキシ / システムプロキシがオンになっている**：プロキシが出口 IP を切り替えて接続を切る
+
+**解決策:**
+<CN>
+1. **VPN / プロキシ / システムプロキシをすべてオフにして再試行** — LMU AI は国内直接接続で、VPN は不要です
+2. ローカルネットワークが安定しているか確認し、必要ならより信頼できるネットワークに切り替える
+</CN>
+<Intl>
+1. **VPN / プロキシ / システムプロキシをすべてオフにして再試行** — LMU AI の海外ゲートウェイは直接接続で、追加のプロキシは不要です
+2. ローカルネットワークが安定しているか確認し、必要ならより信頼できるネットワークに切り替える
+</Intl>
+
+<CN>
+<Callout type="info" title="VPN 不要 — 中国国内からの直接アクセスが最速">
+
+LMU AI ゲートウェイは**中国本土内**にホストされているため、国内ネットワークから **VPN・プロキシ・回避策なしで**直接呼び出せます。直接接続が最速かつ最も安定した結果をもたらします。逆に、出口 IP を切り替える VPN やプロキシは、ストリーム切断を引き起こしがちです。
+
+</Callout>
+</CN>
+<Intl>
+<Callout type="info" title="海外から直接アクセス — 追加のプロキシ不要">
+
+LMU AI の**国際ゲートウェイ** `api.lmuai.com` は、中国本土外のネットワークから**追加のプロキシなしで**直接呼び出せます。直接接続が最速かつ最も安定した結果をもたらします。逆に、出口 IP を切り替えるプロキシは、ストリーム切断を引き起こしがちです。
+
+</Callout>
+</Intl>
+
+---
+
+## Issue 2: 429 リトライエラー [#issue-2]
+
+**エラーメッセージ:**
+```
+exceeded retry limit, last status: 429 Too Many Requests
+```
+
+**原因:** 1 日のクォータを使い切っています。
+
+**解決策:**
+1. **My Subscription** を開き、1 日のクォータを使い切っていないか確認する
+2. さらに必要な場合は、**異なるティア**のプランを購入し、コンソールの **API Keys** で新しいプランのグループに切り替える
+
+<Callout type="warn" title="更新 vs クォータ追加">
+
+- **同じプランを購入しないでください** — 同じプランは更新であり、クォータは加算されません
+- クォータを追加するには、異なるプランを購入してください（例：デイパスからマンスパスに切り替える）
+
+</Callout>
+
+---
+
+## Issue 3: 401 Incorrect API key [#issue-3]
+
+**エラーメッセージ:**
+```
+unexpected status 401 Unauthorized: Incorrect API key provided
+```
+
+**原因:** リクエストが当社のリレーではなく OpenAI の公式エンドポイントにまだ送られています。
+
+**解決策:**
+1. `config.toml` と `auth.json` の両方が正しく作成／置換されたか確認する
+2. IDE（VS Code / Cursor など）を再起動して設定ファイルを読み込ませる
+3. 以前に公式または別のプロバイダーのアカウントでサインインしていた場合は、まずサインアウトしてから再設定する
+
+<Callout type="info" title="エラーに遭遇したときの対処">
+
+エラーのスクリーンショットを撮って翻訳する — これで原因をすばやく特定できることが多いです。
+
+</Callout>
+
+---
+
+## Issue 4: スクリプトが無効（Windows）[#issue-4]
+
+**エラーメッセージ:**
+```
+codex: cannot be loaded because running scripts is disabled on this system.
+```
+
+**解決策:** ターミナルで次を実行し、新しいターミナルを開いてください：
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+---
+
+## Issue 5: Node.js が見つからない（Windows）[#issue-5]
+
+**エラーメッセージ:** `CODEX` is not recognized as a cmdlet など
+
+**原因:** Node.js がインストールされていないか、PATH が壊れています。
+
+**解決策:** Node.js 20 以降を再インストールし、新しいターミナルを開いてください。
+
+---
+
+## Issue 6: 503 No available accounts（環境変数がキーを上書き）[#issue-6]
+
+**エラーメッセージ:**
+```
+Error code: 503 - {'error': {'message': 'No available accounts: no available accounts', 'type': 'api_error'}}
+```
+
+**原因:** `~/.zshrc`（または `~/.bashrc`）に `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL` が設定されています。シェルが起動すると、これらの変数がグローバルに有効になり、IDE（Cursor、VS Code など）で設定した API キーを上書きするため、リクエストが誤ったキーを使ってしまいます。
+
+**解決策（いずれか選択）:**
+
+**オプション A: `.zshrc` から変数を削除する**
+
+`~/.zshrc` を開き、次の行を削除してください：
+```bash
+export ANTHROPIC_AUTH_TOKEN="..."
+export ANTHROPIC_BASE_URL="..."
+export ANTHROPIC_MODEL="..."
+```
+その後、`source ~/.zshrc` を実行して適用し、IDE を再起動してください。
+
+**オプション B: 変数を別ファイルに移し、Claude Code CLI のときだけ読み込む**
+
+1. 次の 3 行で `~/.claude_env` を作成する：
+```bash
+export ANTHROPIC_AUTH_TOKEN="sk-your-lmu-ai-api-key"
+export ANTHROPIC_BASE_URL="https://api.lmuai.com"
+export ANTHROPIC_MODEL="the-model-you-use"
+```
+
+2. `~/.zshrc` からこれら 3 行を削除する。
+
+3. Claude Code 起動時に手動で読み込む：
+```bash
+source ~/.claude_env && claude
+```
+
+こうすることで、IDE は設定ファイルのキーを使い、Claude Code CLI は環境変数を使うようになり、互いに干渉しません。
+
+---
+
+## Issue 7: 400 Invalid signature in thinking block（グループをまたいだモデル切り替え）[#issue-7]
+
+**エラーメッセージ:**
+```
+upstream error: 400 messages.<index>.content.<index>:
+Invalid `signature` in `thinking` block
+```
+
+**原因:** Claude の Extended Thinking が `thinking` ブロックを生成するとき、それを生成した**特定の上流アカウント**に強く紐づいた**暗号化署名**を付与します。1 つの会話内で**グループをまたいでモデルを切り替える**と（例：「Claude-Pro 直接」グループの `claude-sonnet-5` から「Claude-MAX 高倍率」グループの `claude-fable-5` へ）、クライアントは以前の履歴（署名付き thinking ブロックを含む）を新しいグループの上流アカウントに送信します。グループが異なると**上流も異なり**、別のグループが発行した署名を検証できないため、400 が返ります。
+
+**典型的なトリガー:**
+- クライアントが会話途中でのモデル切り替えをサポートし、以前の履歴を丸ごと送信する
+- 切り替え前後のグループが**異なる上流アカウント**由来（例：「直接グループ」↔「リレー / MAX 高倍率グループ」）
+
+**解決策（いずれか）:**
+
+1. **グループを切り替えるときは新しい会話を始める** — 古い履歴を持ち込まないのが最もシンプルで確実な対処です。
+2. **1 会話 1 グループを維持する** — マルチモデル連携が必要な場合は、同じグループ内（同じ上流）で切り替えてください。
+3. **履歴から thinking ブロックを削除する** — クライアントが履歴編集をサポートしているなら、グループを切り替える前に `thinking` ブロックを削除してください。
+
+<Callout type="info" title="なぜ再試行では直らない？">
+
+これは**無効な署名によって引き起こされる、回復不能な 4xx クライアントエラー**です。ゲートウェイがこれを検出すると、400 をそのままクライアントに返し、別のアカウントで自動再試行しません — 一致しない上流はどれも同じように失敗するためです。
+
+</Callout>
+
+---
+
+## Issue 8: 400 Unknown parameter: 'tools[0].n'（画像エンドポイントに tools を送信）[#issue-8]
+
+**エラーメッセージ:**
+```
+400 - {'error': {'code': 'unknown_parameter', 'message': "Unknown parameter: 'tools[0].n'.", 'param': 'tools[0].n', 'type': 'invalid_request_error'}}
+```
+
+**影響を受けるエンドポイント:** `/v1/images/generations`、`/v1/images/edits`（画像生成 / 編集）。
+
+**原因:** クライアントが画像リクエストボディに `tools` 配列を入れ、`tools[0]` の中に `n` フィールドを入れています。OpenAI の画像エンドポイントは **`tools` を受け付けません**（ツール呼び出しは Chat / Responses エンドポイントに属し、画像エンドポイントにはそのような概念がありません）。そのため上流は 400 で拒否します。
+
+これは通常、「画像枚数 `n`」を誤った場所に置く — `tools[0].n` にネストしたり、Chat リクエストのテンプレートからコピーしたりする — バグのあるクライアント / SDK ラッパーが原因です。
+
+**解決策:**
+
+1. **リクエストボディから `tools` フィールドを削除する** — 画像の `generations` / `edits` はツール呼び出しをサポートしていません。フィールドをまるごと削除してください。
+2. **複数枚の画像を生成するには、トップレベルの `n` に枚数を入れる** — `n`（1 回の呼び出しで複数枚）をサポートするのは `/v1/images/generations` のみです。`/v1/images/edits` は非対応なので、そこでは `n` を削除してください。
+3. **クライアント SDK のバージョンを確認する** — ラッパーがパラメーターを自動構築している場合は、画像エンドポイントに Chat テンプレートを適用しないよう、アップグレードまたは置き換えてください。
+
+<Callout type="info" title="なぜアカウント切り替え / 再試行では直らない？">
+
+これは**無効なリクエストボディ**によって引き起こされる 4xx クライアントエラーで、上流のアカウントやグループとは無関係です — ゲートウェイはリクエストをそのまま通し、どのアカウントでも同じ 400 を返します。クライアントが送るリクエストパラメーターを修正する必要があります。
+
+</Callout>
+
+---
+
+## Issue 9: VPN は必要ですか？ [#issue-9]
+
+<CN>
+**不要です。** LMU AI ゲートウェイは**中国本土内**にホストされており、`api.lmuai.com` は国内ネットワークから VPN・プロキシ・回避策なしで直接呼び出せます。
+
+逆に、出口 IP を切り替える VPN やプロキシは、ストリーム切断を引き起こしがちです（[Issue 1](#issue-1) 参照）。国内からの直接接続が最速かつ最も安定した結果をもたらします。
+</CN>
+<Intl>
+**不要です。** LMU AI の**国際ゲートウェイ** `api.lmuai.com` は、中国本土外のネットワークから VPN やプロキシなしで直接呼び出せます。
+
+逆に、出口 IP を切り替える VPN やプロキシは、ストリーム切断を引き起こしがちです（[Issue 1](#issue-1) 参照）。直接接続が最速かつ最も安定した結果をもたらします。
+</Intl>
+
+---
+
+## Issue 10: 401 API_KEY_REQUIRED（Codex がキーを送らない）[#issue-10]
+
+**エラーメッセージ:**
+```
+unexpected status 401 Unauthorized: {"code":"API_KEY_REQUIRED","message":"API key is required in Authorization header (Bearer scheme), x-api-key header, or x-goog-api-key header"}, url: https://api.lmuai.com/responses, request id: ...
+```
+
+**原因:** Codex のバグです — カスタムモデルプロバイダーが `wire_api = "responses"` を使うと、Codex が送るリクエストに **API キーがまったく含まれません**（`Authorization`、`x-api-key`、`x-goog-api-key` のいずれも送られません）。そのためゲートウェイはキーを見つけられず、401 `API_KEY_REQUIRED` を返します。
+
+これは [Issue 3](#issue-3) の `Incorrect API key provided` とは異なることに注意してください：あちらは誤ったキーを送信している（通常はリクエストが LMU AI リレーではなく OpenAI の公式エンドポイントに送られたため）のに対し、こちらは**キーをまったく送っていません**。
+
+**解決策:** `~/.codex/config.toml` を開き、モデルプロバイダーのセクション `[model_providers.<ID>]`（本サイトのガイドに従った場合は通常 `[model_providers.codex]`）を見つけ、その中に `requires_openai_auth = true` を追加してください：
+
+```toml
+[model_providers.codex]
+name = "codex"
+base_url = "https://api.lmuai.com"
+wire_api = "responses"
+requires_openai_auth = true
+```
+
+保存し、ターミナルを開き直して Codex を再起動してください。
+
+<Callout type="info" title="本サイトのガイドに従ったユーザーは影響を受けません">
+
+本サイトのすべての Codex ガイド（[Mac](/ja/docs/tools/codex-cli-mac) / [Windows](/ja/docs/tools/codex-cli-windows) / [Server](/ja/docs/tools/codex-cli-server) / [Codex App](/ja/docs/tools/codex-app)）は、その `config.toml` の例にすでに `requires_openai_auth = true` を含んでいます。このエラーに遭遇した場合、設定はこの行を省略した古いガイドや別のソースからコピーされた可能性が高いです — 上記のとおり追加してください。
+
+</Callout>
+
+---
+
+## まだ解決しない場合は？
+
+インストールやセットアップ中に特殊な環境でどうしても進めない場合は、サポートにお問い合わせください：
+- WeChat でサポートを追加する
+- Xianyu（闲鱼）でサポートに連絡する
+
+> リモートサポート対応時間：**午後 2 時以降**（午前中は複雑な環境設定をリモートで解決するのに充てています）。
+>
+> リモートサポートが必要な場合は、まず **NetEase UU Remote** をダウンロードしてサポートに送ってください。技術的なガイダンスとリモートサポートは午後 2 時以降に行います。

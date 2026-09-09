@@ -1,0 +1,143 @@
+---
+title: Codex-Erweiterung (VS Code / Cursor / Trae)
+description: Verbinden Sie sich in Editoren wie VS Code, Cursor und Trae über die Codex-Erweiterung mit der LMU AI API und nutzen Sie Claude / Codex über eine OpenAI-kompatible Schnittstelle.
+ogDescription: Installieren Sie die Codex-Erweiterung in VS Code / Cursor / Trae + LMU AI – nutzen Sie Claude, GPT, Codex und chinesische Modelle gleichzeitig über eine OpenAI-kompatible Schnittstelle.
+keywords:
+  - Codex VS Code Erweiterung
+  - Codex Cursor Erweiterung
+  - Codex Trae Erweiterung
+  - VS Code OpenAI Erweiterung
+  - Cursor mit OpenAI verbinden
+  - OpenAI-kompatibel VS Code
+  - Codex IDE Erweiterung
+alternateNames:
+  - Codex in VS Code / Cursor / Trae mit LMU AI verbinden
+---
+
+
+<Callout type="info" title="Wenn Sie den Trae-Editor verwenden">
+
+Wenn Sie **Claude oder chinesische Modelle (GLM / Qwen usw.)** nutzen möchten, bietet Trae eine einfachere native Methode (keine Erweiterung nötig, nur ein paar Klicks in der GUI) – siehe [Native Modellkonfiguration in Trae](/de/docs/tools/trae).
+
+Die Methode mit der Codex-Erweiterung auf dieser Seite eignet sich für Nutzer, die die **GPT-/Codex**-Serie verwenden möchten.
+
+</Callout>
+
+---
+
+## Häufige Fehler
+
+**Fehler: Nach der Konfiguration erhalten Sie ein 401, das besagt, der Schlüssel sei falsch**
+
+Ursache: Die Anfrage geht immer noch an das offizielle OpenAI-Backend statt an unser API-Relay, oder Sie haben das Tool nicht neu gestartet, um die Konfigurationsdatei erneut zu laden.
+
+Lösung: Folgen Sie der Anleitung erneut, um die beiden Dateien `config.toml` und `auth.json` zu **erstellen oder zu ersetzen**, und starten Sie das IDE-Tool anschließend neu.
+
+<Callout type="info" title="Wenn ein Fehler auftritt">
+
+Machen Sie einen Screenshot der Fehlermeldung und übersetzen Sie sie – Sie können dann selbst erkennen, was den Fehler verursacht hat!
+
+</Callout>
+
+---
+
+## Konfiguration
+
+### Schritt 1 — Konfigurationsdateien erstellen / überschreiben
+
+Speicherort der Konfigurationsdateien:
+- **Mac/Linux**: das Verzeichnis `~/.codex/`
+- **Windows**: das Verzeichnis `C:\users\IhrBenutzername\.codex\`
+
+<Callout type="warn" title="Hinweis für Windows">
+
+Wenn Sie sich zuvor mit dem offiziellen Konto oder einer anderen Plattform angemeldet haben, melden Sie sich zuerst ab und konfigurieren Sie dann!
+
+</Callout>
+
+Wenn Sie keinen `.codex`-Ordner haben, erstellen Sie ihn mit einem Terminalbefehl:
+
+```bash
+# Mac/Linux
+rm -rf ~/.codex && mkdir ~/.codex
+```
+
+```powershell
+# Windows (run in the terminal)
+rm -rf C:\users\YourUsername\.codex
+mkdir C:\users\YourUsername\.codex
+```
+
+### Schritt 2 — config.toml schreiben
+
+Erstellen oder überschreiben Sie im Verzeichnis `.codex` die Datei `config.toml`:
+
+```toml
+model_provider = "OpenAI"
+model = "gpt-5.4"
+review_model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+disable_response_storage = true
+network_access = "enabled"
+windows_wsl_setup_acknowledged = true
+model_context_window = 1000000
+model_auto_compact_token_limit = 900000
+
+[model_providers.OpenAI]
+name = "OpenAI"
+base_url = "https://api.lmuai.com"
+wire_api = "responses"
+requires_openai_auth = true
+```
+
+### Schritt 3 — auth.json schreiben
+
+Erstellen oder überschreiben Sie im Verzeichnis `.codex` die Datei `auth.json`:
+
+```json
+{
+  "OPENAI_API_KEY": "your sk- key generated in the console"
+}
+```
+
+Sobald die Konfiguration abgeschlossen ist, öffnen Sie VS Code, Cursor oder Trae, und die darin enthaltene Codex-Erweiterung meldet sich automatisch an.
+
+---
+
+## Installation der Visual Studio Code-Erweiterung
+
+### Erweiterung installieren
+
+1. Öffnen Sie VS Code und öffnen Sie zunächst einen beliebigen Projektordner als Arbeitsbereich (**andernfalls fordert ein Popup Sie auf, einen Projektordner zu öffnen!**)
+2. Klicken Sie links auf das Erweiterungs-Panel (das Symbol „Extensions“)
+3. Suchen Sie nach **Codex**, finden Sie OpenAIs offizielle Erweiterung „Codex – OpenAI's coding agent“ und klicken Sie auf Installieren
+4. Nach der Installation erscheint ein Codex-Eintrag in der linken Seitenleiste (falls nicht, schauen Sie oben rechts in der Oberfläche)
+
+### Vom alten Konto abmelden
+
+<Callout type="warn" title="Wichtig">
+
+Wenn Sie sich zuvor mit dem offiziellen Konto oder einer anderen Plattform angemeldet haben, melden Sie sich zuerst ab und konfigurieren Sie dann!
+
+</Callout>
+
+1. Klicken Sie oben rechts im Codex-Panel auf das Einstellungssymbol
+2. Klicken Sie auf **Log out**, um sich abzumelden
+
+### Konfiguration abschließen
+
+Nachdem Sie `config.toml` und `auth.json` eingerichtet haben, öffnen Sie die Codex-Erweiterung erneut und klicken Sie auf **Continue**, um den Anmeldevorgang abzuschließen.
+
+<Callout type="info" title="Zur Modellanzeige">
+
+Das Modell GPT-5.3 erscheint nicht im Dropdown; bewegen Sie den Mauszeiger über „Custom“, um das aktuell verwendete Modell zu sehen.
+
+Sie können das tatsächlich angeforderte Modell auch in der Konsole unter „Nutzungsaufzeichnungen“ überprüfen.
+
+</Callout>
+
+---
+
+## Möchten Sie Claude oder chinesische Modelle verwenden?
+
+Wenn Sie nur Trae nutzen und Ihr Ziel Modelle wie **Claude / GLM / Qwen** sind, benötigen Sie die Codex-Erweiterung nicht – die [native Modellkonfiguration in Trae](/de/docs/tools/trae) (Anthropic-Protokoll, nur ein paar Felder in der GUI ausfüllen) ist einfacher.

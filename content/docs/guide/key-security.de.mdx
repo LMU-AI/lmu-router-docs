@@ -1,0 +1,133 @@
+---
+title: Schlüsselsicherheit
+description: "Leitfaden zur IP-Whitelist/Blacklist für LMU AI API-Schlüssel: Beschränke, welche IPs deinen Schlüssel aufrufen dürfen, um zu verhindern, dass ein geleakter Schlüssel missbraucht wird; unterstützt einzelne IPs und CIDR-Bereiche."
+ogDescription: "LMU AI Schlüsselsicherheit: Konfiguriere IP-Whitelists und -Blacklists für deine Claude-/GPT-/chinesischen Modell-API-Schlüssel, mit Unterstützung für einzelne IPs, CIDR-Bereiche und IPv6, sodass ein geleakter Schlüssel nicht von anderen genutzt werden kann, um dein Kontingent zu erschöpfen — inklusive Fehlerbehebung und Best Practices für die Produktion."
+keywords:
+  - API-Schlüssel-Sicherheit
+  - API-Schlüssel-IP-Whitelist
+  - API-Schlüssel-Missbrauch verhindern
+  - Was tun, wenn ein Claude API-Schlüssel leakt
+  - CIDR-Whitelist-Konfiguration
+  - IPv6-Whitelist
+  - 403 ACCESS_DENIED
+  - Claude Code Schlüsselsicherheit
+  - LMU AI Schlüssel-IP-Beschränkung
+  - AI API-Schlüssel-Schutz
+alternateNames:
+  - Konfiguration der Claude API-Schlüssel-IP-Whitelist
+  - LMU AI Schlüsselsicherheits-Leitfaden
+  - Einstellungen zum Schutz vor API-Schlüssel-Missbrauch
+  - Wie man Verluste nach einem Schlüssel-Leak begrenzt
+  - Anleitung zum Schutz von Claude Code Schlüsseln
+faq:
+  - q: Kann ich die IP-Whitelist und -Blacklist gleichzeitig verwenden?
+    a: Ja. Wenn beide konfiguriert sind, greift zuerst die Blacklist — selbst wenn eine IP auf der Whitelist steht, wird sie dennoch abgelehnt, wenn sie mit der Blacklist übereinstimmt.
+  - q: Warum kann ich keine Verbindung herstellen, wenn ich eine private (LAN-)IP auf die Whitelist setze?
+    a: Die Server von LMU AI können keine privaten IPs sehen (wie 192.168.x.x oder 10.x.x.x); sie sehen nur deine **öffentliche Ausgangs-IP**. Verwende `curl https://ifconfig.me`, um deine echte Ausgangs-IP zu finden, und trage dann diese ein.
+  - q: Meine Heim-IP ändert sich — wie verwende ich die Whitelist?
+    a: Wenn du eine dynamische öffentliche IP hast, kannst du den von deinem ISP zugewiesenen CIDR-Bereich eintragen (wie `123.45.0.0/16`), um den Bereich zu erweitern; wenn du den Bereich nicht bestimmen kannst, empfehlen wir, die Whitelist nicht zu aktivieren und stattdessen andere Schutzmaßnahmen zu verwenden (Ratenbegrenzung, Gesamtkontingent, Modell-Whitelist).
+  - q: Was soll ich tun, wenn mein LMU AI API-Schlüssel leakt?
+    a: Setze den Schlüssel in der Konsole sofort **zurück oder lösche** ihn; wenn bereits eine IP-Whitelist konfiguriert ist, kann der geleakte Schlüssel nicht von unbekannten IPs verwendet werden, was deine Verluste erheblich reduziert. Wir empfehlen außerdem, die Quelle des Lecks zurückzuverfolgen (öffentliche Repo-Commits, Logs, Chatverläufe, Screenshots usw.) und sofort eine IP-Whitelist auf dem neuen Schlüssel zu aktivieren.
+  - q: Wie viele IPs kann ein Schlüssel haben? Wird IPv6 unterstützt?
+    a: "Eine Regel pro Zeile; du kannst einzelne IPs und CIDR-Bereiche mischen, und es gibt keine feste Begrenzung für die Anzahl der Einträge. Sowohl IPv4 als auch IPv6 werden unterstützt (IPv6-Beispiel: `2001:db8::/32`). Wenn du sowohl v4- als auch v6-Ausgänge hast, trage beide ein."
+  - q: Wie richte ich die Whitelist für Aufrufe von einem Produktionsserver ein?
+    a: Trage die **öffentliche IP** des Servers ein (nicht seine private IP). Wenn du einen Load Balancer verwendest oder mehrere Ausgangs-IPs hast, füge alle möglichen Ausgangs-IPs oder deren CIDR-Bereiche zur Whitelist hinzu; verwende für die lokale Entwicklung einen separaten Schlüssel ohne Whitelist, um Störungen zu vermeiden.
+  - q: Kollidieren IP-Whitelist, Ratenbegrenzung und Gesamtkontingent miteinander?
+    a: Nein, und wir empfehlen, sie zu kombinieren. Die IP-Whitelist begrenzt, "wer" den Schlüssel verwenden darf, die Ratenbegrenzung begrenzt, "wie schnell", und das Gesamtkontingent begrenzt, "wie viel". Konfiguriere alle drei auf einem Produktionsschlüssel für eine mehrschichtige Verteidigung — selbst wenn die Whitelist umgangen wird, bieten Ratenbegrenzung und Kontingent weiterhin eine Absicherung.
+  - q: Warum wird mein Aufruf mit 403 ACCESS_DENIED abgelehnt?
+    a: Sehr wahrscheinlich stimmte die IP nicht mit der Whitelist überein. Verwende `curl https://ifconfig.me`, um deine echte Ausgangs-IP zu prüfen, vergleiche sie mit der Whitelist des Schlüssels und füge entweder die aktuelle IP hinzu oder leere die Whitelist vorübergehend zum Testen; wenn sie weiterhin abgelehnt wird, prüfe, ob sie mit der Blacklist übereinstimmt, ob der Schlüssel deaktiviert ist und ob das Kontingent erschöpft ist.
+---
+
+Wenn ein Schlüssel leakt, können andere ihn nutzen, um dein Kontingent zu verbrauchen. Eine **IP-Whitelist** ist der direkteste Schutz — nur IPs, denen du vertraust, dürfen den Schlüssel verwenden.
+
+## Wo man es konfiguriert
+
+Gehe zu **Konsole → API Keys → Bearbeiten (oder Erstellen)** und suche die beiden Felder **IP-Whitelist** und **IP-Blacklist**.
+
+Eine Regel pro Zeile, in einem von zwei Formaten:
+
+| Format | Beispiel | Beschreibung |
+|------|------|------|
+| Einzelne IP | `203.0.113.10` | Passt exakt auf eine IP |
+| CIDR-Bereich | `203.0.113.0/24` | Passt auf einen ganzen IP-Bereich (`/24` = 256 IPs) |
+
+Sowohl IPv4 als auch IPv6 werden unterstützt (IPv6-Beispiel: `2001:db8::/32`).
+
+## Wie es wirkt
+
+- **Whitelist leer** → keine Quellenbeschränkung; jede IP kann den Schlüssel verwenden
+- **Whitelist nicht leer** → nur IPs auf der Liste können ihn verwenden; alle anderen werden abgelehnt
+- **Blacklist** → übereinstimmende IPs werden abgelehnt, **mit Vorrang vor der Whitelist**
+- Du kannst beide gleichzeitig verwenden (die Blacklist wird zuerst geprüft, dann die Whitelist)
+
+Bei Ablehnung gibt die API `403 ACCESS_DENIED` zurück.
+
+## Finde deine echte Ausgangs-IP (wichtig!)
+
+**Dies ist der am leichtesten zu machende Fehler**: Die IP, die du auf dem Schlüssel konfigurierst, muss die **öffentliche Ausgangs-IP** sein, die die Server von LMU AI sehen, nicht die private Adresse, die `ipconfig` / `ifconfig` auf deinem Computer anzeigt.
+
+```bash
+# Command line
+curl https://ifconfig.me
+# or
+curl https://ip.sb
+```
+
+Oder öffne [ip.sb](https://ip.sb) / [ifconfig.me](https://ifconfig.me) in deinem Browser.
+
+<Callout type="warn">
+  Deine Ausgangs-IP ändert sich, wenn du ein VPN oder einen Firmen-Proxy einschaltest oder wenn dein Mobilgerät das WLAN wechselt. Bestätige sie mit dem obigen Befehl, bevor du die Whitelist konfigurierst.
+</Callout>
+
+## Häufige Szenarien
+
+**Szenario 1: Eine feste Büro-IP**
+```
+Whitelist:
+203.0.113.10
+```
+
+**Szenario 2: Arbeiten sowohl von zu Hause als auch aus dem Büro**
+```
+Whitelist:
+203.0.113.10      # Company egress
+198.51.100.20     # Home broadband
+```
+
+**Szenario 3: Ausführung auf deinem eigenen Cloud-Server**
+```
+Whitelist:
+<your cloud server's public IP>
+```
+Erlaube nur deinem Server, die API aufzurufen, und verwende einen separaten Schlüssel (ohne Whitelist) für die lokale Entwicklung.
+
+**Szenario 4: Du möchtest nur vorübergehend eine verdächtige IP blockieren**
+```
+Blacklist:
+1.2.3.4
+```
+Alles andere funktioniert wie gewohnt, ohne Auswirkungen auf die normale Nutzung.
+
+## Fehlerbehebung
+
+**F: Mein Aufruf gibt 403 ACCESS_DENIED zurück — ist es eine IP-Beschränkung?**
+
+Sehr wahrscheinlich. Prüfe der Reihe nach:
+
+1. Verwende `curl https://ifconfig.me`, um deine aktuelle echte Ausgangs-IP zu bestätigen
+2. Vergleiche sie mit der Whitelist des Schlüssels, um zu sehen, ob sie übereinstimmt
+3. Wenn sie nicht übereinstimmt, füge die aktuelle IP zur Whitelist hinzu oder leere die Whitelist vorübergehend zum Testen
+4. Wenn sie weiterhin abgelehnt wird, prüfe, ob sie auf der Blacklist steht, ob der Schlüssel deaktiviert ist und ob das Kontingent erschöpft ist
+
+**F: Ich habe eine IP auf die Whitelist gesetzt, werde aber trotzdem abgelehnt?**
+
+- Hast du eine **private IP** eingegeben (`192.168.x.x` / `10.x.x.x` / `172.16-31.x.x`)? Ersetze sie durch deine öffentliche Ausgangs-IP.
+- Hast du eine IPv6-Adresse eingegeben, gehst aber über IPv4 online (oder umgekehrt)? Trage beide ein.
+- Hast du ein CIDR mit einem fehlerhaften Format eingegeben (wie `1.2.3.4/33`)? Ungültige Regeln werden stillschweigend ignoriert.
+
+## Empfohlene Vorgehensweisen
+
+- Für **Produktionsschlüssel** empfehlen wir dringend, eine IP-Whitelist zu konfigurieren, um die Angriffsfläche zu minimieren
+- Für **Entwicklungs-/Debugging-Schlüssel** kannst du die Whitelist weglassen, musst aber ein **Gesamtkontingent-Limit** als Absicherung setzen
+- Wenn du besonders besorgt über Lecks bist, kombiniere es mit [**Ratenbegrenzung**, **Gesamtkontingent** und **Modell-Whitelist**](/de/docs/guide/how-to-use-token) für eine mehrschichtige Verteidigung
+- Sobald du vermutest, dass ein Schlüssel geleakt ist, **setze ihn zurück oder lösche ihn** sofort in der Konsole

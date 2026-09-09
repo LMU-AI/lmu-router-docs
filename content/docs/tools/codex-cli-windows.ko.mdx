@@ -1,0 +1,210 @@
+---
+title: Codex CLI (Windows)
+description: Windows에서 Codex CLI를 설치·구성하여 LMU AI API에 연결하고, config.toml에서 1M 토큰 롱 컨텍스트를 활성화하는 방법을 안내합니다.
+ogDescription: "Windows에 Codex CLI를 설치하고 LMU AI에 연결하세요: PowerShell / WSL2에서 작동하며, 프록시 없이 OpenAI Codex / GPT를 사용하고, config.toml에 두 줄만 추가하면 1M 롱 컨텍스트가 활성화됩니다."
+keywords:
+  - Codex CLI Windows
+  - Codex CLI 설치 Windows
+  - Codex Windows 설정
+  - PowerShell Codex
+  - WSL2 Codex
+  - 중국에서 Codex CLI Windows
+  - OpenAI Codex 릴레이 Windows
+  - Codex 1M 컨텍스트 Windows
+  - Codex 롱 컨텍스트
+  - model_context_window
+  - model_auto_compact_token_limit
+alternateNames:
+  - Windows에서 Codex CLI를 LMU AI에 연결하기
+  - Windows의 Codex에서 1M 컨텍스트 활성화하기
+# No faq here: the two pitfalls (script execution blocked, and CODEX not recognized) are already covered by faq.mdx questions 4 / 5, which carry the full original error text
+# and resolution steps and emit the FAQPage from that page. This page's body only gives the commands inline in the install steps, and does not duplicate the same Q&A.
+---
+
+
+Codex CLI를 설치한 후, 두 개의 설정 파일(`config.toml` + `auth.json`)을 직접 만들어 LMU AI API에 연결하세요 — 서드파티 설정 도구는 필요 없습니다.
+
+---
+
+## 1단계 — Windows Terminal 설치
+
+Windows에서는 Codex CLI용으로 CMD 대신 **Windows Terminal** 사용을 권장합니다 — 여러 창을 지원하며 더 편리합니다.
+
+- 중국 클라우드 드라이브 다운로드(권장, 빠름): [https://www.ilanzou.com/s/MzWnpE05](https://www.ilanzou.com/s/MzWnpE05)
+- GitHub 다운로드: [https://github.com/microsoft/terminal/releases/tag/v1.23.20211.0](https://github.com/microsoft/terminal/releases/tag/v1.23.20211.0)
+
+`Microsoft.WindowsTerminal_1.23.20211.0_x64.zip`을 다운로드하여 압축을 풀고, `WindowsTerminal.exe`를 더블클릭하여 실행하세요 — 바탕화면에 바로가기를 만들어 두는 것이 좋습니다.
+
+## 2단계 — Node.js 설치
+
+> 이미 설치되어 있다면 이 단계를 건너뛸 수 있습니다. 다음 명령으로 확인하세요: `node -v`
+
+**Node.js 20+** 가 필요합니다 — 다운로드: [https://nodejs.org/en/download](https://nodejs.org/en/download)
+
+설치 중에는 반드시 **"필요한 도구를 자동으로 설치"** 항목을 체크하세요.
+
+설치 후 터미널에서 확인하세요:
+
+```bash
+node -v
+# A version number (e.g. v24.4.1) means it installed correctly
+```
+
+<Callout type="info" title="특수한 경우">
+
+`node.js`가 설치되어 있지 않거나, 이전에 설치했지만 환경이 잘못 구성된 경우, 한 번 다시 다운로드하여 재설치한 뒤 터미널을 다시 여세요.
+
+</Callout>
+
+**스크립트 실행 차단 오류가 발생하면 다음 명령을 실행하세요:**
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+## 3단계 — Codex CLI 설치
+
+```bash
+npm i -g @openai/codex
+```
+
+네트워크 문제가 발생하면 먼저 중국 미러로 전환한 후 설치하세요:
+
+```bash
+npm config set registry https://registry.npmmirror.com
+npm i -g @openai/codex
+```
+
+설치 확인:
+
+```bash
+codex --version
+# A version number means it installed correctly
+```
+
+## 4단계 — 설정 파일 생성
+
+설정 디렉터리는 **`C:\users\your-username\.codex\`** 입니다(없으면 생성하고, 오래된 파일은 덮어쓰세요). 이 안에 다음 두 파일을 생성/덮어쓰기 하세요:
+
+### config.toml
+
+```toml
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+disable_response_storage = true
+sandbox_mode = "danger-full-access"
+windows_wsl_setup_acknowledged = true
+approval_policy = "never"
+file_opener = "vscode"
+model_provider = "codex"
+web_search = "cached"
+suppress_unstable_features_warning = true
+
+[history]
+persistence = "save-all"
+
+[tui]
+notifications = true
+
+[shell_environment_policy]
+inherit = "all"
+ignore_default_excludes = false
+
+[sandbox_workspace_write]
+network_access = true
+
+[features]
+plan_tool = true
+apply_patch_freeform = true
+view_image_tool = true
+unified_exec = false
+streamable_shell = false
+rmcp_client = true
+elevated_windows_sandbox = true
+
+[profiles.auto-max]
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+
+[profiles.review]
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[notice]
+hide_gpt5_1_migration_prompt = true
+
+[model_providers.codex]
+name = "codex"
+base_url = "https://api.lmuai.com"
+wire_api = "responses"
+requires_openai_auth = true
+```
+
+### auth.json
+
+```json
+{
+  "OPENAI_API_KEY": "your sk- key generated in the console"
+}
+```
+
+## 5단계 — Codex CLI 실행
+
+설정 파일을 저장한 후, 터미널을 다시 열고 다음을 실행하여 자동으로 실행 및 로그인하세요:
+
+```bash
+codex --dangerously-bypass-approvals-and-sandbox
+```
+
+또는 축약형:
+
+```bash
+codex --yolo
+```
+
+> 이 실행 명령은 보안 승인을 건너뛰므로, 자동 실행되는 각 단계를 승인하지 않아도 됩니다.
+
+성공적으로 실행되면, 인터페이스에 현재 모델이 `gpt-5.4 xhigh`(`config.toml`의 `model` 필드에 설정된 모델)로 표시됩니다.
+
+---
+
+## Codex에서 1M 컨텍스트 활성화(선택 사항)
+
+`gpt-5.4`는 **1M 토큰 롱 컨텍스트 윈도우**를 지원하며(기본값은 272K에 불과), 매우 큰 저장소 검토, 긴 로그 분석, 여러 파일에 걸친 리팩터링 등의 작업에 유용합니다. Codex는 기본적으로 1M 윈도우를 활성화하지 **않으므로**, `config.toml`에서 명시적으로 선언해야 합니다.
+
+### 설정 방법: config.toml에 두 줄 추가
+
+`C:\users\your-username\.codex\config.toml`을 편집하여 **최상위 레벨**(모든 `[section]` 앞, 예를 들어 `model = "gpt-5.4"` 바로 뒤)에 다음을 추가하세요:
+
+```toml
+model_context_window = 1000000
+model_auto_compact_token_limit = 900000
+```
+
+저장하고 터미널을 다시 연 뒤 Codex에 다시 진입하면 적용됩니다.
+
+**필드 참조**
+
+| 필드 | 용도 |
+|------|------|
+| `model_context_window` | 모델이 사용할 수 있는 컨텍스트 윈도우를 토큰 단위로 선언합니다. `1000000`은 1M입니다. 설정하지 않으면 모델 기본값(272K)을 사용합니다 |
+| `model_auto_compact_token_limit` | 히스토리 자동 압축(auto-compact)을 트리거하는 토큰 임계값입니다. 윈도우의 약 90%로 설정하세요(1M의 경우 `900000`). 윈도우의 90%를 초과하는 값은 Codex가 클램프하므로, 더 큰 값을 넣어도 의미가 없습니다 |
+
+### 적용 여부 확인
+
+Codex에 다시 진입한 후 `/status`를 입력하여 `context window`가 약 1M으로 표시되는지 확인하세요(일부 버전은 약 950K로 표시됩니다 — Codex가 예약한 5% 안전 여유분입니다). 또한 `/statusline`을 사용하면 컨텍스트 사용량을 상태 바에 추가하여 실시간으로 모니터링할 수 있습니다.
+
+### CC Switch를 사용하는 경우
+
+[CC Switch](/ko/docs/tools/cc-switch)로 Codex 설정을 관리하는 경우, 그 Codex 설정 편집기에 동일한 두 줄을 추가하고 적용하세요 — 효과는 동일합니다:
+
+![CC Switch의 Codex 설정에서 model_context_window = 1000000 및 model_auto_compact_token_limit = 900000을 설정하여 1M 토큰 롱 컨텍스트 활성화](/images/tools/codex/codex-ccs.png)
+
+<Callout type="warn" title="사용 시 주의사항">
+
+- **반드시 최상위 레벨에 두기**: 이 두 필드는 `[profiles.xxx]` 섹션 안에서는 적용되지 않습니다(알려진 Codex 제한). 또한 프로젝트 레벨의 `.codex\config.toml`은 무시될 수 있으므로, 사용자 레벨의 `C:\users\your-username\.codex\config.toml`에 넣으세요
+- **모델 지원**: `gpt-5.4`와 `gpt-5.5`는 API 채널에서 1M을 지원합니다. `gpt-5.3-codex` 같은 모델은 272K로 제한되며, 어떤 설정 값도 모델 자체의 한계를 초과할 수 없습니다
+- **비용 증가**: 컨텍스트가 길수록 각 요청이 더 많은 토큰을 사용합니다. 272K를 초과하는 부분은 더 높은 롱 컨텍스트 요금제로 청구되므로, 매우 긴 작업이 아니라면 켜두지 마세요
+- **버전 차이**: 일부 최신 Codex 버전은 모델 카탈로그에서 먼저 윈도우 크기를 읽어옵니다. `/status`가 여전히 이전 값을 표시하면, 최신 버전으로 업그레이드(`npm i -g @openai/codex@latest`)한 후 다시 시도하세요
+
+</Callout>

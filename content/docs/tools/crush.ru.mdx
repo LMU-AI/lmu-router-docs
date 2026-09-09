@@ -1,0 +1,262 @@
+---
+title: Crush
+description: Подключите терминальный AI-инструмент для кодинга Crush к LMU AI API — добавьте кастомный провайдер в crushrc, чтобы использовать Claude, GPT и китайские модели.
+ogDescription: Подключите терминальный AI-инструмент для кодинга Crush к LMU AI — настройте кастомный провайдер openai-compat или anthropic через provider add / model add в crushrc и используйте Claude Opus 5, GPT-5.6, GLM, Qwen, DeepSeek и другие модели прямо из CLI / TUI.
+keywords:
+  - Crush
+  - Настройка Crush
+  - Сторонний API для Crush
+  - Ретрансляция Crush
+  - Подключить Crush к Claude
+  - Китайские модели в Crush
+  - crushrc
+  - crush.json
+  - Charm Crush
+  - терминальный AI-инструмент для кодинга
+alternateNames:
+  - Подключить Crush к LMU AI
+  - Как настроить сторонний API в Crush
+  - Настройка ретрансляции Charm Crush
+faq:
+  - q: Где находится файл конфигурации Crush?
+    a: Глобальная конфигурация лежит в `~/.config/crush/crushrc` (`%USERPROFILE%\.config\crush\crushrc` в Windows). Это Bash-скрипт, который Crush запускает при старте. Конфигурацию уровня проекта можно поместить в `./.crushrc` или `./crushrc` в текущем каталоге — она имеет приоритет над глобальной. Обратите внимание, что `crush.json` внутри `~/.local/share/crush/` (`%LOCALAPPDATA%\crush\` в Windows) — это состояние, принадлежащее машине, **не редактируйте его вручную**.
+  - q: Руководства советуют редактировать crush.json — это ещё работает?
+    a: Это по-прежнему работает, но официально **устарело** — сопровождающие заявляют, что новые опции конфигурации будут добавляться только в Bash-конфигурацию, а JSON не получит новых возможностей. Используйте `crushrc`. Если у вас уже есть JSON-конфигурация, запустите Crush и просто попросите его на обычном языке сконвертировать конфигурацию за вас.
+  - q: Что должно быть указано в `--type` для провайдера?
+    a: Используйте `openai-compat` для OpenAI-совместимого эндпоинта LMU AI или `anthropic` для протокола Anthropic. **Не используйте `openai`** — согласно официальной документации, `openai` предназначен для проксирования или маршрутизации запросов через сам OpenAI, тогда как не-OpenAI провайдеры с OpenAI-совместимыми API всегда должны использовать `openai-compat`; неверный выбор ухудшает работу.
+  - q: Нужен ли суффикс `/v1` в Base URL?
+    a: 'Эти два типа противоположны. Для `--type anthropic` укажите `https://api.lmuai.com` (**без** `/v1` — Crush сам добавляет `/v1/messages`; добавление `/v1` даёт `/v1/v1/messages` и 404). Для `--type openai-compat` укажите `https://api.lmuai.com/v1` (**с** `/v1`).'
+  - q: Я всё настроил, но модели LMU AI не появляются в `/models`
+    a: "Встроенный список моделей Crush берётся из базы данных Catwalk, которая не содержит идентификаторов моделей LMU AI — их нужно зарегистрировать самостоятельно с помощью `model add <provider>/<model-id>`. Перезапустите Crush после регистрации, и они станут доступны для выбора через `/models` в сессии."
+  - q: Можно ли указать API-ключ прямо в crushrc?
+    a: 'Да — просто передайте ключ `sk-`, сгенерированный в консоли LMU AI, прямо в `--api-key`; это обычная схема. Однако учтите официальное предупреждение: и crushrc, и crush.json являются **доверенным кодом**, который выполняется с привилегиями вашей оболочки ещё до появления интерфейса, поэтому не запускайте Crush в каталоге, чью конфигурацию вы не проверили.'
+---
+
+Crush — это терминальный AI-инструмент для кодинга от [Charm](https://charm.land), предлагающий как CLI, так и TUI для генерации кода, отладки, общения, работы с файлами и многозадачности из командной строки. Он поддерживает кастомные провайдеры — на этой странице описано его подключение к LMU AI.
+
+---
+
+## Установка Crush
+
+Выберите способ, подходящий вашей системе:
+
+<Tabs items={['Homebrew (рекомендуется на macOS)', 'NPM (кроссплатформенно)', 'Windows', 'Arch Linux', 'Nix']}>
+<Tab value="Homebrew (рекомендуется на macOS)">
+
+```bash
+brew install charmbracelet/tap/crush
+```
+
+</Tab>
+<Tab value="NPM (кроссплатформенно)">
+
+```bash
+npm install -g @charmland/crush
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+winget install charmbracelet.crush
+```
+
+Или через Scoop:
+
+```powershell
+scoop bucket add charm https://github.com/charmbracelet/scoop-bucket.git
+scoop install crush
+```
+
+</Tab>
+<Tab value="Arch Linux">
+
+```bash
+yay -S crush-bin
+```
+
+</Tab>
+<Tab value="Nix">
+
+```bash
+nix run github:numtide/nix-ai-tools#crush
+```
+
+</Tab>
+</Tabs>
+
+---
+
+## Настройка LMU AI
+
+Crush настраивается с помощью **Bash-скрипта**. Отредактируйте глобальный файл конфигурации:
+
+- **macOS / Linux**: `~/.config/crush/crushrc`
+- **Windows**: `%USERPROFILE%\.config\crush\crushrc`
+
+Есть два шага: добавить LMU AI как провайдер с помощью `provider add`, затем зарегистрировать нужные модели с помощью `model add`. Выберите протокол, соответствующий моделям, которые вы планируете использовать:
+
+<Tabs items={['GPT / общее (openai-compat)', 'Claude / китайские модели (anthropic)']}>
+<Tab value="GPT / общее (openai-compat)">
+
+Подходит для моделей OpenAI, таких как `gpt-5.6-sol` и `gpt-5.5`. Claude и китайские модели тоже могут работать через этот протокол (бэкенд LMU AI выполняет преобразование протокола).
+
+```bash
+# Add LMU AI as a provider (OpenAI-compatible protocol)
+provider add lmuai \
+  --type openai-compat \
+  --base-url "https://api.lmuai.com/v1" \
+  --api-key "sk-your-lmu-ai-api-key"
+
+# Register the models you want
+model add lmuai/gpt-5.6-sol --name "GPT-5.6 Sol" --context-window 400000
+model add lmuai/claude-opus-5 --name "Claude Opus 5" --context-window 200000
+
+# Set it as the default large-model slot
+model large lmuai/claude-opus-5
+```
+
+<Callout type="warn" title="Тип — openai-compat, а не openai">
+
+В Crush есть два типа OpenAI. Согласно официальной документации, `openai` предназначен для проксирования или маршрутизации запросов **через сам OpenAI**, тогда как `openai-compat` — для **не-OpenAI провайдеров, предлагающих OpenAI-совместимые API**. LMU AI относится ко второй категории, поэтому используйте `openai-compat`.
+
+</Callout>
+
+</Tab>
+<Tab value="Claude / китайские модели (anthropic)">
+
+Подходит для моделей, обслуживаемых по протоколу Anthropic, таких как `claude-opus-5`, `claude-sonnet-5`, `qwen3.8-max-preview`, `deepseek-v4-pro`, `glm-5.2` и `kimi-k3`.
+
+```bash
+# Add LMU AI as a provider (Anthropic protocol)
+provider add lmuai-anthropic \
+  --type anthropic \
+  --base-url "https://api.lmuai.com" \
+  --api-key "sk-your-lmu-ai-api-key" \
+  --extra-header anthropic-version 2023-06-01
+
+# Register the models you want
+model add lmuai-anthropic/claude-opus-5 \
+  --name "Claude Opus 5" \
+  --context-window 200000 \
+  --can-reason true \
+  --supports-images true
+
+model add lmuai-anthropic/glm-5.2 --name "GLM-5.2" --context-window 200000
+
+# Set it as the default large-model slot
+model large lmuai-anthropic/claude-opus-5
+```
+
+<Callout type="warn" title="Не добавляйте /v1 к Anthropic base URL">
+
+Установите `--base-url` равным `https://api.lmuai.com` — **не** `https://api.lmuai.com/v1`. Crush сам добавляет `/v1/messages`, поэтому лишний сегмент приводит к запросу `/v1/v1/messages`, который завершается ошибкой:
+
+```
+not found: POST "https://api.lmuai.com/v1/v1/messages": 404 Not Found
+```
+
+Это противоположно `openai-compat` (которому `/v1` нужен) — не перепутайте.
+
+</Callout>
+
+</Tab>
+</Tabs>
+
+<Callout type="warn" title="Файлы конфигурации — это доверенный код">
+
+Официальное предупреждение: `crushrc` выполняется с привилегиями вашей оболочки ещё до появления интерфейса, а любые `$(...)` в `crush.json` выполняются во время загрузки. **Не запускайте Crush в каталоге, чью конфигурацию вы не проверили**, и не выполняйте `source` для файлов конфигурации неизвестного происхождения.
+
+</Callout>
+
+---
+
+## Начало работы
+
+После настройки перезапустите Crush:
+
+```bash
+crush
+```
+
+Переключайте модели внутри сессии командой:
+
+```
+/models
+```
+
+<Callout type="info" title="Модели LMU AI отсутствуют в /models?">
+
+Встроенный список моделей Crush берётся из базы данных [Catwalk](https://github.com/charmbracelet/catwalk), которая не содержит идентификаторов моделей LMU AI. Сначала их нужно зарегистрировать с помощью `model add <provider>/<model-id>` — после перезапуска они появятся в списке `/models`.
+
+</Callout>
+
+---
+
+## Распространённые идентификаторы моделей
+
+| Идентификатор модели | Примечания |
+|------|------|
+| `claude-opus-5` | Claude Opus 5 (флагман, рекомендуется) |
+| `claude-sonnet-5` | Claude Sonnet 5 (сбалансированная) |
+| `claude-haiku-4-5` | Claude Haiku 4.5 (быстрая) |
+| `gpt-5.6-sol` | GPT-5.6 Sol |
+| `glm-5.2` | GLM-5.2 |
+| `qwen3.8-max-preview` | Qwen 3.8 Max Preview |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k3` | Kimi K3 |
+
+Не знаете, какую модель выбрать? Перейдите в [Галерею моделей](/ru/docs/guide/models), чтобы увидеть все доступные идентификаторы моделей и скопировать их в один клик.
+
+---
+
+## Устаревшая JSON-конфигурация
+
+<Callout type="warn" title="crush.json официально устарел">
+
+Изначально Crush использовал `crush.json`, который теперь **устарел** — сопровождающие заявили, что продолжат его поддерживать, но новые опции конфигурации будут добавляться только в Bash-конфигурацию (`crushrc`). Многие руководства всё ещё обучают формату JSON, но **новые настройки следует делать через `crushrc`, как показано выше**.
+
+Уже есть JSON-конфигурация и хотите её мигрировать? Запустите Crush и просто попросите его на обычном языке сконвертировать её за вас.
+
+</Callout>
+
+Если вы всё же хотите использовать JSON, формат выглядит так (в файле `crush.json` в каталоге вашего проекта или в `~/.config/crush/`):
+
+```json
+{
+  "$schema": "https://charm.land/crush.json",
+  "providers": {
+    "lmuai": {
+      "id": "lmuai",
+      "name": "LMU AI",
+      "type": "openai-compat",
+      "base_url": "https://api.lmuai.com/v1",
+      "api_key": "sk-your-lmu-ai-api-key",
+      "models": [
+        {
+          "id": "claude-opus-5",
+          "name": "Claude Opus 5",
+          "context_window": 200000,
+          "default_max_tokens": 32000
+        }
+      ]
+    }
+  }
+}
+```
+
+<Callout type="warn" title="Не пропускайте type и models в JSON">
+
+Только `id` / `name` / `base_url` / `api_key` не сработают: `type` определяет, какой протокол используется (при его отсутствии происходит откат к предположению по умолчанию), а `models` определяет, что можно выбрать в `/models`. Это самая частая причина, по которой скопированный минимальный пример не работает.
+
+</Callout>
+
+---
+
+## Примечания
+
+- Файл конфигурации — `~/.config/crush/crushrc` (`%USERPROFILE%\.config\crush\crushrc` в Windows); `~/.local/share/crush/crush.json` — это состояние, принадлежащее машине, **не редактируйте его**
+- Используйте `--type openai-compat` для OpenAI-совместимого эндпоинта LMU AI (**не** `openai`) и `--type anthropic` для протокола Anthropic
+- **Эти два типа принимают противоположные формы `--base-url`**: `anthropic` принимает `https://api.lmuai.com` (без `/v1`), тогда как `openai-compat` принимает `https://api.lmuai.com/v1` (с `/v1`). Добавление `/v1` на стороне Anthropic даёт `/v1/v1/messages` и 404
+- В качестве API-ключа просто введите ключ `sk-`, сгенерированный в консоли LMU AI
+- Модели LMU AI отсутствуют во встроенном списке Crush, поэтому их нужно зарегистрировать с помощью `model add`, прежде чем они появятся в `/models`

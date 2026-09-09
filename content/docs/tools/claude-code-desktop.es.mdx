@@ -1,0 +1,152 @@
+---
+title: Claude Code Desktop
+description: "Conecta el cliente Claude Code para Desktop a la API de LMU AI: activa el Modo Desarrollador y luego configura el endpoint de inferencia de terceros."
+ogDescription: "Conecta la app de escritorio Claude Code: activa el Modo Desarrollador → Configure Third-Party Inference → ingresa la URL base de LMU AI y la clave API para usar Claude 4 (el cliente de escritorio necesita un proxy que pueda alcanzar internet externo)."
+keywords:
+  - app de escritorio Claude Code
+  - Claude Code para Desktop
+  - Modo Desarrollador de Claude Code
+  - Configure Third-Party Inference
+  - relé del cliente de escritorio Claude
+  - Claude Code Mac
+  - Claude Code Windows
+  - Claude Desktop
+alternateNames:
+  - Conectar Claude Code Desktop a LMU AI
+faq:
+  - q: ¿Qué hago si a la app de escritorio le falta la opción Configure Third-Party Inference?
+    a: "Tu versión de escritorio es demasiado antigua. Esta opción solo se agregó en versiones más nuevas: descarga la última versión desde el sitio oficial y reinstala."
+  - q: ¿Qué hago si el menú Developer no aparece?
+    a: "Primero confirma que Help → Troubleshooting → Enable Developer Mode esté marcado; si aún así no aparece, cierra por completo y reinicia el cliente (en Mac, haz clic derecho en el ícono del Dock y elige Quit — solo cerrar la ventana no funciona)."
+  - q: ¿Cómo soluciono un error 401 / Unauthorized en la app de escritorio?
+    a: "Revisa tres cosas: si la API Key se copió completa (empieza con sk-); si la Base URL es https://api.lmuai.com (sin /v1); y, en la consola de LMU AI, si el grupo al que pertenece la clave todavía tiene cuota disponible."
+  - q: ¿Por qué la app de escritorio se queda atascada en la pantalla de descarga / inicio de sesión / arranque?
+    a: "Descargar el cliente de escritorio y su red básica (inicio de sesión, activación, verificaciones de versión) requieren una conexión directa a servidores en el extranjero. Asegúrate de que tu proxy de internet externo esté encendido y funcionando, luego vuelve a abrir el cliente. Esta limitación no tiene relación con si configuraste la Base URL de LMU AI."
+  - q: ¿Cómo vuelvo al endpoint oficial de Anthropic?
+    a: "En Developer → Configure Third-Party Inference, borra la configuración o selecciona el valor por defecto para volver."
+---
+
+**Claude Code para Desktop** es el cliente de escritorio oficial de Anthropic. Desde las versiones más nuevas, admite un endpoint de inferencia de terceros personalizado, así que puedes conectarlo directamente a la API de LMU AI. No hay necesidad de editar `settings.json` a mano — todo lo haces en la interfaz gráfica.
+
+<Callout type="info" title="¿Cuál es el adecuado para mí?">
+
+- Quieres usarlo en la terminal → [Claude Code CLI](/es/docs/tools/claude-code)
+- Quieres usarlo dentro de VS Code → [Extensión de VS Code](/es/docs/tools/claude-code-vscode)
+- **Quieres una app de escritorio independiente** → esta página
+
+Las tres usan la misma API Key de LMU AI — elige la que te convenga.
+
+</Callout>
+
+<Callout type="warn" title="La app de escritorio necesita una red que pueda alcanzar internet externo">
+
+A diferencia del CLI, **el cliente de escritorio de Claude Code en sí necesita acceso funcional a redes en el extranjero**: la página de descarga y los flujos de inicio de sesión, activación y verificación de versión del cliente se conectan directamente a los servidores oficiales de Anthropic.
+
+Por eso, incluso después de apuntar la Base URL a LMU AI, aún necesitas activar **un proxy de red que pueda alcanzar internet externo (comúnmente conocido como VPN / herramienta de elusión)**, o se quedará atascado en la etapa de descarga o arranque. Una vez configurado LMU AI, las conversaciones del modelo en sí pasan por los nodos de LMU AI, pero la red básica del cliente todavía depende del proxy de internet externo.
+
+</Callout>
+
+---
+
+## Paso 1 — Descarga la última versión
+
+<Callout type="warn">
+
+**Debes usar la última versión.** Los clientes de escritorio antiguos no admiten un endpoint de terceros personalizado (es decir, no tienen la opción `Configure Third-Party Inference`).
+
+</Callout>
+
+Ve a la [página de descarga de Claude](https://claude.ai/download), descarga e instala el cliente para tu plataforma, luego inicia la app una vez instalada.
+
+> La página de descarga está alojada en el extranjero, así que **debes activar primero un proxy de internet externo (VPN)** para abrirla y descargar el instalador.
+
+---
+
+## Paso 2 — Activa el Modo Desarrollador
+
+El punto de entrada para configurar el endpoint de terceros está oculto por defecto, así que primero necesitas activar el Modo Desarrollador.
+
+1. En la barra de menú superior, haz clic en **Help**
+2. Selecciona **Troubleshooting**
+3. Haz clic en **Enable Developer Mode**
+
+Una vez activado, **aparece un nuevo menú `Developer` en la barra de menú superior**.
+
+---
+
+## Paso 3 — Configura la API de LMU AI
+
+1. Haz clic en **Developer** en la barra de menú superior
+2. Selecciona **`Configure Third-Party Inference …`**
+3. En el panel de configuración que se abre (**Connection → Gateway**), completa:
+
+| Campo | Valor |
+|------|------|
+| **Credential kind** | `Static API key` |
+| **Gateway base URL** | `https://api.lmuai.com` |
+| **Gateway API key** | La clave `sk-` generada en la consola de LMU AI |
+| **Gateway auth scheme** | `bearer` |
+
+![Completando la Gateway base URL y la API key de LMU AI en el panel Configure third-party inference de Claude Code desktop](/images/tools/claude-desktop/claude-code-desktop.png)
+
+4. Haz clic en **`Apply locally`** en la parte inferior derecha para guardar, luego **reinicia el cliente** para que surta efecto
+
+<Callout type="info">
+
+Configura la Base URL en **`https://api.lmuai.com`** (sin el sufijo `/v1`); tanto la app de escritorio como el CLI usan el protocolo de Anthropic.
+
+</Callout>
+
+<Callout type="warn">
+
+Antes de que aparezca el panel de configuración, el cliente debe completar primero el inicio de sesión/activación en línea, y este paso **requiere un proxy de internet externo (VPN)**. Recomendamos mantener el proxy disponible durante todo el proceso de abrir el cliente y configurarlo.
+
+</Callout>
+
+---
+
+## Verifica la configuración
+
+Abre cualquier conversación y envía un mensaje a Claude; si responde con normalidad, la configuración está funcionando. Para confirmar que la solicitud realmente pasó por LMU AI:
+
+- La página **API Keys → Usage stats** en la consola de LMU AI registra la solicitud en tiempo real
+- El indicador de estado en la parte inferior derecha del cliente normalmente muestra el modelo actual
+
+---
+
+## Cambiar de modelos / usar modelos chinos
+
+Para usar un modelo chino (Qwen, DeepSeek, GLM, Kimi, etc.), ingresa el ID de modelo correspondiente en el campo **Model** de `Configure Third-Party Inference`, por ejemplo:
+
+- `qwen3.8-max-preview`
+- `deepseek-v4-pro`
+- `glm-5.2`
+- `kimi-k3`
+
+Para la lista completa de modelos disponibles, consulta la [Galería de Modelos](/es/docs/guide/models), donde puedes copiar cualquier ID con un solo clic.
+
+---
+
+## Problemas comunes
+
+### Falta la opción `Configure Third-Party Inference`
+
+Tu versión de escritorio es demasiado antigua — descarga la última versión desde el sitio oficial y reinstala. Esta opción solo se agregó en versiones más nuevas.
+
+### El menú Developer no aparece
+
+Confirma que `Help → Troubleshooting → Enable Developer Mode` esté marcado; si aún así no aparece, **cierra por completo y reinicia el cliente** (en Mac, haz clic derecho en el ícono del Dock y elige Quit — no solo cierres la ventana).
+
+### Error 401 / Unauthorized
+
+- Revisa que la API Key se haya copiado completa (empieza con `sk-`)
+- Confirma que la Base URL sea `https://api.lmuai.com`, **sin `/v1`**
+- En la consola de LMU AI, confirma que el grupo al que pertenece la clave tenga cuota disponible
+
+### Atascado en la pantalla de descarga / inicio de sesión / arranque
+
+Descargar el cliente de escritorio y su red básica (inicio de sesión, activación, verificaciones de versión) requieren una conexión directa a servidores en el extranjero. Confirma que tu **proxy de internet externo (VPN) esté encendido y funcionando**, luego vuelve a abrir el cliente. Esta limitación no tiene relación con si la Base URL de LMU AI está configurada.
+
+### Volver al endpoint oficial de Anthropic
+
+En `Developer → Configure Third-Party Inference`, borra la configuración o selecciona el valor por defecto para volver.

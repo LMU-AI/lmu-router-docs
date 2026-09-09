@@ -1,0 +1,141 @@
+---
+title: Daten und Datenschutz
+description: "Datenverarbeitung bei LMU AI: Anfrage- und Antwortinhalte werden nie dauerhaft gespeichert, Anruf-Metadaten werden 90 Tage aufbewahrt und Kontodaten werden ausschließlich innerhalb Chinas gespeichert."
+ogDescription: "Daten und Datenschutz bei LMU AI: Wir speichern keine Anfrage- oder Antwortinhalte, Konto- und Abrechnungsdaten bleiben ausschließlich innerhalb Chinas, grenzüberschreitende Aufrufe übertragen nur die notwendige Anfrage, und Compliance-Materialien für Unternehmen, ein DPA sowie Sicherheitsdokumentation sind auf Anfrage erhältlich."
+keywords:
+  - Claude API Datensicherheit
+  - Claude API Datenschutz
+  - KI-API ohne Speicherung
+  - Claude API Compliance
+  - Claude API DPA
+  - grenzüberschreitende KI-Daten
+  - Enterprise-KI-Compliance
+  - KI-API-Protokollaufbewahrung
+  - KI-Datenspeicherung in China
+  - LMU AI Datenschutzrichtlinie
+alternateNames:
+  - LMU AI Datenschutzrichtlinie
+  - Claude API Compliance-Überblick
+  - Datenverarbeitung und grenzüberschreitende Übertragung
+---
+
+Diese Seite erläutert die Grundsätze, die LMU AI beim Umgang mit Nutzerdaten befolgt. Wir betrachten „minimale Speicherung, Isolation und Transparenz" als die drei Grundpfeiler unseres Datenumgangs.
+
+## Welche Daten wir verarbeiten
+
+Wir unterteilen Daten in zwei Kategorien: **Kontodaten** und **Anfragedaten**. Beide werden auf völlig unterschiedliche Weise verarbeitet und gespeichert.
+
+### Kontodaten
+
+| Typ | Inhalt | Zweck |
+|------|------|------|
+| Identitätsinformationen | E-Mail, Telefonnummer | Anmeldung, Passwortwiederherstellung, Benachrichtigungen |
+| Abrechnungsinformationen | Tarif, Kontingent, Bestellhistorie | Abrechnung und Rechnungen |
+| Zugangsdaten | API-Schlüssel (verschlüsselt gespeichert), Anmeldesitzung | Authentifizierung |
+| Nutzungsmetadaten | Anrufzeitpunkt, Modell, Token-Verbrauch, Dauer | Abrechnung, Statistiken, Berichte |
+
+### Anfragedaten
+
+| Typ | Inhalt | Zweck |
+|------|------|------|
+| Anfragetext | Der Prompt, die Nachrichten und Parameter, die Sie senden | Weiterleitung an das Upstream-Modell zur Generierung einer Antwort |
+| Antworttext | Der vom Modell zurückgegebene Inhalt | Rückgabe an Sie |
+
+**Wesentlicher Unterschied**: Kontodaten werden zum Betrieb der Plattform selbst verwendet; Anfragedaten werden ausschließlich zur Abwicklung Ihres aktuellen, einzelnen API-Aufrufs verwendet.
+
+## Wo Daten gespeichert werden
+
+Unsere Infrastruktur besteht aus zwei Schichten:
+
+**Zugangsschicht (innerhalb Chinas)**
+- Hauptserver, Nutzerdatenbank, Abrechnungssystem
+- **Alle Kontodaten werden hier gespeichert**
+- Ihre E-Mail, Telefonnummer, Bestellungen und Ihr API-Schlüssel verlassen China niemals
+
+**Upstream-Kanalschicht (mehrere Regionen, einschließlich Übersee)**
+- Wird zum Zugriff auf die offiziellen Schnittstellen von Modellanbietern wie OpenAI / Anthropic / etc. verwendet
+- Diese Kanäle **dienen ausschließlich als Relais für Modellverkehr** und speichern keinerlei Nutzeridentitätsinformationen dauerhaft
+- Die Kanalknoten speichern keine Nutzerkonten und wissen nicht, von welchem Nutzer eine Anfrage stammt (sie sehen nur die anonymisierte Anfragenutzlast)
+
+<Mermaid chart={`flowchart TD
+    U[Nutzeranmeldung / Abrechnung] -- Kontodaten --> DB[(Datenbank in China)]
+    U -- API-Aufruf initiieren<br/>Nutzeridentität nach API-Schlüssel-Authentifizierung entfernt --> G[Zugangs-Gateway<br/>In China]
+    G -- Anfragenutzlast --> UP[Upstream-Kanäle, mehrere Regionen<br/>Keine Nutzerdaten gespeichert]
+    UP -- Antwortdaten --> G
+
+    classDef cn fill:#eef6ff,stroke:#3b82f6,color:#1e3a8a;
+    classDef ext fill:#fff7ed,stroke:#f97316,color:#7c2d12;
+    class U,G,DB cn;
+    class UP ext;
+`} />
+
+## Protokollaufbewahrungsrichtlinie
+
+| Datentyp | Aufbewahrungsdauer | Speicherort |
+|---------|---------|---------|
+| Anfrage- / Antworttextinhalt | **Nicht dauerhaft gespeichert** | — |
+| Anruf-Metadaten (Zeit, Modell, Token, Dauer, Statuscode) | 90 Tage | Innerhalb Chinas |
+| Fehlerprotokolle (können gekürzte Anfragefragmente enthalten) | 90 Tage | Innerhalb Chinas |
+| Konto- und Bestelldaten | Für die Lebensdauer des Kontos; innerhalb von 30 Tagen nach Kündigung gelöscht | Innerhalb Chinas |
+
+**Über Anfrageinhalte**
+
+- Wir **speichern Ihren Prompt- oder Antwortinhalt nicht** — sobald eine Anfrage weitergeleitet wurde, wird sie aus dem Speicher freigegeben und niemals in eine Datenbank oder Datei geschrieben
+- Wenn ein Upstream-Kanal einen Fehler zurückgibt, kann das Fehlerprotokoll **gekürzte Anfragefragmente** enthalten (zur Reproduktion des Problems); diese Daten werden nach 90 Tagen gelöscht
+- Fehlerprotokolle werden nicht zum Training irgendeines Modells verwendet und nicht proaktiv von Menschen überprüft; sie werden nur von den zuständigen Ingenieuren eingesehen, wenn Sie ein Ticket einreichen, das Hilfe bei der Fehlerbehebung benötigt
+
+<Callout type="info" title="Optionale Audit-Protokolle für die Enterprise-Stufe">
+
+Enterprise-Kunden können sich für die Audit-Protokoll-Funktion entscheiden und Anfrage- / Antwortdaten gemäß den Compliance-Anforderungen Ihres Unternehmens aufbewahren. Nach Aktivierung werden Protokolle verschlüsselt gespeichert, und der Zugriff kann von den Administratoren Ihres Unternehmens gesteuert werden. Weitere Informationen finden Sie unter [Enterprise-Pläne](/de/docs/enterprise).
+
+</Callout>
+
+## Grenzüberschreitende Datenübertragung
+
+Da sich die Server für Upstream-Modelle (Claude, GPT usw.) in Übersee befinden, **durchlaufen die Anfrage- und Antworttexte eines API-Aufrufs während der Weiterleitung Übersee-Kanäle**. Dies ist ein notwendiger technischer Pfad für jeden Relais-Dienst, der auf Übersee-APIs großer Modelle zugreift.
+
+Unsere Zusagen in dieser Phase:
+
+- **Wir speichern keine Daten auf Übersee-Knoten dauerhaft**: Die Kanäle leiten nur weiter, und der Speicher wird freigegeben, sobald die Weiterleitung abgeschlossen ist
+- **Wir tragen keine Nutzeridentität**: Die Anfragen, die die Upstream-Kanäle sehen, wurden bereits von Kontofeldern wie E-Mail, Telefonnummer und Bestellzuordnungen befreit
+- **Verschlüsselte Übertragung**: Nutzer ↔ Zugangsschicht, Zugangsschicht ↔ Upstream-Kanal und Upstream-Kanal ↔ Modellanbieter sind alle durchgehend TLS 1.2+
+- **Wir teilen keine Daten mit Dritten**: Abgesehen von den Upstream-Modellanbietern, die zur Abwicklung des aktuellen Aufrufs notwendig sind, geben wir Ihren Anfrageinhalt an keinen Dritten weiter
+
+<Callout type="warn" title="Hinweis zu sensiblen Daten">
+
+Da Anfrageinhalte Übersee-Kanäle durchlaufen müssen, um den Modellanbieter zu erreichen, **senden Sie keine Anfragen über die API, die hochsensible Daten wie Staatsgeheimnisse, Geschäftsgeheimnisse oder persönliche Ausweisnummern enthalten**. Wenn Sie solche Compliance-Anforderungen haben, wenden Sie sich an den Vertrieb, um eine On-Premises-Bereitstellung oder einen konformen Kanal zu besprechen.
+
+</Callout>
+
+## Was wir nicht tun
+
+- **Wir lesen** Ihren Prompt- oder Antwortinhalt **nicht** für menschliche Analyse, kommerzielle Analyse oder irgendein Modelltraining
+- **Wir verkaufen** keine Ihrer Daten an Dritte
+- **Wir bewahren** Anfrage- und Antwortinhalte **nicht ohne Ihre Information auf**
+- **Wir übertragen keine Kontodaten grenzüberschreitend** (Kontodaten werden ausschließlich innerhalb Chinas gespeichert)
+
+## Sicherheitspraktiken
+
+- API-Schlüssel werden verschlüsselt in der Datenbank gespeichert und zeigen nur einige führende und abschließende Zeichen an
+- Alle internen Vorgänge, die auf die Datenbank zugreifen, werden im Audit-Protokoll erfasst
+- Wichtige Änderungen (Tarif, API-Schlüssel-Zurücksetzung, Auszahlungen usw.) lösen E-Mail- / SMS-Benachrichtigungen aus
+- Teammitglieder, die auf Produktionsdaten zugreifen, müssen einen Genehmigungsprozess und das Prinzip der geringsten Rechte durchlaufen
+
+Wenn Sie eine vermutete Kontoanomalie bemerken, tun Sie bitte sofort Folgendes:
+1. Setzen Sie Ihren API-Schlüssel in der Konsole zurück
+2. Kontaktieren Sie den Vertrieb oder Support: business@lmuai.com / WeChat 18599001010
+
+## Enterprise-Compliance-Unterstützung
+
+Enterprise-Kunden mit einer der folgenden Anforderungen sollten sich über den Vertriebskanal an uns wenden:
+
+- Unterzeichnung einer Datenverarbeitungsvereinbarung (DPA)
+- Individuelle Protokollaufbewahrungsrichtlinien
+- On-Premises-Gateway-Bereitstellung (Anfrageinhalte durchlaufen keine gemeinsam genutzten Kanäle)
+- Unterstützende Materialien für MLPS- / GDPR- / SOC2-Fragebögen
+
+## Richtlinienänderungen
+
+Bei wesentlichen Änderungen dieser Richtlinie veröffentlichen wir einen Hinweis an prominenter Stelle auf der Website und benachrichtigen aktive Nutzer per E-Mail. Die weitere Nutzung des Dienstes nach einer Richtlinienaktualisierung stellt die Annahme der neuen Richtlinie dar.
+
+*Zuletzt aktualisiert: 2026-05-06*

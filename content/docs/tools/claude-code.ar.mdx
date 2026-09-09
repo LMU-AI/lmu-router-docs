@@ -1,0 +1,429 @@
+---
+title: Claude Code CLI
+description: "اربط Claude Code CLI بواجهة LMU AI API: إعداد settings.json، اختيار النموذج، نماذج LLM الصينية، تفعيل سياق المليون رمز، وإصلاح الأخطاء الشائعة."
+ogDescription: اربط Claude Code CLI عبر LMU AI — اضبط ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN في settings.json واستخدم Claude Opus 5 / Sonnet 5 والنماذج الصينية دون وكيل؛ يغطي أيضًا تفعيل السياق الطويل بمليون رمز عبر ANTHROPIC_DEFAULT_OPUS_MODEL / ANTHROPIC_DEFAULT_SONNET_MODEL ولاحقة `[1M]`.
+keywords:
+  - إعداد Claude Code CLI
+  - ضبط ترحيل Claude Code
+  - Claude Code settings.json
+  - سياق المليون رمز في Claude Code
+  - claude-opus-5
+  - claude-sonnet-5
+  - ANTHROPIC_BASE_URL
+  - ANTHROPIC_AUTH_TOKEN
+  - ANTHROPIC_DEFAULT_OPUS_MODEL
+  - نماذج Claude Code الصينية
+  - إصلاح أخطاء Claude Code
+  - Claude Code دون وكيل
+alternateNames:
+  - ربط Claude Code CLI بـ LMU AI
+  - ضبط ترحيل Claude Code CLI
+  - تفعيل سياق المليون رمز في Claude Code
+  - دليل ضبط سياق المليون رمز في Claude Code
+faq:
+  - q: كيف أوجّه Claude Code CLI إلى واجهة API طرف ثالث؟
+    a: "في قسم env من settings.json، اضبط ANTHROPIC_BASE_URL على https://api.lmuai.com واضبط ANTHROPIC_AUTH_TOKEN على مفتاح sk- الذي أنشأته في وحدة تحكم LMU AI — دون الحاجة إلى وكيل. أو استخدم CC Switch لاستيراده بنقرة واحدة وتخطّي تعديل ملف الإعداد يدويًا."
+  - q: كيف أفعّل السياق الطويل بمليون رمز في Claude Code؟
+    a: "بطريقتين: مؤقتًا، شغّل /model claude-opus-5[1M] داخل الجلسة وسيعود إلى الوضع الافتراضي عند الخروج؛ بشكل دائم، أضف ANTHROPIC_DEFAULT_OPUS_MODEL وANTHROPIC_DEFAULT_SONNET_MODEL إلى قسم env من settings.json مع لاحقة [1M]، بحيث يستخدم اختيار opus / sonnet نسخة المليون رمز تلقائيًا."
+  - q: أي النماذج تدعم لاحقة [1M]؟
+    a: "نماذج Opus / Sonnet الرئيسية — claude-opus-5 وclaude-fable-5 وclaude-opus-4-8 وclaude-opus-4-7 وclaude-sonnet-5 — تدعمها؛ أما سلسلة Haiku والنماذج الأقدم فلا. وضع المليون رمز مُسعّر على شرائح وفق أسعار Anthropic ويكلّف لكل رمز أكثر من الوضع الافتراضي 200K، لذا اتركه معطّلًا ما لم تحتَجه."
+  - q: كيف أجعل Claude Code يستخدم نموذجًا صينيًا افتراضيًا؟
+    a: "أضف \"model\": \"qwen3.8-max-preview\" (أو glm-5.2 أو deepseek-v4-pro أو kimi-k3 وغيرها) في المستوى الأعلى من settings.json؛ يُحمَّل عند بدء التشغيل دون الحاجة إلى التبديل بـ /model في كل مرة. وللنماذج الصينية، اضبط أيضًا \"effortLevel\": \"medium\"."
+  - q: كيف أجعل Claude Code يواصل العمل نحو هدف دون أن أوجّهه في كل خطوة؟
+    a: "استخدم الأمر المدمج /goal (المتاح منذ Claude Code v2.1.139، مايو 2026): اكتب /goal متبوعًا بشرط الإنجاز لتعيين هدف، وسيواصل Claude العمل عبر الأدوار؛ في نهاية كل دور يحكم نموذج صغير وسريع (Haiku افتراضيًا) على ما إذا كان الهدف قد تحقق استنادًا إلى مخرجات الاختبارات وسجلات البناء وفروق الملفات الموجودة أصلًا في المحادثة، ويتوقف تلقائيًا عند تحققه. اكتب /goal لرؤية التقدّم، و/goal clear لمسحه مبكرًا. اكتب الشرط كحالة نهائية قابلة للتحقق (مثل خروج npm test بالرمز 0)، واضبط حدًّا أقصى لعدد الأدوار لتجنّب الدوران في المكان."
+  # 503 No available accounts is not duplicated here: faq.en.mdx Issue 6 owns the FAQPage entry.
+---
+
+
+Claude Code هو وكيل البرمجة الذكي الرسمي من Anthropic — يعمل في الطرفية ويتيح لك كتابة الكود وتصحيحه وإعادة هيكلته بلغة طبيعية.
+
+<Callout type="info" title="طريقة أسرع: الاستيراد بنقرة واحدة عبر CC Switch">
+
+إن كنت تفضّل عدم تعديل `settings.json` يدويًا، فاستخدم [**الاستيراد بنقرة واحدة عبر CC Switch**](/ar/docs/tools/cc-switch): انقر زر "Import to CCS" في قائمة المفاتيح داخل وحدة تحكم LMU AI، وسيُضبط Base URL والمفتاح تلقائيًا.
+
+</Callout>
+
+---
+
+## الخطوة 1 — تثبيت Node.js
+
+> تخطّ هذه الخطوة إن كان مثبّتًا لديك؛ تحقّق بـ `node -v`.
+
+تحتاج إلى **Node.js 18+** — للتنزيل: [https://nodejs.org/en/download](https://nodejs.org/en/download)
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+# Verify after installing
+node -v
+# A version number (e.g. v24.4.1) means it installed correctly
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+# During install, check "Automatically install the necessary tools"
+# Reopen PowerShell after installing and verify
+node -v
+```
+
+</Tab>
+</Tabs>
+
+<Callout type="info">
+
+إن كنت قد ثبّته سابقًا لكن الإصدار قديم جدًا أو مسار PATH معطوب، أعِد التثبيت وأعِد فتح الطرفية.
+
+</Callout>
+
+---
+
+## الخطوة 2 — تثبيت Claude Code
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+npm install -g @anthropic-ai/claude-code
+```
+
+</Tab>
+</Tabs>
+
+تحقّق من التثبيت:
+
+```bash
+claude --version
+```
+
+<Callout type="info" title="مشاكل في الشبكة؟ بدّل إلى مرآة صينية">
+
+```bash
+npm config set registry https://registry.npmmirror.com
+npm install -g @anthropic-ai/claude-code
+```
+
+</Callout>
+
+---
+
+## الخطوة 3 — ضبط واجهة LMU AI API
+
+يضبط Claude Code نقطة نهاية API مخصّصة عبر `settings.json`.
+
+### موقع ملف الإعداد
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+~/.claude/settings.json
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+C:\Users\YourUsername\.claude\settings.json
+```
+
+</Tab>
+</Tabs>
+
+### إنشاء ملف الإعداد
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+mkdir -p ~/.claude && touch ~/.claude/settings.json
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+mkdir "$env:USERPROFILE\.claude" -Force
+New-Item "$env:USERPROFILE\.claude\settings.json" -Force
+```
+
+</Tab>
+</Tabs>
+
+### كتابة الإعداد
+
+افتح `settings.json` في محرّر نصوص وأضف ما يلي (استبدل المفتاح بمفتاحك):
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
+    "ANTHROPIC_AUTH_TOKEN": "sk-your-lmu-ai-api-key",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  }
+}
+```
+
+<Callout type="warn" title="ملاحظة">
+
+- اضبط `ANTHROPIC_AUTH_TOKEN` على مفتاح API الذي أنشأته في وحدة تحكم LMU AI (يبدأ بـ `sk-`)
+- لا تستخدم مفتاح Anthropic الرسمي
+- إن كنت قد ضبطت مفتاحًا رسميًا سابقًا، امسح الإعداد القديم أولًا ثم اكتب هذا
+- ضبط `CLAUDE_CODE_ATTRIBUTION_HEADER` على `"0"` يُوقف ترويسة عزو المصدر في الطلبات، ما يساعد على إصابات التخزين المؤقت وكفاءة الرموز
+
+</Callout>
+
+---
+
+## تفعيل سياق المليون رمز في Claude Code (اختياري)
+
+يدعم Claude Opus 4.8 / Sonnet 5 **نافذة سياق طويلة بمليون رمز** (200K افتراضيًا)، وهي مفيدة للمستودعات الضخمة والسجلات الطويلة وعمليات إعادة الهيكلة عبر الملفات. أضِف لاحقة `[1M]` إلى معرّف النموذج لتفعيلها.
+
+### الخيار أ — التبديل اليدوي بـ /model (يُنصح به للاستخدام العرضي)
+
+**احتفظ بـ settings.json بالحد الأدنى** (فقط `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN`)، وشغّل Claude Code، ثم اكتب في الموجّه:
+
+```
+/model claude-opus-5[1M]
+```
+
+أو:
+
+```
+/model claude-sonnet-5[1M]
+```
+
+يؤدّي هذا إلى التبديل إلى نسخة المليون رمز دون تغييرات في الإعداد. ينطبق على الجلسة الحالية ويعود إلى الوضع الافتراضي عند الخروج.
+
+### الخيار ب — إعداد افتراضي دائم في settings.json (يُنصح به للاستخدام اليومي للسياق الطويل)
+
+أضِف سطرين إلى قسم `env` من `settings.json` بحيث يستخدم `/model opus` / `/model sonnet` نسخة المليون رمز افتراضيًا:
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
+    "ANTHROPIC_AUTH_TOKEN": "sk-your-lmu-ai-api-key",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5[1M]",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5[1M]",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  }
+}
+```
+
+احفظ وأعِد تشغيل Claude Code؛ يستخدم اختيار opus / sonnet في الأمر `/model` الآن نسخة المليون رمز تلقائيًا.
+
+**مرجع الحقول**
+
+| الحقل | الغرض |
+|------|------|
+| `ANTHROPIC_DEFAULT_OPUS_MODEL` | معرّف النموذج المُرسَل فعليًا عند اختيار `opus` في Claude Code |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL` | المثل، لـ `sonnet` |
+| لاحقة `[1M]` | تفعّل وضع السياق الطويل بمليون رمز للنموذج؛ بدونها ينطبق الوضع الافتراضي 200K |
+
+<Callout type="warn" title="ملاحظات الاستخدام">
+
+- **فوترة مختلفة**: وضع سياق المليون رمز مُسعّر على شرائح وفق أسعار Anthropic، والسعر لكل رمز عادةً **أعلى من الوضع الافتراضي 200K**، لذا تكلّف مهام النصوص الطويلة أكثر بكثير — لا تتركه مفعّلًا ما لم تكن بحاجة إليه
+- **بعض النماذج فقط تدعمه**: نماذج Opus / Sonnet الرئيسية `claude-opus-5` و`claude-fable-5` و`claude-opus-4-8` و`claude-opus-4-7` و`claude-sonnet-5` تدعم لاحقة `[1M]`؛ أما سلسلة Haiku والنماذج الأقدم فلا. قائمة [معرض النماذج](/ar/docs/guide/models) هي المرجع الموثوق
+- **اختر الخيار أ للاستخدام العرضي، والخيار ب للاستخدام المنتظم** — اختر واحدًا
+
+</Callout>
+
+---
+
+## استخدام النماذج الصينية (اختياري)
+
+يدعم LMU AI نماذج LLM الصينية (مثل سلسلة Qwen). بضبط `model` في `settings.json`، **تتخطّى التبديل اليدوي بـ `/model` عند كل تشغيل** وتستخدم النموذج المحدّد مباشرة.
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
+    "ANTHROPIC_AUTH_TOKEN": "sk-your-lmu-ai-api-key",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  },
+  "model": "qwen3.8-max-preview",
+  "effortLevel": "medium"
+}
+```
+
+**مرجع الحقول:**
+
+| الحقل | الوصف |
+|------|------|
+| `model` | النموذج الافتراضي، يُحمَّل عند بدء التشغيل — دون تبديل يدوي في كل مرة |
+| `effortLevel` | جهد الاستدلال: `low` / `medium` / `high`؛ يُنصح بـ `medium` للنماذج الصينية |
+| `CLAUDE_CODE_ATTRIBUTION_HEADER` | اضبطه على `"0"` لإيقاف ترويسة عزو المصدر، ما يساعد على إصابات التخزين المؤقت وكفاءة الرموز والتوافق |
+
+<Callout type="info" title="النماذج الصينية المدعومة (أمثلة)">
+
+- `qwen3.8-max-preview` — Qwen 3.8 Max Preview (الأحدث)
+- `qwen3.7-max` — Qwen 3.7 Max
+- `glm-5.2` — Zhipu GLM-5.2
+- `deepseek-v4-pro` — DeepSeek V4 Pro
+- `kimi-k3` — Kimi K3
+
+قائمة **النماذج المتاحة** في وحدة تحكم LMU AI هي المرجع الموثوق.
+
+</Callout>
+
+<Callout type="info" title="النماذج الصينية مقابل نماذج Claude الرسمية">
+
+| | النماذج الصينية | نماذج Claude الرسمية |
+|---|---|---|
+| التكلفة | أقل | أعلى |
+| فهم اللغة الصينية | ممتاز | جيّد |
+| قدرة البرمجة | ممتازة | ممتازة |
+| ضبط النموذج الافتراضي | ✅ مدعوم | ✅ مدعوم |
+
+</Callout>
+
+---
+
+## الخطوة 4 — تشغيل Claude Code
+
+افتح طرفية في مجلد مشروعك وشغّل:
+
+```bash
+claude
+```
+
+### وضع بلا موافقة (يُنصح به)
+
+```bash
+claude --dangerously-skip-permissions
+```
+
+> في هذا الوضع يشغّل Claude Code الأوامر تلقائيًا دون تأكيد كل خطوة — مفيد داخل مجلد مشروع.
+
+---
+
+## التحقق من الإعداد
+
+بعد التشغيل، اكتب في واجهة Claude Code:
+
+```
+/status
+```
+
+يعرض ما يلي حاليًا:
+- اسم النموذج
+- عنوان API Base URL (يجب أن يظهر `https://api.lmuai.com`)
+- حالة مفتاح API
+
+إن كان Base URL صحيحًا، فالإعداد يعمل.
+
+---
+
+## المشاكل الشائعة
+
+### 401 Unauthorized
+
+**السبب:** مفتاح API خاطئ، أو أن الطلب ما زال يذهب إلى نقطة نهاية Anthropic الرسمية.
+
+**الحل:**
+1. تأكّد أن `ANTHROPIC_AUTH_TOKEN` في `settings.json` هو مفتاح LMU AI الخاص بك
+2. تحقّق مما إذا كان متغيّر بيئة في الصدفة يتجاوز الإعداد
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+echo $ANTHROPIC_BASE_URL
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+echo $env:ANTHROPIC_BASE_URL
+```
+
+</Tab>
+</Tabs>
+
+3. أعِد فتح الطرفية، ثم شغّل Claude Code مرة أخرى
+
+### stream disconnected
+
+**السبب:** شبكة محلية غير مستقرة، أو تفعيل VPN / وكيل / وكيل النظام — تدوير الوكيل لعنوان IP يقطع الاتصال.
+
+<CN>
+**الحل:** أوقف VPN / الوكيل / وكيل النظام وأعِد المحاولة. يتصل LMU AI مباشرةً داخل الصين ولا يحتاج إلى VPN؛ الاتصال المباشر هو الأسرع والأكثر استقرارًا.
+</CN>
+<Intl>
+**الحل:** أوقف VPN / الوكيل / وكيل النظام وأعِد المحاولة. تتصل بوابة LMU AI الخارجية مباشرةً؛ الاتصال المباشر هو الأسرع والأكثر استقرارًا.
+</Intl>
+
+### 503 No available accounts
+
+**السبب:** عادةً يضبط `~/.zshrc` أو `~/.bashrc` متغيّرات بيئة عامة مثل `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL`، والتي تتجاوز `settings.json`.
+
+**الحل:** احذف تلك الأسطر من إعداد الصدفة، أو انقلها إلى ملف منفصل تستدعيه بـ `source` فقط عند تشغيل Claude Code. راجع [الأسئلة الشائعة · المشكلة 6](/ar/docs/guide/faq#issue-6).
+
+### انتهاء مهلة الاستجابة
+
+**السبب:** المهلة الافتراضية قصيرة.
+
+**الحل:** تأكّد من ضبط `API_TIMEOUT_MS` على `3000000` (50 دقيقة) حتى لا تُقطع المهام الطويلة.
+
+---
+
+## نصائح
+
+- شغّل Claude Code من جذر المشروع كي يلتقط بنية المشروع تلقائيًا
+- مرّر تعليمة مباشرة، مثل `claude "refactor this function for me"`
+- `Ctrl+C` يقاطع المهمة الحالية، و`/exit` يخرج
+- اكتب `?` أو `/help` لرؤية كل الأوامر
+
+---
+
+## استخدام /goal لجعل Claude Code يعمل حتى تحقيق الهدف (اختياري)
+
+`/goal` أمر شرطة مائلة مدمج في Claude Code (متاح منذ **v2.1.139**، مايو 2026) يضبط **شرط إنجاز** للجلسة الحالية. بمجرد ضبطه، **يواصل Claude العمل عبر الأدوار من تلقاء نفسه** حتى يُحكَم بأن الشرط قد تحقق، بدلًا من التوقف عندما "يبدو الأمر منجزًا". وهو مفيد بشكل خاص على LMU AI للمهام الطويلة التي تعمل حتى الاكتمال (إعادة هيكلة المستودعات الكبيرة، أو التنفيذ وفق مواصفة قبول، أو تصفية تراكم المشكلات).
+
+> الإصدارات الأقدم لا تحتوي على هذا الأمر. إن أبلغ عن أمر غير معروف، فرقِّ Claude Code إلى أحدث إصدار أولًا.
+
+### الاستخدام الأساسي
+
+| الأمر | الغرض |
+|------|------|
+| `/goal <شرط الإنجاز>` | تعيين هدف؛ يبدأ Claude دورًا فورًا ويواصل تلقائيًا حتى يتحقق الشرط |
+| `/goal` | عرض حالة وتقدّم الهدف الحالي (أو الأحدث) |
+| `/goal clear` | مسح الهدف الحالي مبكرًا (`stop` / `off` / `reset` / `cancel` / `none` مكافئة) |
+
+للجلسة **هدف واحد فقط في المرة الواحدة**؛ تعيين هدف جديد يستبدل القديم ويبدأ دورًا جديدًا فورًا.
+
+### كيف يحكم على "تحقّق"
+
+في نهاية كل دور، يُسلّم Claude Code **شرط الإنجاز الخاص بك + محادثة هذا الدور** إلى نموذج صغير وسريع (**Haiku** افتراضيًا) ليحكم. ينظر الحاكم **فقط إلى الأدلة الموجودة أصلًا في المحادثة** — مخرجات الاختبارات، وسجلات البناء، وفروق الملفات — و**لن يعيد تشغيل CI بالكامل من وراء ظهرك**. لذا اكتب الشرط بصيغة يستطيع Claude فيها "إنتاج أدلة" داخل المحادثة.
+
+يُمسح الهدف **تلقائيًا** في أيٍّ من الحالات التالية:
+
+- الحكم بأن الشرط **قد تحقق**؛
+- حُكم النموذج بأن الشرط **مستحيل التحقّق**؛
+- اصطدام دور **بخطأ يتطلّب تدخّلك**.
+
+### كتابة شرط هدف جيّد
+
+- **استخدم حالة نهائية قابلة للتحقق**: مثل "خروج `npm test` بالرمز 0"، أو "`tsc --noEmit` لا يُبلغ عن أخطاء" — لا أوصافًا ذاتية مثل "اجعل الكود أجمل"؛
+- **دع الأدلة تظهر في المحادثة**: اطبع نتائج الاختبار / البناء في كل دور كي يراها النموذج الحاكم؛
+- **حدّد نطاقه + قيّد الأدوار**: مثل "غيّر فقط الملفات ضمن `src/auth/`، وتوقّف بعد 20 دورًا كحد أقصى" لتجنّب الدوران في المكان؛
+- يتطلّب **مساحة عمل موثوقة (مع تفعيل الخطافات)** ليصبح فعّالًا.
+
+<Callout type="info" title="نصيحة لاستخدامه مع LMU AI">
+
+كل دور إضافي من `/goal` يستهلك جولة أخرى من الرموز (زائدًا قليلًا من عبء Haiku للحكم في كل دور). عند تشغيل هدف طويل على LMU AI، اكتب **حالة نهائية** واضحة و**حدًّا أقصى لعدد الأدوار** ضمن الشرط كي لا يستنزف الحصة في الدوران حول هدف غير قابل للتحقق. ولحلقة "التصحيح الذاتي مرارًا حتى تنجح الفحوص"، اقرِن `/goal` بـ `/loop`.
+
+</Callout>

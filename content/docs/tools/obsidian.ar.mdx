@@ -1,0 +1,234 @@
+---
+title: Obsidian
+description: اربط Obsidian بواجهة LMU AI API — اضبط إضافتَي Claudian وCopilot لاستخدام Claude والنماذج الصينية الكبيرة داخل ملاحظاتك دون أي بروكسي.
+ogDescription: دليل لربط Obsidian بـ LMU AI — تُعيد إضافة Claudian استخدام إعدادات Claude Code لديك، وتضيف إضافة Copilot نماذج مخصصة، ويمكنك استخدام Claude / GPT / النماذج الصينية الكبيرة مباشرةً داخل ملاحظاتك وقاعدة معرفتك.
+keywords:
+  - Obsidian Claude API
+  - إضافة Obsidian للذكاء الاصطناعي
+  - ربط Obsidian بـ Claude
+  - استخدام Claude API في Obsidian
+  - Claudian
+  - إعداد Claudian
+  - إضافة Claudian لـ Obsidian
+  - Obsidian Copilot
+  - إعداد Obsidian Copilot
+  - Obsidian Claude Code
+  - النماذج الصينية في Obsidian
+alternateNames:
+  - ربط Obsidian بـ LMU AI
+  - ضبط Claude API في Obsidian
+faq:
+  - q: ماذا أفعل إذا أعادت إضافة Obsidian خطأ 401 / Unauthorized؟
+    a: "مفتاح API خاطئ، أو أن الطلب ما زال يذهب إلى نقطة النهاية الرسمية. بالنسبة إلى Claudian، تأكّد من أن قيمة ANTHROPIC_AUTH_TOKEN التي أدخلتها هي مفتاح LMU AI الخاص بك وأنها ليست متجاوَزة بمتغيّر بيئة في الصدفة؛ بالنسبة إلى Copilot، تأكّد من أن Base URL هو https://api.lmuai.com وأن مفتاح API هو مفتاح LMU AI الذي يبدأ بـ sk- وليس مفتاح Anthropic / OpenAI الرسمي."
+  - q: كيف أُصلح خطأ CORS عند إضافة نموذج في Copilot؟
+    a: "في نافذة Add Custom Chat Model، فعّل خيار CORS قبل النقر على Test لتجاوز قيود المصدر المشترك (cross-origin) في المتصفّح."
+  - q: ماذا أفعل إذا أبلغ Claudian عن Claude CLI not found؟
+    a: "لم تتمكن الإضافة من تحديد موقع Claude Code تلقائيًا. شغّل which claude في الطرفية (استخدم where claude على Windows) والصق المسار الذي يظهر في Settings → Claudian → Claude → Claude CLI path."
+  - q: ماذا أفعل بشأن انتهاء مهلة الاستجابة أو انقطاع البثّ في Obsidian؟
+    a: "تأكّد من ضبط API_TIMEOUT_MS على 3000000 لتجنّب انتهاء المهلة في المهام الطويلة، وأوقف أي VPN / بروكسي / بروكسي النظام — تتصل بوابة LMU AI الخارجية مباشرةً، والاتصال المباشر هو الأسرع والأكثر استقرارًا."
+---
+
+Obsidian هو تطبيق لإدارة المعرفة وتدوين الملاحظات مبني على ملفات Markdown محلية، ويُستخدم عادةً لبناء قاعدة معرفة شخصية، وملاحظات مترابطة ثنائية الاتجاه، و«عقل ثانٍ». وبفضل إضافات المجتمع، يمكنك استدعاء Claude API مباشرةً داخل ملاحظاتك للكتابة بالذكاء الاصطناعي، وتنظيم المحتوى، وأسئلة وأجوبة قاعدة المعرفة، وتوليد الأكواد.
+
+تغطّي هذه الصفحة إضافتَين شائعتين للاتصال بواجهة LMU AI API — اختر الأنسب لاحتياجاتك:
+
+| الإضافة | المحرّك | الأنسب لـ |
+|------|------|----------|
+| **Claudian** | Claude Code CLI | من يستخدم Claude Code بالفعل ويريد استدعاء وكيل ذكاء اصطناعي مباشرةً داخل ملاحظاته |
+| **Copilot** | API مباشر | من يريد محادثة خفيفة وأسئلة وأجوبة لقاعدة المعرفة دون تثبيت أداة سطر أوامر |
+
+---
+
+## المتطلب الأساسي: تفعيل إضافات المجتمع
+
+كلتا الإضافتين من إضافات المجتمع، لذا تحتاج إلى تفعيل ميزة إضافات المجتمع قبل تثبيتهما.
+
+افتح Obsidian → القائمة في أعلى اليسار **Obsidian → Settings** (أو الاختصار `Cmd/Ctrl + ,`)، وانتقل إلى **Community plugins**، وانقر على **Turn on community plugins**:
+
+![افتح إعدادات Obsidian وفعّل إضافات المجتمع](/images/tools/obsidian/copilot/1.png)
+
+بعد التفعيل، انقر على زر **Browse** على يمين صفحة **Community plugins** لفتح سوق الإضافات:
+
+![انقر على Browse في صفحة Community plugins لفتح سوق الإضافات](/images/tools/obsidian/copilot/2.png)
+
+---
+
+## إضافة Claudian: استخدام Claude API في Obsidian
+
+تُدمج [Claudian](https://github.com/YishenTu/claudian) وكلاء برمجة الذكاء الاصطناعي مثل Claude Code وCodex في الشريط الجانبي لـ Obsidian. يتحوّل مجلّد ملاحظاتك (vault) بالكامل إلى مجلّد عمل الوكيل، مع دعم قراءة/كتابة الملفات، والبحث، و@mention، وأوامر الشرطة المائلة (slash commands)، والمزيد.
+
+يستدعي وضع Claude في Claudian أداة **Claude Code CLI** خلف الكواليس، لذا ثبّت أداة سطر الأوامر تلك أولًا، ثم اتصل بواجهة LMU AI API باستخدام أيٍّ من الطريقتين أدناه.
+
+### الخطوة 1 — تثبيت Claude Code CLI
+
+تستدعي Claudian الأمر المحلي `claude`، لذا تحتاج إلى تثبيت Claude Code CLI أولًا: بعد تثبيت Node.js، شغّل `npm install -g @anthropic-ai/claude-code` (للخطوات التفصيلية، راجع [دليل إعداد Claude Code CLI](/ar/docs/tools/claude-code)).
+
+<Callout type="info">
+
+تغطّي هذه الخطوة التثبيت فقط؛ **يتم ضبط LMU AI API في الخطوة 3**.
+
+</Callout>
+
+### الخطوة 2 — تثبيت إضافة Claudian
+
+في سوق الإضافات (**Browse**)، ابحث عن **Claudian**، وانقر على **Install**، ثم انقر على **Enable** بعد انتهاء التثبيت.
+
+<Callout type="info" title="لا تجد Claudian؟">
+
+إذا لم يُدرج السوق Claudian بعد، يمكنك تثبيتها من GitHub عبر إضافة **BRAT**: ثبّت أولًا `Obsidian42 - BRAT` من Browse وفعّلها، ثم شغّل الأمر **BRAT: Add a beta plugin for testing** وأدخل عنوان المستودع `https://github.com/YishenTu/claudian`.
+
+</Callout>
+
+### الخطوة 3 — ضبط LMU AI API (اختر إحدى الطريقتين)
+
+انتقل إلى تبويب **Settings → Claudian → Claude** وأدخل Base URL ومفتاح LMU AI باستخدام أيٍّ من الطريقتين أدناه.
+
+<Tabs items={['الطريقة أ — إعادة استخدام إعدادات Claude Code', 'الطريقة ب — إدخالها مباشرةً في الإضافة']}>
+<Tab value="الطريقة أ — إعادة استخدام إعدادات Claude Code">
+
+الأنسب للمستخدمين الذين ضبطوا Claude Code CLI بالفعل. أولًا، اكتب إعداد LMU AI في `~/.claude/settings.json`:
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
+    "ANTHROPIC_AUTH_TOKEN": "sk-your-lmu-ai-api-key",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  }
+}
+```
+
+ثم فعّل مفتاح **Load user Claude settings** في تبويب Claude، وستقوم Claudian بتحميل ذلك الملف بحيث تسري إعدادات Base URL والمفتاح والنموذج جميعها.
+
+![تفعيل مفتاح Load user Claude settings في تبويب Claude ضمن إعدادات Claudian](/images/tools/obsidian/claudian/9.png)
+
+</Tab>
+<Tab value="الطريقة ب — إدخالها مباشرةً في الإضافة">
+
+لا حاجة لإنشاء `~/.claude/settings.json` — أدخل متغيّرات البيئة مباشرةً في إعدادات الإضافة.
+
+في تبويب Claude، مرّر لأسفل إلى قسم **Environment** والصق ما يلي سطرًا سطرًا في مربّع **Custom variables** (استبدل المفتاح بمفتاحك الخاص):
+
+```
+ANTHROPIC_BASE_URL: https://api.lmuai.com
+ANTHROPIC_AUTH_TOKEN: sk-your-lmu-ai-api-key
+ANTHROPIC_MODEL: claude-haiku-4-5
+CLAUDE_CODE_USE_BEDROCK=1
+CLAUDE_CODE_ATTRIBUTION_HEADER: 0
+```
+
+![إدخال متغيّرات البيئة في مربّع Custom variables ضمن قسم Environment في إعدادات Claudian](/images/tools/obsidian/claudian/11.png)
+
+- `ANTHROPIC_MODEL` هو النموذج الافتراضي؛ يمكنك استبداله بمعرّف نموذج LMU AI آخر
+- لا تتطلّب هذه الطريقة تفعيل **Load user Claude settings**
+- انقر على **+** بجانب **Snippets** لحفظ متغيّرات البيئة الحالية كلقطة لسهولة التبديل لاحقًا
+
+</Tab>
+</Tabs>
+
+**إعدادات اختيارية أخرى:**
+
+| الإعداد | الوصف |
+|--------|------|
+| **Claude CLI path** | اتركه فارغًا للاكتشاف التلقائي. إذا رأيت `Claude CLI not found`، شغّل `which claude` في الطرفية (استخدم `where claude` على Windows) والصق المسار الذي يظهر |
+| **Safe mode** | وضع الأذونات؛ أبقِه على `acceptEdits` (موصى به) |
+| **Custom models** | أضف معرّفات نماذج LMU AI، واحدًا في كل سطر، لتظهر في منتقي النماذج، مثل `qwen3.8-max-preview`، `claude-opus-5` |
+
+### الخطوة 4 — ابدأ الاستخدام
+
+انقر على أيقونة Claudian في الشريط الجانبي الأيسر (أو استخدم لوحة الأوامر) لفتح الشريط الجانبي للمحادثة؛ اختر نموذجًا في الأسفل، وعندها يمكنك محادثة الذكاء الاصطناعي بجانب ملاحظاتك وجعله يقرأ ويكتب المستندات في مجلّد ملاحظاتك:
+
+![استخدام الشريط الجانبي لمحادثة Claudian في Obsidian](/images/tools/obsidian/claudian/10.png)
+
+<Callout type="info" title="استخدام النماذج الصينية">
+
+تدعم LMU AI نماذج صينية مثل Qwen وDeepSeek وGLM. بدّل بينها بوضع معرّف النموذج في إعداد الخطوة 3: للطريقة أ، أضف `"model": "qwen3.6-plus"` إلى settings.json؛ للطريقة ب، غيّر قيمة `ANTHROPIC_MODEL`. كما أن إضافة معرّفات النماذج، واحدًا في كل سطر، تحت **Custom models** يجعلها تظهر في منتقي النماذج. راجع القائمة الكاملة لمعرّفات النماذج في [معرض النماذج](/ar/docs/guide/models).
+
+</Callout>
+
+---
+
+## إضافة Copilot: استخدام Claude API في Obsidian
+
+[Copilot](https://github.com/logancyang/obsidian-copilot) هي أكثر إضافات مساعد الذكاء الاصطناعي شهرةً في Obsidian، وتدعم المحادثة، وأسئلة وأجوبة قاعدة المعرفة، وتلخيص الملاحظات، والمزيد. تتيح لك إضافة نماذج مخصصة و**تتصل مباشرةً بواجهة LMU AI API دون تثبيت أي أداة سطر أوامر**.
+
+### الخطوة 1 — تثبيت إضافة Copilot
+
+في سوق الإضافات (**Browse**)، ابحث عن **Copilot** واختر **Copilot** من **Logan Yang** (النتيجة الأولى)، ثم انقر على **Install** و**Enable**:
+
+![ابحث عن Copilot في سوق الإضافات واختر نسخة Logan Yang](/images/tools/obsidian/copilot/3.png)
+
+### الخطوة 2 — إضافة نموذج مخصص
+
+انتقل إلى تبويب **Settings → Copilot → Model** وانقر على **+ Add Model** في أعلى اليمين:
+
+![انقر على Add Model في تبويب Model ضمن إعدادات Copilot](/images/tools/obsidian/copilot/4.png)
+
+املأ ما يلي في نافذة **Add Custom Chat Model**:
+
+| الحقل | القيمة |
+|------|------|
+| **Model Name** | معرّف نموذج LMU AI، مثل `claude-sonnet-5` |
+| **Display Name** | اسم العرض؛ يمكن أن يكون نفس Model Name |
+| **Provider** | اختر `Anthropic` |
+| **Base URL** | `https://api.lmuai.com` |
+| **API Key** | المفتاح الذي يبدأ بـ `sk-` والمُولَّد في وحدة تحكّم LMU AI |
+| **Model Capabilities** | فعّل حسب قدرات النموذج؛ لسلسلة Claude يمكنك تفعيل `Reasoning` |
+
+عند الانتهاء، انقر على **Test** للتحقّق؛ تعني علامة الاختيار الخضراء نجاح الاتصال، ثم انقر على **Add Model** للحفظ:
+
+![إدخال إعداد بروتوكول Anthropic في نافذة Add Custom Chat Model](/images/tools/obsidian/copilot/6.png)
+
+### الخطوة 3 — إضافة نموذج OpenAI (اختياري)
+
+لاستخدام نماذج سلسلة GPT، انقر على **+ Add Model** مجددًا، وغيّر **Provider** إلى **OpenAI**، واملأ البقية بالطريقة نفسها:
+
+| الحقل | القيمة |
+|------|------|
+| **Model Name** | معرّف نموذج OpenAI، مثل `gpt-5.6-sol` |
+| **Provider** | اختر `OpenAI` |
+| **Base URL** | `https://api.lmuai.com` |
+| **API Key** | المفتاح الذي يبدأ بـ `sk-` والمُولَّد في وحدة تحكّم LMU AI |
+
+![إدخال إعداد بروتوكول OpenAI في نافذة Add Custom Chat Model](/images/tools/obsidian/copilot/7.png)
+
+### الخطوة 4 — اختر نموذجًا وابدأ الاستخدام
+
+افتح لوحة محادثة Copilot، واختر النموذج الذي أضفته للتوّ من القائمة المنسدلة للنماذج في الأعلى، وعندها يمكنك بدء المحادثة وطرح الأسئلة حول ملاحظاتك.
+
+<Callout type="info" title="أين أجد معرّفات النماذج؟">
+
+يجب أن يكون Model Name معرّف نموذج دقيقًا تدعمه LMU AI. انتقل إلى [معرض النماذج](/ar/docs/guide/models) لرؤية جميع النماذج المتاحة ونسخها بنقرة واحدة.
+
+</Callout>
+
+---
+
+## المشكلات الشائعة
+
+### خطأ 401 / Unauthorized
+
+مفتاح API خاطئ، أو أن الطلبات ما زالت تذهب إلى نقطة النهاية الرسمية. يُرجى التأكّد من:
+
+- Claudian: تحقّق من أن `ANTHROPIC_AUTH_TOKEN` الذي أدخلته في الخطوة 3 هو مفتاح LMU AI الخاص بك؛ للطريقة أ، تأكّد أيضًا من أنه ليس متجاوَزًا بمتغيّر بيئة في الصدفة (راجع [المشكلات الشائعة في Claude Code](/ar/docs/tools/claude-code#common-issues) لمعرفة كيفية التحقّق)
+- Copilot: أن Base URL هو `https://api.lmuai.com` وأن API Key هو مفتاح LMU AI الذي يبدأ بـ `sk-`، وليس مفتاح Anthropic / OpenAI الرسمي
+
+### خطأ CORS عند إضافة نموذج في Copilot
+
+في نافذة **Add Custom Chat Model**، فعّل خيار **CORS** قبل النقر على **Test** لتجاوز قيود المصدر المشترك (cross-origin) في المتصفّح.
+
+### يبلغ Claudian عن Claude CLI not found
+
+لم تتمكن الإضافة من تحديد موقع Claude Code تلقائيًا. شغّل `which claude` في الطرفية (استخدم `where claude` على Windows) والصق المسار الذي يظهر في **Settings → Claudian → Claude → Claude CLI path**.
+
+### انتهاء مهلة الاستجابة أو انقطاع البثّ
+
+<CN>
+- تأكّد من ضبط `API_TIMEOUT_MS` على `3000000` لتجنّب انتهاء المهلة في المهام الطويلة
+- أوقف أي VPN / بروكسي / بروكسي النظام — LMU AI اتصال محلي مباشر، والاتصال المباشر هو الأسرع والأكثر استقرارًا
+</CN>
+<Intl>
+- تأكّد من ضبط `API_TIMEOUT_MS` على `3000000` لتجنّب انتهاء المهلة في المهام الطويلة
+- أوقف أي VPN / بروكسي / بروكسي النظام — تتصل بوابة LMU AI الخارجية مباشرةً، والاتصال المباشر هو الأسرع والأكثر استقرارًا
+</Intl>

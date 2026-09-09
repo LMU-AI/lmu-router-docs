@@ -1,0 +1,140 @@
+---
+title: サードパーティ API を Trae に設定する
+description: Trae（LMU AI 中継）でサードパーティ API を設定する — プラグイン不要。設定 → モデル → モデルを追加で、Anthropic を選び、リクエスト URL と sk- キーを入力するだけ。
+ogDescription: Trae でサードパーティ API を設定するためのイラスト付きガイド — Codex プラグインは不要。Trae 組み込みのカスタムモデル追加機能を使い、Anthropic プロトコル経由で Claude Opus / Sonnet、Zhipu GLM、Qwen、DeepSeek などに直接接続できます。プロバイダーとして Anthropic を選び、リクエスト URL を /v1/messages に設定するだけ。プロキシは不要です。
+keywords:
+  - Trae でサードパーティ API を設定する方法
+  - Trae 中継 API 設定
+  - Trae カスタムモデル追加
+  - Trae Anthropic プロトコル
+  - Trae プラグイン不要セットアップ
+  - Trae を Claude に接続
+  - claude-opus-5
+  - glm-5.2
+  - qwen3.8-max-preview
+  - Trae 中国国内モデル
+  - Trae BYOK
+  - Trae プロキシ不要
+alternateNames:
+  - Trae でサードパーティ API を設定する方法
+  - Trae でサードパーティ API を接続する方法
+  - Trae でサードパーティ API を使う方法
+  - Trae カスタム API 設定ガイド
+  - Trae でサードパーティ中継を使うガイド
+  - Trae を LMU AI に接続
+  - Trae エディターの Claude 設定
+  - Trae で Claude / GLM モデルを追加
+  - Trae ネイティブ AI モデル連携
+  - Trae BYOK 自前 API キー設定
+faq:
+  - q: Trae でサードパーティ API を設定するには？
+    a: "手順 — Trae の 設定 → モデル → モデルを追加 を開く → プロバイダーとして **Anthropic** を選ぶ → モデルを **カスタムモデル** に設定し、モデル ID（例：`claude-opus-5` や `glm-5.2`）を入力する → カスタムリクエスト URL を `https://api.lmuai.com/v1/messages` に設定する → API キーを LMU AI コンソールの `sk-` キーに設定する → 保存。すべての作業は GUI 上で完結し、**インストールするプラグインも書き込む設定ファイルもありません** — どのエディターよりも簡単にサードパーティ API を接続できます。"
+  - q: Trae はどのサードパーティ API プロトコルをサポートしていますか？
+    a: "**Anthropic 互換プロトコル**（`/v1/messages`）をサポートしています — Trae 組み込みのプロバイダー一覧で Anthropic を選ぶだけです。LMU AI の Claude、GLM、Qwen、DeepSeek、Kimi の各モデルはすべて Anthropic プロトコルを使い、設定方法もまったく同じで、モデル ID を切り替えるだけです。"
+  - q: Trae でサードパーティ中継を使うことは、Codex プラグインをインストールするよりどこが優れていますか？
+    a: "より簡単です — 完全に GUI ベースで、config.toml / auth.json ファイルを書く必要も、エディターを再起動する必要もありません。また Anthropic プロトコルを使うため、Claude シリーズ全体や中国国内の大規模モデルを直接使えます（Codex プラグインは OpenAI プロトコルを使い、GPT / Codex シリーズに適しています）。両方のやり方は併用できます。"
+  - q: Trae はカスタム AI モデルをサポートしていますか？
+    a: "はい。Trae エディターにはカスタムモデル追加機能が組み込まれており、公式 Claude モデルや中国国内の大規模モデル（GLM、Qwen、DeepSeek、Kimi など）に Anthropic プロトコル経由で直接接続できます。プラグインは不要です。"
+  - q: Trae のネイティブ方式と Codex プラグインをインストールする方式の違いは？
+    a: "Codex プラグインは OpenAI プロトコルを使い、config.toml と auth.json ファイルを手書きする必要があります。Trae のネイティブ方式は Anthropic プロトコルを使い、プロバイダー / URL / キーを GUI で入力するだけです。Claude や中国国内モデルを使いたいならネイティブ方式が簡単です。GPT / Codex シリーズを使いたいならプラグイン方式を使ってください。両方のやり方は併用できます。"
+  - q: Trae で Claude Opus を使うには？
+    a: "設定 → モデル → モデルを追加 → プロバイダーとして Anthropic を選ぶ → モデルを カスタムモデル に設定する → モデル ID `claude-opus-5`（または `claude-sonnet-5`）を入力する → カスタムリクエスト URL を `https://api.lmuai.com/v1/messages` に設定する → API キーを LMU AI コンソールで生成した `sk-` キーに設定する。"
+  - q: Trae で GLM / Qwen などの中国国内モデルを使えますか？
+    a: "はい。LMU AI の中国国内大規模モデルはすべて Anthropic プロトコルを使い、Claude とまったく同じように設定できます — モデル ID を `glm-5.2`、`qwen3.8-max-preview`、`deepseek-v4-pro` などに変えるだけです。プロバイダーは引き続き Anthropic で、リクエスト URL も引き続き `/v1/messages` です。"
+  - q: リクエスト URL が /v1/messages で終わる必要があるのはなぜですか？
+    a: "Trae のカスタムリクエスト URL は**完全なエンドポイント**を要求します（Chatbox などのようにパスを自動で付加するツールとは異なります）。Anthropic プロトコルのチャットエンドポイントは常に `/v1/messages` なので、完全な URL は `https://api.lmuai.com/v1/messages` になります。"
+  - q: Trae でモデルを追加した後、動かなかったりエラーが出たりする場合は？
+    a: "次の順に確認してください：(1) プロバイダーが **Anthropic** になっているか（OpenAI ではない）；(2) モデルのドロップダウンでカスタムモデルを選び、その後モデル ID を手入力したか；(3) リクエスト URL が `/v1/messages` で終わっているか；(4) API キーが LMU AI コンソールで生成した `sk-` キーか。それでも失敗する場合は、保存して Trae を一度再起動してください。"
+  - q: Trae を使うのに VPN は必要ですか？
+    a: "いいえ。LMU AI の API ドメイン `api.lmuai.com` は直接接続できるので、Trae のネイティブ方式をセットアップすればそのまま動作し、プロキシは不要です。"
+---
+
+[Trae](https://www.trae.ai/) エディターは**サードパーティ API（Anthropic 互換プロトコル）への接続をネイティブでサポート**しており、インストールするプラグインも書き込む設定ファイルもありません — どのエディターよりも簡単にサードパーティ API を接続できます。**公式 Claude モデルと中国国内の大規模モデル（GLM、Qwen、DeepSeek、Kimi など）の両方をサポートします**。
+
+<Callout type="info" title="ネイティブ方式と Codex プラグイン — どちらを選ぶ？">
+
+- **Claude / 中国国内モデルを使いたい** → このページのネイティブ方式（Anthropic プロトコル、GUI で数クリック）
+- **GPT-5 / Codex シリーズを使いたい** → [公式 Codex プラグイン](/ja/docs/tools/vscode-plugin) を参照（OpenAI プロトコル、設定ファイルを手書き）
+
+両方のやり方は併用できます — 両種類のモデルを使いたい場合は、両方をセットアップするだけです。
+
+</Callout>
+
+---
+
+## 設定手順
+
+1. Trae を開き、**設定 → モデル → モデルを追加** に移動します
+2. **プロバイダー** を **Anthropic** に設定します
+3. **モデル** を **カスタムモデル**（ドロップダウンの一番下）に設定し、その下の **モデル ID** ボックスにモデル名を入力します（下の共通モデル表を参照）
+4. **カスタムリクエスト URL** を次のように設定します：
+   ```
+   https://api.lmuai.com/v1/messages
+   ```
+5. **API キー** を LMU AI コンソールで生成したキー（`sk-` で始まる）に設定します
+6. **確認** をクリックして保存し、そのモデルに切り替えて使い始めます
+
+---
+
+## 例：中国国内モデル（GLM-5.1）を設定する
+
+下のスクリーンショットは、カスタムモデルの入力方法の例として **GLM-5.1** を使っています。**モデル** ドロップダウンで **カスタムモデル** を選び、その後モデル ID を手入力する必要があることに注意してください。リクエスト URL は常に `https://api.lmuai.com/v1/messages` です：
+
+![Trae で GLM-5 などの中国国内モデルを設定する画面。プロバイダーは Anthropic、モデルはカスタムモデルに設定され、カスタムリクエスト URL は /v1/messages で終わる](/images/tools/trae/trae-config-glm.png)
+
+---
+
+## 共通モデル一覧
+
+**公式 Claude モデル**
+
+| モデル ID | 説明 |
+|------|------|
+| `claude-opus-5` | Claude Opus 5（フラッグシップ、推奨） |
+| `claude-sonnet-5` | Claude Sonnet 5（バランス型） |
+| `claude-haiku-4-5` | Claude Haiku 4.5（高速） |
+| `claude-opus-4-8` | Claude Opus 4.8（前世代） |
+| `claude-opus-4-7` | Claude Opus 4.7（前世代） |
+| `claude-sonnet-4-6` | Claude Sonnet 4.6（前世代） |
+
+**中国国内の大規模モデル**（**カスタムモデル** を選び、ID を手入力）
+
+| モデル ID | 説明 |
+|------|------|
+| `glm-5.2` | Zhipu GLM-5.2 |
+| `qwen3.8-max-preview` | Qwen 3.8 Max Preview |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k3` | Kimi K3 |
+| `glm-5.1` | Zhipu GLM-5.1（前世代） |
+| `qwen3.7-max` | Qwen 3.7 Max |
+| `kimi-k2.6` | Kimi K2.6（前世代） |
+
+実際に利用できるモデルは、LMU AI コンソールの **利用可能なモデル** リストによって決まります。完全な一覧は [モデルギャラリー](/ja/docs/guide/models) を参照してください。
+
+---
+
+## よくある問題
+
+### ネイティブ方式と Codex プラグインのどちら？
+
+- **ネイティブ方式（このページ）**：Anthropic プロトコルを使い、GUI で数クリックするだけ — **Claude / GLM / Qwen** などのモデルを使いたいユーザーに最適
+- **[Codex プラグイン方式](/ja/docs/tools/vscode-plugin)**：OpenAI プロトコルを使い、設定ファイルを手書きする必要がある — **GPT / Codex** シリーズを使いたいユーザーに最適
+
+両方のやり方は併用できます — 両種類のモデルを使いたい場合は、両方をセットアップするだけです。
+
+### リクエスト URL が `/v1/messages` で終わる必要があるのはなぜ？
+
+Trae のカスタムリクエスト URL は**完全なエンドポイント**を要求します（Chatbox などのようにパスを自動で付加するツールとは異なります）。Anthropic プロトコルのチャットエンドポイントは常に `/v1/messages` なので、完全な URL は `https://api.lmuai.com/v1/messages` になります。
+
+### モデル ID はどこで見つける？
+
+利用可能なモデルの完全な一覧は [モデルギャラリー](/ja/docs/guide/models) を参照してください。任意のカードをクリックするとそのモデル ID をコピーでき、Trae のモデル ID ボックスに直接貼り付けられます。
+
+### 追加後に応答がない、またはエラーが出る？
+
+- プロバイダーが **Anthropic** になっていますか（OpenAI ではない）？
+- モデルのドロップダウンでカスタムモデルを選び、その後モデル ID を手入力しましたか？
+- リクエスト URL は `/v1/messages` で終わっていますか？
+- API キーは LMU AI コンソールで生成した `sk-` キーですか？
+
+保存して Trae クライアントを一度再起動してください。

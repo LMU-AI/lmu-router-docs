@@ -1,0 +1,101 @@
+---
+title: Cherry Studio
+description: Cherry Studio を LMU AI API に接続し、Claude、中国系、OpenAI モデルのチャネルを設定して、海外へ直接接続します。
+ogDescription: Cherry Studio を LMU AI に接続 — Claude / OpenAI / Gemini / 中国系モデルのチャネルをワンクリックで追加し、海外へ直接接続します。
+keywords:
+  - Cherry Studio
+  - Cherry Studio Claude
+  - Cherry Studio API の設定
+  - 中国での Cherry Studio 利用
+  - Cherry Studio OpenAI
+  - Cherry Studio Gemini
+  - Cherry Studio API 中継
+alternateNames:
+  - Cherry Studio を LMU AI に接続
+---
+
+Cherry Studio はマルチモデル対応の AI デスクトップクライアントです。
+
+---
+
+## ダウンロードとインストール
+
+- **デスクトップ公式サイト**: [https://www.cherry-ai.com/](https://www.cherry-ai.com/)
+- **モバイル（Android & iOS）**: [https://github.com/CherryHQ/cherry-studio-app/releases](https://github.com/CherryHQ/cherry-studio-app/releases)
+  - Android: `.apk` ファイルをダウンロード
+  - iOS: `.ipa` ファイルをダウンロード
+
+モバイルのインストール手順はデスクトップとほぼ同じです。よく見れば分かるでしょう。
+
+---
+
+## 2 つのプロトコル
+
+LMU AI は 2 つの接続プロトコルに対応しています。モデルの種類に応じて選択してください：
+
+| プロトコル | モデル |
+|------|----------|
+| **Anthropic** | Claude モデル、中国系モデル（DeepSeek、Qwen など） |
+| **OpenAI-Response** | OpenAI モデル（GPT-4、GPT-5 など） |
+
+---
+
+## 方法 1: Anthropic プロトコル（Claude と中国系モデル）
+
+### ステップ 1 — プロバイダーを追加
+
+Cherry Studio の設定 → プロバイダーを追加 をクリック：
+
+1. **プロバイダー名**: 任意の名前（例: `LMU AI`）
+2. **プロバイダーの種類**: ドロップダウンから **`Anthropic`** を選択
+
+![Anthropic プロバイダーを追加](/images/tools/cherry-studio/c-studio-1.png)
+
+### ステップ 2 — API 情報を入力
+
+- **API Key**: コンソールで生成した `sk-` キーを入力
+- **API Host**: API 中継リクエストアドレスを入力
+
+```
+https://api.lmuai.com
+```
+
+モデルリストを取得 をクリックして利用可能なモデルを取得します。Claude シリーズと中国系モデルが自動的に読み込まれます。
+
+![Anthropic 設定完了](/images/tools/cherry-studio/c-studio-2.png)
+
+---
+
+## 方法 2: OpenAI-Response プロトコル（OpenAI モデル）
+
+### ステップ 1 — プロバイダーを追加
+
+Cherry Studio の設定 → プロバイダーを追加 をクリック：
+
+1. **プロバイダー名**: 任意の名前（例: `LMU AI`）
+2. **プロバイダーの種類**: ドロップダウンから **`OpenAI-Response`** を選択（最初の OpenAI ではなく 2 番目の選択肢）
+
+### ステップ 2 — API 情報を入力
+
+- **API Key**: コンソールで生成した `sk-` キーを入力
+- **API Host**: API 中継リクエストアドレスを入力
+
+```
+https://api.lmuai.com
+```
+
+モデルリストを取得 をクリックして利用可能なモデルを取得します。GPT シリーズが自動的に読み込まれます。
+
+![OpenAI-Response 設定完了](/images/tools/cherry-studio/c-studio-3.png)
+
+設定が完了したら、チャット画面でモデルを選択して使用できます：
+
+![チャット画面](/images/tools/cherry-studio/c-studio-4.png)
+
+---
+
+## 注意事項
+
+- 同じ API Key と API Host が両方のプロトコルで動作します。必要に応じてプロバイダーを 2 つ追加してください
+- OpenAI-Response の種類では、必ず最初の OpenAI ではなく 2 番目の選択肢を選んでください
+- API 中継アドレスを API アドレスとして入力してください。OpenAI や Anthropic の公式アドレスは入力しないでください

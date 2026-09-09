@@ -1,0 +1,264 @@
+---
+title: بروتوكولات الـ API
+description: يدعم LMU AI ثلاثة بروتوكولات واردة — Anthropic، و OpenAI Compatible، و Gemini الأصلي. جدول واحد لاختيار الـ Base URL والـ endpoint الصحيحين وتجنّب الأخطاء.
+ogDescription: مرجع بروتوكولات LMU AI للـ API — بروتوكول Anthropic، وبروتوكول OpenAI Compatible، وبروتوكول Gemini الأصلي v1beta كلها تشترك في مفتاح API الخاص بك لدى LMU AI؛ اختر الـ endpoint المناسب لعميلك ونموذجك.
+keywords:
+  - Base URL لـ LMU AI
+  - api.lmuai.com
+  - بروتوكول Anthropic
+  - بروتوكول OpenAI
+  - بروتوكول Gemini الأصلي v1beta
+  - Base URL لـ Claude Code
+  - Base URL لـ Codex CLI
+  - base_url لـ Anthropic SDK
+  - base_url لـ OpenAI SDK
+  - توجيه بروتوكول التبديل
+alternateNames:
+  - دليل بروتوكولات LMU AI
+  - Base URL لتبديل Claude / GPT
+  - مرجع endpoint لـ LMU AI
+faq:
+  - q: ما هي البروتوكولات التي يدعمها LMU AI؟
+    a: ثلاثة بروتوكولات واردة — Anthropic، و OpenAI Compatible، و Gemini الأصلي v1beta. تشترك البروتوكولات الثلاثة في مفتاح API الخاص بك لدى LMU AI، لكن يجب أن تدعم مجموعة المفتاح النموذج والمنصة التي تطلبها.
+  - q: ما الفرق بين عناوين URL لبروتوكولي Anthropic و OpenAI؟
+    a: يتوقع Anthropic SDK وجود base_url بدون /v1، لذا استخدم https://api.lmuai.com؛ أما OpenAI SDK فيتوقع base_url مع /v1، لذا استخدم https://api.lmuai.com/v1. الخلط بينهما يسبّب أخطاء 401 / 404.
+  - q: لماذا تدعم مجموعة Claude Max بروتوكول Anthropic فقط؟
+    a: مجموعة Claude Max مخصّصة لـ Claude Code فقط، و Claude Code يتحدث بروتوكول Anthropic، لذا لا تدعم هذه المجموعة endpoints بروتوكول OpenAI. المجموعات الأخرى تقبل كلا البروتوكولين، ويوزّع الـ backend الطلب إلى المصدر الصحيح بناءً على حقل platform الخاص بالمجموعة.
+---
+
+
+يدعم LMU AI ثلاثة بروتوكولات واردة: **Anthropic، و OpenAI Compatible، و Gemini الأصلي v1beta**. كل endpoint يستخدم مفتاح API الخاص بك لدى LMU AI الذي يبدأ بـ `sk-`، والنماذج التي يمكنك فعليًا استدعاؤها تحدّدها مجموعة المفتاح.
+
+<Callout type="info" title="أمران يجب أن تبقيهما واضحين أولًا">
+
+- **"أي بروتوكول"** يحدّده العميل والـ SDK وحالة الاستخدام. يستخدم Anthropic SDK المسار `/v1/messages`، ويستخدم OpenAI SDK المسار `/v1/chat/completions` أو `/v1/responses`، وتستخدم استدعاءات الصور الأصلية في Gemini المسار `/v1beta/models/{model}:generateContent`.
+- **"أي نماذج يمكنك استدعاؤها"** تحدّدها **مجموعة** مفتاح API الخاص بك (الحساب المصدر خلف اشتراكك / خطة الشحن)، وهي **بُعد منفصل عن البروتوكول الوارد**.
+
+بعبارة أخرى: البروتوكول الخاطئ يعطي خطأ 401 / 404 مباشرة؛ أما البروتوكول الصحيح مع نموذج خارج نطاق مجموعتك فيُرجع خطأ عدم توفّر النموذج.
+
+</Callout>
+
+<Callout type="warn" title="أكثر الأخطاء شيوعًا تنبع من البروتوكول الخاطئ">
+
+- الـ Base URL لـ **بروتوكول Anthropic** **لا** يتضمّن اللاحقة `/v1`
+- الـ Base URL لـ SDK **بروتوكول OpenAI** عادةً **يتضمّن** اللاحقة `/v1`
+- يستخدم **بروتوكول Gemini الأصلي** `https://api.lmuai.com` كمضيف ويستدعي المسار الكامل `/v1beta/...`
+
+الخطأ في ذلك يسبّب 400 / 401 / 404. قبل تهيئة أداة أو كتابة كود، تأكّد من أي بروتوكول يتوقعه العميل.
+
+</Callout>
+
+---
+
+## اختر بروتوكولك في لمحة
+
+| البروتوكول | Base URL | الأدوات النموذجية |
+|------|----------|----------|
+| **بروتوكول Anthropic** | `https://api.lmuai.com` | Claude Code (CLI / سطح المكتب / إضافة VS Code)، وحزمة `anthropic` الرسمية، و Cherry Studio، و Kilo Code مع Claude / النماذج الصينية، وأي عميل متوافق مع Anthropic |
+| **OpenAI Compatible** | `https://api.lmuai.com/v1` | Codex CLI، و Codex App، و Cursor / Cline / Roo Code / OpenCode، وحزمة `openai` الرسمية، وإضافات VS Code مع GPT، وأي عميل متوافق مع OpenAI |
+| **Gemini الأصلي v1beta** | `https://api.lmuai.com` | SDK / عملاء HTTP الأصليون لـ Gemini، وتحويل النص إلى صورة والصورة إلى صورة في Gemini، وقائمة النماذج و `generateContent` |
+
+تستخدم البروتوكولات الثلاثة جميعها مفتاح LMU AI الذي يبدأ بـ `sk-`:
+
+- بروتوكول Anthropic: `Authorization: Bearer <YOUR_API_KEY>` أو `x-api-key: <YOUR_API_KEY>`
+- OpenAI Compatible: `Authorization: Bearer <YOUR_API_KEY>`
+- Gemini الأصلي: يُفضّل `x-goog-api-key: <YOUR_API_KEY>`، ويُقبل Bearer أيضًا
+
+---
+
+## بروتوكول Anthropic
+
+**Base URL:** `https://api.lmuai.com` (**بدون** `/v1`)
+
+**الـ Endpoints:**
+
+- `POST /v1/messages` — محادثة الرسائل
+- `POST /v1/messages/count_tokens` — عدّ الـ tokens
+- `GET /v1/models` — قائمة النماذج المتاحة
+
+**مثال Python SDK:**
+
+```python
+from anthropic import Anthropic
+
+client = Anthropic(
+    base_url="https://api.lmuai.com",
+    api_key="sk-xxxxxxxx",
+)
+
+resp = client.messages.create(
+    model="claude-sonnet-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Hello"}],
+)
+print(resp.content[0].text)
+```
+
+**مثال curl:**
+
+```bash
+curl -X POST https://api.lmuai.com/v1/messages \
+  -H "Authorization: Bearer sk-xxxxxxxx" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-sonnet-5",
+    "max_tokens": 1024,
+    "messages": [{"role":"user","content":"Hello"}]
+  }'
+```
+
+<Callout type="info" title="لماذا base_url في الـ SDK بدون /v1 بينما curl معه /v1؟">
+
+عُرف اصطلاح `base_url` في Anthropic SDK الرسمي هو حذف `/v1`؛ ويُلحِق الـ SDK مسارات مثل `/v1/messages` داخليًا. عند كتابة curl يدويًا، تكتب المسار الكامل `/v1/messages`. كلاهما يشير إلى نفس الـ endpoint.
+
+</Callout>
+
+---
+
+## بروتوكول OpenAI
+
+**Base URL:** `https://api.lmuai.com/v1` (**مع** `/v1`)
+
+**الـ Endpoints:**
+
+- `POST /chat/completions` — واجهة Chat Completions القياسية
+- `POST /responses` — واجهة OpenAI Responses (بما في ذلك المسارات الفرعية `/responses/{id}`)
+- `POST /images/generations`، و `POST /images/edits` — توليد / تحرير الصور
+
+**مثال Python SDK:**
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://api.lmuai.com/v1",
+    api_key="sk-xxxxxxxx",
+)
+
+resp = client.chat.completions.create(
+    model="gpt-5.6-sol",
+    messages=[{"role": "user", "content": "Hello"}],
+)
+print(resp.choices[0].message.content)
+```
+
+**مثال curl:**
+
+```bash
+curl -X POST https://api.lmuai.com/v1/chat/completions \
+  -H "Authorization: Bearer sk-xxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-5.6-sol",
+    "messages": [{"role":"user","content":"Hello"}]
+  }'
+```
+
+---
+
+## بروتوكول Gemini الأصلي
+
+**Base URL:** `https://api.lmuai.com`
+
+**الـ Endpoints الرئيسية:**
+
+- `GET /v1beta/models` — سرد نماذج Gemini الأصلية
+- `GET /v1beta/models/{model}` — الاستعلام عن نموذج محدد
+- `POST /v1beta/models/{model}:generateContent` — توليد النص، وتحويل النص إلى صورة، والصورة إلى صورة
+- `POST /v1beta/models/{model}:streamGenerateContent?alt=sse` — التوليد التدفقي
+
+**المصادقة:**
+
+```http
+x-goog-api-key: YOUR_API_KEY
+```
+
+مثال مبسّط لتحويل النص إلى صورة:
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1beta/models/gemini-3.1-flash-image:generateContent' \
+  -H 'x-goog-api-key: YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "contents": [{
+      "role": "user",
+      "parts": [{"text": "an orange cat wearing an astronaut helmet"}]
+    }],
+    "generationConfig": {
+      "responseModalities": ["TEXT", "IMAGE"],
+      "imageConfig": {"aspectRatio": "1:1", "imageSize": "1K"}
+    }
+  }'
+```
+
+<Callout type="info" title="endpoint صور Gemini ليس /v1/chat/completions">
+
+تستخدم نماذج صور Gemini الـ `generateContent` الأصلي. للاطلاع على تفاصيل تحويل النص إلى صورة، والصورة إلى صورة، ودقّة 1K / 2K / 4K، وتحليل Base64 كاملة، راجع [واجهة Gemini Image API](/ar/docs/api/gemini-image).
+
+لنماذج صور GPT راجع [واجهة GPT Image API](/ar/docs/api/gpt-image)، ولنماذج صور Grok راجع [واجهة Grok Image API](/ar/docs/api/grok-image). لمهام Gemini غير المتصلة الكبيرة راجع [واجهة Gemini Batch Image API](/ar/docs/api/gemini-image-batch).
+
+</Callout>
+
+---
+
+## البروتوكول والنماذج المتاحة أمران مختلفان [#protocol-vs-models]
+
+تُحدَّد النماذج التي يمكن لمفتاحك استدعاؤها **بالكامل بواسطة الحساب المصدر المرتبط بمجموعته**، بشكل مستقل عن البروتوكول الذي تستدعي به:
+
+| المصدر على مجموعتك | النماذج التي يمكنك فعليًا استدعاؤها |
+|------|------|
+| حساب OpenAI فقط | سلسلة GPT فقط |
+| حساب Claude فقط | سلسلة Claude فقط (حتى لو استدعيت ببروتوكول OpenAI، فإن الـ backend يترجم البروتوكول، لكن نطاق النماذج لا يتغيّر) |
+| مصدر نماذج صينية فقط (مثل GLM / Kimi) | النماذج الصينية المقابلة فقط |
+| توجيه نماذج مُهيّأ في الـ backend (مجموعة متعددة المصادر) | التوجيه حسب اسم النموذج إلى مصادر مختلفة، يمكن أن يمتد عبر العلامات — يعتمد النطاق الدقيق على تهيئة المجموعة |
+
+لذا:
+
+- اختيار بروتوكول Anthropic، أو OpenAI Compatible، أو Gemini الأصلي يحدّد صيغة الطلب الواردة؛ ويبقى نطاق النماذج الفعلي محدَّدًا بمجموعة مفتاح API.
+- لمعرفة النماذج التي يمكن لمفتاحك الحالي استدعاؤها، راجع قائمة نماذج المجموعة في صفحة تفاصيل **API Keys** أو صفحة **Available Models** في لوحة التحكم.
+
+---
+
+## حول مجموعة Claude Max
+
+<Callout type="warn" title="مجموعة Claude Max تدعم بروتوكول Anthropic فقط">
+
+**مجموعة Claude Max مخصّصة لـ Claude Code فقط**، لذا يمكنها استخدام **بروتوكول Anthropic** فقط (`https://api.lmuai.com`).
+
+إذا كنت تستخدم مفتاحًا من مجموعة خطة Claude Max:
+
+- ✅ يعمل في Claude Code (CLI / سطح المكتب / إضافة VS Code)
+- ❌ **لا يمكن** استخدامه مع Codex CLI، أو Cursor، أو Cherry Studio، أو أي أداة تستخدم بروتوكول OpenAI
+- ❌ **لا يمكن** إدخاله كـ `https://api.lmuai.com/v1`
+
+لاستخدام أداة تعتمد بروتوكول OpenAI، بدّل إلى مفتاح من مجموعة الدفع حسب الاستخدام / الاشتراك العادي (تبقى النماذج المتاحة الدقيقة معتمدة على خطة المجموعة التي اشتريتها).
+
+</Callout>
+
+---
+
+## استكشاف الأخطاء وإصلاحها [#troubleshooting]
+
+| العَرَض | السبب المعتاد | ما العمل |
+|------|----------|------|
+| `401 Unauthorized` | الـ Base URL يستخدم البروتوكول الخاطئ / خطأ إملائي في المفتاح / لم يُعَد تشغيل الـ IDE | تحقّق من أن الـ Base URL يطابق بروتوكول الأداة؛ أعد تشغيل الـ IDE لإعادة تحميل التهيئة |
+| `404 Not Found` | عنوان URL لبروتوكول OpenAI ينقصه `/v1`، أو عنوان Anthropic يتضمّن `/v1` خطأً، أو مسار Gemini لا يستخدم `/v1beta/models/...` | أعد التحقق من الـ Base URL والـ endpoint الكامل وفق الجدول أعلاه |
+| النموذج غير متاح / `No available accounts` | استدعاء نموذج خارج نطاق مجموعتك (مثل استدعاء GPT بمجموعة Claude Max) | تأكّد من النماذج التي تتضمّنها مجموعتك فعليًا في صفحة **Available Models**، أو بدّل إلى مجموعة تتضمّن النموذج المستهدف |
+| `429 Too Many Requests` | استُنفدت الحصة اليومية | راجع [الأسئلة الشائعة](/ar/docs/guide/faq#issue-2) |
+
+لمزيد من استكشاف الأخطاء راجع [الأسئلة الشائعة](/ar/docs/guide/faq).
+
+---
+
+## الخطوات التالية
+
+بعد ضبط البروتوكول والـ Base URL بشكل صحيح، اختر الأداة التي تريدها:
+
+- [CC Switch (استيراد بنقرة واحدة، موصى به لمستخدمي Claude Code)](/ar/docs/tools/cc-switch)
+- [Claude Code CLI](/ar/docs/tools/claude-code) · [سطح المكتب](/ar/docs/tools/claude-code-desktop) · [إضافة VS Code](/ar/docs/tools/claude-code-vscode)
+- [Codex CLI · Windows](/ar/docs/tools/codex-cli-windows) · [Mac/Linux](/ar/docs/tools/codex-cli-mac) · [الخادم](/ar/docs/tools/codex-cli-server)
+- [تطبيق Codex App لسطح المكتب](/ar/docs/tools/codex-app) · [إضافة VS Code / Cursor / Trae](/ar/docs/tools/vscode-plugin)
+- [OpenCode](/ar/docs/tools/opencode) · [Cherry Studio](/ar/docs/tools/cherry) · [IDEA Kilo Code](/ar/docs/tools/kilo-code-idea) · [Hermes Agent](/ar/docs/tools/hermes)
+- [واجهة Gemini Image API](/ar/docs/api/gemini-image) · [واجهة GPT Image API](/ar/docs/api/gpt-image) · [واجهة Grok Image API](/ar/docs/api/grok-image) · [واجهة Gemini Batch Image API](/ar/docs/api/gemini-image-batch)

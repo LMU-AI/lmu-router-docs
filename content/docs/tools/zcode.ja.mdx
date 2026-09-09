@@ -1,0 +1,133 @@
+---
+title: ZCode
+description: ZCode エディターにカスタムプロバイダーを追加して LMU AI API に接続します — 1 つのエントリーに Anthropic と OpenAI の両エンドポイントが含まれており、Claude、GPT、そして中国製モデルを利用できます。
+ogDescription: ZCode エディターを LMU AI に接続します — Settings → Model Providers → Add provider へ進み、Anthropic / OpenAI エンドポイントと `sk-` キーを入力し、保存してからモデル ID を手動で追加すると、Claude Opus 5、GPT-5.6、GLM、Qwen、DeepSeek などを利用できます。
+keywords:
+  - ZCode
+  - ZCode 設定
+  - ZCode サードパーティ API
+  - ZCode リレー
+  - ZCode カスタムプロバイダー
+  - ZCode を Claude に接続
+  - ZCode 中国製モデル
+  - ZCode モデル追加
+  - Agentic Development Environment
+alternateNames:
+  - ZCode を LMU AI に接続
+  - ZCode でサードパーティ API を設定する方法
+  - ZCode カスタムプロバイダーのセットアップ
+faq:
+  - q: ZCode を LMU AI に接続するには？
+    a: '**Settings → Model Providers** を開き、左側のプロバイダー一覧の下部にある「Add provider」をクリックして任意の名前（例：`LMU AI`）を付け、Anthropic エンドポイントを `https://api.lmuai.com`、OpenAI エンドポイントを `https://api.lmuai.com/v1` に設定し、LMU AI コンソールで生成した `sk-` キーを入力して保存します。次に「Add model」をクリックしてモデル ID を手動で入力し（例：`claude-opus-5`）、有効化トグルをオンにします。'
+  - q: エンドポイントに `/v1` サフィックスは必要ですか？
+    a: 2 つのプロトコルは異なります。**Anthropic エンドポイント**は `https://api.lmuai.com`（`/v1` **なし** — クライアントが自身で `/v1/messages` を付加します）を、**OpenAI エンドポイント**は `https://api.lmuai.com/v1`（`/v1` **あり**）を指定します。これはサードパーティプロバイダーの公式例と一致しており、Anthropic 形式のエントリーはホストのみを、OpenAI 形式のエントリーは `/v1` まで含めます。
+  - q: LMU AI のモデルがモデルピッカーに表示されません
+    a: 'カスタムプロバイダーはモデル一覧を自動で取得しません。プロバイダーを保存したら、「**Add model**」をクリックしてモデル ID を手動で入力し（例：`claude-opus-5`、`glm-5.2`）、有効化トグルをオンにしてください。その後、チャットボックスのモデルピッカーで選択できるようになります。'
+  - q: カスタムプロバイダーのモデルでコンテキストウィンドウを変更できますか？
+    a: はい。**Settings → Model Providers** でモデルを開き、「**Advanced**」を展開すると、そのモデル個別のコンテキストウィンドウと最大出力トークンを設定できます。LMU AI のメインライン Claude モデルは 1M コンテキストウィンドウに対応しています — 有効にするには `[1M]` サフィックス付きのモデル ID（例：`claude-opus-5[1M]`）を使用してください。
+  - q: なぜ thinking-effort レベルが公式エンドポイントと異なるのですか？
+    a: これは ZCode の仕様として文書化された動作です — 同名モデルのサードパーティ展開は、公式エンドポイントとは異なる effort レベルを受け付ける場合があり、カスタムモデルは通常、モデル設定に応じてオン/オフのペアのみか、レベルをまったく提供しません。機能には影響しないので、そのまま通常どおり使用してください。
+  - q: ZCode の HTTP プロキシ設定は LMU AI へのリクエストに影響しますか？
+    a: はい。ZCode の設定にある HTTP プロキシはグローバルプロキシではありませんが、モデルリクエストはこれを経由するトラフィックに含まれます。プロキシによって接続できない場合は、オフにして再試行してください — なお `HTTP_PROXY` / `HTTPS_PROXY` 環境変数も適用され、これらを変更した後は ZCode の再起動が必要です。
+---
+
+ZCode は、長期的なタスク向けに構築された Agentic Development Environment（ADE）デスクトップアプリです。Anthropic または OpenAI プロトコルを扱うあらゆるモデルサービス向けのカスタムプロバイダーに対応しています — このページでは LMU AI への接続方法を説明します。
+
+---
+
+## ZCode をインストールする
+
+公式サイトからお使いのオペレーティングシステム向けのビルドをダウンロードしてインストールします：
+
+- Website: [https://zcode.z.ai](https://zcode.z.ai)
+
+---
+
+## LMU AI をプロバイダーとして追加する
+
+**Settings → Model Providers** を開き、左側のプロバイダー一覧の**下部**にある「**Add provider**」をクリックして、以下を入力します：
+
+| フィールド | 値 |
+|------|------|
+| **Name** | 任意の名前、例：`LMU AI` |
+| **Anthropic endpoint** | `https://api.lmuai.com` |
+| **OpenAI endpoint** | `https://api.lmuai.com/v1` |
+| **API Key** | LMU AI コンソールで生成した `sk-` キー |
+
+<Callout type="warn" title="2 つのエンドポイントで /v1 の形式が異なります">
+
+- **Anthropic endpoint**：`https://api.lmuai.com` — `/v1` **なし**；クライアントが自身で `/v1/messages` を付加します
+- **OpenAI endpoint**：`https://api.lmuai.com/v1` — `/v1` を**必ず**含めます
+
+混同すると 401 または 404 が発生します。両方のアドレスは同じプロバイダーエントリー内に共存できます — ZCode は選択したモデルに一致するプロトコルを使用します。
+
+</Callout>
+
+---
+
+## モデルを追加する
+
+カスタムプロバイダーは**モデル一覧を自動で取得しません**ので、手動で追加します：
+
+1. プロバイダー設定を保存する
+2. 「**Add model**」をクリックする
+3. モデル ID を手動で入力する、例：`claude-opus-5`
+4. **有効化トグル**をオンにする
+
+利用したいモデルごとに繰り返します。一般的なモデル ID：
+
+| モデル ID | 備考 |
+|------|------|
+| `claude-opus-5` | Claude Opus 5（フラッグシップ、推奨） |
+| `claude-sonnet-5` | Claude Sonnet 5（バランス型） |
+| `claude-haiku-4-5` | Claude Haiku 4.5（高速） |
+| `gpt-5.6-sol` | GPT-5.6 Sol |
+| `glm-5.2` | GLM-5.2 |
+| `qwen3.8-max-preview` | Qwen 3.8 Max Preview |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k3` | Kimi K3 |
+
+どのモデルを入力すべきか分からない場合は、[Model Gallery](/ja/docs/guide/models) で利用可能なすべてのモデル ID を確認し、ワンクリックでコピーできます。
+
+---
+
+## 1M コンテキストウィンドウを有効にする
+
+`claude-opus-5` や `claude-sonnet-5` などのメインラインモデルは 1M トークンのコンテキストウィンドウに対応しています — 有効にするにはモデル ID に `[1M]` サフィックスを追加します：
+
+```
+claude-opus-5[1M]
+```
+
+上記の「Add model」の手順で、サフィックスを含む完全な ID を入力してください。
+
+<Callout type="info" title="コンテキストウィンドウはモデルごとに調整できます">
+
+**Settings → Model Providers** でモデルを開き、「**Advanced**」を展開すると、そのモデル個別の**コンテキストウィンドウ**と**最大出力トークン**を設定できます。カスタムプロバイダーのモデルではどちらも編集可能です。
+
+最大出力トークンは空のままにすることを推奨します（その場合、モデル自身の上限に従います）。出力領域は会話履歴と同じコンテキストを共有するため、高く設定するほど保持できる履歴が少なくなり、自動圧縮がより早く始まる点に注意してください。
+
+</Callout>
+
+---
+
+## 設定を確認する
+
+設定が完了したら **ZCode を再起動**し、チャットボックスのモデルピッカーで新しく追加したモデルを選択して、簡単な指示を送信してテストします。正常な応答が返れば設定完了です。
+
+<Callout type="info" title="接続できない？まずプロキシを確認">
+
+ZCode の設定にある HTTP プロキシはグローバルプロキシではありませんが、**モデルリクエストはこれを経由します**。プロキシが接続を妨げている場合は、オフにして再試行してください。`HTTP_PROXY` / `HTTPS_PROXY` 環境変数も適用され、変更後は ZCode の再起動が必要です。
+
+</Callout>
+
+---
+
+## 注意事項
+
+- LMU AI はサードパーティ／カスタムプロバイダーなので、一覧下部の「**Add provider**」で作成してください — 組み込みのベンダーエントリーは変更しないでください
+- **Anthropic endpoint** は `https://api.lmuai.com`（`/v1` なし）、**OpenAI endpoint** は `https://api.lmuai.com/v1`（`/v1` あり）を指定します
+- API Key には、LMU AI コンソールで生成した `sk-` キーを入力してください
+- カスタムプロバイダーでは各モデルを手動で追加し、ピッカーに表示される前に有効化トグルをオンにする必要があります
+- 同名モデルのサードパーティ展開は、公式エンドポイントとは異なる**thinking-effort レベル**を提供する場合があります；カスタムモデルは通常オン/オフのペアのみ、またはまったく提供しません
+- カスタムモデルで画像関連のエラーが発生した場合は、そのモデル自体が画像入力を受け付けることを確認し、モデル設定でその画像対応能力を宣言してください

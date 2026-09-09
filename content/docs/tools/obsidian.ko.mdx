@@ -1,0 +1,234 @@
+---
+title: Obsidian
+description: Obsidian을 LMU AI API에 연결하세요 — Claudian 및 Copilot 플러그인을 구성하여 프록시 없이 노트에서 Claude와 중국 대형 모델을 사용하세요.
+ogDescription: Obsidian을 LMU AI에 연결하는 가이드 — Claudian 플러그인은 Claude Code 설정을 재사용하고, Copilot 플러그인은 커스텀 모델을 추가하며, 노트와 지식 베이스에서 Claude / GPT / 중국 대형 모델을 직접 사용할 수 있습니다.
+keywords:
+  - Obsidian Claude API
+  - Obsidian AI 플러그인
+  - Obsidian을 Claude에 연결
+  - Obsidian에서 Claude API 사용
+  - Claudian
+  - Claudian 설정
+  - Claudian Obsidian 플러그인
+  - Obsidian Copilot
+  - Obsidian Copilot 설정
+  - Obsidian Claude Code
+  - Obsidian 중국 모델
+alternateNames:
+  - Obsidian을 LMU AI에 연결
+  - Obsidian에서 Claude API 구성
+faq:
+  - q: Obsidian 플러그인이 401 / Unauthorized를 반환하면 어떻게 해야 하나요?
+    a: "API 키가 잘못되었거나, 요청이 여전히 공식 엔드포인트로 전송되고 있는 것입니다. Claudian의 경우, 입력한 ANTHROPIC_AUTH_TOKEN이 LMU AI 키인지, 그리고 셸 환경 변수에 의해 덮어씌워지지 않았는지 확인하세요; Copilot의 경우, Base URL이 https://api.lmuai.com이고 API 키가 공식 Anthropic / OpenAI 키가 아니라 LMU AI의 sk- 키인지 확인하세요."
+  - q: Copilot에서 모델을 추가할 때 CORS 오류가 발생하면 어떻게 해결하나요?
+    a: "Add Custom Chat Model 대화상자에서 Test를 클릭하기 전에 CORS 옵션을 체크하여 브라우저의 크로스 오리진 제한을 우회하세요."
+  - q: Claudian이 Claude CLI not found를 보고하면 어떻게 해야 하나요?
+    a: "플러그인이 Claude Code를 자동으로 찾지 못한 것입니다. 터미널에서 which claude를 실행하고(Windows에서는 where claude 사용) 출력된 경로를 Settings → Claudian → Claude → Claude CLI path에 붙여넣으세요."
+  - q: Obsidian에서 응답 시간 초과나 스트림 끊김이 발생하면 어떻게 해야 하나요?
+    a: "긴 작업에서 시간 초과를 방지하기 위해 API_TIMEOUT_MS가 3000000으로 설정되어 있는지 확인하고, 모든 VPN / 프록시 / 시스템 프록시를 끄세요 — LMU AI 해외 게이트웨이는 직접 연결되며, 직접 연결이 가장 빠르고 안정적입니다."
+---
+
+Obsidian은 로컬 Markdown 파일을 기반으로 구축된 지식 관리 및 노트 작성 앱으로, 개인 지식 베이스, 양방향 링크 노트, "제2의 두뇌"를 구축하는 데 흔히 사용됩니다. 커뮤니티 플러그인을 이용하면 노트 안에서 Claude API를 직접 호출하여 AI 글쓰기, 콘텐츠 정리, 지식 베이스 Q&A, 코드 생성을 할 수 있습니다.
+
+이 페이지에서는 LMU AI API에 연결하는 두 가지 인기 플러그인을 다룹니다 — 필요에 맞는 것을 선택하세요:
+
+| 플러그인 | 엔진 | 적합한 용도 |
+|------|------|----------|
+| **Claudian** | Claude Code CLI | 이미 Claude Code를 사용 중이며 노트에서 AI 에이전트를 직접 호출하고 싶은 경우 |
+| **Copilot** | 직접 API | 커맨드라인 도구 설치 없이 가벼운 채팅과 지식 베이스 Q&A를 원하는 경우 |
+
+---
+
+## 사전 준비: 커뮤니티 플러그인 활성화
+
+두 플러그인 모두 커뮤니티 플러그인이므로, 설치하기 전에 커뮤니티 플러그인 기능을 활성화해야 합니다.
+
+Obsidian을 열고 → 왼쪽 상단 메뉴 **Obsidian → Settings**(또는 단축키 `Cmd/Ctrl + ,`)로 이동한 뒤, **Community plugins**로 가서 **Turn on community plugins**를 클릭하세요:
+
+![Obsidian 설정을 열고 커뮤니티 플러그인 활성화](/images/tools/obsidian/copilot/1.png)
+
+활성화되면 **Community plugins** 페이지 오른쪽의 **Browse** 버튼을 클릭하여 플러그인 마켓플레이스를 엽니다:
+
+![Community plugins 페이지에서 Browse를 클릭하여 플러그인 마켓플레이스 열기](/images/tools/obsidian/copilot/2.png)
+
+---
+
+## Claudian 플러그인: Obsidian에서 Claude API 사용하기
+
+[Claudian](https://github.com/YishenTu/claudian)은 Claude Code와 Codex 같은 AI 코딩 에이전트를 Obsidian 사이드바에 임베드합니다. 전체 vault가 에이전트의 작업 디렉터리가 되며, 파일 읽기/쓰기, 검색, @mention, 슬래시 명령 등을 지원합니다.
+
+Claudian의 Claude 모드는 내부적으로 **Claude Code CLI**를 호출하므로, 먼저 해당 커맨드라인 도구를 설치한 다음 아래 두 가지 방법 중 하나로 LMU AI API에 연결하세요.
+
+### 1단계 — Claude Code CLI 설치
+
+Claudian은 로컬 `claude` 명령을 호출하므로, 먼저 Claude Code CLI를 설치해야 합니다: Node.js를 설치한 후 `npm install -g @anthropic-ai/claude-code`를 실행하세요(자세한 단계는 [Claude Code CLI 구성 가이드](/ko/docs/tools/claude-code) 참조).
+
+<Callout type="info">
+
+이 단계에서는 설치만 다룹니다; **LMU AI API는 3단계에서 구성합니다**.
+
+</Callout>
+
+### 2단계 — Claudian 플러그인 설치
+
+플러그인 마켓플레이스(**Browse**)에서 **Claudian**을 검색하고 **Install**을 클릭한 뒤, 설치가 완료되면 **Enable**을 클릭하세요.
+
+<Callout type="info" title="Claudian을 찾을 수 없나요?">
+
+마켓플레이스에 아직 Claudian이 나열되어 있지 않다면, **BRAT** 플러그인을 통해 GitHub에서 설치할 수 있습니다: 먼저 Browse에서 `Obsidian42 - BRAT`를 설치하고 활성화한 다음, **BRAT: Add a beta plugin for testing** 명령을 실행하고 저장소 URL `https://github.com/YishenTu/claudian`을 입력하세요.
+
+</Callout>
+
+### 3단계 — LMU AI API 구성 (택일)
+
+**Settings → Claudian → Claude** 탭으로 이동하여 아래 두 가지 방법 중 하나로 LMU AI Base URL과 키를 입력하세요.
+
+<Tabs items={['방법 A — Claude Code 설정 재사용', '방법 B — 플러그인에 직접 입력']}>
+<Tab value="방법 A — Claude Code 설정 재사용">
+
+이미 Claude Code CLI를 구성한 사용자에게 가장 적합합니다. 먼저 LMU AI 설정을 `~/.claude/settings.json`에 작성하세요:
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
+    "ANTHROPIC_AUTH_TOKEN": "sk-your-lmu-ai-api-key",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  }
+}
+```
+
+그런 다음 Claude 탭에서 **Load user Claude settings** 토글을 켜면, Claudian이 해당 파일을 로드하여 Base URL, 키, 모델 설정이 모두 적용됩니다.
+
+![Claudian 설정의 Claude 탭에서 Load user Claude settings 토글 켜기](/images/tools/obsidian/claudian/9.png)
+
+</Tab>
+<Tab value="방법 B — 플러그인에 직접 입력">
+
+`~/.claude/settings.json`을 만들 필요 없이 — 플러그인 설정에서 환경 변수를 직접 입력하세요.
+
+Claude 탭에서 아래로 스크롤하여 **Environment** 섹션으로 이동한 뒤, **Custom variables** 상자에 다음을 한 줄씩 붙여넣으세요(키는 본인 것으로 교체):
+
+```
+ANTHROPIC_BASE_URL: https://api.lmuai.com
+ANTHROPIC_AUTH_TOKEN: sk-your-lmu-ai-api-key
+ANTHROPIC_MODEL: claude-haiku-4-5
+CLAUDE_CODE_USE_BEDROCK=1
+CLAUDE_CODE_ATTRIBUTION_HEADER: 0
+```
+
+![Claudian 설정의 Environment 섹션 Custom variables 상자에 환경 변수 입력](/images/tools/obsidian/claudian/11.png)
+
+- `ANTHROPIC_MODEL`은 기본 모델입니다; 다른 LMU AI 모델 ID로 교체할 수 있습니다
+- 이 방법은 **Load user Claude settings**를 켤 필요가 없습니다
+- **Snippets** 옆의 **+**를 클릭하면 현재 환경 변수를 스냅샷으로 저장하여 나중에 쉽게 전환할 수 있습니다
+
+</Tab>
+</Tabs>
+
+**기타 선택 설정:**
+
+| 설정 | 설명 |
+|--------|------|
+| **Claude CLI path** | 자동 감지를 위해 비워 두세요. `Claude CLI not found`가 표시되면 터미널에서 `which claude`를 실행하고(Windows에서는 `where claude` 사용) 출력된 경로를 붙여넣으세요 |
+| **Safe mode** | 권한 모드입니다; `acceptEdits`(권장)로 유지하세요 |
+| **Custom models** | 모델 선택기에 표시되도록 LMU AI 모델 ID를 한 줄에 하나씩 추가하세요, 예: `qwen3.8-max-preview`, `claude-opus-5` |
+
+### 4단계 — 사용 시작
+
+왼쪽 사이드바의 Claudian 아이콘을 클릭하거나(또는 커맨드 팔레트 사용) 채팅 사이드바를 열고, 하단에서 모델을 선택하면 노트 옆에서 AI와 대화하고 vault 내 문서를 읽고 쓰게 할 수 있습니다:
+
+![Obsidian에서 Claudian 채팅 사이드바 사용](/images/tools/obsidian/claudian/10.png)
+
+<Callout type="info" title="중국 모델 사용하기">
+
+LMU AI는 Qwen, DeepSeek, GLM 같은 중국 모델을 지원합니다. 3단계 설정에 모델 ID를 넣어 전환하세요: 방법 A의 경우 settings.json에 `"model": "qwen3.6-plus"`를 추가하고, 방법 B의 경우 `ANTHROPIC_MODEL`의 값을 변경하세요. **Custom models** 아래에 모델 ID를 한 줄에 하나씩 추가하면 모델 선택기에도 표시됩니다. 전체 모델 ID 목록은 [모델 갤러리](/ko/docs/guide/models)에서 확인하세요.
+
+</Callout>
+
+---
+
+## Copilot 플러그인: Obsidian에서 Claude API 사용하기
+
+[Copilot](https://github.com/logancyang/obsidian-copilot)은 Obsidian에서 가장 인기 있는 AI 어시스턴트 플러그인으로, 채팅, 지식 베이스 Q&A, 노트 요약 등을 지원합니다. 커스텀 모델을 추가할 수 있으며 **어떤 커맨드라인 도구도 설치하지 않고 LMU AI API에 직접 연결**합니다.
+
+### 1단계 — Copilot 플러그인 설치
+
+플러그인 마켓플레이스(**Browse**)에서 **Copilot**을 검색하고 **Logan Yang**의 **Copilot**(첫 번째 결과)을 선택한 뒤, **Install**과 **Enable**을 클릭하세요:
+
+![플러그인 마켓플레이스에서 Copilot 검색하고 Logan Yang 버전 선택](/images/tools/obsidian/copilot/3.png)
+
+### 2단계 — 커스텀 모델 추가
+
+**Settings → Copilot → Model** 탭으로 이동하여 오른쪽 상단의 **+ Add Model**을 클릭하세요:
+
+![Copilot 설정의 Model 탭에서 Add Model 클릭](/images/tools/obsidian/copilot/4.png)
+
+**Add Custom Chat Model** 대화상자에서 다음을 입력하세요:
+
+| 필드 | 값 |
+|------|------|
+| **Model Name** | LMU AI 모델 ID, 예: `claude-sonnet-5` |
+| **Display Name** | 표시 이름; Model Name과 동일하게 해도 됩니다 |
+| **Provider** | `Anthropic` 선택 |
+| **Base URL** | `https://api.lmuai.com` |
+| **API Key** | LMU AI 콘솔에서 생성한 `sk-` 키 |
+| **Model Capabilities** | 모델의 기능에 따라 체크하세요; Claude 시리즈의 경우 `Reasoning`을 체크할 수 있습니다 |
+
+완료되면 **Test**를 클릭하여 확인하세요; 녹색 체크 표시가 나타나면 연결에 성공한 것이며, 그다음 **Add Model**을 클릭하여 저장하세요:
+
+![Add Custom Chat Model 대화상자에서 Anthropic 프로토콜 설정 입력](/images/tools/obsidian/copilot/6.png)
+
+### 3단계 — OpenAI 모델 추가 (선택)
+
+GPT 시리즈 모델을 사용하려면 **+ Add Model**을 다시 클릭하고 **Provider**를 **OpenAI**로 변경한 뒤, 나머지를 동일한 방식으로 입력하세요:
+
+| 필드 | 값 |
+|------|------|
+| **Model Name** | OpenAI 모델 ID, 예: `gpt-5.6-sol` |
+| **Provider** | `OpenAI` 선택 |
+| **Base URL** | `https://api.lmuai.com` |
+| **API Key** | LMU AI 콘솔에서 생성한 `sk-` 키 |
+
+![Add Custom Chat Model 대화상자에서 OpenAI 프로토콜 설정 입력](/images/tools/obsidian/copilot/7.png)
+
+### 4단계 — 모델 선택 및 사용 시작
+
+Copilot 채팅 패널을 열고 상단의 모델 드롭다운에서 방금 추가한 모델을 선택하면, 노트에 대한 채팅과 질문을 시작할 수 있습니다.
+
+<Callout type="info" title="모델 ID는 어디서 찾나요?">
+
+Model Name은 LMU AI가 지원하는 정확한 모델 ID여야 합니다. [모델 갤러리](/ko/docs/guide/models)로 가서 사용 가능한 모든 모델을 확인하고 원클릭으로 복사하세요.
+
+</Callout>
+
+---
+
+## 일반적인 문제
+
+### 401 / Unauthorized 오류
+
+API 키가 잘못되었거나, 요청이 여전히 공식 엔드포인트로 전송되고 있는 것입니다. 다음을 확인하세요:
+
+- Claudian: 3단계에서 입력한 `ANTHROPIC_AUTH_TOKEN`이 LMU AI 키인지 확인하세요; 방법 A의 경우, 셸 환경 변수에 의해 덮어씌워지지 않았는지도 확인하세요(확인 방법은 [Claude Code 일반적인 문제](/ko/docs/tools/claude-code#common-issues) 참조)
+- Copilot: Base URL이 `https://api.lmuai.com`이고 API Key가 공식 Anthropic / OpenAI 키가 아니라 LMU AI의 `sk-` 키인지 확인하세요
+
+### Copilot에서 모델 추가 시 CORS 오류
+
+**Add Custom Chat Model** 대화상자에서 **Test**를 클릭하기 전에 **CORS** 옵션을 체크하여 브라우저의 크로스 오리진 제한을 우회하세요.
+
+### Claudian이 Claude CLI not found를 보고함
+
+플러그인이 Claude Code를 자동으로 찾지 못한 것입니다. 터미널에서 `which claude`를 실행하고(Windows에서는 `where claude` 사용) 출력된 경로를 **Settings → Claudian → Claude → Claude CLI path**에 붙여넣으세요.
+
+### 응답 시간 초과 또는 스트림 끊김
+
+<CN>
+- 긴 작업에서 시간 초과를 방지하기 위해 `API_TIMEOUT_MS`가 `3000000`으로 설정되어 있는지 확인하세요
+- 모든 VPN / 프록시 / 시스템 프록시를 끄세요 — LMU AI는 국내 직접 연결이며, 직접 연결이 가장 빠르고 안정적입니다
+</CN>
+<Intl>
+- 긴 작업에서 시간 초과를 방지하기 위해 `API_TIMEOUT_MS`가 `3000000`으로 설정되어 있는지 확인하세요
+- 모든 VPN / 프록시 / 시스템 프록시를 끄세요 — LMU AI 해외 게이트웨이는 직접 연결되며, 직접 연결이 가장 빠르고 안정적입니다
+</Intl>

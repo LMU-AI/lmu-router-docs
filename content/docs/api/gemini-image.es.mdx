@@ -1,0 +1,915 @@
+---
+title: API de imágenes de Gemini
+description: "Usa el endpoint nativo de Gemini v1beta de LMU AI para texto a imagen, edición de imágenes e imagen a imagen, con 1K / 2K / 4K, relaciones de aspecto comunes y análisis de Base64."
+ogDescription: Una guía de integración completa para la API de imágenes de Gemini de LMU AI — usa generateContent para texto a imagen, edición de imágenes e imagen a imagen, con soporte para inlineData, 1K/2K/4K y múltiples relaciones de aspecto.
+keywords:
+  - API de imágenes de Gemini
+  - endpoint de generación de imágenes de Gemini
+  - Gemini texto a imagen
+  - Gemini imagen a imagen
+  - edición de imágenes de Gemini
+  - gemini-3.1-flash-image
+  - gemini-3-pro-image
+  - relay de la API de Gemini
+  - generateContent imagen
+  - API de Gemini de LMU AI
+alternateNames:
+  - Documentación de la API de generación de imágenes de Gemini
+  - API de imágenes de Gemini de LMU AI
+  - API nativa de imágenes de Gemini
+faq:
+  - q: ¿La generación de imágenes de Gemini debe usar /v1/chat/completions?
+    a: No se recomienda. Para los modelos de imágenes de Gemini de LMU AI, usa el endpoint nativo POST /v1beta/models/{model}:generateContent, con un cuerpo de solicitud que use contents, generationConfig e imageConfig.
+  - q: ¿Qué resoluciones admite la generación de imágenes de Gemini?
+    a: El endpoint de imagen única en tiempo real admite 1K, 2K y 4K; el valor debe estar en mayúsculas y colocarse en generationConfig.imageConfig.imageSize.
+  - q: ¿Gemini admite la edición de imágenes?
+    a: Sí. Gemini no tiene una ruta separada /v1/images/edits; tanto texto a imagen como edición de imágenes llaman a POST /v1beta/models/{model}:generateContent, y para editar pasas tanto una instrucción de texto como una imagen de entrada inlineData en contents[].parts[].
+  - q: ¿Por qué obtengo HTTP 200 pero ninguna imagen generada?
+    a: Un éxito HTTP solo significa que el upstream devolvió una respuesta. El cliente aún debe encontrar un inlineData.data no vacío en candidates[].content.parts[]; cuando no hay datos de imagen, trátalo como una falla de negocio y verifica finishReason.
+  - q: ¿Una sola solicitud puede devolver múltiples imágenes?
+    a: Los modelos de imágenes de Gemini en tiempo real actuales se usan como una imagen principal por solicitud. Cuando necesites múltiples imágenes, realiza múltiples solicitudes independientes; para trabajos offline grandes, usa la API de imágenes por lotes asíncrona de LMU AI.
+---
+
+LMU AI proporciona una API compatible con `v1beta` nativa de Gemini para que puedas llamar directamente a los modelos de imágenes de Gemini para **texto a imagen, edición de imágenes e imagen a imagen**.
+
+<Callout type="info" title="Protocolo de la API">
+
+La generación de imágenes de Gemini usa el protocolo `generateContent` nativo de Gemini de Google — no `/v1/chat/completions` de OpenAI, ni `/v1/images/generations` de OpenAI Images.
+
+Endpoint principal:
+
+```text
+POST https://api.lmuai.com/v1beta/models/{model}:generateContent
+```
+
+</Callout>
+
+---
+
+## 1. Descripción general de la API
+
+| Método | Ruta | Descripción |
+|---|---|---|
+| `GET` | `/v1beta/models` | Lista los modelos nativos disponibles para la clave API actual dentro del grupo de Gemini |
+| `GET` | `/v1beta/models/{model}` | Obtiene información sobre un modelo específico |
+| `POST` | `/v1beta/models/{model}:generateContent` | Endpoint principal para texto a imagen, edición de imágenes e imagen a imagen |
+| `POST` | `/v1beta/models/{model}:streamGenerateContent?alt=sse` | Generación en streaming; no se recomienda como primera opción para casos de uso de imágenes |
+| `GET` | `/v1/models` | Lista de modelos compatible con OpenAI, adecuada para un selector de modelos general |
+| `POST` | `/v1/images/batches` | Endpoint de extensión de imágenes por lotes asíncrono de Gemini de LMU AI; consulta la [API de imágenes por lotes de Gemini](/es/docs/api/gemini-image-batch) |
+
+**URL base:**
+
+```text
+https://api.lmuai.com
+```
+
+---
+
+## 2. Autenticación
+
+### Recomendado: encabezado nativo de Gemini
+
+```http
+x-goog-api-key: YOUR_API_KEY
+```
+
+### Compatible: encabezado Bearer
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+El servidor lee la clave API en el siguiente orden de prioridad:
+
+1. `x-goog-api-key`;
+2. `Authorization: Bearer ...`;
+3. `x-api-key`;
+4. el parámetro de consulta `?key=...` en las rutas `/v1beta`.
+
+<Callout type="warn" title="No pongas la clave en la URL">
+
+`?api_key=...` está obsoleto y devuelve `400`. `?key=...` aún funciona, pero se registra fácilmente en el historial del navegador, en proxies inversos y en registros de acceso — usa encabezados en producción.
+
+</Callout>
+
+Un error de autenticación típico:
+
+```json
+{
+  "error": {
+    "code": 401,
+    "message": "Invalid API key",
+    "status": "UNAUTHENTICATED"
+  }
+}
+```
+
+La clave API debe estar vinculada al grupo de plataforma `gemini`; de lo contrario, no puedes llamar a la API nativa de Gemini.
+
+---
+
+## 3. Modelos y disponibilidad
+
+Este servicio de imágenes usa principalmente los siguientes IDs de modelo del lado del cliente:
+
+| ID de modelo | Uso recomendado | Notas sobre edición de imágenes |
+|---|---|---|
+| `gemini-3.1-flash-image` | Recomendación predeterminada | Verificado en producción con edición de imágenes `inlineData` |
+| `gemini-3.1-flash-image-preview` | Compatibilidad de vista previa | Usa el mismo protocolo de edición `generateContent`; verifica por separado antes de integrar en producción |
+| `gemini-3-pro-image` | Calidad prioritaria / ediciones complejas | Usa el mismo protocolo de edición `generateContent`; sujeto a la disponibilidad de tu clave actual |
+| `gemini-3-pro-image-preview` | Compatibilidad de vista previa Pro | Usa el mismo protocolo de edición; el modelo que ejecuta es el que indique la respuesta del servidor |
+| `gemini-3.1-flash-lite-image` | Casos de uso ligeros | Úsalo solo cuando la lista de modelos lo devuelva y se haya verificado la salida de imagen |
+
+### Lista los modelos de Gemini para la clave actual
+
+```bash
+curl 'https://api.lmuai.com/v1beta/models' \
+  -H 'x-goog-api-key: YOUR_API_KEY'
+```
+
+Lista de modelos compatible con OpenAI:
+
+```bash
+curl 'https://api.lmuai.com/v1/models' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+<Callout type="info" title="Los IDs de modelo pueden mapearse del lado del servidor">
+
+El cliente envía un ID de modelo de solicitud. LMU AI admite alias de modelo compatibles, por lo que el nombre del modelo solicitado no es necesariamente el mismo que la versión final del modelo en la respuesta.
+
+No supongas la disponibilidad solo por el nombre del modelo; confía en el resultado real de llamar a `/v1beta/models` con tu clave actual.
+
+</Callout>
+
+---
+
+## 4. Inicio rápido: texto a imagen
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1beta/models/gemini-3.1-flash-image:generateContent' \
+  --header 'x-goog-api-key: YOUR_API_KEY' \
+  --header 'Content-Type: application/json' \
+  --data-raw '{
+    "contents": [
+      {
+        "role": "user",
+        "parts": [
+          {
+            "text": "An orange cat wearing an astronaut helmet, cinematic lighting, exquisite detail"
+          }
+        ]
+      }
+    ],
+    "generationConfig": {
+      "responseModalities": ["TEXT", "IMAGE"],
+      "imageConfig": {
+        "aspectRatio": "1:1",
+        "imageSize": "1K"
+      }
+    }
+  }'
+```
+
+Cuando tenga éxito, lee la imagen desde:
+
+```text
+candidates[].content.parts[].inlineData.data
+```
+
+---
+
+## 5. Estructura de la solicitud de texto a imagen
+
+```json
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "A cinematic rainy-night city street, neon lights reflected on the wet pavement, wide-angle composition"
+        }
+      ]
+    }
+  ],
+  "generationConfig": {
+    "responseModalities": ["TEXT", "IMAGE"],
+    "imageConfig": {
+      "aspectRatio": "16:9",
+      "imageSize": "2K"
+    }
+  }
+}
+```
+
+### Campos de la solicitud
+
+| Campo | Tipo | Requerido | Descripción |
+|---|---:|:---:|---|
+| `contents` | array | Sí | Arreglo de contenido de conversación; debe contener al menos un mensaje de usuario |
+| `contents[].role` | string | Recomendado | Usa `user` para la entrada del usuario |
+| `contents[].parts` | array | Sí | Partes de texto o de imagen de entrada |
+| `parts[].text` | string | Requerido para texto a imagen | El prompt de la imagen |
+| `generationConfig` | object | Sí | Parámetros de generación |
+| `generationConfig.responseModalities` | string[] | Sí | Debe incluir `IMAGE` para la generación de imágenes; se recomienda `['TEXT', 'IMAGE']` |
+| `generationConfig.imageConfig` | object | Sí | Configuración de resolución y relación de aspecto de la imagen |
+
+<Callout type="warn" title="Los parámetros de imagen deben ir en imageConfig">
+
+Usa `generationConfig.imageConfig`. No uses `responseFormat.image`; ese campo puede no generar un error de parámetro, pero no surtirá efecto como parámetros de imagen nativos de Gemini.
+
+</Callout>
+
+---
+
+## 6. Resolución y relación de aspecto
+
+### Resoluciones admitidas
+
+| `imageSize` | Uso recomendado | Características |
+|---|---|---|
+| `1K` | Borradores, vistas previas rápidas, filtrado por lotes | Generalmente más rápido y económico |
+| `2K` | Entrega estándar, imágenes de artículos, activos de comercio electrónico | Equilibrio entre calidad, tiempo y costo |
+| `4K` | Imágenes grandes refinadas, entrega de alta calidad | Generalmente mayor tiempo de generación y transferencia |
+
+`imageSize` debe estar en mayúsculas:
+
+```json
+{
+  "imageSize": "2K"
+}
+```
+
+### Relaciones de aspecto admitidas
+
+`aspectRatio` es una **capacidad a nivel de modelo**; no puedes usar las relaciones extendidas de Flash en los modelos Pro. LMU AI valida la relación contra el modelo solicitado para evitar enviar combinaciones conocidas como inválidas al upstream.
+
+**10 relaciones comunes:**
+
+```text
+1:1
+2:3
+3:2
+3:4
+4:3
+4:5
+5:4
+9:16
+16:9
+21:9
+```
+
+**4 relaciones extendidas de Flash:**
+
+```text
+1:4
+1:8
+4:1
+8:1
+```
+
+### Matriz de relaciones por modelo
+
+| ID de modelo del cliente | Relaciones admitidas confirmadas | Cantidad |
+|---|---|---:|
+| `gemini-3.1-flash-image` | 10 comunes + 4 extendidas de Flash | 14 |
+| `gemini-3.1-flash-image-preview` | 10 comunes + 4 extendidas de Flash | 14 |
+| `gemini-3.1-flash-lite-image` | 10 comunes + 4 extendidas de Flash | 14 |
+| `gemini-3-pro-image` | Solo 10 comunes | 10 |
+| `gemini-3-pro-image-preview` | Solo 10 comunes | 10 |
+
+<Callout type="warn" title="Los modelos Pro no admiten las relaciones extendidas de Flash">
+
+Pasar `1:4`, `1:8`, `4:1` u `8:1` a `gemini-3-pro-image` o `gemini-3-pro-image-preview` devuelve `INVALID_ARGUMENT` o un error de parámetro `400` del relay. Por ejemplo:
+
+```json
+{
+  "error": {
+    "code": 400,
+    "message": "generationConfig.imageConfig.aspectRatio has an unsupported value",
+    "status": "INVALID_ARGUMENT"
+  }
+}
+```
+
+</Callout>
+
+La matriz anterior combina la documentación oficial de modelos de Google con las pruebas de la API en producción de LMU AI: los tres modelos Flash / Flash Lite pasan las pruebas de relaciones extendidas, mientras que ambos modelos Pro rechazan explícitamente las cuatro relaciones extendidas. Para modelos desconocidos o nuevos, usa las 10 relaciones comunes hasta que las hayas verificado.
+
+Cuando no especifiques `aspectRatio`, el modelo decide la relación de aspecto basándose en el contenido de entrada y su política predeterminada. No pases decimales arbitrarios ni un `WIDTHxHEIGHT` arbitrario; debes usar una enumeración de relación aceptada por el modelo objetivo.
+
+Ejemplo:
+
+```json
+{
+  "generationConfig": {
+    "responseModalities": ["TEXT", "IMAGE"],
+    "imageConfig": {
+      "aspectRatio": "9:16",
+      "imageSize": "4K"
+    }
+  }
+}
+```
+
+<Callout type="info" title="Los niveles de resolución no son dimensiones de píxeles fijas">
+
+`1K`, `2K` y `4K` son niveles de resolución del modelo. El ancho y alto reales los calcula el modelo a partir del nivel y la relación de aspecto; el cliente no debe suponer que siempre son `1024×1024`, `2048×2048` o `4096×4096`.
+
+</Callout>
+
+---
+
+## 7. Edición de imágenes / imagen a imagen
+
+Gemini **admite la edición de imágenes** — simplemente no tiene un endpoint separado `/v1/images/edits` como GPT.
+
+Tanto texto a imagen como edición de imágenes llaman a:
+
+```text
+POST /v1beta/models/{model}:generateContent
+```
+
+La diferencia entre ellos es:
+
+| Caso de uso | Contenido de `contents[].parts[]` |
+|---|---|
+| Texto a imagen | Solo prompt de texto |
+| Edición de imágenes / imagen a imagen | Instrucción de edición de texto + imagen de entrada `inlineData` |
+
+<Callout type="info" title="Verificado en producción">
+
+Con `gemini-3.1-flash-image`, enviar una imagen de entrada JPEG a través de `inlineData` ha devuelto con éxito:
+
+- HTTP `200`;
+- `finishReason: STOP`;
+- un resultado editado `image/png`;
+- un `inlineData.data` no vacío;
+- recuentos de tokens de modalidad de imagen en `usageMetadata`.
+
+La respuesta puede contener solo una parte de imagen y ninguna parte de texto, por lo que el cliente no debe exigir que haya texto presente en la respuesta.
+
+</Callout>
+
+### 7.1 Solicitud mínima de edición de imágenes
+
+```json
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "Keep the person, composition, and lighting; change the background to a rainy-night neon street"
+        },
+        {
+          "inlineData": {
+            "mimeType": "image/png",
+            "data": "INPUT_IMAGE_BASE64"
+          }
+        }
+      ]
+    }
+  ],
+  "generationConfig": {
+    "responseModalities": ["TEXT", "IMAGE"],
+    "imageConfig": {
+      "aspectRatio": "1:1",
+      "imageSize": "1K"
+    }
+  }
+}
+```
+
+### 7.2 Campos de la imagen de entrada
+
+| Campo | Tipo | Requerido | Descripción |
+|---|---:|:---:|---|
+| `contents[].parts[].text` | string | Sí | La instrucción de edición; indica claramente qué conservar y qué cambiar |
+| `inlineData.mimeType` | string | Sí | p. ej. `image/png`, `image/jpeg`, `image/webp` |
+| `inlineData.data` | string | Sí | Base64 sin procesar, sin un prefijo de Data URL |
+| `imageConfig.aspectRatio` | string | No | Relación de aspecto de salida; establece la relación correspondiente si necesitas preservar la relación de entrada |
+| `imageConfig.imageSize` | string | No | Nivel de salida: `1K`, `2K`, `4K`, sujeto a la capacidad del modelo |
+
+<Callout type="warn" title="No incluyas un prefijo de Data URL en Base64">
+
+Correcto:
+
+```text
+/9j/4AAQSkZJRgABAQ...
+```
+
+No pases:
+
+```text
+data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...
+```
+
+Una imagen de entrada demasiado grande aumenta el tiempo de carga y procesamiento y puede devolver `413` debido a los límites del tamaño del cuerpo de la solicitud del gateway.
+
+</Callout>
+
+### 7.3 Ejemplo completo con curl
+
+Primero convierte una imagen local a Base64 de una sola línea:
+
+```bash
+IMAGE_BASE64=$(base64 < input.jpg | tr -d '\n')
+```
+
+Luego llama al modelo de imagen:
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1beta/models/gemini-3.1-flash-image:generateContent' \
+  --header 'x-goog-api-key: YOUR_API_KEY' \
+  --header 'Content-Type: application/json' \
+  --data-raw "{
+    \"contents\": [{
+      \"role\": \"user\",
+      \"parts\": [
+        {
+          \"text\": \"Keep the cup, composition, lighting, and background unchanged; only change the cup from blue to purple, and add three white star patterns on the cup body; do not add any text\"
+        },
+        {
+          \"inlineData\": {
+            \"mimeType\": \"image/jpeg\",
+            \"data\": \"${IMAGE_BASE64}\"
+          }
+        }
+      ]
+    }],
+    \"generationConfig\": {
+      \"responseModalities\": [\"TEXT\", \"IMAGE\"],
+      \"imageConfig\": {
+        \"aspectRatio\": \"3:2\",
+        \"imageSize\": \"1K\"
+      }
+    }
+  }"
+```
+
+### 7.4 Ejemplo de edición de imágenes en Python
+
+```python
+import base64
+import requests
+
+api_key = "YOUR_API_KEY"
+model = "gemini-3.1-flash-image"
+input_path = "input.jpg"
+
+with open(input_path, "rb") as f:
+    image_base64 = base64.b64encode(f.read()).decode("utf-8")
+
+payload = {
+    "contents": [{
+        "role": "user",
+        "parts": [
+            {
+                "text": "Keep the subject and composition; change the background to a rainy-night neon street"
+            },
+            {
+                "inlineData": {
+                    "mimeType": "image/jpeg",
+                    "data": image_base64,
+                }
+            },
+        ],
+    }],
+    "generationConfig": {
+        "responseModalities": ["TEXT", "IMAGE"],
+        "imageConfig": {
+            "aspectRatio": "3:2",
+            "imageSize": "1K",
+        },
+    },
+}
+
+response = requests.post(
+    f"https://api.lmuai.com/v1beta/models/{model}:generateContent",
+    headers={
+        "x-goog-api-key": api_key,
+        "Content-Type": "application/json",
+    },
+    json=payload,
+    timeout=300,
+)
+response.raise_for_status()
+result = response.json()
+
+saved = False
+for candidate in result.get("candidates", []):
+    for part in candidate.get("content", {}).get("parts", []):
+        inline_data = part.get("inlineData", {})
+        if inline_data.get("data"):
+            mime_type = inline_data.get("mimeType", "image/png")
+            extension = "jpg" if "jpeg" in mime_type else "webp" if "webp" in mime_type else "png"
+            with open(f"gemini-edited.{extension}", "wb") as f:
+                f.write(base64.b64decode(inline_data["data"]))
+            saved = True
+            break
+    if saved:
+        break
+
+if not saved:
+    raise RuntimeError("HTTP request succeeded, but the response contains no edited image")
+```
+
+### 7.5 Consejos para prompts de edición
+
+Para los prompts de edición de imágenes, lo mejor es separar claramente "qué conservar" de "qué cambiar":
+
+```text
+Keep: subject identity, pose, camera angle, composition, and lighting.
+Change: change the background to a rainy-night neon street.
+Forbidden: do not add text; do not change the person's face.
+```
+
+Esta estructura produce resultados más consistentes que simplemente escribir "hazlo verse más bonito".
+
+### 7.6 Múltiples imágenes de referencia
+
+Algunos modelos de imágenes de Gemini pueden aceptar múltiples imágenes `inlineData` en el mismo `parts[]` para referencia de estilo, referencia de personaje o combinación de activos. Sin embargo, la cantidad de imágenes de referencia permitidas y el tamaño total del cuerpo de la solicitud varían según el modelo, así que verifica con tu modelo específico antes de usarlo en producción.
+
+No supongas que un modelo de imagen determinado admite un número ilimitado de imágenes de referencia solo porque `/v1beta/models` lo devolvió.
+
+---
+
+## 8. Respuesta exitosa
+
+Una respuesta típica:
+
+```json
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "Image generated as requested."
+          },
+          {
+            "inlineData": {
+              "mimeType": "image/png",
+              "data": "BASE64_IMAGE_DATA"
+            }
+          }
+        ]
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 123,
+    "candidatesTokenCount": 1120,
+    "totalTokenCount": 1450,
+    "candidatesTokensDetails": [
+      {
+        "modality": "IMAGE",
+        "tokenCount": 1024
+      }
+    ]
+  },
+  "modelVersion": "MODEL_VERSION"
+}
+```
+
+### Campos clave de la respuesta
+
+| Campo | Descripción |
+|---|---|
+| `candidates[]` | Lista de salidas candidatas |
+| `candidates[].content.parts[]` | Partes de texto o imagen |
+| `parts[].inlineData.mimeType` | Tipo MIME de la imagen devuelta |
+| `parts[].inlineData.data` | Contenido Base64 de la imagen devuelta |
+| `candidates[].finishReason` | Razón de finalización; el valor de éxito común es `STOP` |
+| `usageMetadata` | Recuentos de tokens de entrada, salida y modalidad de imagen |
+| `modelVersion` | La versión real del modelo devuelta por el upstream, transmitida cuando está presente |
+
+### Determinar correctamente el éxito de la generación de imágenes
+
+El cliente debe verificar todo lo siguiente:
+
+1. El código de estado HTTP es `2xx`;
+2. `candidates` no está vacío;
+3. Al menos un `parts[]` contiene un `inlineData.data` no vacío;
+4. El Base64 se decodifica correctamente;
+5. Verifica `finishReason` cuando sea necesario.
+
+<Callout type="warn" title="HTTP 200 no garantiza que se haya generado una imagen">
+
+El upstream puede devolver HTTP `200` sin ningún `inlineData.data` en la respuesta. Tales solicitudes deben tratarse como una "falla de negocio en la generación de imágenes" y no deben contarse como imágenes exitosas.
+
+</Callout>
+
+---
+
+## 9. Ejemplo en Node.js
+
+```js
+import { writeFile } from 'node:fs/promises';
+
+const BASE_URL = process.env.GEMINI_BASE_URL || 'https://api.lmuai.com';
+const API_KEY = process.env.GEMINI_API_KEY;
+const MODEL = 'gemini-3.1-flash-image';
+
+if (!API_KEY) throw new Error('Missing GEMINI_API_KEY');
+
+const payload = {
+  contents: [
+    {
+      role: 'user',
+      parts: [
+        { text: 'A seaside lighthouse at sunset, watercolor illustration, warm tones, delicate paper texture' },
+      ],
+    },
+  ],
+  generationConfig: {
+    responseModalities: ['TEXT', 'IMAGE'],
+    imageConfig: {
+      aspectRatio: '16:9',
+      imageSize: '2K',
+    },
+  },
+};
+
+const controller = new AbortController();
+const timer = setTimeout(() => controller.abort(), 300_000);
+
+try {
+  const response = await fetch(
+    `${BASE_URL}/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`,
+    {
+      method: 'POST',
+      headers: {
+        'x-goog-api-key': API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    },
+  );
+
+  const text = await response.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`Non-JSON response from the service: HTTP ${response.status}`);
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `HTTP ${response.status}: ${data?.error?.message || JSON.stringify(data)}`,
+    );
+  }
+
+  const parts = data.candidates?.flatMap((candidate) => candidate.content?.parts || []) || [];
+  const imagePart = parts.find((part) => part.inlineData?.data);
+
+  if (!imagePart) {
+    const reasons = data.candidates?.map((candidate) => candidate.finishReason).filter(Boolean);
+    throw new Error(`Request completed but no image, finishReason=${reasons?.join(',') || 'unknown'}`);
+  }
+
+  const mimeType = imagePart.inlineData.mimeType || 'image/png';
+  const extension = mimeType === 'image/jpeg'
+    ? 'jpg'
+    : mimeType === 'image/webp'
+      ? 'webp'
+      : 'png';
+
+  await writeFile(
+    `gemini-output.${extension}`,
+    Buffer.from(imagePart.inlineData.data, 'base64'),
+  );
+
+  console.log('Image saved, usageMetadata:', data.usageMetadata || null);
+} finally {
+  clearTimeout(timer);
+}
+```
+
+---
+
+## 10. Ejemplo en Python
+
+```python
+import base64
+import os
+from pathlib import Path
+import requests
+
+BASE_URL = os.getenv("GEMINI_BASE_URL", "https://api.lmuai.com")
+API_KEY = os.environ["GEMINI_API_KEY"]
+MODEL = "gemini-3.1-flash-image"
+
+payload = {
+    "contents": [
+        {
+            "role": "user",
+            "parts": [
+                {"text": "A futuristic building complex, early-morning mist, ultra-wide-angle photography, realistic materials"}
+            ],
+        }
+    ],
+    "generationConfig": {
+        "responseModalities": ["TEXT", "IMAGE"],
+        "imageConfig": {
+            "aspectRatio": "16:9",
+            "imageSize": "2K",
+        },
+    },
+}
+
+response = requests.post(
+    f"{BASE_URL}/v1beta/models/{MODEL}:generateContent",
+    headers={
+        "x-goog-api-key": API_KEY,
+        "Content-Type": "application/json",
+    },
+    json=payload,
+    timeout=300,
+)
+
+data = response.json()
+if not response.ok:
+    message = data.get("error", {}).get("message", data)
+    raise RuntimeError(f"HTTP {response.status_code}: {message}")
+
+image_part = None
+for candidate in data.get("candidates", []):
+    for part in candidate.get("content", {}).get("parts", []):
+        if part.get("inlineData", {}).get("data"):
+            image_part = part
+            break
+    if image_part:
+        break
+
+if not image_part:
+    reasons = [candidate.get("finishReason") for candidate in data.get("candidates", [])]
+    raise RuntimeError(f"Request completed but no image was returned, finishReason={reasons}")
+
+inline_data = image_part["inlineData"]
+mime_type = inline_data.get("mimeType", "image/png")
+extension = {
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+}.get(mime_type, "png")
+
+Path(f"gemini-output.{extension}").write_bytes(
+    base64.b64decode(inline_data["data"])
+)
+
+print("Image saved")
+print("usageMetadata:", data.get("usageMetadata"))
+```
+
+---
+
+## 11. Errores comunes
+
+El endpoint nativo de Gemini generalmente devuelve errores en estilo de Google:
+
+```json
+{
+  "error": {
+    "code": 429,
+    "message": "upstream rate limit exceeded",
+    "status": "RESOURCE_EXHAUSTED"
+  }
+}
+```
+
+| Estado HTTP | Causa común | Recomendación |
+|---:|---|---|
+| `400` | Estructura de solicitud, ruta de modelo o plataforma de grupo incorrectas | Corrige la solicitud; no solo reintentes |
+| `401` | Clave API ausente, inválida o deshabilitada | Verifica la clave y los encabezados |
+| `402` / `403` | Saldo insuficiente, suscripción, elegibilidad de facturación o permisos | Verifica la cuenta y los permisos del grupo |
+| `413` | Cuerpo de la solicitud de imagen a imagen demasiado grande | Comprime la imagen de entrada |
+| `429` | Límite de concurrencia del usuario o limitación de tasa del upstream | Retroceso exponencial; reduce la concurrencia y las RPM |
+| `500` | Error interno o de capacidad | Registra el código de error y el ID de solicitud; reintenta un número limitado de veces |
+| `502` | Falla temporal de autenticación, permisos o servicio del upstream | Retrocede y reintenta; contacta a un administrador si es necesario |
+| `503` | No hay cuenta de Gemini disponible o el upstream está sobrecargado | Reintenta después de un retraso y reduce el tráfico |
+| `504` | Tiempo de espera del gateway o del upstream | Reemite como una solicitud independiente |
+
+Si el mensaje de error dice que todos los tokens están deshabilitados, en enfriamiento, bloqueados o expirados, esto es un problema de capacidad del servicio, no un error de formato del prompt. Deja de reintentar de forma agresiva y proporciona el código de error y el ID de solicitud a un administrador.
+
+---
+
+## 12. Tiempos de espera, reintentos y concurrencia
+
+### Recomendaciones de tiempo de espera del cliente
+
+| Resolución | Tiempo de espera total recomendado |
+|---|---:|
+| `1K` | Al menos 120 segundos |
+| `2K` | Al menos 180 segundos |
+| `4K` | 300 segundos recomendados |
+
+Estas son recomendaciones de integración, no un SLA fijo. Si tus solicitudes también pasan por tu propio Nginx, CDN o gateway de API, ajusta los tiempos de espera de lectura de esos componentes en consecuencia.
+
+### Recomendaciones de reintento
+
+Se recomienda reintentar en:
+
+- `429`;
+- `502`, `503`, `504`;
+- interrupciones de red, restablecimientos de conexión y tiempos de espera de lectura;
+- cuando obtienes HTTP `200` pero ninguna imagen, puedes reintentar una vez (limitado) y guardar la respuesta sin procesar.
+
+Generalmente no reintentes en:
+
+- `400`;
+- `401`;
+- errores explícitos de saldo o permisos;
+- errores de parámetros de solicitud o de política de contenido.
+
+Reintenta como máximo 2–3 veces, usando retroceso exponencial:
+
+```text
+Attempt 1: 1–2 seconds random jitter
+Attempt 2: 3–5 seconds random jitter
+Attempt 3: 8–12 seconds random jitter
+```
+
+### Múltiples imágenes en tiempo real
+
+El endpoint en tiempo real se usa actualmente como "una imagen principal por solicitud". Cuando necesites múltiples imágenes, divídelas en múltiples solicitudes independientes y simultáneamente limita:
+
+- la concurrencia máxima en curso;
+- las solicitudes por minuto (RPM);
+- el conteo de tareas por usuario;
+- el tiempo de espera y el número máximo de reintentos.
+
+Si necesitas enviar de decenas a cientos de prompts y esperar los resultados de forma asíncrona, usa la [API de imágenes por lotes de Gemini](/es/docs/api/gemini-image-batch).
+
+---
+
+## 13. Uso y facturación
+
+El `usageMetadata` en la respuesta se puede usar para analizar los tokens de entrada, salida y modalidad de imagen, pero no es necesariamente igual al monto final cobrado.
+
+El cargo real puede verse afectado por:
+
+- el ID de modelo solicitado versus el modelo real mapeado;
+- el nivel de imagen `1K`, `2K`, `4K`;
+- el precio por imagen del grupo;
+- el multiplicador del grupo de usuarios y el multiplicador de la cuenta del upstream;
+- las reglas de facturación en el entorno de implementación.
+
+Para el monto final, confía en los detalles de uso en la consola de LMU AI y en el cambio en el saldo de tu cuenta.
+
+Al ejecutar pruebas de calidad o concurrencia, registra:
+
+1. el saldo antes de la prueba;
+2. el saldo después de la prueba;
+3. el número de solicitudes exitosas;
+4. el número real de imágenes devueltas;
+5. el modelo, la resolución y la relación de aspecto;
+6. la diferencia de saldo;
+7. el costo promedio por imagen exitosa.
+
+Los registros de uso pueden publicarse de forma asíncrona, así que espera un tiempo después de la prueba antes de conciliar el monto final.
+
+---
+
+## 14. Recomendaciones de seguridad
+
+- Almacena la clave API solo en variables de entorno del lado del servidor o en un gestor de secretos;
+- No incrustes la clave en front-ends de navegador, paquetes de aplicaciones móviles o repositorios de código público;
+- No registres la clave API completa ni el Base64 completo de la imagen;
+- Valida el tipo MIME, el tamaño del archivo y la validez del Base64 de la imagen de entrada;
+- Elige la extensión del archivo basándote en `inlineData.mimeType` al guardar las respuestas;
+- Registra tu propio ID de traza, hora de solicitud, modelo, resolución y estado HTTP para cada solicitud de negocio;
+- Después de un tiempo de espera, no recrees una gran cantidad de solicitudes idénticas en un tiempo muy corto.
+
+---
+
+## 15. Lista de verificación de aceptación de la integración
+
+- [ ] Puedes usar `/v1beta/models` para obtener la lista de modelos de Gemini para la clave actual;
+- [ ] Puedes autenticarte con el encabezado `x-goog-api-key` o Bearer;
+- [ ] Puedes completar una generación de texto a imagen `1K / 1:1`;
+- [ ] Puedes completar la generación de texto a imagen `2K` y `4K`;
+- [ ] Puedes completar al menos una edición de imagen / imagen a imagen;
+- [ ] Puedes leer `inlineData.mimeType` e `inlineData.data`;
+- [ ] Puedes marcar HTTP 200 sin imagen como una falla;
+- [ ] Has establecido un tiempo de espera para las solicitudes de imagen;
+- [ ] Has implementado un retroceso exponencial limitado para 429 y 5xx;
+- [ ] Has confirmado el precio, el saldo, la concurrencia y las RPM;
+- [ ] Tus registros no filtran la clave API ni el Base64 completo.
+
+---
+
+## Próximos pasos
+
+- Generación asíncrona para muchos prompts: [API de imágenes por lotes de Gemini](/es/docs/api/gemini-image-batch)
+- Lista los modelos disponibles para la clave actual: [Galería de modelos](/es/docs/guide/models)
+- Detalles del protocolo y la URL base: [Protocolos de API](/es/docs/guide/api-protocols)
+- Consulta el uso de las solicitudes: [Exportar detalles de uso](/es/docs/api/usage-export)

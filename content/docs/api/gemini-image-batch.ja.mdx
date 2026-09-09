@@ -1,0 +1,925 @@
+---
+title: Gemini バッチ画像 API
+description: "LMU AI 非同期バッチ画像 API：複数の Gemini 画像タスクを一度に送信し、ステータスと詳細をポーリングし、画像や ZIP をダウンロード。冪等性とコスト見積もりに対応。"
+ogDescription: "LMU AI Gemini バッチ画像 API ドキュメント：POST /v1/images/batches でマルチプロンプトタスクを送信し、ステータスをポーリング、詳細を照会、ZIP をダウンロード、タスクをキャンセル、BATCH_IMAGE_DISABLED などのエラーを処理。"
+keywords:
+  - Gemini バッチ画像 API
+  - Gemini Batch API
+  - バッチ画像生成 API
+  - Gemini バッチタスク
+  - images batches
+  - LMU AI バッチ画像生成
+  - Gemini JSONL Batch
+  - バッチ text-to-image
+alternateNames:
+  - LMU AI 非同期バッチ画像 API
+  - Gemini 画像バッチ処理 API
+  - Image Batches API
+faq:
+  - q: バッチ画像 API は公開 API ですか、それとも内部 API ですか？
+    a: "これは LMU AI がユーザーに公開する拡張 API です。ご自身の sk- API キーで Authorization Bearer を使って認証し、LMU AI コンソールのバッチ画像ページからも直接呼び出されます。"
+  - q: バッチ API で gpt-image-2 を使えますか？
+    a: "現時点では使えません。/v1/images/batches のバックエンドプロバイダーおよびグループ検証は今のところ Gemini のみをサポートしています。GPT の場合は /v1/images/generations、/v1/images/edits、または非同期単一タスク API を使用してください。"
+  - q: BATCH_IMAGE_DISABLED とは何を意味しますか？
+    a: "現在の API リレーのデプロイでグローバルなバッチ画像機能が有効になっていないことを意味します。API キーやプロンプトのエラーではありません。エラーコードとリクエスト ID を管理者に提供してください。"
+  - q: バッチ画像生成は 2K と 4K に対応していますか？
+    a: "バッチ API は現在 1K のみを受け付けます。リアルタイムの Gemini generateContent API は 1K、2K、4K に対応しています。後日バッチ API が拡張された場合は、ドキュメントを更新します。"
+  - q: バッチタスクは送信直後にすべての画像を返しますか？
+    a: "いいえ。バッチ API は非同期タスク API です。送信後はバッチ ID を返し、クライアントはタスクステータスをポーリングし、完了後に単一画像または ZIP をダウンロードする必要があります。"
+---
+
+LMU AI Gemini バッチ画像 API を使うと、複数の Gemini 画像タスクを一度に送信できます。サーバーは非同期でバッチタスクを作成し、そのステータスを追跡し、結果を整理し、コストを精算します。
+
+メインエンドポイント：
+
+```text
+POST https://api.lmuai.com/v1/images/batches
+```
+
+<Callout type="info" title="これは LMU AI 拡張 API です">
+
+バッチ API は `/v1/images/batches` にあります。これは LMU AI がユーザーに公開する非同期タスク API であり、Google Gemini ネイティブの `/v1beta` パスではありません。
+
+**現在の実装は Gemini のみをサポートしています。** リクエストボディには汎用の `model` フィールドが含まれますが、このエンドポイントでは `gpt-image-2` や Grok 画像モデルを送信できません。GPT の text-to-image には [GPT Image API](/ja/docs/api/gpt-image) を、Grok の text-to-image には [Grok Image API](/ja/docs/api/grok-image) を使用してください。
+
+単一の Gemini 画像を生成するだけの場合、または `2K / 4K` が必要な場合は、[リアルタイム Gemini Image API](/ja/docs/api/gemini-image) を使用してください。
+
+</Callout>
+
+---
+
+## 1. 使用する場面
+
+バッチ API は次のような場合に適しています：
+
+- 数十から数百の異なるプロンプトを一度に送信する場合；
+- 画像タスクが同一 HTTP リクエスト内で即座に返る必要がない場合；
+- タスクステータス、失敗詳細、キャンセル、バッチダウンロードが必要な場合；
+- 記事のイラスト、EC 用アセット、データセット、デザイン候補をオフラインで生成する場合；
+- `Idempotency-Key` を使って重複送信や二重課金を防ぎたい場合。
+
+次のような場合には適しません：
+
+- 単一のリアルタイム画像生成のレイテンシを計測する場合；
+- `2K / 4K` が必要な場合；
+- 画像を同期的に待って即座に表示する必要がある場合；
+- 並列処理や RPM のストレステストを実施する場合。
+
+---
+
+## 2. 前提条件
+
+バッチ機能は、管理者がデプロイ側とグループ側の両方で有効化し、互換性のあるアップストリームアカウントと料金を設定している必要があります。
+
+まずモデル一覧をリクエストして、機能が利用可能かどうかを確認できます：
+
+```http
+GET /v1/images/batches/models
+```
+
+<Callout type="warn" title="BATCH_IMAGE_DISABLED が返る場合">
+
+`BATCH_IMAGE_DISABLED` は、API リレーのグローバルなバッチ画像機能が有効になっていないことを意味します。API キー、モデル、プロンプトのエラーではありません。
+
+完全なエラーコードとレスポンスヘッダーのリクエスト ID を管理者に提供してください。例：
+
+```text
+Error code: BATCH_IMAGE_DISABLED
+Request ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+</Callout>
+
+一般的な受け入れ条件：
+
+- 現在の API キーのステータスが有効であること；
+- API キーのグループプラットフォームが Gemini であること；
+- グループがバッチ画像生成を許可していること；
+- バッチ画像の実行リソースが利用可能であること；
+- モデルにバッチ画像の料金が設定されていること；
+- 非同期バッチタスクサービスが正常に稼働していること。
+
+---
+
+## 3. 認証
+
+バッチ API はご自身の LMU AI API キーを使用します：
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+例：
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/models' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+API キーを URL、フロントエンドのソースコード、公開リポジトリに入れないでください。
+
+---
+
+## 4. エンドポイント一覧
+
+| メソッド | パス | 説明 |
+|---|---|---|
+| `GET` | `/v1/images/batches/models` | 現在のキーがバッチ画像生成に使用できるモデルを一覧表示 |
+| `POST` | `/v1/images/batches` | バッチ画像タスクを作成 |
+| `GET` | `/v1/images/batches` | 現在のキーが作成したバッチタスクを一覧表示 |
+| `GET` | `/v1/images/batches/{id}` | 特定タスクのステータスを照会 |
+| `GET` | `/v1/images/batches/{id}/items` | タスクアイテムの詳細を照会 |
+| `GET` | `/v1/images/batches/{id}/items/{custom_id}/content` | 単一タスクアイテムの画像をダウンロード |
+| `GET` | `/v1/images/batches/{id}/download` | バッチ全体を ZIP としてダウンロード |
+| `POST` | `/v1/images/batches/{id}/cancel` | タスクをキャンセル |
+| `DELETE` | `/v1/images/batches/{id}/outputs` | バッチの出力ファイルを削除 |
+| `DELETE` | `/v1/images/batches/{id}` | バッチタスクレコードを削除 |
+
+すべてのタスクデータは、タスクを作成した API キーによって分離されます。
+
+---
+
+## 5. 利用可能なバッチモデルの一覧
+
+### `GET /v1/images/batches/models`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/models' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+典型的なレスポンス（抜粋）：
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "gemini-3.1-flash-image",
+      "object": "image.batch.model"
+    }
+  ]
+}
+```
+
+<Callout type="info" title="バッチモデル一覧は通常のモデル一覧と異なります">
+
+`/v1/images/batches/models` をバッチタスクのモデルセレクターとして使用してください。これはバッチ機能の権限、実行リソース、モデルサポート、バッチ課金設定を追加でチェックします。
+
+通常の `/v1/models` や `/v1beta/models` が返すすべてのモデルが、非同期バッチ画像生成に使用できるわけではありません。
+
+</Callout>
+
+---
+
+## 6. バッチタスクの作成
+
+### `POST /v1/images/batches`
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1/images/batches' \
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+  --header 'Idempotency-Key: client-batch-20260725-001' \
+  --header 'Content-Type: application/json' \
+  --data-raw '{
+    "model": "gemini-3.1-flash-image",
+    "task_name": "Product image batch eval 001",
+    "response_mime_type": "image/png",
+    "image_size": "1K",
+    "items": [
+      {
+        "custom_id": "image_001",
+        "prompt": "An orange tabby cat wearing an astronaut helmet, cinematic lighting",
+        "output_count": 1
+      },
+      {
+        "custom_id": "image_002",
+        "prompt": "A futuristic city in morning mist, ultra-wide-angle photography",
+        "output_count": 1
+      },
+      {
+        "custom_id": "image_003",
+        "prompt": "A seaside lighthouse at sunset, watercolor illustration, warm tones",
+        "output_count": 1
+      }
+    ]
+  }'
+```
+
+### トップレベルのリクエストフィールド
+
+| フィールド | 型 | 必須 | デフォルト | 説明 |
+|---|---:|:---:|---|---|
+| `model` | string | はい | — | バッチモデル一覧から選ぶ必要があります |
+| `task_name` | string | いいえ | 自動生成 | タスク名。過度に長い内容は切り詰められます |
+| `parent_batch_id` | string | いいえ | — | 親タスクをリンクします。失敗アイテムの再試行に適しています |
+| `items` | array | はい | — | バッチタスクアイテム。最低 1 つ |
+| `response_mime_type` | string | いいえ | `image/png` | 期待される出力 MIME タイプ |
+| `aspect_ratio` | string | いいえ | — | 現バージョンではアップストリームに渡されません。このフィールドでアスペクト比を制御しないでください |
+| `image_size` | string | いいえ | `1K` | 現在 `1K` のみサポート |
+| `metadata` | object | いいえ | — | カスタムの文字列キーバリューペア |
+
+### `items[]` フィールド
+
+| フィールド | 型 | 必須 | デフォルト | 説明 |
+|---|---:|:---:|---|---|
+| `custom_id` | string | いいえ | 自動生成 | 呼び出し側のタスク ID。同一バッチ内で一意である必要があります |
+| `prompt` | string | はい | — | 各タスクで異なるプロンプトを使用できます |
+| `output_count` | integer | いいえ | `1` | 現在アイテムごとに最大 4、デプロイ設定に従います |
+| `reference_images` | array | いいえ | — | image-to-image 用の参照画像 |
+
+### Idempotency-Key
+
+タスク作成のたびに一意のものを含めることを強く推奨します：
+
+```http
+Idempotency-Key: client-batch-20260725-001
+```
+
+同じ API キーが、同じ `Idempotency-Key` と同一のリクエストボディで再送信した場合、サーバーは元のタスクを返すことができ、ネットワークタイムアウト後の重複作成や重複コストホールドを回避できます。
+
+同じ `Idempotency-Key` を使いつつリクエスト内容が異なる場合は、次を返します：
+
+```text
+BATCH_IMAGE_IDEMPOTENCY_CONFLICT
+```
+
+---
+
+## 7. 現在のバッチ制限
+
+ソースコード内のデフォルト制限は以下のとおりです。実際のデプロイでは管理者が調整できます：
+
+| 制限 | デフォルト |
+|---|---:|
+| バッチあたりの最大入力アイテム数 | 200 |
+| バッチあたりの最大出力画像数 | 200 |
+| アイテムあたりの最大 `output_count` | 4 |
+| プロンプトあたりの最大文字数 | 8000 |
+| インライン参照画像 1 枚あたりの最大サイズ | 10 MiB |
+| ZIP あたりのデフォルト最大アイテム数 | 200 |
+
+### バッチのアスペクト比はまだ指定できません
+
+<Callout type="warn" title="aspect_ratio は現在効果がありません">
+
+バッチリクエスト構造には `aspect_ratio` フィールドが残されていますが、現在の Gemini Batch および Vertex Batch のリクエスト構築ロジックは、まだそれをアップストリームの `generationConfig.imageConfig` に書き込みません。
+
+その結果、バッチタスクのアスペクト比は現在アップストリームのデフォルト動作によって決まります。リクエストで `aspect_ratio` を省略し、安定した API 機能として依存しないでください。
+
+`1:1`、`16:9`、`21:9` などのアスペクト比を正確に制御する必要がある場合は、[リアルタイム Gemini Image API](/ja/docs/api/gemini-image) を使用してください。
+
+</Callout>
+
+### 1K のみサポート
+
+<Callout type="warn" title="バッチ API はまだ 2K / 4K に対応していません">
+
+バッチ API の `image_size` は現在次のみを受け付けます：
+
+```json
+{
+  "image_size": "1K"
+}
+```
+
+`2K` や `4K` を送信すると `BATCH_IMAGE_INVALID_ITEMS` を返します。
+
+`2K / 4K` が必要な場合は、[リアルタイム Gemini Image API](/ja/docs/api/gemini-image) を使用し、クライアント側で複数リクエストの並列処理を管理してください。
+
+</Callout>
+
+### output_count がどのようにタスクへ展開されるか
+
+アイテムが次のように設定された場合：
+
+```json
+{
+  "custom_id": "poster",
+  "prompt": "Movie poster",
+  "output_count": 3
+}
+```
+
+サーバーはこれを個別のタスク ID に展開します。例：
+
+```text
+poster_01
+poster_02
+poster_03
+```
+
+展開後の画像総数は、バッチの最大出力数を超えることはできません。
+
+---
+
+## 8. バッチ image-to-image
+
+各アイテムには `reference_images` を含めることができます：
+
+```json
+{
+  "model": "gemini-3.1-flash-image",
+  "task_name": "Product image style transfer",
+  "image_size": "1K",
+  "items": [
+    {
+      "custom_id": "product_001",
+      "prompt": "Place the product on a clean light-gray studio background, keeping the product structure and text accurate",
+      "reference_images": [
+        {
+          "id": "source_001",
+          "type": "reference",
+          "mime_type": "image/png",
+          "data": "BASE64_IMAGE_DATA"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 参照画像フィールド
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---:|:---:|---|
+| `id` | string | いいえ | 参照画像 ID |
+| `type` | string | いいえ | 参照画像の用途を示すタグ |
+| `mime_type` | string | はい | `image/png`、`image/jpeg`、または `image/webp` |
+| `data` | string | いずれか一方 | 画像の Base64 コンテンツ |
+
+公開 API 統合では、`data` を介して Base64 参照画像を渡すことを推奨します。その他のストレージ参照方式は管理された高度な機能です。必要な場合は管理者に連絡してください。
+
+参照画像の数はモデルに依存します。サービスは現在、モデル名に基づいて次のデフォルト制限を適用します：
+
+- 名前に `flash-image` を含む場合：タスクあたり最大 3 枚の参照画像；
+- 名前に `pro-image` を含む場合：タスクあたり最大 14 枚の参照画像。
+
+実際に使用できる枚数は、アップストリームモデルの機能やデプロイ設定によっても影響を受ける場合があります。
+
+---
+
+## 9. タスク作成レスポンス
+
+作成に成功すると HTTP `200` とバッチオブジェクトを返します：
+
+```json
+{
+  "id": "imgbatch_abc123",
+  "object": "image.batch",
+  "task_name": "Product image batch eval 001",
+  "status": "queued",
+  "model": "gemini-3.1-flash-image",
+  "item_count": 3,
+  "success_count": 0,
+  "fail_count": 0,
+  "estimated_cost": 0.15,
+  "hold_amount": 0.09,
+  "actual_cost": null,
+  "created_at": 1784995200,
+  "submitted_at": 1784995201,
+  "settled_at": null
+}
+```
+
+### 主要フィールド
+
+| フィールド | 説明 |
+|---|---|
+| `id` | バッチ ID。後の照会やダウンロードに使用 |
+| `status` | ユーザーに公開されるタスクステータス |
+| `item_count` | 展開後のタスクアイテム総数 |
+| `success_count` | 成功したタスク数 |
+| `fail_count` | 失敗したタスク数 |
+| `estimated_cost` | 送信時点の見積もりコスト |
+| `hold_amount` | タスク作成時に置かれる残高ホールド |
+| `actual_cost` | 精算後の実際コスト。未完了の間は `null` |
+
+<Callout type="info" title="送信成功は画像が準備できたことを意味しません">
+
+作成エンドポイントからの `200` は、バッチが受理され非同期処理パイプラインに送信されたことのみを意味します。クライアントは `completed`、`failed`、`cancelled` に到達するまでタスクステータスをポーリングし続ける必要があります。
+
+</Callout>
+
+---
+
+## 10. タスクステータスの照会
+
+### `GET /v1/images/batches/{id}`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/imgbatch_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+### ユーザー向けステータス
+
+| ステータス | 説明 | 終端 |
+|---|---|:---:|
+| `queued` | 作成、アップロード、または送信済み。アップストリーム処理を待機中 | いいえ |
+| `running` | アップストリームが画像を生成中 | いいえ |
+| `processing_results` | アップストリームの結果をダウンロード・インデックス化中 | いいえ |
+| `settling` | 実際コストを精算中 | いいえ |
+| `completed` | 処理完了。結果の照会とダウンロードが可能 | はい |
+| `failed` | バッチが失敗 | はい |
+| `cancelled` | キャンセル済み | はい |
+| `output_deleted` | 出力ファイルは削除されたが、タスクレコードは残っている | はい |
+
+推奨されるポーリング間隔：
+
+```text
+First 2 minutes: every 10-15 seconds
+After 2 minutes: every 30 seconds
+Long tasks: gradually increase to every 60 seconds
+```
+
+1 秒ごとにポーリングしないでください。
+
+<Callout type="warn" title="完了 Webhook はまだサポートされていません">
+
+バッチ API には現在 `callback_url`、`webhook_url`、完了コールバックの設定がありません。タスク完了時に呼び出し側のサーバーへ能動的に通知することはありません。
+
+呼び出し側は `GET /v1/images/batches/{id}` をポーリングし、ステータスが `completed`、`failed`、`cancelled`、または `output_deleted` に達したらポーリングを停止し、その後で詳細を照会するか結果をダウンロードする必要があります。
+
+</Callout>
+
+---
+
+## 11. タスクの一覧
+
+### `GET /v1/images/batches`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches?status=completed&limit=20' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+### クエリパラメータ
+
+| パラメータ | 型 | 説明 |
+|---|---|---|
+| `status` | string | `queued`、`running`、`processing_results`、`settling`、`completed`、`failed`、`cancelled`、`output_deleted` |
+| `task_name` | string | タスク名によるあいまい検索 |
+| `downloaded` | string | `true` / `false`、ダウンロード済みかどうかでフィルタ |
+| `from` | string | 作成時刻範囲の開始 |
+| `to` | string | 作成時刻範囲の終了 |
+| `limit` | integer | デフォルト 20、最大 100 |
+| `cursor` | string | ページネーションカーソル |
+
+レスポンス：
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "imgbatch_abc123",
+      "object": "image.batch",
+      "task_name": "Product image batch eval 001",
+      "status": "completed",
+      "model": "gemini-3.1-flash-image",
+          "item_count": 3,
+      "success_count": 3,
+      "fail_count": 0,
+      "estimated_cost": 0.15,
+      "hold_amount": 0.09,
+      "actual_cost": 0.12,
+      "created_at": 1784995200,
+      "submitted_at": 1784995201,
+      "settled_at": 1784998800
+    }
+  ],
+  "has_more": false
+}
+```
+
+---
+
+## 12. タスクアイテムの詳細を照会
+
+### `GET /v1/images/batches/{id}/items`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/items?status=success&limit=100' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+サポートされる `status` の値：
+
+```text
+all
+pending
+success
+failed
+```
+
+典型的なレスポンス（抜粋）：
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "custom_id": "image_001",
+      "status": "success",
+      "prompt_preview": "An orange tabby cat wearing an astronaut helmet...",
+      "mime_type": "image/png",
+      "file_extension": "png",
+      "image_count": 1,
+      "error": null
+    },
+    {
+      "custom_id": "image_002",
+      "status": "failed",
+      "prompt_preview": "A futuristic city in morning mist...",
+      "mime_type": null,
+      "file_extension": null,
+      "image_count": 0,
+      "error": {
+        "code": "PROVIDER_ITEM_FAILED",
+        "message": "image generation failed",
+        "source": "provider"
+      }
+    }
+  ],
+  "has_more": false
+}
+```
+
+タスクアイテムはデフォルトで 1 ページあたり 100、最大 500 です。
+
+---
+
+## 13. 画像のダウンロード
+
+### 単一タスクアイテムのダウンロード
+
+```bash
+curl \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/items/image_001/content' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  --output image_001.png
+```
+
+タスクアイテムに複数の画像がある場合、次を指定できます：
+
+```text
+?image_index=0
+?image_index=1
+```
+
+`image_index` は 0 から始まります。
+
+### バッチ全体を ZIP としてダウンロード
+
+```bash
+curl \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/download' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  --output imgbatch_abc123.zip
+```
+
+オプションのパラメータ：
+
+```text
+?status=success
+?max_items=100
+```
+
+ZIP には画像と結果マニフェストが含まれます。ダウンロードに成功すると、タスクは `downloaded_at` を記録します。
+
+---
+
+## 14. キャンセルと削除
+
+### タスクのキャンセル
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/cancel' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+すでに終端状態に達したタスクは再度キャンセルされません。アップストリームの課金を防止できるかどうかは、アップストリーム Batch タスクの現在の状態に依存します。
+
+### 出力ファイルの削除
+
+```bash
+curl --request DELETE \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/outputs' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+出力が削除されると、ステータスは `output_deleted` と表示され、画像はもうダウンロードできません。
+
+### タスクレコードの削除
+
+```bash
+curl --request DELETE \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+終端状態のタスクのみ、そのレコードを削除できます。成功すると HTTP `204` を返します。
+
+<Callout type="warn" title="レコードの削除と画像の削除は別のものです">
+
+- 出力の削除：画像ファイルをクリーンアップしますが、タスクレコードは残ります；
+- レコードの削除：現在のユーザーのタスク一覧からタスクを非表示にします；
+- 本番システムでは、結果がダウンロード・アーカイブされたことを確認してから削除してください。
+
+</Callout>
+
+---
+
+## 15. 完全な Node.js ワークフロー
+
+```js
+import { mkdir, writeFile } from 'node:fs/promises';
+
+const BASE_URL = process.env.LMU_BASE_URL || 'https://api.lmuai.com';
+const API_KEY = process.env.LMU_API_KEY;
+
+if (!API_KEY) throw new Error('Missing LMU_API_KEY');
+
+const headers = {
+  Authorization: `Bearer ${API_KEY}`,
+};
+
+async function jsonRequest(path, options = {}) {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      ...headers,
+      ...(options.headers || {}),
+    },
+  });
+
+  const text = await response.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(`Non-JSON response: HTTP ${response.status}`);
+  }
+
+  if (!response.ok) {
+    const error = data?.error || {};
+    throw new Error(
+      `${error.code || response.status}: ${error.message || text}`,
+    );
+  }
+
+  return data;
+}
+
+const batch = await jsonRequest('/v1/images/batches', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Idempotency-Key': `client-${Date.now()}`,
+  },
+  body: JSON.stringify({
+    model: 'gemini-3.1-flash-image',
+    task_name: 'Node batch image demo',
+    image_size: '1K',
+    items: [
+      { custom_id: 'cat', prompt: 'A cinematic astronaut orange tabby cat' },
+      { custom_id: 'city', prompt: 'A futuristic city in morning mist' },
+    ],
+  }),
+});
+
+console.log('batch id:', batch.id);
+
+let job = batch;
+while (!['completed', 'failed', 'cancelled', 'output_deleted'].includes(job.status)) {
+  await new Promise((resolve) => setTimeout(resolve, 15_000));
+  job = await jsonRequest(`/v1/images/batches/${encodeURIComponent(batch.id)}`);
+  console.log('status:', job.status);
+}
+
+if (job.status !== 'completed') {
+  throw new Error(`Batch task did not complete successfully: ${job.status}`);
+}
+
+const items = await jsonRequest(
+  `/v1/images/batches/${encodeURIComponent(batch.id)}/items?status=success`,
+);
+
+await mkdir('batch-output', { recursive: true });
+
+for (const item of items.data || []) {
+  const response = await fetch(
+    `${BASE_URL}/v1/images/batches/${encodeURIComponent(batch.id)}` +
+      `/items/${encodeURIComponent(item.custom_id)}/content`,
+    { headers },
+  );
+
+  if (!response.ok) {
+    console.error('Download failed:', item.custom_id, response.status);
+    continue;
+  }
+
+  const extension = item.file_extension || 'png';
+  await writeFile(
+    `batch-output/${item.custom_id}.${extension}`,
+    Buffer.from(await response.arrayBuffer()),
+  );
+}
+```
+
+---
+
+## 16. 完全な Python ワークフロー
+
+```python
+import os
+import time
+from pathlib import Path
+import requests
+
+BASE_URL = os.getenv("LMU_BASE_URL", "https://api.lmuai.com")
+API_KEY = os.environ["LMU_API_KEY"]
+HEADERS = {"Authorization": f"Bearer {API_KEY}"}
+
+payload = {
+    "model": "gemini-3.1-flash-image",
+    "task_name": "Python batch image demo",
+    "image_size": "1K",
+    "items": [
+        {"custom_id": "cat", "prompt": "A cinematic astronaut orange tabby cat"},
+        {"custom_id": "city", "prompt": "A futuristic city in morning mist"},
+    ],
+}
+
+response = requests.post(
+    f"{BASE_URL}/v1/images/batches",
+    headers={
+        **HEADERS,
+        "Content-Type": "application/json",
+        "Idempotency-Key": f"client-{int(time.time())}",
+    },
+    json=payload,
+    timeout=300,
+)
+response.raise_for_status()
+batch = response.json()
+print("batch id:", batch["id"])
+
+terminal = {"completed", "failed", "cancelled", "output_deleted"}
+job = batch
+while job["status"] not in terminal:
+    time.sleep(15)
+    response = requests.get(
+        f"{BASE_URL}/v1/images/batches/{batch['id']}",
+        headers=HEADERS,
+        timeout=60,
+    )
+    response.raise_for_status()
+    job = response.json()
+    print("status:", job["status"])
+
+if job["status"] != "completed":
+    raise RuntimeError(f"Batch task did not complete successfully: {job['status']}")
+
+items_response = requests.get(
+    f"{BASE_URL}/v1/images/batches/{batch['id']}/items",
+    headers=HEADERS,
+    params={"status": "success"},
+    timeout=60,
+)
+items_response.raise_for_status()
+items = items_response.json().get("data", [])
+
+output_dir = Path("batch-output")
+output_dir.mkdir(exist_ok=True)
+
+for item in items:
+    content = requests.get(
+        f"{BASE_URL}/v1/images/batches/{batch['id']}"
+        f"/items/{item['custom_id']}/content",
+        headers=HEADERS,
+        timeout=300,
+    )
+    content.raise_for_status()
+    extension = item.get("file_extension") or "png"
+    (output_dir / f"{item['custom_id']}.{extension}").write_bytes(content.content)
+```
+
+---
+
+## 17. 課金と残高ホールド
+
+バッチタスクは「見積もり、ホールド、完了時に精算」の流れに従います：
+
+1. サーバーはモデル、タスク数、グループ倍率、バッチ割引に基づいてコストを見積もります；
+2. タスク作成時に `hold_amount` のホールドを置きます；
+3. アップストリーム処理が完了した後、成功した画像数に基づいて `actual_cost` を計算します；
+4. 精算後、余分なホールドを解放します；
+5. 送信前にタスクが失敗またはキャンセルされた場合、システムはタスクステータスに従ってホールドの解放を試みます。
+
+レスポンスフィールド：
+
+```text
+estimated_cost
+hold_amount
+actual_cost
+```
+
+はそれぞれ見積もり額、ホールド額、最終的な実際額を表します。
+
+<Callout type="info" title="料金は現在のグループ設定に従います">
+
+バッチ割引、グループ倍率、アカウント倍率、画像 1 枚あたりの価格はすべて管理者が設定できます。ドキュメントは固定価格を約束しません。最終的な課金額はコンソールの使用詳細とバッチの `actual_cost` によって決まります。
+
+</Callout>
+
+---
+
+## 18. エラー形式
+
+バッチ API は次のエラー構造を使用します：
+
+```json
+{
+  "error": {
+    "type": "invalid_request_error",
+    "code": "BATCH_IMAGE_INVALID_ITEMS",
+    "message": "batch image items are invalid"
+  }
+}
+```
+
+また、レスポンスヘッダーのリクエスト ID を記録してください。コンソールでは、エラーメッセージは次のように表示されます：
+
+```text
+Error code: BATCH_IMAGE_DISABLED
+Request ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+### 一般的なエラーコード
+
+| エラーコード | HTTP | 意味 | 対処 |
+|---|---:|---|---|
+| `BATCH_IMAGE_DISABLED` | 404 | グローバルなバッチ画像生成が有効になっていない | エラーコードとリクエスト ID を管理者に提供 |
+| `BATCH_IMAGE_GROUP_DISABLED` | 403 | 現在のキーのグループがバッチ画像生成を許可していない、または Gemini グループでない | キーを切り替えるか、管理者にグループ権限の有効化を依頼 |
+| `BATCH_IMAGE_NO_ACCOUNT_AVAILABLE` | 502 | 現在バッチ実行リソースが利用できない | リクエスト ID を保存し、管理者に連絡 |
+| `BATCH_IMAGE_SETTLEMENT_PRICING_MISSING` | 400 | バッチモデルに課金価格がない | 管理者にモデル価格の設定を依頼 |
+| `BATCH_IMAGE_INVALID_MODEL` | 400 | モデルが指定されていない | バッチモデル一覧のモデルを使用 |
+| `BATCH_IMAGE_INVALID_ITEMS` | 400 | items、解像度、またはリクエストフィールドが無効 | リクエストボディを確認。現在 1K のみサポート |
+| `BATCH_IMAGE_DUPLICATE_CUSTOM_ID` | 400 | `custom_id` が重複 | 同一バッチ内で一意であることを確認 |
+| `BATCH_IMAGE_PROMPT_TOO_LONG` | 400 | プロンプトが長すぎる | プロンプトを短くする |
+| `BATCH_IMAGE_TOO_MANY_OUTPUT_IMAGES` | 400 | 展開後の画像数が制限を超えている | items または output_count を減らす |
+| `BATCH_IMAGE_INVALID_REFERENCE_IMAGE` | 400 | 参照画像の形式、サイズ、または URI が無効 | MIME タイプ、Base64、file_uri を確認 |
+| `BATCH_IMAGE_INSUFFICIENT_BALANCE` | 402 | ホールドを置くには残高が不足している | チャージするかタスク量を減らす |
+| `BATCH_IMAGE_IDEMPOTENCY_CONFLICT` | 409 | 同じ冪等キーが異なるリクエストボディにマッピングされている | 新しい Idempotency-Key を使用 |
+| `BATCH_IMAGE_PROVIDER_SUBMIT_FAILED` | 502 | アップストリームのバッチタスク作成に失敗 | リクエスト ID を保存し、限られた回数リトライするか管理者に連絡 |
+| `BATCH_IMAGE_QUEUE_FAILED` | 502 | 非同期タスクサービスが一時的に利用できない | リクエスト ID を保存し、管理者に連絡 |
+| `BATCH_IMAGE_NOT_READY` | 409 | タスク完了前にダウンロードを試みた | ステータスが completed になるまで待つ |
+| `BATCH_IMAGE_OUTPUT_DELETED` | 410 | 出力がすでにクリーンアップされている | 再ダウンロードできません。タスクを再作成する必要があります |
+| `BATCH_IMAGE_ITEM_FAILED` | 409 | 指定したタスクアイテムに成功した画像がない | item.error を確認 |
+| `BATCH_IMAGE_DOWNLOAD_LIMITED` | 429 | 同時ダウンロードが多すぎる | 後でリトライ |
+
+---
+
+## 19. バッチ API とリアルタイム API の比較
+
+| 観点 | リアルタイム Gemini 画像 | 非同期バッチ画像 |
+|---|---|---|
+| エンドポイント | `/v1beta/models/{model}:generateContent` | `/v1/images/batches` |
+| 返却方式 | 同一 HTTP リクエスト内で Base64 画像を返す | バッチ ID を返す。その後ポーリングしてダウンロード |
+| 解像度 | `1K / 2K / 4K` | 現在 `1K` のみ受け付け、アップストリームはデフォルトの画像設定を使用 |
+| アスペクト比 | モデルが実際にサポートする比率 enum で制御 | 現在指定できません。アップストリームのデフォルトアスペクト比を使用 |
+| 複数プロンプト | クライアントが複数リクエストを行う | 1 つのバッチに複数の items が含まれる |
+| アイテムごとの複数画像 | 複数の個別リクエスト | `output_count`、デフォルトで最大 4 |
+| 状態管理 | 呼び出し側が自分で追跡 | タスクステータス、詳細、キャンセル、削除が組み込み済み |
+| ダウンロード方式 | Base64 デコード | 単一画像ダウンロードまたは ZIP |
+| コスト | リアルタイムリクエストごとに課金 | 見積もり、残高ホールド、完了時に精算 |
+| 適した用途 | オンラインインタラクション、品質テスト、パフォーマンスストレステスト | 大規模なオフライン生成 |
+
+---
+
+## 20. 統合チェックリスト
+
+- [ ] `/v1/images/batches/models` が少なくとも 1 つのモデルを返す；
+- [ ] 使用する API キーが、バッチ画像生成を許可する Gemini グループに属している；
+- [ ] タスク作成に一意の `Idempotency-Key` が含まれている；
+- [ ] `image_size` に `1K` を使用している；
+- [ ] すべての `custom_id` の値が一意である；
+- [ ] `completed` または明確な終端状態までポーリングできる；
+- [ ] 成功／失敗の詳細を照会できる；
+- [ ] 単一画像をダウンロードできる；
+- [ ] ZIP をダウンロードし、結果マニフェストを読み取れる；
+- [ ] 失敗アイテムを特定し、バッチ全体を再送信しないようにできる；
+- [ ] estimated_cost、hold_amount、actual_cost を検証済み；
+- [ ] ログにエラーコードとリクエスト ID を記録するが、完全な API キーは記録しない。
+
+---
+
+## 次のステップ
+
+- リアルタイム text-to-image と image-to-image：[Gemini Image API](/ja/docs/api/gemini-image)
+- 使用量とコストの詳細を照会：[使用詳細のエクスポート](/ja/docs/api/usage-export)
+- API キーとプロトコルの詳細：[API プロトコル](/ja/docs/guide/api-protocols)

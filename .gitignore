@@ -8,6 +8,8 @@ content-ai-dates.json
 *.local
 .env
 .env.*
+# 翻译流水线的幂等缓存（scripts/translate-content.mjs），仅本地
+scripts/.translate-cache.json
 .DS_Store
 **/.DS_Store
 *.tsbuildinfo

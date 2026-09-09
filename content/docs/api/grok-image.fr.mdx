@@ -1,0 +1,283 @@
+---
+title: API d'images Grok
+description: "Appelez les modèles d'images Grok via l'API d'images compatible OpenAI de LMU AI : texte-vers-image, édition, entrée par URL et Base64, téléchargements, choix du modèle et correction des erreurs."
+ogDescription: "Guide d'intégration de l'API d'images Grok de LMU AI : POST /v1/images/generations avec grok-imagine-image, et POST /v1/images/edits avec grok-imagine-image-quality pour l'édition d'images."
+keywords:
+  - API d'images Grok
+  - grok-imagine-image
+  - grok-imagine-image-quality
+  - Édition d'images Grok
+  - API d'images xAI
+  - Génération d'images Grok LMU AI
+alternateNames:
+  - API de génération d'images Grok
+  - API compatible génération d'images xAI
+faq:
+  - q: Quel endpoint la génération d'images Grok utilise-t-elle ?
+    a: "Le texte-vers-image utilise POST /v1/images/generations, et l'édition d'images utilise POST /v1/images/edits. Définissez le base_url d'un client compatible OpenAI sur https://api.lmuai.com/v1."
+  - q: Quel modèle est recommandé pour le texte-vers-image ?
+    a: "Pour le texte-vers-image standard, nous recommandons grok-imagine-image ; utilisez grok-imagine-image-quality lorsque vous avez besoin du modèle de qualité ou de l'édition d'images. La réponse de GET /v1/models pour votre clé API actuelle fait foi."
+  - q: Comment les résultats d'images Grok sont-ils retournés ?
+    a: "Ils retournent généralement data[].url. Le lien de téléchargement peut expirer, nous vous recommandons donc de le télécharger juste après la fin du job et de l'enregistrer dans votre propre stockage d'objets."
+  - q: Grok prend-il en charge la génération d'images asynchrone ou par lots ?
+    a: "L'environnement de production n'a actuellement aucun job d'image asynchrone activé, et /v1/images/batches ne prend pas non plus en charge Grok. Utilisez l'API d'images synchrone et contrôlez la concurrence côté client."
+---
+
+LMU AI propose la génération et l'édition d'images Grok via le chemin d'images compatible OpenAI.
+
+<Callout type="info" title="URL de base">
+
+SDK compatible OpenAI :
+
+```text
+https://api.lmuai.com/v1
+```
+
+Endpoints HTTP complets :
+
+```text
+POST https://api.lmuai.com/v1/images/generations
+POST https://api.lmuai.com/v1/images/edits
+```
+
+</Callout>
+
+## 1. Aperçu de l'API
+
+| Méthode | Chemin | Description |
+|---|---|---|
+| `GET` | `/v1/models` | Interroge les modèles disponibles pour votre groupe Grok actuel |
+| `POST` | `/v1/images/generations` | Texte-vers-image Grok, réponse synchrone |
+| `POST` | `/v1/images/edits` | Édition d'images / image-vers-image Grok, réponse synchrone |
+
+Il n'existe actuellement aucune API Grok de job asynchrone ou de lot multi-éléments accessible au public.
+
+## 2. Modèles recommandés
+
+| Scénario | Modèle recommandé |
+|---|---|
+| Texte-vers-image standard | `grok-imagine-image` |
+| Texte-vers-image priorité qualité | `grok-imagine-image-quality` |
+| Édition d'images / image-vers-image | `grok-imagine-image-quality` |
+
+Interrogez d'abord les modèles avec votre clé API actuelle :
+
+```bash
+curl https://api.lmuai.com/v1/models \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+<Callout type="warn" title="Utilisez le modèle de qualité pour l'édition d'images">
+
+Les exemples d'édition d'images utilisent `grok-imagine-image-quality`. Nous ne recommandons pas `grok-imagine-edit` comme modèle par défaut : ce nom de compatibilité peut apparaître dans certaines listes de modèles, mais certains canaux en amont retournent `404` lorsqu'il est appelé.
+
+</Callout>
+
+## 3. Authentification
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+Votre clé API doit appartenir à un groupe Grok dont la génération d'images est activée.
+
+## 4. Texte-vers-image
+
+### `POST /v1/images/generations`
+
+```bash
+curl https://api.lmuai.com/v1/images/generations \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "grok-imagine-image",
+    "prompt": "A blue ceramic mug, centered on a light-gray studio background, soft side lighting, no text",
+    "n": 1,
+    "size": "1024x1024"
+  }'
+```
+
+JavaScript :
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.LMU_API_KEY,
+  baseURL: "https://api.lmuai.com/v1",
+});
+
+const result = await client.images.generate({
+  model: "grok-imagine-image",
+  prompt: "A blue ceramic mug, light-gray studio background, soft side lighting, no text",
+  n: 1,
+  size: "1024x1024",
+});
+
+const url = result.data?.[0]?.url;
+if (!url) throw new Error("No image URL in the response");
+console.log(url);
+```
+
+Python :
+
+```python
+from openai import OpenAI
+import requests
+
+client = OpenAI(
+    api_key="YOUR_API_KEY",
+    base_url="https://api.lmuai.com/v1",
+)
+
+result = client.images.generate(
+    model="grok-imagine-image",
+    prompt="A blue ceramic mug, light-gray studio background, soft side lighting, no text",
+    n=1,
+    size="1024x1024",
+)
+
+url = result.data[0].url
+if not url:
+    raise RuntimeError("No image URL in the response")
+
+image = requests.get(url, timeout=60)
+image.raise_for_status()
+with open("grok-output.jpg", "wb") as f:
+    f.write(image.content)
+```
+
+## 5. Paramètres du texte-vers-image
+
+| Champ | Type | Requis | Description |
+|---|---:|---:|---|
+| `model` | string | Oui | Recommandé : `grok-imagine-image` ou `grok-imagine-image-quality` |
+| `prompt` | string | Oui | Description de l'image |
+| `n` | integer | Non | Nombre d'images ; nous recommandons de commencer vos tests avec `1` |
+| `size` | string | Non | Paramètre de taille compatible OpenAI ; la taille de sortie réelle est déterminée par les capacités en amont de Grok |
+| `response_format` | string | Non | Paramètre de compatibilité du format de réponse ; Grok retourne généralement une URL |
+
+<Callout type="warn" title="Ne comptez pas sur size pour forcer des pixels de sortie fixes">
+
+Les canaux Grok peuvent accepter `size` comme paramètre de compatibilité ou de facturation, mais les pixels et le rapport d'aspect finaux de l'image sont déterminés par le résultat de génération en amont. Lorsque vous avez besoin de pixels fixes, téléchargez l'image et recadrez-la ou redimensionnez-la vous-même.
+
+</Callout>
+
+## 6. Édition d'images / image-vers-image
+
+### `POST /v1/images/edits`
+
+L'édition d'images Grok se fait de préférence en JSON ; passez l'une des valeurs suivantes dans `image.url` :
+
+- Une URL d'image HTTPS publiquement accessible ; ou
+- Une Data URL `data:image/...;base64,...`.
+
+### Utilisation d'une URL d'image
+
+```bash
+curl https://api.lmuai.com/v1/images/edits \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "grok-imagine-image-quality",
+    "prompt": "Keep the mug's shape, composition, and lighting; change the mug from blue to yellow; no text",
+    "image": {
+      "url": "https://example.com/input.jpg",
+      "type": "image_url"
+    },
+    "response_format": "url"
+  }'
+```
+
+### Conversion d'une image locale en Data URL
+
+Python :
+
+```python
+import base64
+import mimetypes
+import requests
+
+api_key = "YOUR_API_KEY"
+image_path = "input.jpg"
+mime_type = mimetypes.guess_type(image_path)[0] or "image/jpeg"
+
+with open(image_path, "rb") as f:
+    data_url = f"data:{mime_type};base64,{base64.b64encode(f.read()).decode()}"
+
+payload = {
+    "model": "grok-imagine-image-quality",
+    "prompt": "Keep the subject and composition; change the background to a seaside at dusk; no text",
+    "image": {
+        "url": data_url,
+        "type": "image_url",
+    },
+    "response_format": "url",
+}
+
+response = requests.post(
+    "https://api.lmuai.com/v1/images/edits",
+    headers={
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    },
+    json=payload,
+    timeout=300,
+)
+response.raise_for_status()
+result = response.json()
+print(result["data"][0]["url"])
+```
+
+<Callout type="warn" title="Les Data URL agrandissent le corps de la requête">
+
+Le Base64 augmente le corps de la requête d'environ un tiers. Pour les grandes images, compressez-les d'abord, ou téléversez-les vers votre propre stockage d'objets HTTPS et passez l'URL. N'utilisez pas d'adresses nécessitant des cookies, une session de connexion ou une protection anti-hotlink temporaire.
+
+</Callout>
+
+## 7. Format de réponse
+
+Une réponse d'image Grok typique :
+
+```json
+{
+  "data": [
+    {
+      "url": "https://image-host.example/generated.jpg"
+    }
+  ],
+  "usage": {
+    "cost_in_usd_ticks": 200000000
+  }
+}
+```
+
+Les clients doivent :
+
+1. Vérifier le code de statut HTTP ;
+2. Vérifier si `data` est un tableau non vide ;
+3. Vérifier si `data[0].url` est non vide ;
+4. Télécharger l'image immédiatement et l'enregistrer dans votre propre stockage ;
+5. Ne pas traiter l'URL temporaire comme une adresse de ressource permanente.
+
+Le champ `usage` est retourné par le canal en amont, et sa structure peut différer de l'API d'images GPT. Le coût final suit votre facture LMU AI et les détails d'Usage ; ne traitez aucun champ en amont isolé comme le montant facturé à votre compte.
+
+## 8. Erreurs courantes
+
+| HTTP | Cause courante | Action recommandée |
+|---:|---|---|
+| `400` | `model` / `prompt` manquant, ou Data URL d'image invalide | Vérifiez le JSON et l'encodage de l'image |
+| `401` | Clé API invalide | Vérifiez l'authentification Bearer |
+| `403` | Génération d'images non activée pour le groupe | Contactez l'administrateur pour vérifier les permissions du groupe Grok |
+| `404` | Un alias de modèle incompatible avec le canal a été utilisé, ou le chemin en amont est indisponible | Pour l'édition, basculez d'abord sur `grok-imagine-image-quality` et enregistrez l'ID de requête |
+| `429` | Limites de concurrence, de RPM ou de quota en amont | Réduisez la concurrence et réessayez avec un backoff exponentiel |
+| `5xx` | Échec temporaire de la génération en amont | Réessayez un nombre limité de fois et fournissez l'ID de requête à l'administrateur |
+
+## 9. Différences avec les autres API d'images
+
+| Besoin | Doc recommandée |
+|---|---|
+| Texte-vers-image et image-vers-image natifs de Gemini | [API d'images Gemini](/fr/docs/api/gemini-image) |
+| Texte-vers-image et édition GPT | [API d'images GPT](/fr/docs/api/gpt-image) |
+| Texte-vers-image et édition Grok | Cette page |
+| Traitement asynchrone de plusieurs prompts Gemini | [API d'images par lots Gemini](/fr/docs/api/gemini-image-batch) |

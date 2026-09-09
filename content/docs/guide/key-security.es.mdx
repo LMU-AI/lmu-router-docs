@@ -1,0 +1,133 @@
+---
+title: Seguridad de la clave
+description: "Guía de lista blanca/negra de IP para la clave de API de LMU AI: restringe qué IP pueden usar tu clave para evitar que una clave filtrada sea abusada; admite IP individuales y rangos CIDR."
+ogDescription: "Seguridad de claves de LMU AI: configura listas blancas y negras de IP para tus claves de API de Claude / GPT / modelos chinos, con soporte para IP individuales, rangos CIDR e IPv6, de modo que una clave filtrada no pueda ser usada por otros para agotar tu cuota — incluye resolución de problemas y mejores prácticas de producción."
+keywords:
+  - seguridad de la clave de API
+  - lista blanca de IP para la clave de API
+  - prevenir el abuso de la clave de API
+  - qué hacer si se filtra una clave de API de Claude
+  - configuración de lista blanca CIDR
+  - lista blanca IPv6
+  - 403 ACCESS_DENIED
+  - seguridad de la clave de Claude Code
+  - restricción de IP para la clave de LMU AI
+  - protección de la clave de API de IA
+alternateNames:
+  - Configuración de lista blanca de IP para la clave de API de Claude
+  - Guía de seguridad de la clave de LMU AI
+  - Configuración de protección contra abuso de la clave de API
+  - Cómo limitar las pérdidas tras la filtración de una clave
+  - Tutorial de protección de la clave de Claude Code
+faq:
+  - q: ¿Puedo usar la lista blanca y la lista negra de IP al mismo tiempo?
+    a: Sí. Cuando ambas están configuradas, la lista negra tiene efecto primero — incluso si una IP está en la lista blanca, se rechaza si coincide con la lista negra.
+  - q: ¿Por qué no puedo conectarme cuando pongo una IP privada (LAN) en la lista blanca?
+    a: Los servidores de LMU AI no pueden ver las IP privadas (como 192.168.x.x o 10.x.x.x); solo ven tu **IP pública de salida**. Usa `curl https://ifconfig.me` para encontrar tu IP real de salida y luego ingrésala.
+  - q: Mi IP de casa cambia — ¿cómo uso la lista blanca?
+    a: Si tienes una IP pública dinámica, puedes ingresar el rango CIDR asignado por tu ISP (como `123.45.0.0/16`) para ampliar el rango; si no puedes determinar el rango, recomendamos no habilitar la lista blanca y usar otras protecciones en su lugar (límite de tasa, cuota total, lista blanca de modelos).
+  - q: ¿Qué debo hacer si se filtra mi clave de API de LMU AI?
+    a: Inmediatamente **restablece o elimina** la clave en la consola; si ya tienes configurada una lista blanca de IP, la clave filtrada no podrá usarse desde IP desconocidas, lo que reduce significativamente tus pérdidas. También recomendamos rastrear el origen de la filtración (commits en repositorios públicos, logs, historial de chat, capturas de pantalla, etc.) y habilitar una lista blanca de IP de inmediato en la nueva clave.
+  - q: ¿Cuántas IP puede tener una clave? ¿Admite IPv6?
+    a: "Una regla por línea; puedes combinar IP individuales y rangos CIDR, y no hay un límite estricto en el número de entradas. Se admiten tanto IPv4 como IPv6 (ejemplo de IPv6: `2001:db8::/32`). Si tienes salida tanto v4 como v6, ingresa ambas."
+  - q: ¿Cómo configuro la lista blanca para las llamadas desde un servidor de producción?
+    a: Ingresa la **IP pública** del servidor (no su IP privada). Si usas un balanceador de carga o tienes varias IP de salida, agrega todas las posibles IP de salida o sus rangos CIDR a la lista blanca; para el desarrollo local, usa una clave separada sin lista blanca para evitar interferencias.
+  - q: ¿La lista blanca de IP, el límite de tasa y la cuota total entran en conflicto?
+    a: No, y recomendamos combinarlos. La lista blanca de IP limita "quién puede usarla", el límite de tasa limita "qué tan rápido" y la cuota total limita "cuánto". Configura los tres en una clave de producción para una defensa en profundidad — incluso si se elude la lista blanca, el límite de tasa y la cuota siguen brindando un respaldo.
+  - q: ¿Por qué mi llamada se rechaza con 403 ACCESS_DENIED?
+    a: Lo más probable es que la IP no coincidiera con la lista blanca. Usa `curl https://ifconfig.me` para verificar tu IP real de salida, compárala con la lista blanca de la clave y agrega la IP actual o borra temporalmente la lista blanca para probar; si aún se rechaza, verifica si coincide con la lista negra, si la clave está deshabilitada y si la cuota está agotada.
+---
+
+Si una clave se filtra, otros pueden usarla para consumir tu cuota. Una **lista blanca de IP** es la protección más directa — solo las IP en las que confías tienen permiso para usar la clave.
+
+## Dónde configurarla
+
+Ve a **consola → Claves de API → Editar (o Crear)** y encuentra los dos campos, **Lista blanca de IP** y **Lista negra de IP**.
+
+Una regla por línea, en cualquiera de dos formatos:
+
+| Formato | Ejemplo | Descripción |
+|------|------|------|
+| IP individual | `203.0.113.10` | Coincide exactamente con una IP |
+| Rango CIDR | `203.0.113.0/24` | Coincide con un rango completo de IP (`/24` = 256 IP) |
+
+Se admiten tanto IPv4 como IPv6 (ejemplo de IPv6: `2001:db8::/32`).
+
+## Cómo tiene efecto
+
+- **Lista blanca vacía** → sin restricción de origen; cualquier IP puede usar la clave
+- **Lista blanca no vacía** → solo las IP en la lista pueden usarla; todas las demás se rechazan
+- **Lista negra** → las IP coincidentes se rechazan, **con prioridad sobre la lista blanca**
+- Puedes usar ambas a la vez (la lista negra se verifica primero, luego la lista blanca)
+
+Cuando se rechaza, la API devuelve `403 ACCESS_DENIED`.
+
+## Encuentra tu IP real de salida (¡importante!)
+
+**Este es el error más fácil de cometer**: la IP que configuras en la clave debe ser la **IP pública de salida** que ven los servidores de LMU AI, no la dirección privada que muestra `ipconfig` / `ifconfig` en tu computadora.
+
+```bash
+# Command line
+curl https://ifconfig.me
+# or
+curl https://ip.sb
+```
+
+O abre [ip.sb](https://ip.sb) / [ifconfig.me](https://ifconfig.me) en tu navegador.
+
+<Callout type="warn">
+  Tu IP de salida cambia cuando activas una VPN o un proxy corporativo, o cuando tu dispositivo móvil cambia de red Wi-Fi. Confírmala con el comando anterior antes de configurar la lista blanca.
+</Callout>
+
+## Escenarios comunes
+
+**Escenario 1: Una IP de oficina fija**
+```
+Whitelist:
+203.0.113.10
+```
+
+**Escenario 2: Trabajar tanto desde casa como desde la oficina**
+```
+Whitelist:
+203.0.113.10      # Company egress
+198.51.100.20     # Home broadband
+```
+
+**Escenario 3: Ejecutar en tu propio servidor en la nube**
+```
+Whitelist:
+<your cloud server's public IP>
+```
+Permite que solo tu servidor llame a la API, y usa una clave separada (sin lista blanca) para el desarrollo local.
+
+**Escenario 4: Solo quieres bloquear temporalmente una IP sospechosa**
+```
+Blacklist:
+1.2.3.4
+```
+Todo lo demás funciona como de costumbre, sin impacto en el uso normal.
+
+## Resolución de problemas
+
+**P: Mi llamada devuelve 403 ACCESS_DENIED — ¿es una restricción de IP?**
+
+Lo más probable. Verifica en orden:
+
+1. Usa `curl https://ifconfig.me` para confirmar tu IP real de salida actual
+2. Compárala con la lista blanca de la clave para ver si coincide
+3. Si no coincide, agrega la IP actual a la lista blanca, o borra temporalmente la lista blanca para probar
+4. Si aún se rechaza, verifica si está en la lista negra, si la clave está deshabilitada y si la cuota está agotada
+
+**P: Puse una IP en la lista blanca pero aún me rechazan.**
+
+- ¿Ingresaste una **IP privada** (`192.168.x.x` / `10.x.x.x` / `172.16-31.x.x`)? Reemplázala con tu IP pública de salida.
+- ¿Ingresaste una dirección IPv6 pero te conectas por IPv4 (o viceversa)? Ingresa ambas.
+- ¿Ingresaste un CIDR con formato incorrecto (como `1.2.3.4/33`)? Las reglas inválidas se ignoran silenciosamente.
+
+## Prácticas recomendadas
+
+- Para **claves de producción**, recomendamos encarecidamente configurar una lista blanca de IP para minimizar la superficie de ataque
+- Para **claves de desarrollo / depuración**, puedes omitir la lista blanca, pero debes establecer un **tope de cuota total** como respaldo
+- Si te preocupan especialmente las filtraciones, combínala con [**límite de tasa**, **cuota total** y **lista blanca de modelos**](/es/docs/guide/how-to-use-token) para una defensa por capas
+- En el momento en que sospeches que una clave se ha filtrado, **restablécela o elimínala** en la consola de inmediato

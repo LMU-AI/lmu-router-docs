@@ -1,0 +1,136 @@
+---
+title: Chatbox 모바일
+description: "Chatbox 모바일(iOS / Android)을 LMU AI에 연결하세요: ☰ 메뉴에서 Model Provider를 열고 두 프로토콜 모두에 대해 API Host를 설정하세요 — 해외 직접 연결."
+ogDescription: Chatbox 모바일(iOS / Android)을 LMU AI에 연결하세요 — 좌측 상단의 ☰ 메뉴에서 Model Provider를 열고, Anthropic 호환 프로토콜로 Claude / DeepSeek / Qwen / GLM을 호출하거나 OpenAI Responses 프로토콜로 GPT 시리즈를 호출하세요; API Host를 `https://api.lmuai.com`으로 설정하고(끝에 /v1 없이), "Improve Network Compatibility"를 켜서 모바일 네트워크 연결 문제를 줄이며, 해외 직접 연결을 사용합니다.
+keywords:
+  - Chatbox 모바일 구성
+  - Chatbox 모바일 API 구성
+  - Chatbox iOS에서 LMU AI 구성
+  - Chatbox Android에서 LMU AI 구성
+  - Chatbox 모바일 API Host
+  - Chatbox Improve Network Compatibility
+  - Chatbox 모바일 OpenAI Responses
+  - claude-sonnet-5
+  - gpt-5.6-sol
+  - Chatbox 모바일 해외 직접 연결
+alternateNames:
+  - Chatbox 모바일을 LMU AI에 연결
+  - Chatbox iOS / Android 설정 가이드
+  - Chatbox 모바일에서 Claude API 구성
+  - Chatbox 모바일에서 Claude에 직접 연결
+faq:
+  - q: Chatbox 모바일에서 API 구성은 어디서 여나요?
+    a: Chatbox를 열고 → 좌측 상단의 메뉴 아이콘 ☰을 탭하여 사이드바를 엽니다 → Settings → Model Provider → 하단의 Add. 모바일에서는 필드가 API Host와 API Path로 표시되며, 데스크톱 버전과 일대일로 대응됩니다.
+  - q: Chatbox 모바일 API Host에 /v1이 필요한가요?
+    a: 아니요. 항상 API Host는 도메인까지만 `https://api.lmuai.com`으로 입력하세요; Chatbox가 /v1을 자동으로 붙입니다 — Anthropic 프로토콜은 /v1/messages가 되고 OpenAI Responses 프로토콜은 /v1/responses가 됩니다. 입력을 마치면 조합된 전체 주소가 필드 아래에 실시간으로 표시되므로, 그것과 대조해 확인하기만 하면 됩니다.
+  - q: Chatbox 모바일에서 "Improve Network Compatibility"를 켜야 하나요?
+    a: 켜는 것을 권장합니다. 구성 화면 하단 근처에 있으며 모바일 네트워크에서의 연결 문제를 줄여줍니다; Wi-Fi와 셀룰러 간 전환 후 구성이 적용되지 않으면 Chatbox를 한 번 재시작하세요.
+  - q: Chatbox 모바일을 LMU AI에 연결하려면 VPN이 필요한가요?
+    a: 아니요. LMU AI API 도메인 api.lmuai.com은 해외에서 직접 연결되며, Chatbox 모바일은 어떤 프록시도 없이 작동합니다.
+---
+
+Chatbox 모바일(iOS / Android)은 데스크톱 버전과 동일한 구성 논리를 공유합니다 — 진입점과 필드 이름만 약간 다릅니다. 이 가이드는 모바일에서 화면별로 단계를 안내합니다; 데스크톱은 [Chatbox — 모든 플랫폼](./chatbox)을 참조하세요.
+
+<Callout type="info" title="데스크톱과 거의 동일">
+
+- **진입점이 다름**: 모바일에서는 **좌측 상단의 ☰ 메뉴**에서 Settings를 엽니다; 데스크톱에서는 좌측 하단의 Settings입니다.
+- **필드는 동일**: 모바일에서는 **API Host**와 **API Path**로 표시되며, 데스크톱 버전과 정확히 일치합니다 — 아래 단계를 따르기만 하면 됩니다.
+
+</Callout>
+
+---
+
+## 다운로드 및 설치
+
+- **공식 사이트**: [https://chatboxai.app](https://chatboxai.app)
+- App Store(iOS) 또는 앱 스토어 / 공식 APK(Android)에서 설치하세요 — bring-your-own-key(BYOK) 모드를 사용하는 데는 계정이 필요 없습니다.
+
+---
+
+## 구성 진입점 열기
+
+Chatbox를 열고 → 좌측 상단의 **메뉴 아이콘 ☰**을 탭하여 사이드바를 엽니다 → **Settings**를 탭합니다 → **Model Provider**로 이동합니다 → 하단의 **Add**를 탭합니다.
+
+구성 화면에 들어가면 아래 방법 1 / 방법 2를 따라 입력하세요.
+
+---
+
+## 두 가지 프로토콜
+
+LMU AI는 두 가지 연결 프로토콜을 지원합니다; 모델 유형에 따라 하나를 선택하세요:
+
+| 프로토콜 | 모델 | API Host | API Path |
+|------|----------|----------|----------|
+| **Claude API (Anthropic Compatible)** | Claude 모델, 중국 모델(DeepSeek, Qwen, GLM, Kimi 등) | `https://api.lmuai.com` | 기본값으로 충분 |
+| **OpenAI Responses API Compatible** | OpenAI 모델(GPT-5.6 / GPT-5.5 등) | `https://api.lmuai.com` | `/responses` |
+
+<Callout type="info" title="API Host에는 절대 /v1을 포함하지 않습니다">
+
+Chatbox가 경로를 자동으로 붙이므로, **항상 API Host는 도메인까지만 입력하세요 — `/v1`을 포함하지 마세요**. 입력을 마치면 조합된 전체 주소가 필드 아래에 실시간으로 표시됩니다 — 예를 들어 OpenAI Responses 프로토콜은 `https://api.lmuai.com/v1/responses`가 됩니다. **도메인이 `api.lmuai.com`이 아니면 API Host가 잘못된 것입니다.**
+
+</Callout>
+
+---
+
+## 방법 1: Anthropic 프로토콜(Claude 및 중국 모델)
+
+1. **API Mode**: **`Claude API (Anthropic Compatible)`**를 선택
+2. **Name**: 원하는 이름(예: `LMU AI`)
+3. **API Host**: `https://api.lmuai.com` 입력(**`/v1` 없이**)
+4. **API Key**: 콘솔에서 생성한 `sk-` 키를 입력
+5. **모델 추가**: 모바일 프리셋 목록에는 최신 모델이 포함되지 않을 수 있으므로, Model 섹션에서 New / Add Model을 탭하고 모델 ID를 입력하세요. 예:
+
+   - `claude-opus-5`
+   - `claude-sonnet-5`
+   - `claude-haiku-4-5`
+   - `deepseek-v4-pro`
+   - `qwen3.8-max-preview`
+   - `glm-5.2`
+   - `kimi-k3`
+
+   사용 가능한 전체 모델 목록은 [모델 갤러리](/ko/docs/guide/models)를 참조하세요.
+
+---
+
+## 방법 2: OpenAI 프로토콜(GPT 모델)
+
+<Callout type="warn" title="요구 사항">
+
+다음 조건 중 하나를 충족해야 합니다:
+
+- **GPT 플랜**을 구독함
+- 종량제 과금을 사용하며 LMU AI 콘솔에서 **GPT 그룹**을 선택함
+
+</Callout>
+
+1. **API Mode**: **`OpenAI Responses API Compatible`**를 선택(`OpenAI API Compatible`이 아님)
+2. **Name**: 원하는 이름(예: `LMUAI-GPT`)
+3. **API Host**: `https://api.lmuai.com` 입력
+4. **API Path**: `/responses` 입력
+5. **API Key**: 콘솔에서 생성한 `sk-` 키를 입력
+6. **모델 추가**: Model 섹션에서 New를 탭하고 모델 ID를 입력하세요. 예: `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.5`, `gpt-5.4`.
+
+Chatbox는 API Host, `/v1`, API Path를 합쳐 전체 주소 `https://api.lmuai.com/v1/responses`를 만들며, 필드 아래에 실시간으로 표시합니다.
+
+---
+
+## 실제 예시와 모바일 특화 세부 사항
+
+아래는 완성된 모바일 구성 화면입니다(OpenAI Responses 프로토콜; 전체 주소 `https://api.lmuai.com/v1/responses`가 이미 필드 아래에 조합되어 있음):
+
+![완성된 Chatbox 모바일 구성](/images/tools/chatbox-phone/chatbox-phone-config.jpg)
+
+<Callout type="info" title="모바일을 위한 두 가지 세부 사항">
+
+- **"Improve Network Compatibility"**: 화면 하단 근처의 이 스위치를 **켜세요**; 모바일 네트워크에서의 연결 문제를 줄여줍니다.
+- **필드 아래에 조합된 전체 주소를 확인**: 입력을 마치면 Chatbox가 최종 요청 URL을 실시간으로 표시합니다(위 스크린샷에서는 `https://api.lmuai.com/v1/responses`가 됨). 도메인이 `api.lmuai.com`이 아니면 **API Host**가 잘못된 것입니다.
+
+</Callout>
+
+---
+
+## 문제 해결
+
+- **변경 사항이 적용되지 않음**: 저장한 후 Chatbox를 한 번 재시작하거나 채팅 화면에서 모델을 다시 선택하세요; 모바일에서는 Wi-Fi와 셀룰러 간 전환 후 재시작이 필요한 경우도 있습니다.
+- **401 / 403 오류**: API Key가 LMU AI 콘솔의 `sk-` 키인지, API Host가 올바른지(`/v1` 없이), OpenAI 프로토콜의 API Mode와 API Path가 맞는지, 현재 플랜 / 과금 그룹에 호출하려는 모델이 포함되어 있는지 순서대로 확인하세요.
+- 프로토콜, 모델 ID, 일반적인 문제에 대한 자세한 내용은 데스크톱과 모바일 공통 [Chatbox — 모든 플랫폼](./chatbox) 페이지를 참조하세요.
