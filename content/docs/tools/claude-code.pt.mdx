@@ -1,0 +1,429 @@
+---
+title: Claude Code CLI
+description: "Conecte a CLI do Claude Code à API da LMU AI: configuração do settings.json, seleção de modelos, LLMs chineses, ativação do contexto de 1M e correções de erros comuns."
+ogDescription: Conecte a CLI do Claude Code através da LMU AI — configure ANTHROPIC_BASE_URL / ANTHROPIC_AUTH_TOKEN no settings.json e use Claude Opus 5 / Sonnet 5 e LLMs chineses sem proxy; também cobre a ativação do contexto longo de 1M token com ANTHROPIC_DEFAULT_OPUS_MODEL / ANTHROPIC_DEFAULT_SONNET_MODEL e o sufixo `[1M]`.
+keywords:
+  - configuração da CLI do Claude Code
+  - configuração de relay do Claude Code
+  - settings.json do Claude Code
+  - contexto de 1M do Claude Code
+  - claude-opus-5
+  - claude-sonnet-5
+  - ANTHROPIC_BASE_URL
+  - ANTHROPIC_AUTH_TOKEN
+  - ANTHROPIC_DEFAULT_OPUS_MODEL
+  - modelos chineses do Claude Code
+  - correções de erros do Claude Code
+  - Claude Code sem proxy
+alternateNames:
+  - Conectar a CLI do Claude Code à LMU AI
+  - Configuração de relay da CLI do Claude Code
+  - Ativar contexto de 1M no Claude Code
+  - Guia de configuração de contexto de 1M token do Claude Code
+faq:
+  - q: Como aponto a CLI do Claude Code para uma API de terceiros?
+    a: "Na seção env do settings.json, defina ANTHROPIC_BASE_URL como https://api.lmuai.com e ANTHROPIC_AUTH_TOKEN como a chave sk- gerada no console da LMU AI — sem necessidade de proxy. Ou use o CC Switch para importar em um clique e pular a edição manual do arquivo de configuração."
+  - q: Como ativo o contexto longo de 1M token no Claude Code?
+    a: "Duas formas: temporariamente, execute /model claude-opus-5[1M] na sessão e ele reverte ao sair; permanentemente, adicione ANTHROPIC_DEFAULT_OPUS_MODEL e ANTHROPIC_DEFAULT_SONNET_MODEL à seção env do settings.json com o sufixo [1M], de modo que selecionar opus / sonnet use automaticamente a versão de 1M."
+  - q: Quais modelos suportam o sufixo [1M]?
+    a: "Os modelos principais Opus / Sonnet — claude-opus-5, claude-fable-5, claude-opus-4-8, claude-opus-4-7, claude-sonnet-5 — suportam; a série Haiku e modelos mais antigos não. O modo 1M é tarifado por faixas de preço da Anthropic e custa mais por token que o modo padrão de 200K, então deixe-o desativado a menos que precise."
+  - q: Como faço o Claude Code usar um modelo chinês por padrão?
+    a: "Adicione \"model\": \"qwen3.8-max-preview\" (ou glm-5.2, deepseek-v4-pro, kimi-k3, etc.) no nível superior do settings.json; ele carrega na inicialização sem necessidade de trocar com /model toda vez. Para modelos chineses, defina também \"effortLevel\": \"medium\"."
+  - q: Como faço o Claude Code continuar trabalhando em direção a um objetivo sem instruí-lo a cada passo?
+    a: "Use o comando integrado /goal (disponível desde o Claude Code v2.1.139, maio de 2026): digite /goal mais uma condição de conclusão para definir um objetivo, e o Claude continua ao longo dos turnos; ao final de cada turno, um modelo pequeno e rápido (Haiku por padrão) avalia se o objetivo foi cumprido a partir da saída de testes, logs de build e diffs de arquivos já presentes na conversa, e para automaticamente quando for. Digite /goal para ver o progresso, /goal clear para limpá-lo antecipadamente. Escreva a condição como um estado final verificável (ex.: npm test sai com 0), e defina uma contagem máxima de turnos para evitar rodar em círculos."
+  # 503 No available accounts is not duplicated here: faq.en.mdx Issue 6 owns the FAQPage entry.
+---
+
+
+O Claude Code é o agente de codificação de IA oficial da Anthropic — ele roda no seu terminal e permite escrever, depurar e refatorar código em linguagem natural.
+
+<Callout type="info" title="Um jeito mais rápido: importação em um clique com o CC Switch">
+
+Se você prefere não editar o `settings.json` manualmente, use a [**importação em um clique do CC Switch**](/pt/docs/tools/cc-switch): clique no botão "Import to CCS" na lista de chaves no console da LMU AI, e a Base URL e a chave são configuradas automaticamente.
+
+</Callout>
+
+---
+
+## Passo 1 — Instalar o Node.js
+
+> Pule isto se já tiver; verifique com `node -v`.
+
+Você precisa do **Node.js 18+** — download: [https://nodejs.org/en/download](https://nodejs.org/en/download)
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+# Verify after installing
+node -v
+# A version number (e.g. v24.4.1) means it installed correctly
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+# During install, check "Automatically install the necessary tools"
+# Reopen PowerShell after installing and verify
+node -v
+```
+
+</Tab>
+</Tabs>
+
+<Callout type="info">
+
+Se você o instalou antes, mas a versão está muito antiga ou o PATH está quebrado, reinstale e reabra o terminal.
+
+</Callout>
+
+---
+
+## Passo 2 — Instalar o Claude Code
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+npm install -g @anthropic-ai/claude-code
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+npm install -g @anthropic-ai/claude-code
+```
+
+</Tab>
+</Tabs>
+
+Verifique a instalação:
+
+```bash
+claude --version
+```
+
+<Callout type="info" title="Problemas de rede? Troque para um mirror da China">
+
+```bash
+npm config set registry https://registry.npmmirror.com
+npm install -g @anthropic-ai/claude-code
+```
+
+</Callout>
+
+---
+
+## Passo 3 — Configurar a API da LMU AI
+
+O Claude Code configura um endpoint de API personalizado através do `settings.json`.
+
+### Localização do arquivo de configuração
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+~/.claude/settings.json
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+C:\Users\YourUsername\.claude\settings.json
+```
+
+</Tab>
+</Tabs>
+
+### Criar o arquivo de configuração
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+mkdir -p ~/.claude && touch ~/.claude/settings.json
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+mkdir "$env:USERPROFILE\.claude" -Force
+New-Item "$env:USERPROFILE\.claude\settings.json" -Force
+```
+
+</Tab>
+</Tabs>
+
+### Escrever a configuração
+
+Abra o `settings.json` em um editor de texto e adicione o seguinte (substitua a chave pela sua):
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
+    "ANTHROPIC_AUTH_TOKEN": "sk-your-lmu-ai-api-key",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  }
+}
+```
+
+<Callout type="warn" title="Nota">
+
+- Defina `ANTHROPIC_AUTH_TOKEN` como a chave de API que você gerou no console da LMU AI (começa com `sk-`)
+- Não use uma chave de API oficial da Anthropic
+- Se você configurou uma chave oficial antes, limpe a configuração antiga primeiro e então escreva esta
+- Definir `CLAUDE_CODE_ATTRIBUTION_HEADER` como `"0"` desativa o cabeçalho de atribuição de origem nas requisições, o que ajuda nos acertos de cache e na eficiência de tokens
+
+</Callout>
+
+---
+
+## Ativar o contexto de 1M no Claude Code (opcional)
+
+O Claude Opus 4.8 / Sonnet 5 suportam uma **janela de contexto longo de 1M token** (200K por padrão), útil para repositórios enormes, logs longos e refatorações entre arquivos. Adicione o sufixo `[1M]` ao ID do modelo para ativá-lo.
+
+### Opção A — troca manual com /model (recomendada para uso ocasional)
+
+**Mantenha um settings.json mínimo** (apenas `ANTHROPIC_BASE_URL` + `ANTHROPIC_AUTH_TOKEN`), inicie o Claude Code e digite no prompt:
+
+```
+/model claude-opus-5[1M]
+```
+
+ou:
+
+```
+/model claude-sonnet-5[1M]
+```
+
+Isto troca para a versão de 1M sem alterações de configuração. Aplica-se à sessão atual e reverte ao sair.
+
+### Opção B — um padrão fixo no settings.json (recomendada para uso diário de contexto longo)
+
+Adicione duas linhas à seção `env` do `settings.json` para que `/model opus` / `/model sonnet` usem a versão de 1M por padrão:
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
+    "ANTHROPIC_AUTH_TOKEN": "sk-your-lmu-ai-api-key",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "claude-opus-5[1M]",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "claude-sonnet-5[1M]",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  }
+}
+```
+
+Salve e reinicie o Claude Code; selecionar opus / sonnet no comando `/model` agora usa a versão de 1M automaticamente.
+
+**Referência de campos**
+
+| Campo | Finalidade |
+|------|------|
+| `ANTHROPIC_DEFAULT_OPUS_MODEL` | O ID do modelo realmente enviado quando você escolhe `opus` no Claude Code |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL` | O mesmo, para `sonnet` |
+| sufixo `[1M]` | Ativa o modo de contexto longo de 1M token do modelo; sem ele, aplica-se o padrão de 200K |
+
+<Callout type="warn" title="Notas de uso">
+
+- **Cobrança diferente**: o modo de contexto de 1M é tarifado por faixas de preço da Anthropic, e o preço por token é geralmente **mais alto que o modo padrão de 200K**, então tarefas de texto longo custam significativamente mais — não o deixe ligado a menos que precise
+- **Apenas alguns modelos suportam**: os modelos principais Opus / Sonnet `claude-opus-5`, `claude-fable-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-sonnet-5` suportam o sufixo `[1M]`; a série Haiku e modelos mais antigos não. A lista da [Galeria de Modelos](/pt/docs/guide/models) é a fonte de verdade
+- **Escolha a Opção A para uso ocasional, a Opção B para uso regular** — escolha uma
+
+</Callout>
+
+---
+
+## Usar modelos chineses (opcional)
+
+A LMU AI suporta LLMs chineses (ex.: a série Qwen). Definindo `model` no `settings.json`, **você pula a troca manual com `/model` a cada inicialização** e usa o modelo especificado diretamente.
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
+    "ANTHROPIC_AUTH_TOKEN": "sk-your-lmu-ai-api-key",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  },
+  "model": "qwen3.8-max-preview",
+  "effortLevel": "medium"
+}
+```
+
+**Referência de campos:**
+
+| Campo | Descrição |
+|------|------|
+| `model` | O modelo padrão, carregado na inicialização — sem troca manual toda vez |
+| `effortLevel` | Esforço de raciocínio: `low` / `medium` / `high`; `medium` é recomendado para modelos chineses |
+| `CLAUDE_CODE_ATTRIBUTION_HEADER` | Defina como `"0"` para desativar o cabeçalho de atribuição de origem, o que ajuda nos acertos de cache, eficiência de tokens e compatibilidade |
+
+<Callout type="info" title="Modelos chineses suportados (exemplos)">
+
+- `qwen3.8-max-preview` — Qwen 3.8 Max Preview (mais recente)
+- `qwen3.7-max` — Qwen 3.7 Max
+- `glm-5.2` — Zhipu GLM-5.2
+- `deepseek-v4-pro` — DeepSeek V4 Pro
+- `kimi-k3` — Kimi K3
+
+A lista de **Modelos Disponíveis** no console da LMU AI é a fonte de verdade.
+
+</Callout>
+
+<Callout type="info" title="Modelos chineses vs. modelos oficiais do Claude">
+
+| | Modelos chineses | Modelos oficiais do Claude |
+|---|---|---|
+| Custo | Menor | Maior |
+| Compreensão de chinês | Excelente | Boa |
+| Capacidade de codificação | Excelente | Excelente |
+| Configuração de modelo padrão | ✅ Suportada | ✅ Suportada |
+
+</Callout>
+
+---
+
+## Passo 4 — Iniciar o Claude Code
+
+Abra um terminal no diretório do seu projeto e execute:
+
+```bash
+claude
+```
+
+### Modo sem aprovação (recomendado)
+
+```bash
+claude --dangerously-skip-permissions
+```
+
+> Neste modo, o Claude Code executa comandos automaticamente sem confirmar cada passo — prático dentro de um diretório de projeto.
+
+---
+
+## Verificar a configuração
+
+Após iniciar, digite na interface do Claude Code:
+
+```
+/status
+```
+
+Ela mostra o atual:
+- Nome do modelo
+- API Base URL (deve mostrar `https://api.lmuai.com`)
+- Status da chave de API
+
+Se a Base URL estiver correta, a configuração está funcionando.
+
+---
+
+## Problemas comuns
+
+### 401 Unauthorized
+
+**Causa:** a chave de API está errada, ou a requisição ainda foi para o endpoint oficial da Anthropic.
+
+**Correção:**
+1. Confirme que `ANTHROPIC_AUTH_TOKEN` no `settings.json` é sua chave da LMU AI
+2. Verifique se uma variável de ambiente do shell está sobrescrevendo a configuração
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+echo $ANTHROPIC_BASE_URL
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+echo $env:ANTHROPIC_BASE_URL
+```
+
+</Tab>
+</Tabs>
+
+3. Reabra o terminal e então inicie o Claude Code novamente
+
+### stream disconnected
+
+**Causa:** uma rede local instável, ou uma VPN / proxy / proxy do sistema está ligado — um proxy rotacionando o IP quebra a conexão.
+
+<CN>
+**Correção:** desligue a VPN / proxy / proxy do sistema e tente novamente. A LMU AI é uma conexão doméstica direta e não precisa de VPN; uma conexão direta é a mais rápida e estável.
+</CN>
+<Intl>
+**Correção:** desligue a VPN / proxy / proxy do sistema e tente novamente. O gateway internacional da LMU AI conecta diretamente; uma conexão direta é a mais rápida e estável.
+</Intl>
+
+### 503 No available accounts
+
+**Causa:** geralmente `~/.zshrc` ou `~/.bashrc` define variáveis de ambiente globais como `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL`, que sobrescrevem o `settings.json`.
+
+**Correção:** remova essas linhas da configuração do seu shell, ou mova-as para um arquivo separado que você só faz `source` ao iniciar o Claude Code. Veja [FAQ · Problema 6](/pt/docs/guide/faq#issue-6).
+
+### Timeouts de resposta
+
+**Causa:** o timeout padrão é curto.
+
+**Correção:** confirme que `API_TIMEOUT_MS` está definido como `3000000` (50 minutos) para que tarefas longas não sejam interrompidas.
+
+---
+
+## Dicas
+
+- Inicie o Claude Code a partir da raiz do projeto para que ele reconheça a estrutura do projeto automaticamente
+- Passe uma instrução diretamente, ex.: `claude "refatore esta função para mim"`
+- `Ctrl+C` interrompe a tarefa atual, `/exit` sai
+- Digite `?` ou `/help` para ver todos os comandos
+
+---
+
+## Usar /goal para fazer o Claude Code trabalhar até o objetivo ser cumprido (opcional)
+
+`/goal` é um comando de barra integrado do Claude Code (disponível desde a **v2.1.139**, maio de 2026) que define uma **condição de conclusão** para a sessão atual. Uma vez definido, o Claude **continua ao longo dos turnos por conta própria** até que a condição seja julgada cumprida, em vez de parar quando "parece pronto". É especialmente útil na LMU AI para tarefas longas de execução até a conclusão (refatorações de repositórios grandes, implementação conforme uma especificação de aceitação, limpeza de um backlog de issues).
+
+> Versões mais antigas não têm este comando. Se ele reportar um comando desconhecido, atualize o Claude Code para a versão mais recente primeiro.
+
+### Uso básico
+
+| Comando | Finalidade |
+|------|------|
+| `/goal <condição de conclusão>` | Define um objetivo; o Claude inicia um turno imediatamente e continua automaticamente até a condição ser cumprida |
+| `/goal` | Mostra o status e o progresso do objetivo atual (ou mais recente) |
+| `/goal clear` | Limpa o objetivo atual antecipadamente (`stop` / `off` / `reset` / `cancel` / `none` são equivalentes) |
+
+Uma sessão tem **apenas um objetivo por vez**; definir um novo substitui o antigo e inicia um novo turno imediatamente.
+
+### Como ele julga "cumprido"
+
+Ao final de cada turno, o Claude Code entrega **sua condição de conclusão + a conversa deste turno** a um modelo pequeno e rápido (**Haiku** por padrão) para julgar. O juiz **só olha as evidências já presentes na conversa** — saída de testes, logs de build, diffs de arquivos — e **não vai re-executar toda a sua CI pelas suas costas**. Então escreva a condição de uma forma em que o Claude possa "produzir evidências" na conversa.
+
+O objetivo é **limpo automaticamente** em qualquer um destes casos:
+
+- a condição é julgada **cumprida**;
+- o modelo julga a condição **impossível de satisfazer**;
+- um turno **atinge um erro que precisa da sua intervenção**.
+
+### Escrever uma boa condição de objetivo
+
+- **Use um estado final verificável**: ex.: "`npm test` sai com 0", "`tsc --noEmit` não reporta erros" — não descrições subjetivas como "deixar o código mais bonito";
+- **Deixe as evidências chegarem à conversa**: imprima os resultados de teste / build a cada turno para que o modelo juiz possa vê-los;
+- **Delimite o escopo + limite os turnos**: ex.: "altere apenas arquivos em `src/auth/`, pare após no máximo 20 turnos" para evitar rodar em círculos;
+- Requer um **workspace confiável (hooks ativados)** para ter efeito.
+
+<Callout type="info" title="Uma dica para usar com a LMU AI">
+
+Cada turno extra de `/goal` gasta mais uma rodada de tokens (mais um pouco de sobrecarga do Haiku para o julgamento por turno). Ao rodar um objetivo longo na LMU AI, escreva um **estado final** claro e uma **contagem máxima de turnos** na condição para que ele não queime cota rodando em círculos em um objetivo não verificável. Para um loop de "auto-corrigir repetidamente até os checks passarem", combine `/goal` com `/loop`.
+
+</Callout>

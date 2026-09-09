@@ -1,0 +1,210 @@
+---
+title: OpenCode
+description: قم بإعداد واجهة برمجة تطبيقات LMU AI في OpenCode كخلفية متوافقة مع OpenAI / Anthropic لاستخدام Claude وCodex وGLM ونماذج أخرى.
+ogDescription: قم بتوصيل OpenCode بـ LMU AI — إعداد واحد يفعّل Claude / GPT / Codex / GLM دفعة واحدة، متوافق مع بروتوكولي OpenAI وAnthropic معًا.
+keywords:
+  - OpenCode
+  - إعداد OpenCode
+  - OpenCode Claude
+  - OpenCode في الصين
+  - OpenCode متوافق مع Anthropic
+  - OpenCode GLM
+  - OpenCode Codex
+alternateNames:
+  - توصيل OpenCode بـ LMU AI
+---
+
+
+ما عليك سوى تثبيت OpenCode باتباع الوثائق الرسمية — يحتوي الموقع على درس تفصيلي:
+
+- الوثائق الرسمية: [https://opencode.ai/docs/](https://opencode.ai/docs/)
+
+---
+
+## إعداد النماذج
+
+بعد التثبيت، عدّل ملف الإعداد `~/.config/opencode/opencode.json`. يدعم OpenCode بروتوكولين للاتصال بالخدمات العليا — ما عليك سوى اختيار البروتوكول الذي يطابق مزوّدك.
+
+### اختيار البروتوكول
+
+| البروتوكول | `npm` | صيغة `baseURL` | متى تستخدمه |
+| --- | --- | --- | --- |
+| بروتوكول OpenAI | `@ai-sdk/openai` | ينتهي بـ `/v1`، مثل `https://xxx.com/v1` | GPT وCodex ومعظم الخدمات المتوافقة مع OpenAI |
+| بروتوكول Anthropic | `@ai-sdk/anthropic` | ينتهي أيضًا بـ `/v1`، مثل `https://xxx.com/v1` | البروتوكول الأصلي لـ Claude، بالإضافة إلى النماذج الصينية التي تعلن عن بروتوكول Anthropic (مثل GLM) |
+
+<Callout type="warn" title="فخ شائع في baseURL">
+
+بالنسبة لكلٍّ من بروتوكولي OpenAI وAnthropic، يجب أن يصل `baseURL` **حتى مستوى `/v1` بالكامل**. تُلحق حزمة SDK نقطة النهاية المحددة بعده فقط (مثل `/chat/completions` أو `/messages`)؛ فإذا حذفت `/v1`، يُسقَط الطلب بصمت — لا يُرجع النموذج خطأً بل يستجيب بمحتوى فارغ.
+
+</Callout>
+
+### مثال 1 — بروتوكول OpenAI
+
+إعداد أدنى قابل للعمل (يمكنك إعداد عدة نماذج تحت مزوّد واحد):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "openai": {
+      "options": {
+        "baseURL": "https://api.lmuai.com/v1"
+      },
+      "models": {
+        "gpt-5.5": { "name": "GPT-5.5" },
+        "gpt-5.4": { "name": "GPT-5.4" }
+      }
+    }
+  }
+}
+```
+
+<Callout type="info" title="لماذا نستخدم `openai` كمُعرّف للمزوّد؟">
+
+يتعرّف OpenCode على `openai` باعتباره **مُعرّف مزوّد مُضمّنًا**، لذا يحمّل `@ai-sdk/openai` تلقائيًا ويستخدم نقطة النهاية `/v1/responses` (مع دعم كامل لنماذج الاستدلال). لذا عند الاتصال بخدمة تعتمد بروتوكول OpenAI، ما عليك سوى تسمية مُعرّف المزوّد `openai` وتوجيه `baseURL` إلى بوّابتك الخاصة — لا حاجة لكتابة حقل `npm` يدويًا.
+
+</Callout>
+
+إذا احتجت إلى تحسين إعلان قدرات نموذج ما (طول السياق، أنواع جهد الاستدلال، إلخ)، فما عليك سوى إضافة حقول إلى إدخال ذلك النموذج:
+
+```json
+"gpt-5.5": {
+  "name": "GPT-5.5",
+  "limit": { "context": 1050000, "output": 128000 },
+  "options": { "store": false },
+  "variants": { "low": {}, "medium": {}, "high": {}, "xhigh": {} }
+}
+```
+
+هنا تحدّد `variants` مستويات جهد الاستدلال القابلة للتبديل؛ بدّل بينها أثناء التشغيل في OpenCode بالضغط على `Ctrl + T`.
+
+### مثال 2 — بروتوكول Anthropic (شائع للنماذج الصينية)
+
+تُقدَّم بعض النماذج الصينية (مثل GLM) من مزوّدين محليين لكنها تتبع **بروتوكول Anthropic** في واجهة برمجة تطبيقاتها، لذا تحتاج إلى `@ai-sdk/anthropic`:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "lmuai": {
+      "npm": "@ai-sdk/anthropic",
+      "name": "lmuai",
+      "options": {
+        "baseURL": "https://api.lmuai.com/v1"
+      },
+      "models": {
+        "glm-5.1": {
+          "name": "GLM-5.1"
+        }
+      }
+    }
+  }
+}
+```
+
+<Callout type="info" title="كيف أعرف أي بروتوكول هو؟">
+
+تحقق من مثال الطلب في وثائق المزوّد:
+- نقطة النهاية هي `/v1/chat/completions` ← بروتوكول OpenAI
+- نقطة النهاية هي `/v1/messages` مع ترويسة طلب `anthropic-version` ← بروتوكول Anthropic
+
+</Callout>
+
+### مثال 3 — نماذج Claude الأصلية
+
+لتوصيل **نموذج Claude أصلي** (مثل `claude-sonnet-4-6`)، يجب أن يستخدم مُعرّف المزوّد `anthropic` المُضمّن — لا يمكنك استخدام اسم مخصص:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "anthropic": {
+      "npm": "@ai-sdk/anthropic",
+      "options": {
+        "baseURL": "https://api.lmuai.com/v1"
+      }
+    }
+  }
+}
+```
+
+تحقّق:
+
+```bash
+opencode run --model anthropic/claude-sonnet-4-6 "Hello"
+```
+
+<Callout type="warn" title="لماذا لا يمكن لنماذج Claude استخدام مُعرّف مزوّد مخصص؟">
+
+مثل `openai`، فإن `anthropic` هو **مُعرّف مزوّد مُضمّن** في OpenCode، ويأتي OpenCode بتعريفات مُضمّنة لكامل تشكيلة نماذج Claude (`claude-sonnet-4-6`، إلخ) تحته.
+
+لهذا السبب يعمل `opencode run --model anthropic/claude-sonnet-4-6 "Hello"`؛ لكن إذا غيّرت مُعرّف المزوّد إلى اسم مخصص (مثل `lmuai/claude-sonnet-4-6`)، فلن يتمكن OpenCode من العثور على تعريف النموذج وسيفشل الاختبار.
+
+باختصار: **استخدم `anthropic` لنماذج Claude الأصلية، ولا تستخدم مُعرّف مزوّد مخصصًا (مثل `lmuai`) إلا للنماذج المخصصة مثل GLM.**
+
+</Callout>
+
+إذا احتجت إلى استخدام بروتوكولات متعددة ومزوّدين متعددين في آنٍ واحد، فما عليك سوى وضعهم جميعًا تحت `provider` — ولن يتداخلوا مع بعضهم. على سبيل المثال، تقدّم LMU AI سلسلة GPT (`openai`)، وسلسلة Claude (`anthropic`)، وسلسلة GLM (`lmuai`، بروتوكول Anthropic) في آنٍ واحد، ويمكن للمزوّدين الثلاثة جميعًا مشاركة بوّابة واحدة.
+
+---
+
+## إعداد المفاتيح
+
+### الطريقة 1 — سطر الأوامر (موصى بها)
+
+```bash
+# Log in or update the key for a provider
+opencode auth login
+
+# List all configured providers and their key status
+opencode auth list
+
+# Remove the key for a specific provider
+opencode auth logout <provider-name>
+```
+
+### الطريقة 2 — تحرير ملف الإعداد يدويًا
+
+أضف مفتاح واجهة برمجة التطبيقات للمزوّد ذي الصلة في `~/.local/share/opencode/auth.json`:
+
+```json
+{
+  "provider-name": {
+    "type": "api",
+    "key": "your-api-key"
+  }
+}
+```
+
+<Callout type="warn" title="ملاحظة">
+
+يجب أن يتطابق اسم المزوّد في `auth.json` **تمامًا** مع اسم المزوّد في `opencode.json`.
+
+لا تضع `apiKey` في كتلة `options` داخل `opencode.json` — لن يقرأ OpenCode المفتاح هناك؛ يجب أن يمر عبر `auth.json` أو `opencode auth login`.
+
+</Callout>
+
+---
+
+## التحقق من الإعداد
+
+بمجرد الإعداد، تحقّق بسرعة بأمر واحد:
+
+```bash
+opencode run --model provider-name/model-name "Hello"
+```
+
+على سبيل المثال، `opencode run --model lmuai/glm-5.1 "Hello"`. الرد الطبيعي يعني أن الإعداد يعمل.
+
+إذا لم يكن هناك أي إخراج على الإطلاق (لا خطأ ولا رد)، فعادةً ما تكون إحدى هاتين المشكلتين:
+
+1. **يفتقر baseURL إلى `/v1`** — راجع النصيحة في قسم "اختيار البروتوكول" أعلاه.
+2. **المفتاح غير مُعدّ في `auth.json`** — تحقّق مما إذا كان `opencode auth list` يعرض المزوّد ذا الصلة.
+
+للمزيد من معلومات التصحيح، أضف `--print-logs --log-level INFO`.
+
+---
+
+## نصيحة
+
+في OpenCode، اضغط على `Ctrl + T` للتبديل بين مستويات جهد الاستدلال (variants).

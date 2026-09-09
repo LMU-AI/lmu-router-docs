@@ -1,0 +1,915 @@
+---
+title: Gemini Image API
+description: "LMU AI의 네이티브 Gemini v1beta 엔드포인트로 텍스트-투-이미지, 이미지 편집, 이미지-투-이미지를 수행하며 1K / 2K / 4K, 일반적인 종횡비, Base64 파싱을 지원합니다."
+ogDescription: LMU AI Gemini 이미지 API에 대한 완전한 통합 가이드 — generateContent를 사용하여 텍스트-투-이미지, 이미지 편집, 이미지-투-이미지를 수행하고 inlineData, 1K/2K/4K, 다양한 종횡비를 지원합니다.
+keywords:
+  - Gemini 이미지 API
+  - Gemini 이미지 생성 엔드포인트
+  - Gemini 텍스트-투-이미지
+  - Gemini 이미지-투-이미지
+  - Gemini 이미지 편집
+  - gemini-3.1-flash-image
+  - gemini-3-pro-image
+  - Gemini API 릴레이
+  - generateContent 이미지
+  - LMU AI Gemini API
+alternateNames:
+  - Gemini 이미지 생성 API 문서
+  - LMU AI Gemini Image API
+  - Gemini 네이티브 이미지 API
+faq:
+  - q: Gemini 이미지 생성에 /v1/chat/completions를 사용해야 하나요?
+    a: 권장하지 않습니다. LMU AI Gemini 이미지 모델의 경우, contents, generationConfig, imageConfig를 사용하는 요청 본문과 함께 네이티브 엔드포인트 POST /v1beta/models/{model}:generateContent를 사용하세요.
+  - q: Gemini 이미지 생성은 어떤 해상도를 지원하나요?
+    a: 단일 이미지 실시간 엔드포인트는 1K, 2K, 4K를 지원합니다. 값은 대문자여야 하며 generationConfig.imageConfig.imageSize에 넣어야 합니다.
+  - q: Gemini는 이미지 편집을 지원하나요?
+    a: 네. Gemini에는 별도의 /v1/images/edits 경로가 없습니다. 텍스트-투-이미지와 이미지 편집 모두 POST /v1beta/models/{model}:generateContent를 호출하며, 편집의 경우 contents[].parts[]에 텍스트 지시문과 inlineData 입력 이미지를 함께 전달합니다.
+  - q: HTTP 200을 받았는데 생성된 이미지가 없는 이유는 무엇인가요?
+    a: HTTP 성공은 업스트림이 응답을 반환했다는 것만 의미합니다. 클라이언트는 여전히 candidates[].content.parts[]에서 비어 있지 않은 inlineData.data를 찾아야 합니다. 이미지 데이터가 없을 때는 비즈니스 실패로 취급하고 finishReason을 확인하세요.
+  - q: 단일 요청이 여러 이미지를 반환할 수 있나요?
+    a: 현재의 실시간 Gemini 이미지 모델은 요청당 하나의 기본 이미지로 사용됩니다. 여러 이미지가 필요할 때는 여러 개의 독립적인 요청을 만드세요. 대규모 오프라인 작업의 경우 LMU AI 비동기 배치 이미지 API를 사용하세요.
+---
+
+LMU AI는 Gemini 네이티브 `v1beta` 호환 API를 제공하므로 Gemini 이미지 모델을 직접 호출하여 **텍스트-투-이미지, 이미지 편집, 이미지-투-이미지**를 수행할 수 있습니다.
+
+<Callout type="info" title="API 프로토콜">
+
+Gemini 이미지 생성은 Google의 네이티브 Gemini `generateContent` 프로토콜을 사용합니다 — OpenAI의 `/v1/chat/completions`도 아니고, OpenAI Images의 `/v1/images/generations`도 아닙니다.
+
+주요 엔드포인트:
+
+```text
+POST https://api.lmuai.com/v1beta/models/{model}:generateContent
+```
+
+</Callout>
+
+---
+
+## 1. API 개요
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| `GET` | `/v1beta/models` | Gemini 그룹에서 현재 API 키에 사용 가능한 네이티브 모델 목록 |
+| `GET` | `/v1beta/models/{model}` | 특정 모델에 대한 정보 조회 |
+| `POST` | `/v1beta/models/{model}:generateContent` | 텍스트-투-이미지, 이미지 편집, 이미지-투-이미지의 주요 엔드포인트 |
+| `POST` | `/v1beta/models/{model}:streamGenerateContent?alt=sse` | 스트리밍 생성; 이미지 사용 사례에서는 첫 번째 선택으로 권장하지 않음 |
+| `GET` | `/v1/models` | OpenAI 호환 모델 목록; 일반적인 모델 선택기에 적합 |
+| `POST` | `/v1/images/batches` | LMU AI Gemini 비동기 배치 이미지 확장 엔드포인트; [Gemini Batch Image API](/ko/docs/api/gemini-image-batch) 참조 |
+
+**Base URL:**
+
+```text
+https://api.lmuai.com
+```
+
+---
+
+## 2. 인증
+
+### 권장: Gemini 네이티브 헤더
+
+```http
+x-goog-api-key: YOUR_API_KEY
+```
+
+### 호환: Bearer 헤더
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+서버는 다음 우선순위 순서로 API 키를 읽습니다:
+
+1. `x-goog-api-key`;
+2. `Authorization: Bearer ...`;
+3. `x-api-key`;
+4. `/v1beta` 경로의 `?key=...` 쿼리 파라미터.
+
+<Callout type="warn" title="키를 URL에 넣지 마세요">
+
+`?api_key=...`는 더 이상 사용되지 않으며 `400`을 반환합니다. `?key=...`는 여전히 작동하지만, 브라우저 기록, 리버스 프록시, 액세스 로그에 쉽게 기록됩니다 — 프로덕션에서는 헤더를 사용하세요.
+
+</Callout>
+
+일반적인 인증 오류:
+
+```json
+{
+  "error": {
+    "code": 401,
+    "message": "Invalid API key",
+    "status": "UNAUTHENTICATED"
+  }
+}
+```
+
+API 키는 `gemini` 플랫폼 그룹에 바인딩되어 있어야 합니다. 그렇지 않으면 네이티브 Gemini API를 호출할 수 없습니다.
+
+---
+
+## 3. 모델 및 가용성
+
+이 이미지 서비스는 주로 다음 클라이언트 측 모델 ID를 사용합니다:
+
+| 모델 ID | 권장 용도 | 이미지 편집 참고 사항 |
+|---|---|---|
+| `gemini-3.1-flash-image` | 기본 권장 | `inlineData` 이미지 편집으로 프로덕션에서 검증됨 |
+| `gemini-3.1-flash-image-preview` | 프리뷰 호환 | 동일한 `generateContent` 편집 프로토콜 사용; 프로덕션 통합 전 별도로 검증 필요 |
+| `gemini-3-pro-image` | 품질 우선 / 복잡한 편집 | 동일한 `generateContent` 편집 프로토콜 사용; 현재 키의 가용성에 따라 다름 |
+| `gemini-3-pro-image-preview` | Pro 프리뷰 호환 | 동일한 편집 프로토콜 사용; 실행 모델은 서버 응답이 나타내는 것 |
+| `gemini-3.1-flash-lite-image` | 경량 사용 사례 | 모델 목록에서 반환되고 이미지 출력이 검증된 경우에만 사용 |
+
+### 현재 키에 대한 Gemini 모델 목록 조회
+
+```bash
+curl 'https://api.lmuai.com/v1beta/models' \
+  -H 'x-goog-api-key: YOUR_API_KEY'
+```
+
+OpenAI 호환 모델 목록:
+
+```bash
+curl 'https://api.lmuai.com/v1/models' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+<Callout type="info" title="모델 ID는 서버 측에서 매핑될 수 있습니다">
+
+클라이언트는 요청 모델 ID를 제출합니다. LMU AI는 호환 가능한 모델 별칭을 지원하므로, 요청된 모델 이름이 응답의 최종 모델 버전과 반드시 동일하지는 않습니다.
+
+모델 이름만으로 가용성을 추측하지 마세요. 현재 키로 `/v1beta/models`를 호출한 실제 결과에 의존하세요.
+
+</Callout>
+
+---
+
+## 4. 빠른 시작: 텍스트-투-이미지
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1beta/models/gemini-3.1-flash-image:generateContent' \
+  --header 'x-goog-api-key: YOUR_API_KEY' \
+  --header 'Content-Type: application/json' \
+  --data-raw '{
+    "contents": [
+      {
+        "role": "user",
+        "parts": [
+          {
+            "text": "An orange cat wearing an astronaut helmet, cinematic lighting, exquisite detail"
+          }
+        ]
+      }
+    ],
+    "generationConfig": {
+      "responseModalities": ["TEXT", "IMAGE"],
+      "imageConfig": {
+        "aspectRatio": "1:1",
+        "imageSize": "1K"
+      }
+    }
+  }'
+```
+
+성공 시 다음에서 이미지를 읽습니다:
+
+```text
+candidates[].content.parts[].inlineData.data
+```
+
+---
+
+## 5. 텍스트-투-이미지 요청 구조
+
+```json
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "A cinematic rainy-night city street, neon lights reflected on the wet pavement, wide-angle composition"
+        }
+      ]
+    }
+  ],
+  "generationConfig": {
+    "responseModalities": ["TEXT", "IMAGE"],
+    "imageConfig": {
+      "aspectRatio": "16:9",
+      "imageSize": "2K"
+    }
+  }
+}
+```
+
+### 요청 필드
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---:|:---:|---|
+| `contents` | array | 예 | 대화 콘텐츠 배열; 최소 하나의 사용자 메시지를 포함해야 함 |
+| `contents[].role` | string | 권장 | 사용자 입력에는 `user` 사용 |
+| `contents[].parts` | array | 예 | 텍스트 또는 입력 이미지 파트 |
+| `parts[].text` | string | 텍스트-투-이미지에 필수 | 이미지 프롬프트 |
+| `generationConfig` | object | 예 | 생성 파라미터 |
+| `generationConfig.responseModalities` | string[] | 예 | 이미지 생성에는 `IMAGE`를 포함해야 함; `['TEXT', 'IMAGE']` 권장 |
+| `generationConfig.imageConfig` | object | 예 | 이미지 해상도 및 종횡비 구성 |
+
+<Callout type="warn" title="이미지 파라미터는 imageConfig에 넣어야 합니다">
+
+`generationConfig.imageConfig`를 사용하세요. `responseFormat.image`를 사용하지 마세요. 그 필드는 파라미터 오류를 일으키지 않을 수 있지만, 네이티브 Gemini 이미지 파라미터로 적용되지 않습니다.
+
+</Callout>
+
+---
+
+## 6. 해상도 및 종횡비
+
+### 지원 해상도
+
+| `imageSize` | 권장 용도 | 특징 |
+|---|---|---|
+| `1K` | 초안, 빠른 미리보기, 배치 스크리닝 | 일반적으로 더 빠르고 저렴함 |
+| `2K` | 표준 전달, 기사 이미지, 이커머스 에셋 | 품질, 시간, 비용의 균형 |
+| `4K` | 세밀한 대형 이미지, 고품질 전달 | 일반적으로 생성 및 전송 시간이 더 김 |
+
+`imageSize`는 대문자여야 합니다:
+
+```json
+{
+  "imageSize": "2K"
+}
+```
+
+### 지원 종횡비
+
+`aspectRatio`는 **모델 수준 기능**입니다. Pro 모델에서 Flash의 확장 비율을 사용할 수 없습니다. LMU AI는 알려진 무효한 조합을 업스트림에 보내지 않도록 요청된 모델에 대해 비율을 검증합니다.
+
+**10개의 일반 비율:**
+
+```text
+1:1
+2:3
+3:2
+3:4
+4:3
+4:5
+5:4
+9:16
+16:9
+21:9
+```
+
+**4개의 Flash 확장 비율:**
+
+```text
+1:4
+1:8
+4:1
+8:1
+```
+
+### 모델 비율 매트릭스
+
+| 클라이언트 모델 ID | 확인된 지원 비율 | 개수 |
+|---|---|---:|
+| `gemini-3.1-flash-image` | 일반 10개 + Flash 확장 4개 | 14 |
+| `gemini-3.1-flash-image-preview` | 일반 10개 + Flash 확장 4개 | 14 |
+| `gemini-3.1-flash-lite-image` | 일반 10개 + Flash 확장 4개 | 14 |
+| `gemini-3-pro-image` | 일반 10개만 | 10 |
+| `gemini-3-pro-image-preview` | 일반 10개만 | 10 |
+
+<Callout type="warn" title="Pro 모델은 Flash 확장 비율을 지원하지 않습니다">
+
+`gemini-3-pro-image` 또는 `gemini-3-pro-image-preview`에 `1:4`, `1:8`, `4:1`, `8:1`을 전달하면 `INVALID_ARGUMENT` 또는 릴레이 `400` 파라미터 오류를 반환합니다. 예:
+
+```json
+{
+  "error": {
+    "code": 400,
+    "message": "generationConfig.imageConfig.aspectRatio has an unsupported value",
+    "status": "INVALID_ARGUMENT"
+  }
+}
+```
+
+</Callout>
+
+위 매트릭스는 Google의 공식 모델 문서와 LMU AI 프로덕션 API 테스트를 결합한 것입니다: 세 개의 Flash / Flash Lite 모델은 모두 확장 비율 테스트를 통과하고, 두 Pro 모델은 네 개의 확장 비율을 모두 명시적으로 거부합니다. 알 수 없거나 새로운 모델의 경우, 검증할 때까지 일반 10개 비율을 사용하세요.
+
+`aspectRatio`를 지정하지 않으면, 모델이 입력 콘텐츠와 기본 정책에 따라 종횡비를 결정합니다. 임의의 소수나 임의의 `WIDTHxHEIGHT`를 전달하지 마세요. 대상 모델이 허용하는 비율 열거값을 사용해야 합니다.
+
+예:
+
+```json
+{
+  "generationConfig": {
+    "responseModalities": ["TEXT", "IMAGE"],
+    "imageConfig": {
+      "aspectRatio": "9:16",
+      "imageSize": "4K"
+    }
+  }
+}
+```
+
+<Callout type="info" title="해상도 등급은 고정된 픽셀 크기가 아닙니다">
+
+`1K`, `2K`, `4K`는 모델 해상도 등급입니다. 실제 너비와 높이는 등급과 종횡비로부터 모델이 계산합니다. 클라이언트는 항상 `1024×1024`, `2048×2048`, `4096×4096`이라고 가정해서는 안 됩니다.
+
+</Callout>
+
+---
+
+## 7. 이미지 편집 / 이미지-투-이미지
+
+Gemini는 **이미지 편집을 지원합니다** — 단지 GPT처럼 별도의 `/v1/images/edits` 엔드포인트가 없을 뿐입니다.
+
+텍스트-투-이미지와 이미지 편집 모두 다음을 호출합니다:
+
+```text
+POST /v1beta/models/{model}:generateContent
+```
+
+둘의 차이점은:
+
+| 사용 사례 | `contents[].parts[]` 콘텐츠 |
+|---|---|
+| 텍스트-투-이미지 | 텍스트 프롬프트만 |
+| 이미지 편집 / 이미지-투-이미지 | 텍스트 편집 지시문 + `inlineData` 입력 이미지 |
+
+<Callout type="info" title="프로덕션에서 검증됨">
+
+`gemini-3.1-flash-image`로 `inlineData`를 통해 JPEG 입력 이미지를 제출하면 다음을 성공적으로 반환했습니다:
+
+- HTTP `200`;
+- `finishReason: STOP`;
+- `image/png` 편집 결과;
+- 비어 있지 않은 `inlineData.data`;
+- `usageMetadata` 이미지 모달리티 토큰 수.
+
+응답에는 이미지 파트만 포함되고 텍스트 파트가 없을 수 있으므로, 클라이언트는 응답에 텍스트가 있어야 한다고 요구해서는 안 됩니다.
+
+</Callout>
+
+### 7.1 최소 이미지 편집 요청
+
+```json
+{
+  "contents": [
+    {
+      "role": "user",
+      "parts": [
+        {
+          "text": "Keep the person, composition, and lighting; change the background to a rainy-night neon street"
+        },
+        {
+          "inlineData": {
+            "mimeType": "image/png",
+            "data": "INPUT_IMAGE_BASE64"
+          }
+        }
+      ]
+    }
+  ],
+  "generationConfig": {
+    "responseModalities": ["TEXT", "IMAGE"],
+    "imageConfig": {
+      "aspectRatio": "1:1",
+      "imageSize": "1K"
+    }
+  }
+}
+```
+
+### 7.2 입력 이미지 필드
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---:|:---:|---|
+| `contents[].parts[].text` | string | 예 | 편집 지시문; 무엇을 유지하고 무엇을 변경할지 명확히 명시 |
+| `inlineData.mimeType` | string | 예 | 예: `image/png`, `image/jpeg`, `image/webp` |
+| `inlineData.data` | string | 예 | Data URL 접두사가 없는 원시 Base64 |
+| `imageConfig.aspectRatio` | string | 아니오 | 출력 종횡비; 입력 비율을 유지해야 하는 경우 일치하는 비율 설정 |
+| `imageConfig.imageSize` | string | 아니오 | 출력 등급: `1K`, `2K`, `4K`, 모델 기능에 따라 다름 |
+
+<Callout type="warn" title="Base64에 Data URL 접두사를 포함하지 마세요">
+
+올바른 예:
+
+```text
+/9j/4AAQSkZJRgABAQ...
+```
+
+전달하지 말 것:
+
+```text
+data:image/jpeg;base64,/9j/4AAQSkZJRgABAQ...
+```
+
+지나치게 큰 입력 이미지는 업로드 및 처리 시간을 늘리고 게이트웨이 요청 본문 제한으로 인해 `413`을 반환할 수 있습니다.
+
+</Callout>
+
+### 7.3 전체 curl 예제
+
+먼저 로컬 이미지를 한 줄 Base64로 변환합니다:
+
+```bash
+IMAGE_BASE64=$(base64 < input.jpg | tr -d '\n')
+```
+
+그런 다음 이미지 모델을 호출합니다:
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1beta/models/gemini-3.1-flash-image:generateContent' \
+  --header 'x-goog-api-key: YOUR_API_KEY' \
+  --header 'Content-Type: application/json' \
+  --data-raw "{
+    \"contents\": [{
+      \"role\": \"user\",
+      \"parts\": [
+        {
+          \"text\": \"Keep the cup, composition, lighting, and background unchanged; only change the cup from blue to purple, and add three white star patterns on the cup body; do not add any text\"
+        },
+        {
+          \"inlineData\": {
+            \"mimeType\": \"image/jpeg\",
+            \"data\": \"${IMAGE_BASE64}\"
+          }
+        }
+      ]
+    }],
+    \"generationConfig\": {
+      \"responseModalities\": [\"TEXT\", \"IMAGE\"],
+      \"imageConfig\": {
+        \"aspectRatio\": \"3:2\",
+        \"imageSize\": \"1K\"
+      }
+    }
+  }"
+```
+
+### 7.4 Python 이미지 편집 예제
+
+```python
+import base64
+import requests
+
+api_key = "YOUR_API_KEY"
+model = "gemini-3.1-flash-image"
+input_path = "input.jpg"
+
+with open(input_path, "rb") as f:
+    image_base64 = base64.b64encode(f.read()).decode("utf-8")
+
+payload = {
+    "contents": [{
+        "role": "user",
+        "parts": [
+            {
+                "text": "Keep the subject and composition; change the background to a rainy-night neon street"
+            },
+            {
+                "inlineData": {
+                    "mimeType": "image/jpeg",
+                    "data": image_base64,
+                }
+            },
+        ],
+    }],
+    "generationConfig": {
+        "responseModalities": ["TEXT", "IMAGE"],
+        "imageConfig": {
+            "aspectRatio": "3:2",
+            "imageSize": "1K",
+        },
+    },
+}
+
+response = requests.post(
+    f"https://api.lmuai.com/v1beta/models/{model}:generateContent",
+    headers={
+        "x-goog-api-key": api_key,
+        "Content-Type": "application/json",
+    },
+    json=payload,
+    timeout=300,
+)
+response.raise_for_status()
+result = response.json()
+
+saved = False
+for candidate in result.get("candidates", []):
+    for part in candidate.get("content", {}).get("parts", []):
+        inline_data = part.get("inlineData", {})
+        if inline_data.get("data"):
+            mime_type = inline_data.get("mimeType", "image/png")
+            extension = "jpg" if "jpeg" in mime_type else "webp" if "webp" in mime_type else "png"
+            with open(f"gemini-edited.{extension}", "wb") as f:
+                f.write(base64.b64decode(inline_data["data"]))
+            saved = True
+            break
+    if saved:
+        break
+
+if not saved:
+    raise RuntimeError("HTTP request succeeded, but the response contains no edited image")
+```
+
+### 7.5 편집 프롬프트 팁
+
+이미지 편집 프롬프트의 경우, "유지할 것"과 "변경할 것"을 명확히 구분하는 것이 가장 좋습니다:
+
+```text
+Keep: subject identity, pose, camera angle, composition, and lighting.
+Change: change the background to a rainy-night neon street.
+Forbidden: do not add text; do not change the person's face.
+```
+
+이 구조는 단순히 "더 멋지게 만들어줘"라고 쓰는 것보다 더 일관된 결과를 제공합니다.
+
+### 7.6 여러 참조 이미지
+
+일부 Gemini 이미지 모델은 스타일 참조, 캐릭터 참조, 에셋 블렌딩을 위해 동일한 `parts[]`에 여러 `inlineData` 이미지를 받을 수 있습니다. 그러나 허용되는 참조 이미지 수와 전체 요청 본문 크기는 모델마다 다르므로, 프로덕션 사용 전에 특정 모델에 대해 검증하세요.
+
+`/v1beta/models`에서 반환되었다는 이유만으로 특정 이미지 모델이 무제한의 참조 이미지를 지원한다고 가정하지 마세요.
+
+---
+
+## 8. 성공 응답
+
+일반적인 응답:
+
+```json
+{
+  "candidates": [
+    {
+      "content": {
+        "role": "model",
+        "parts": [
+          {
+            "text": "Image generated as requested."
+          },
+          {
+            "inlineData": {
+              "mimeType": "image/png",
+              "data": "BASE64_IMAGE_DATA"
+            }
+          }
+        ]
+      },
+      "finishReason": "STOP",
+      "index": 0
+    }
+  ],
+  "usageMetadata": {
+    "promptTokenCount": 123,
+    "candidatesTokenCount": 1120,
+    "totalTokenCount": 1450,
+    "candidatesTokensDetails": [
+      {
+        "modality": "IMAGE",
+        "tokenCount": 1024
+      }
+    ]
+  },
+  "modelVersion": "MODEL_VERSION"
+}
+```
+
+### 주요 응답 필드
+
+| 필드 | 설명 |
+|---|---|
+| `candidates[]` | 후보 출력 목록 |
+| `candidates[].content.parts[]` | 텍스트 또는 이미지 파트 |
+| `parts[].inlineData.mimeType` | 반환된 이미지의 MIME 타입 |
+| `parts[].inlineData.data` | 반환된 이미지의 Base64 콘텐츠 |
+| `candidates[].finishReason` | 종료 이유; 일반적인 성공 값은 `STOP` |
+| `usageMetadata` | 입력, 출력, 이미지 모달리티 토큰 수 |
+| `modelVersion` | 업스트림이 반환한 실제 모델 버전; 존재하는 경우 전달됨 |
+
+### 이미지 생성 성공을 올바르게 판단하기
+
+클라이언트는 다음을 모두 확인해야 합니다:
+
+1. HTTP 상태 코드가 `2xx`;
+2. `candidates`가 비어 있지 않음;
+3. 적어도 하나의 `parts[]`에 비어 있지 않은 `inlineData.data`가 있음;
+4. Base64가 성공적으로 디코딩됨;
+5. 필요할 때 `finishReason` 확인.
+
+<Callout type="warn" title="HTTP 200이 이미지가 생성되었음을 보장하지 않습니다">
+
+업스트림은 응답에 `inlineData.data`가 없는 상태로 HTTP `200`을 반환할 수 있습니다. 이러한 요청은 "비즈니스 이미지 생성 실패"로 취급해야 하며 성공한 이미지로 계산해서는 안 됩니다.
+
+</Callout>
+
+---
+
+## 9. Node.js 예제
+
+```js
+import { writeFile } from 'node:fs/promises';
+
+const BASE_URL = process.env.GEMINI_BASE_URL || 'https://api.lmuai.com';
+const API_KEY = process.env.GEMINI_API_KEY;
+const MODEL = 'gemini-3.1-flash-image';
+
+if (!API_KEY) throw new Error('Missing GEMINI_API_KEY');
+
+const payload = {
+  contents: [
+    {
+      role: 'user',
+      parts: [
+        { text: 'A seaside lighthouse at sunset, watercolor illustration, warm tones, delicate paper texture' },
+      ],
+    },
+  ],
+  generationConfig: {
+    responseModalities: ['TEXT', 'IMAGE'],
+    imageConfig: {
+      aspectRatio: '16:9',
+      imageSize: '2K',
+    },
+  },
+};
+
+const controller = new AbortController();
+const timer = setTimeout(() => controller.abort(), 300_000);
+
+try {
+  const response = await fetch(
+    `${BASE_URL}/v1beta/models/${encodeURIComponent(MODEL)}:generateContent`,
+    {
+      method: 'POST',
+      headers: {
+        'x-goog-api-key': API_KEY,
+        'Content-Type': 'application/json',
+      },
+      body: JSON.stringify(payload),
+      signal: controller.signal,
+    },
+  );
+
+  const text = await response.text();
+  let data;
+  try {
+    data = JSON.parse(text);
+  } catch {
+    throw new Error(`Non-JSON response from the service: HTTP ${response.status}`);
+  }
+
+  if (!response.ok) {
+    throw new Error(
+      `HTTP ${response.status}: ${data?.error?.message || JSON.stringify(data)}`,
+    );
+  }
+
+  const parts = data.candidates?.flatMap((candidate) => candidate.content?.parts || []) || [];
+  const imagePart = parts.find((part) => part.inlineData?.data);
+
+  if (!imagePart) {
+    const reasons = data.candidates?.map((candidate) => candidate.finishReason).filter(Boolean);
+    throw new Error(`Request completed but no image, finishReason=${reasons?.join(',') || 'unknown'}`);
+  }
+
+  const mimeType = imagePart.inlineData.mimeType || 'image/png';
+  const extension = mimeType === 'image/jpeg'
+    ? 'jpg'
+    : mimeType === 'image/webp'
+      ? 'webp'
+      : 'png';
+
+  await writeFile(
+    `gemini-output.${extension}`,
+    Buffer.from(imagePart.inlineData.data, 'base64'),
+  );
+
+  console.log('Image saved, usageMetadata:', data.usageMetadata || null);
+} finally {
+  clearTimeout(timer);
+}
+```
+
+---
+
+## 10. Python 예제
+
+```python
+import base64
+import os
+from pathlib import Path
+import requests
+
+BASE_URL = os.getenv("GEMINI_BASE_URL", "https://api.lmuai.com")
+API_KEY = os.environ["GEMINI_API_KEY"]
+MODEL = "gemini-3.1-flash-image"
+
+payload = {
+    "contents": [
+        {
+            "role": "user",
+            "parts": [
+                {"text": "A futuristic building complex, early-morning mist, ultra-wide-angle photography, realistic materials"}
+            ],
+        }
+    ],
+    "generationConfig": {
+        "responseModalities": ["TEXT", "IMAGE"],
+        "imageConfig": {
+            "aspectRatio": "16:9",
+            "imageSize": "2K",
+        },
+    },
+}
+
+response = requests.post(
+    f"{BASE_URL}/v1beta/models/{MODEL}:generateContent",
+    headers={
+        "x-goog-api-key": API_KEY,
+        "Content-Type": "application/json",
+    },
+    json=payload,
+    timeout=300,
+)
+
+data = response.json()
+if not response.ok:
+    message = data.get("error", {}).get("message", data)
+    raise RuntimeError(f"HTTP {response.status_code}: {message}")
+
+image_part = None
+for candidate in data.get("candidates", []):
+    for part in candidate.get("content", {}).get("parts", []):
+        if part.get("inlineData", {}).get("data"):
+            image_part = part
+            break
+    if image_part:
+        break
+
+if not image_part:
+    reasons = [candidate.get("finishReason") for candidate in data.get("candidates", [])]
+    raise RuntimeError(f"Request completed but no image was returned, finishReason={reasons}")
+
+inline_data = image_part["inlineData"]
+mime_type = inline_data.get("mimeType", "image/png")
+extension = {
+    "image/jpeg": "jpg",
+    "image/webp": "webp",
+}.get(mime_type, "png")
+
+Path(f"gemini-output.{extension}").write_bytes(
+    base64.b64decode(inline_data["data"])
+)
+
+print("Image saved")
+print("usageMetadata:", data.get("usageMetadata"))
+```
+
+---
+
+## 11. 일반적인 오류
+
+네이티브 Gemini 엔드포인트는 일반적으로 Google 스타일의 오류를 반환합니다:
+
+```json
+{
+  "error": {
+    "code": 429,
+    "message": "upstream rate limit exceeded",
+    "status": "RESOURCE_EXHAUSTED"
+  }
+}
+```
+
+| HTTP 상태 | 일반적인 원인 | 권장 사항 |
+|---:|---|---|
+| `400` | 잘못된 요청 구조, 모델 경로, 또는 그룹 플랫폼 | 요청 수정; 단순히 재시도하지 말 것 |
+| `401` | API 키 누락, 무효, 또는 비활성화됨 | 키와 헤더 확인 |
+| `402` / `403` | 잔액 부족, 구독, 청구 자격, 또는 권한 문제 | 계정 및 그룹 권한 확인 |
+| `413` | 이미지-투-이미지 요청 본문이 너무 큼 | 입력 이미지 압축 |
+| `429` | 사용자 동시성 제한 또는 업스트림 속도 제한 | 지수 백오프; 동시성 및 RPM 감소 |
+| `500` | 내부 또는 용량 오류 | 오류 코드 및 요청 ID 기록; 제한된 횟수만 재시도 |
+| `502` | 일시적 업스트림 인증, 권한, 또는 서비스 실패 | 백오프 후 재시도; 필요 시 관리자에게 문의 |
+| `503` | 사용 가능한 Gemini 계정 없음 또는 업스트림 과부하 | 지연 후 재시도하고 트래픽 감소 |
+| `504` | 게이트웨이 또는 업스트림 타임아웃 | 독립적인 요청으로 재발행 |
+
+오류 메시지에 모든 토큰이 비활성화, 쿨다운, 잠김, 또는 만료되었다고 나오면, 이는 프롬프트 형식 오류가 아니라 서비스 용량 문제입니다. 공격적으로 재시도하는 것을 멈추고 오류 코드와 요청 ID를 관리자에게 제공하세요.
+
+---
+
+## 12. 타임아웃, 재시도, 동시성
+
+### 클라이언트 타임아웃 권장 사항
+
+| 해상도 | 권장 총 타임아웃 |
+|---|---:|
+| `1K` | 최소 120초 |
+| `2K` | 최소 180초 |
+| `4K` | 300초 권장 |
+
+이는 통합 권장 사항이며 고정된 SLA가 아닙니다. 요청이 자체 Nginx, CDN, 또는 API 게이트웨이를 통과하는 경우, 해당 구성 요소의 읽기 타임아웃을 그에 맞게 조정하세요.
+
+### 재시도 권장 사항
+
+재시도 권장:
+
+- `429`;
+- `502`, `503`, `504`;
+- 네트워크 중단, 연결 재설정, 읽기 타임아웃;
+- HTTP `200`을 받았지만 이미지가 없을 때 한 번(제한적으로) 재시도하고 원시 응답을 저장할 수 있음.
+
+일반적으로 재시도하지 말 것:
+
+- `400`;
+- `401`;
+- 명시적인 잔액 또는 권한 오류;
+- 요청 파라미터 또는 콘텐츠 정책 오류.
+
+지수 백오프를 사용하여 최대 2~3회 재시도:
+
+```text
+Attempt 1: 1–2 seconds random jitter
+Attempt 2: 3–5 seconds random jitter
+Attempt 3: 8–12 seconds random jitter
+```
+
+### 여러 실시간 이미지
+
+실시간 엔드포인트는 현재 "요청당 하나의 기본 이미지"로 사용됩니다. 여러 이미지가 필요할 때는 여러 개의 독립적인 요청으로 분할하고 동시에 다음을 제한하세요:
+
+- 최대 진행 중인 동시성;
+- 분당 요청 수(RPM);
+- 사용자당 작업 수;
+- 타임아웃 및 최대 재시도 횟수.
+
+수십에서 수백 개의 프롬프트를 제출하고 결과를 비동기적으로 기다려야 하는 경우 [Gemini Batch Image API](/ko/docs/api/gemini-image-batch)를 사용하세요.
+
+---
+
+## 13. 사용량 및 청구
+
+응답의 `usageMetadata`는 입력, 출력, 이미지 모달리티 토큰을 분석하는 데 사용할 수 있지만, 반드시 최종 청구 금액과 같지는 않습니다.
+
+실제 청구는 다음에 영향을 받을 수 있습니다:
+
+- 요청된 모델 ID 대 실제 매핑된 모델;
+- `1K`, `2K`, `4K` 이미지 등급;
+- 그룹의 이미지당 가격;
+- 사용자 그룹 배수 및 업스트림 계정 배수;
+- 배포 환경의 청구 규칙.
+
+최종 금액은 LMU AI 콘솔의 사용량 세부 정보와 계정 잔액 변화에 의존하세요.
+
+품질 또는 동시성 테스트를 실행할 때는 다음을 기록하세요:
+
+1. 테스트 전 잔액;
+2. 테스트 후 잔액;
+3. 성공한 요청 수;
+4. 실제로 반환된 이미지 수;
+5. 모델, 해상도, 종횡비;
+6. 잔액 차이;
+7. 성공한 이미지당 평균 비용.
+
+사용 기록은 비동기적으로 게시될 수 있으므로, 최종 금액을 대조하기 전에 테스트 후 잠시 기다리세요.
+
+---
+
+## 14. 보안 권장 사항
+
+- API 키는 서버 측 환경 변수 또는 시크릿 관리자에만 저장하세요;
+- 키를 브라우저 프런트엔드, 모바일 앱 패키지, 또는 공개 코드 저장소에 임베드하지 마세요;
+- 전체 API 키 또는 전체 이미지 Base64를 로그에 기록하지 마세요;
+- 입력 이미지의 MIME 타입, 파일 크기, Base64 유효성을 검증하세요;
+- 응답을 저장할 때 `inlineData.mimeType`을 기반으로 파일 확장자를 선택하세요;
+- 각 비즈니스 요청에 대해 자체 추적 ID, 요청 시간, 모델, 해상도, HTTP 상태를 기록하세요;
+- 타임아웃 후에는 아주 짧은 시간 내에 동일한 요청을 대량으로 재생성하지 마세요.
+
+---
+
+## 15. 통합 검수 체크리스트
+
+- [ ] `/v1beta/models`를 사용하여 현재 키에 대한 Gemini 모델 목록을 가져올 수 있음;
+- [ ] `x-goog-api-key` 또는 Bearer 헤더로 인증할 수 있음;
+- [ ] `1K / 1:1` 텍스트-투-이미지 생성을 완료할 수 있음;
+- [ ] `2K` 및 `4K` 텍스트-투-이미지 생성을 완료할 수 있음;
+- [ ] 적어도 하나의 이미지 편집 / 이미지-투-이미지를 완료할 수 있음;
+- [ ] `inlineData.mimeType`과 `inlineData.data`를 읽을 수 있음;
+- [ ] 이미지가 없는 HTTP 200을 실패로 표시할 수 있음;
+- [ ] 이미지 요청에 대한 타임아웃을 설정했음;
+- [ ] 429 및 5xx에 대해 제한된 지수 백오프를 구현했음;
+- [ ] 가격, 잔액, 동시성, RPM을 확인했음;
+- [ ] 로그가 API 키나 전체 Base64를 유출하지 않음.
+
+---
+
+## 다음 단계
+
+- 많은 프롬프트에 대한 비동기 생성: [Gemini Batch Image API](/ko/docs/api/gemini-image-batch)
+- 현재 키에 사용 가능한 모델 목록: [Model Gallery](/ko/docs/guide/models)
+- 프로토콜 및 Base URL 세부 정보: [API protocols](/ko/docs/guide/api-protocols)
+- 요청 사용량 조회: [Export usage details](/ko/docs/api/usage-export)

@@ -1,0 +1,88 @@
+---
+title: IDEA Kilo Code
+description: اتصل بواجهة LMU AI عبر إضافة Kilo Code في IntelliJ IDEA — يستخدم Claude بروتوكول Anthropic، بينما يستخدم GPT بروتوكول Responses.
+ogDescription: ثبّت إضافة Kilo Code على IntelliJ IDEA / PyCharm / GoLand + LMU AI — استخدم Claude وGPT والنماذج الصينية الكبيرة عبر مجموعة JetBrains بدون بروكسي.
+keywords:
+  - IDEA Kilo Code
+  - إضافة Kilo Code
+  - إضافة الذكاء الاصطناعي لـ IntelliJ IDEA
+  - JetBrains Claude
+  - PyCharm Claude
+  - GoLand Claude
+  - إعداد Kilo Code
+  - ربط IDEA بـ Claude
+  - مُرحّل JetBrains للذكاء الاصطناعي
+alternateNames:
+  - ربط IntelliJ IDEA / JetBrains بـ LMU AI
+---
+
+## تثبيت الإضافة
+
+1. افتح IntelliJ IDEA واذهب إلى **Settings → Plugins → Marketplace**
+2. ابحث عن **Kilo Code**، ثم انقر على Install بمجرد العثور على الإضافة
+3. أعد تشغيل IDEA بعد انتهاء التثبيت
+
+---
+
+## إعداد الإضافة
+
+افتح لوحة إعدادات Kilo Code واختر الخيار الذي يتوافق مع نوع النموذج الذي تريد استخدامه:
+
+<Tabs items={['Chinese models / Claude (Anthropic)', 'OpenAI models (OpenAI Compatible)']}>
+<Tab value="Chinese models / Claude (Anthropic)">
+
+يعمل مع جميع نماذج Claude والنماذج الصينية، مثل `claude-opus-5` و`claude-sonnet-5` و`qwen3.8-max-preview` و`deepseek-v4-pro` و`glm-5.2` و`kimi-k3`.
+
+| الحقل | القيمة |
+|------|------|
+| **API Provider** | `Anthropic` |
+| **Anthropic API Key** | مفتاح `sk-` الذي تم إنشاؤه في وحدة تحكم LMU AI |
+| **Use custom base URL** | ✅ مُحدَّد |
+| **Base URL** | `https://api.lmuai.com` |
+| **Model** | أحدث النماذج مثل `claude-opus-5` و`qwen3.7-max` وغيرها |
+
+![Kilo Code مع اختيار مزوّد Anthropic، وتحديد Use custom base URL وضبطه على https://api.lmuai.com، وضبط النموذج على claude-opus-4-6](/images/tools/Kilo/kilo.png)
+
+<Callout type="info">
+
+يجب أن تحدّد **Use custom base URL**، وإلا فستطلب الإضافة نقطة نهاية Anthropic الرسمية بدلاً من مُرحّل LMU AI.
+
+</Callout>
+
+</Tab>
+<Tab value="OpenAI models (OpenAI Compatible)">
+
+يعمل مع جميع نماذج OpenAI، مثل `gpt-5.6-sol` و`gpt-5.6-terra` و`gpt-5.5` و`gpt-5.4`.
+
+| الحقل | القيمة |
+|------|------|
+| **API Provider** | `OpenAI Compatible (Responses)` |
+| **Base URL** | `https://api.lmuai.com/v1` |
+| **API Key** | مفتاح `sk-` الذي تم إنشاؤه في وحدة تحكم LMU AI |
+| **Model** | مثل `gpt-5.5` |
+
+![Kilo Code مع اختيار مزوّد OpenAI Compatible (Responses)، وضبط Base URL على https://api.lmuai.com/v1، وضبط النموذج على gpt-5.5](/images/tools/Kilo/kilo-openai.png)
+
+<Callout type="warn">
+
+يجب أن ينتهي Base URL لنماذج OpenAI بـ **`/v1`**، على عكس بروتوكول Anthropic (بدون `/v1`) — لا تخلط بينهما.
+
+</Callout>
+
+</Tab>
+</Tabs>
+
+---
+
+## مرجع أسماء النماذج
+
+لست متأكداً من النموذج الذي يجب إدخاله؟ اذهب إلى [معرض النماذج](/ar/docs/guide/models) لعرض كل معرّف نموذج متاح ونسخه بنقرة واحدة.
+
+---
+
+## ملاحظات
+
+- عند استخدام **Claude / النماذج الصينية** → اختر بروتوكول `Anthropic`، مع Base URL `https://api.lmuai.com` (بدون `/v1`)
+- عند استخدام **نماذج OpenAI** → اختر بروتوكول `OpenAI Compatible (Responses)`، مع Base URL `https://api.lmuai.com/v1` (مع `/v1`)
+- بالنسبة لمفتاح API، أدخل مفتاح `sk-` الذي تم إنشاؤه في وحدة تحكم LMU AI ضمن أي من البروتوكولين
+- بمجرد إتمام الإعداد، انقر على **Save** في الزاوية العلوية اليمنى لحفظ الإعدادات والبدء في الاستخدام

@@ -1,0 +1,200 @@
+---
+title: Галерея моделей
+description: "Полный список моделей, доступных в LMU AI API (китайские LLM / Claude / OpenAI). Нажмите на название модели, чтобы скопировать её ID и вставить в конфигурацию инструмента."
+ogDescription: Все модели, которые поддерживает LMU AI — Claude Opus 5 / Sonnet 5, серия GPT-5.6 и китайские LLM, такие как DeepSeek, Kimi, GLM, Qwen, MiniMax и MiMo — все вызываются одним API-ключом.
+keywords:
+  - список моделей LMU AI
+  - claude-opus-5
+  - claude-sonnet-5
+  - gpt-5.6-sol
+  - deepseek-v4-pro
+  - glm-5.2
+  - kimi-k3
+  - qwen3.8-max-preview
+  - MiniMax-M2.7
+  - ID моделей китайских LLM API
+  - названия моделей Claude API
+  - список моделей AI-релея
+alternateNames:
+  - список моделей LMU AI
+  - список ID моделей Claude / GPT / китайских LLM
+  - доступные модели на AI API-релее
+faq:
+  - q: Какие модели поддерживает LMU AI?
+    a: "Всю линейку Claude (claude-opus-5, claude-fable-5, claude-sonnet-5, claude-haiku-4-5 и другие), серию OpenAI GPT-5.6 (gpt-5.6-sol / terra / luna) и китайские LLM, такие как Qwen, DeepSeek, MiniMax, Zhipu GLM, Moonshot Kimi и Xiaomi MiMo, а также модели генерации изображений GPT / Gemini / Grok. Одним API-ключом вызываются все они."
+  - q: Где найти ID модели и как его использовать?
+    a: "Нажмите на любую карточку модели на этой странице, чтобы скопировать её ID, или воспользуйтесь текстовым списком внизу для массового копирования. Затем вставьте его в конфигурацию своего инструмента: поле model в settings.json у Claude Code, model в ~/.codex/config.toml у Codex CLI или поле модели в GUI-инструменте, таком как Cursor или Chatbox."
+  - q: Какие модели сейчас флагманские?
+    a: "Со стороны Claude — claude-opus-5 (флагман) и claude-sonnet-5 (сбалансированная); со стороны OpenAI — gpt-5.6-sol; среди китайских LLM — qwen3.8-max-preview, deepseek-v4-pro, glm-5.2 и kimi-k3. Только что вышедшие модели отмечены на карточке как New."
+  - q: Почему мой аккаунт не может вызвать определённую модель?
+    a: "Фактически доступный набор — это то, что показывает страница «Доступные модели» в консоли LMU AI; он различается в зависимости от плана и биллинговой группы. Например, для серии GPT требуется подписка GPT либо выбор группы GPT при оплате по факту использования."
+---
+
+Ниже перечислены все названия моделей, которые в настоящее время поддерживает LMU AI API. **Нажмите на любую карточку, чтобы скопировать её ID модели**, затем вставьте его прямо в `settings.json`, `config.toml` или в селектор модели инструмента.
+
+<Callout type="info" title="Как использовать название модели">
+
+Вставьте скопированный ID модели в конфигурацию своего инструмента:
+
+- **Claude Code** → поле `"model"` в `settings.json`
+- **Codex CLI** → `model = "..."` в `~/.codex/config.toml`
+- **Cherry Studio / расширение VS Code** → вставьте в выпадающий список моделей
+
+</Callout>
+
+---
+
+## Выбор модели по сценарию использования
+
+Не уверены, какую модель использовать? Найдите её в таблице ниже, затем скопируйте ID модели из соответствующего раздела.
+
+| Сценарий использования | Рекомендуемые модели | Почему |
+|---|---|---|
+| Сложные рефакторинги, крупные изменения по многим файлам | `claude-opus-5` | Флагманский уровень Claude, отлично справляется с кодом и длинными текстами, используется по умолчанию в Claude Code |
+| Повседневное кодирование, исправление багов | `claude-sonnet-5` · `claude-sonnet-4-6` | Сбалансированный уровень, компромисс между возможностями и скоростью, идеален для частого повседневного использования |
+| Частые лёгкие задачи (автодополнение, форматирование, массовые мелкие правки) | `claude-haiku-4-5` · `deepseek-v4-flash` · `qwen3.6-flash` | Высокоскоростной уровень для простых одиночных задач, вызываемых много раз |
+| Инструментальная цепочка Codex CLI / Codex App | `gpt-5.6-sol` · `gpt-5.4` | Новейший флагман со стороны OpenAI и модель по умолчанию в шаблоне конфигурации Codex CLI |
+| Письмо на китайском, документация, диалог | `qwen3.8-max-preview` · `glm-5.2` · `kimi-k3` | Китайские LLM с отличным пониманием китайского по более низкой цене |
+| Кодирование в китайском контексте | `qwen3.6-plus` · `deepseek-v4-pro` | Ориентированные на код китайские модели, вызываются напрямую с баланса аккаунта |
+| Мультимодальные (смешанный ввод изображение + текст) | `mimo-v2-omni` | Единственная диалоговая модель, отмеченная здесь как мультимодальная; для чистой генерации изображений см. API изображений ниже |
+
+<Callout type="warn" title="Прежде чем выбирать, подтвердите две вещи">
+
+- **Доступность модели зависит от группы**: какие модели вы фактически можете вызвать — это то, что показывает страница **Доступные модели** в консоли. Например, для серии GPT требуется подписка GPT либо выбор группы GPT при оплате по факту использования. **Это не зависит от того, каким протоколом вы вызываете.**
+- **Base URL должен соответствовать протоколу**: протокол определяется вашим клиентом и SDK — Base URL протокола Anthropic указывается **без** `/v1`, протокол OpenAI **обязан включать** `/v1`, а нативный Gemini использует `/v1beta/models/...`. Ошибка приведёт к прямому 404; см. [Протоколы API](/ru/docs/guide/api-protocols).
+
+</Callout>
+
+---
+
+## Китайские модели
+
+Отличное понимание китайского по более низкой цене, идеальны для повседневного кодирования, документации и диалога. Как и Claude с GPT, **все китайские модели можно вызывать с баланса аккаунта**.
+
+> **Протокол**: по умолчанию **протокол Anthropic** · Base URL `https://api.lmuai.com` (**без** `/v1`). См. [Протоколы API →](/ru/docs/guide/api-protocols)
+
+### Alibaba · Qwen
+
+<ModelGrid>
+  <ModelCard name="qwen3.8-max-preview" description="Qwen 3.8 Max Preview" badge="New" />
+  <ModelCard name="qwen3.7-max" description="Qwen 3.7 Max — флагман" />
+  <ModelCard name="qwen3.6-plus" description="Qwen 3.6 Plus" />
+  <ModelCard name="qwen3.6-flash" description="Qwen 3.6 Flash — высокоскоростная" />
+  <ModelCard name="qwen3.5-plus" description="Qwen 3.5 Plus" />
+  <ModelCard name="qwen3-max-2026-01-23" description="Qwen 3 Max флагман" />
+</ModelGrid>
+
+### DeepSeek
+
+<ModelGrid>
+  <ModelCard name="deepseek-v4-pro" description="DeepSeek V4 Pro" badge="New" />
+  <ModelCard name="deepseek-v4-flash" description="DeepSeek V4 Flash — высокоскоростная" badge="New" />
+  <ModelCard name="deepseek-v3.2" description="DeepSeek V3.2" />
+</ModelGrid>
+
+### MiniMax
+
+<ModelGrid>
+  <ModelCard name="MiniMax-M2.7" description="MiniMax M2.7" badge="New" />
+  <ModelCard name="MiniMax-M2.7-highspeed" description="MiniMax M2.7 высокоскоростная" badge="New" />
+  <ModelCard name="MiniMax-M2.5" description="MiniMax M2.5" />
+  <ModelCard name="MiniMax-M2.5-highspeed" description="MiniMax M2.5 высокоскоростная" />
+</ModelGrid>
+
+### Zhipu · GLM
+
+<ModelGrid>
+  <ModelCard name="glm-5.2" description="Zhipu GLM-5.2" badge="New" />
+  <ModelCard name="glm-5.1" description="Zhipu GLM-5.1" />
+  <ModelCard name="glm-5" description="Zhipu GLM-5" />
+</ModelGrid>
+
+### Moonshot · Kimi
+
+<ModelGrid>
+  <ModelCard name="kimi-k3" description="Kimi K3" badge="New" />
+  <ModelCard name="kimi-k2.6" description="Kimi K2.6" />
+  <ModelCard name="kimi-k2.5" description="Kimi K2.5" />
+</ModelGrid>
+
+### Xiaomi · MiMo
+
+<ModelGrid>
+  <ModelCard name="mimo-v2.5-pro" description="Xiaomi MiMo V2.5 Pro" badge="New" />
+  <ModelCard name="mimo-v2.5" description="Xiaomi MiMo V2.5" badge="New" />
+  <ModelCard name="mimo-v2-pro" description="Xiaomi MiMo V2 Pro" />
+  <ModelCard name="mimo-v2-omni" description="Xiaomi MiMo V2 Omni — мультимодальная" />
+</ModelGrid>
+
+---
+
+## Модели Claude
+
+Официальные модели Anthropic, отлично справляются с кодом и длинными текстами, используются по умолчанию в Claude Code.
+
+> **Протокол**: рекомендуется **протокол Anthropic** · Base URL `https://api.lmuai.com` (без `/v1`). Протокол OpenAI тоже работает; бэкенд транслирует протокол.
+
+<ModelGrid>
+  <ModelCard name="claude-opus-5" description="Claude Opus 5 — флагман" badge="New" />
+  <ModelCard name="claude-fable-5" description="Claude Fable 5" badge="New" />
+  <ModelCard name="claude-opus-4-8" description="Claude Opus 4.8" />
+  <ModelCard name="claude-opus-4-7" description="Claude Opus 4.7" />
+  <ModelCard name="claude-opus-4-6" description="Claude Opus 4.6" />
+  <ModelCard name="claude-opus-4-5" description="Claude Opus 4.5" />
+  <ModelCard name="claude-sonnet-5" description="Claude Sonnet 5 — сбалансированная" badge="New" />
+  <ModelCard name="claude-sonnet-4-6" description="Claude Sonnet 4.6 — сбалансированная" />
+  <ModelCard name="claude-sonnet-4-5" description="Claude Sonnet 4.5 — сбалансированная" />
+  <ModelCard name="claude-haiku-4-5" description="Claude Haiku 4.5 — высокоскоростная" />
+</ModelGrid>
+
+---
+
+## Модели OpenAI
+
+Серия OpenAI GPT-5, для Codex CLI, Codex App и любого инструмента, поддерживающего протокол OpenAI.
+
+> **Протокол**: **протокол OpenAI** · Base URL `https://api.lmuai.com/v1` (**обязательно включает** `/v1`).
+
+<ModelGrid>
+  <ModelCard name="gpt-5.6-sol" description="GPT-5.6 Sol" badge="New" />
+  <ModelCard name="gpt-5.6-terra" description="GPT-5.6 Terra" badge="New" />
+  <ModelCard name="gpt-5.6-luna" description="GPT-5.6 Luna" badge="New" />
+  <ModelCard name="gpt-5.5" description="GPT-5.5" />
+  <ModelCard name="gpt-5.4" description="GPT-5.4" />
+  <ModelCard name="gpt-5.2" description="GPT-5.2" />
+</ModelGrid>
+
+---
+
+## Все ID моделей (обычный текст)
+
+<Callout type="info" title="Для поиска по сайту и массового копирования">
+
+**Серия Claude**: `claude-opus-5`, `claude-fable-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-opus-4-6`, `claude-opus-4-5`, `claude-sonnet-5`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-haiku-4-5`
+
+**Серия OpenAI**: `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`, `gpt-5.4`, `gpt-5.2`
+
+**Qwen**: `qwen3.8-max-preview`, `qwen3.7-max`, `qwen3.6-plus`, `qwen3.6-flash`, `qwen3.5-plus`, `qwen3-max-2026-01-23`
+
+**DeepSeek**: `deepseek-v4-pro`, `deepseek-v4-flash`, `deepseek-v3.2`
+
+**MiniMax**: `MiniMax-M2.7`, `MiniMax-M2.7-highspeed`, `MiniMax-M2.5`, `MiniMax-M2.5-highspeed`
+
+**Zhipu GLM**: `glm-5.2`, `glm-5.1`, `glm-5`
+
+**Moonshot Kimi**: `kimi-k3`, `kimi-k2.6`, `kimi-k2.5`
+
+**Xiaomi MiMo**: `mimo-v2.5-pro`, `mimo-v2.5`, `mimo-v2-pro`, `mimo-v2-omni`
+
+Модели генерации изображений см. [GPT Image](/ru/docs/api/gpt-image), [Gemini Image](/ru/docs/api/gemini-image) и [Grok Image](/ru/docs/api/grok-image).
+
+</Callout>
+
+---
+
+<Callout type="warn" title="Примечание">
+
+- Фактически доступные модели — это то, что показывает страница **Доступные модели** в консоли LMU AI; набор может различаться в зависимости от плана.
+- Если у вас есть вопросы по выбору модели, см. [FAQ](/ru/docs/guide/faq).
+
+</Callout>

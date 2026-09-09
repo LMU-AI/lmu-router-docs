@@ -1,0 +1,201 @@
+---
+title: Galerie de modèles
+description: "La liste complète des modèles disponibles sur l'API LMU AI (LLM chinois / Claude / OpenAI). Cliquez sur le nom d'un modèle pour copier son ID et le coller dans la configuration de votre outil."
+ogDescription: Tous les modèles pris en charge par LMU AI — Claude Opus 5 / Sonnet 5, la série GPT-5.6, et des LLM chinois tels que DeepSeek, Kimi, GLM, Qwen, MiniMax et MiMo — tous appelables avec une seule clé API.
+keywords:
+  - liste des modèles LMU AI
+  - claude-opus-5
+  - claude-sonnet-5
+  - gpt-5.6-sol
+  - deepseek-v4-pro
+  - glm-5.2
+  - kimi-k3
+  - qwen3.8-max-preview
+  - MiniMax-M2.7
+  - MiMo
+  - ID de modèles LLM chinois pour l'API
+  - noms de modèles de l'API Claude
+  - liste des modèles du relais IA
+alternateNames:
+  - liste des modèles LMU AI
+  - liste des ID de modèles Claude / GPT / LLM chinois
+  - modèles disponibles sur un relais d'API IA
+faq:
+  - q: Quels modèles LMU AI prend-il en charge ?
+    a: "Toute la gamme Claude (claude-opus-5, claude-fable-5, claude-sonnet-5, claude-haiku-4-5, et bien d'autres), la série OpenAI GPT-5.6 (gpt-5.6-sol / terra / luna), et des LLM chinois tels que Qwen, DeepSeek, MiniMax, Zhipu GLM, Moonshot Kimi et Xiaomi MiMo, ainsi que les modèles d'image GPT / Gemini / Grok. Une seule clé API les appelle tous."
+  - q: Où trouver un ID de modèle et comment l'utiliser ?
+    a: "Cliquez sur n'importe quelle carte de modèle de cette page pour copier son ID, ou utilisez la liste en texte brut au bas de la page pour une copie en masse. Collez-le ensuite dans la configuration de votre outil : le champ model dans settings.json de Claude Code, le model dans ~/.codex/config.toml de Codex CLI, ou la case model d'un outil graphique comme Cursor ou Chatbox."
+  - q: Quels sont les modèles phares actuels ?
+    a: "Côté Claude, claude-opus-5 (phare) et claude-sonnet-5 (équilibré) ; côté OpenAI, gpt-5.6-sol ; parmi les LLM chinois, qwen3.8-max-preview, deepseek-v4-pro, glm-5.2 et kimi-k3. Les modèles nouvellement lancés sont marqués New sur leur carte."
+  - q: Pourquoi mon compte ne peut-il pas appeler un certain modèle ?
+    a: "La plage réellement disponible correspond à ce qu'affiche la page Modèles disponibles dans la console LMU AI ; elle diffère selon le forfait et le groupe de facturation. Par exemple, la série GPT nécessite un abonnement GPT, ou de sélectionner un groupe GPT en facturation à l'usage."
+---
+
+Voici tous les noms de modèles actuellement pris en charge par l'API LMU AI. **Cliquez sur n'importe quelle carte pour copier son ID de modèle**, puis collez-le directement dans `settings.json`, `config.toml`, ou le sélecteur de modèle d'un outil.
+
+<Callout type="info" title="Comment utiliser un nom de modèle">
+
+Collez l'ID de modèle copié dans la configuration de votre outil :
+
+- **Claude Code** → le champ `"model"` dans `settings.json`
+- **Codex CLI** → `model = "..."` dans `~/.codex/config.toml`
+- **Cherry Studio / extension VS Code** → collez-le dans le menu déroulant des modèles
+
+</Callout>
+
+---
+
+## Choisir un modèle selon le cas d'usage
+
+Pas sûr du modèle à utiliser ? Repérez-le dans le tableau ci-dessous, puis copiez l'ID de modèle depuis la section correspondante.
+
+| Cas d'usage | Modèles recommandés | Pourquoi |
+|---|---|---|
+| Refactorisations complexes, changements importants sur plusieurs fichiers | `claude-opus-5` | Le palier phare de Claude, exceptionnel pour le code et les textes longs, le choix par défaut pour Claude Code |
+| Codage quotidien, correction de bugs | `claude-sonnet-5` · `claude-sonnet-4-6` | Palier équilibré, un compromis entre capacité et vitesse, idéal pour un usage quotidien fréquent |
+| Tâches légères fréquentes (complétion, formatage, petites éditions en masse) | `claude-haiku-4-5` · `deepseek-v4-flash` · `qwen3.6-flash` | Palier haute vitesse, pour des tâches simples et uniques appelées de nombreuses fois |
+| Chaîne d'outils Codex CLI / Codex App | `gpt-5.6-sol` · `gpt-5.4` | Le dernier modèle phare côté OpenAI et le choix par défaut dans le modèle de config de Codex CLI |
+| Rédaction en chinois, documentation, conversation | `qwen3.8-max-preview` · `glm-5.2` · `kimi-k3` | LLM chinois avec une excellente compréhension du chinois à un prix plus bas |
+| Codage dans des contextes en chinois | `qwen3.6-plus` · `deepseek-v4-pro` | Modèles chinois orientés code, appelables directement avec le solde du compte |
+| Multimodal (entrée mixte image + texte) | `mimo-v2-omni` | Le seul modèle conversationnel marqué multimodal ici ; pour la génération d'images pure, voir les API d'image ci-dessous |
+
+<Callout type="warn" title="Vérifiez deux choses avant de choisir">
+
+- **La disponibilité des modèles dépend du groupe** : les modèles que vous pouvez réellement appeler correspondent à ce qu'affiche la page **Modèles disponibles** dans la console. Par exemple, la série GPT nécessite un abonnement GPT, ou de sélectionner un groupe GPT en facturation à l'usage. **Ceci est indépendant du protocole avec lequel vous appelez.**
+- **La Base URL doit correspondre au protocole** : le protocole est déterminé par votre client et votre SDK — la Base URL du protocole Anthropic est **sans** `/v1`, le protocole OpenAI **doit inclure** `/v1`, et le natif Gemini utilise `/v1beta/models/...`. Une erreur donne un 404 pur et simple ; voir [Protocoles d'API](/fr/docs/guide/api-protocols).
+
+</Callout>
+
+---
+
+## Modèles chinois
+
+Excellente compréhension du chinois à un prix plus bas, idéaux pour le codage quotidien, la documentation et la conversation. Comme Claude et GPT, **les modèles chinois peuvent tous être appelés avec le solde du compte**.
+
+> **Protocole** : par défaut le **protocole Anthropic** · Base URL `https://api.lmuai.com` (**sans** `/v1`). Voir [Protocoles d'API →](/fr/docs/guide/api-protocols)
+
+### Alibaba · Qwen
+
+<ModelGrid>
+  <ModelCard name="qwen3.8-max-preview" description="Qwen 3.8 Max Preview" badge="New" />
+  <ModelCard name="qwen3.7-max" description="Qwen 3.7 Max — phare" />
+  <ModelCard name="qwen3.6-plus" description="Qwen 3.6 Plus" />
+  <ModelCard name="qwen3.6-flash" description="Qwen 3.6 Flash — haute vitesse" />
+  <ModelCard name="qwen3.5-plus" description="Qwen 3.5 Plus" />
+  <ModelCard name="qwen3-max-2026-01-23" description="Qwen 3 Max phare" />
+</ModelGrid>
+
+### DeepSeek
+
+<ModelGrid>
+  <ModelCard name="deepseek-v4-pro" description="DeepSeek V4 Pro" badge="New" />
+  <ModelCard name="deepseek-v4-flash" description="DeepSeek V4 Flash — haute vitesse" badge="New" />
+  <ModelCard name="deepseek-v3.2" description="DeepSeek V3.2" />
+</ModelGrid>
+
+### MiniMax
+
+<ModelGrid>
+  <ModelCard name="MiniMax-M2.7" description="MiniMax M2.7" badge="New" />
+  <ModelCard name="MiniMax-M2.7-highspeed" description="MiniMax M2.7 haute vitesse" badge="New" />
+  <ModelCard name="MiniMax-M2.5" description="MiniMax M2.5" />
+  <ModelCard name="MiniMax-M2.5-highspeed" description="MiniMax M2.5 haute vitesse" />
+</ModelGrid>
+
+### Zhipu · GLM
+
+<ModelGrid>
+  <ModelCard name="glm-5.2" description="Zhipu GLM-5.2" badge="New" />
+  <ModelCard name="glm-5.1" description="Zhipu GLM-5.1" />
+  <ModelCard name="glm-5" description="Zhipu GLM-5" />
+</ModelGrid>
+
+### Moonshot · Kimi
+
+<ModelGrid>
+  <ModelCard name="kimi-k3" description="Kimi K3" badge="New" />
+  <ModelCard name="kimi-k2.6" description="Kimi K2.6" />
+  <ModelCard name="kimi-k2.5" description="Kimi K2.5" />
+</ModelGrid>
+
+### Xiaomi · MiMo
+
+<ModelGrid>
+  <ModelCard name="mimo-v2.5-pro" description="Xiaomi MiMo V2.5 Pro" badge="New" />
+  <ModelCard name="mimo-v2.5" description="Xiaomi MiMo V2.5" badge="New" />
+  <ModelCard name="mimo-v2-pro" description="Xiaomi MiMo V2 Pro" />
+  <ModelCard name="mimo-v2-omni" description="Xiaomi MiMo V2 Omni — multimodal" />
+</ModelGrid>
+
+---
+
+## Modèles Claude
+
+Les modèles officiels d'Anthropic, exceptionnels pour le code et les textes longs, le choix par défaut pour Claude Code.
+
+> **Protocole** : le **protocole Anthropic** est recommandé · Base URL `https://api.lmuai.com` (sans `/v1`). Le protocole OpenAI fonctionne aussi ; le backend traduit le protocole.
+
+<ModelGrid>
+  <ModelCard name="claude-opus-5" description="Claude Opus 5 — phare" badge="New" />
+  <ModelCard name="claude-fable-5" description="Claude Fable 5" badge="New" />
+  <ModelCard name="claude-opus-4-8" description="Claude Opus 4.8" />
+  <ModelCard name="claude-opus-4-7" description="Claude Opus 4.7" />
+  <ModelCard name="claude-opus-4-6" description="Claude Opus 4.6" />
+  <ModelCard name="claude-opus-4-5" description="Claude Opus 4.5" />
+  <ModelCard name="claude-sonnet-5" description="Claude Sonnet 5 — équilibré" badge="New" />
+  <ModelCard name="claude-sonnet-4-6" description="Claude Sonnet 4.6 — équilibré" />
+  <ModelCard name="claude-sonnet-4-5" description="Claude Sonnet 4.5 — équilibré" />
+  <ModelCard name="claude-haiku-4-5" description="Claude Haiku 4.5 — haute vitesse" />
+</ModelGrid>
+
+---
+
+## Modèles OpenAI
+
+La série OpenAI GPT-5, pour Codex CLI, Codex App, et tout outil prenant en charge le protocole OpenAI.
+
+> **Protocole** : le **protocole OpenAI** · Base URL `https://api.lmuai.com/v1` (**doit inclure** `/v1`).
+
+<ModelGrid>
+  <ModelCard name="gpt-5.6-sol" description="GPT-5.6 Sol" badge="New" />
+  <ModelCard name="gpt-5.6-terra" description="GPT-5.6 Terra" badge="New" />
+  <ModelCard name="gpt-5.6-luna" description="GPT-5.6 Luna" badge="New" />
+  <ModelCard name="gpt-5.5" description="GPT-5.5" />
+  <ModelCard name="gpt-5.4" description="GPT-5.4" />
+  <ModelCard name="gpt-5.2" description="GPT-5.2" />
+</ModelGrid>
+
+---
+
+## Tous les ID de modèles (texte brut)
+
+<Callout type="info" title="Pour la recherche sur le site et la copie en masse">
+
+**Série Claude** : `claude-opus-5`, `claude-fable-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-opus-4-6`, `claude-opus-4-5`, `claude-sonnet-5`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-haiku-4-5`
+
+**Série OpenAI** : `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`, `gpt-5.4`, `gpt-5.2`
+
+**Qwen** : `qwen3.8-max-preview`, `qwen3.7-max`, `qwen3.6-plus`, `qwen3.6-flash`, `qwen3.5-plus`, `qwen3-max-2026-01-23`
+
+**DeepSeek** : `deepseek-v4-pro`, `deepseek-v4-flash`, `deepseek-v3.2`
+
+**MiniMax** : `MiniMax-M2.7`, `MiniMax-M2.7-highspeed`, `MiniMax-M2.5`, `MiniMax-M2.5-highspeed`
+
+**Zhipu GLM** : `glm-5.2`, `glm-5.1`, `glm-5`
+
+**Moonshot Kimi** : `kimi-k3`, `kimi-k2.6`, `kimi-k2.5`
+
+**Xiaomi MiMo** : `mimo-v2.5-pro`, `mimo-v2.5`, `mimo-v2-pro`, `mimo-v2-omni`
+
+Pour les modèles d'image, voir [GPT Image](/fr/docs/api/gpt-image), [Gemini Image](/fr/docs/api/gemini-image) et [Grok Image](/fr/docs/api/grok-image).
+
+</Callout>
+
+---
+
+<Callout type="warn" title="Remarque">
+
+- Les modèles réellement disponibles correspondent à ce qu'affiche la page **Modèles disponibles** dans la console LMU AI ; la plage peut différer selon le forfait.
+- Si vous avez des questions sur le choix d'un modèle, consultez la [FAQ](/fr/docs/guide/faq).
+
+</Callout>

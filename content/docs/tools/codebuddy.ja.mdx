@@ -1,0 +1,214 @@
+---
+title: CodeBuddy
+description: models.json 経由で CodeBuddy を LMU AI API に接続 — 完全な /chat/completions エンドポイントを入力して Claude、GPT、中国製モデルを利用。
+ogDescription: CodeBuddy を LMU AI に接続 — ~/.codebuddy/models.json を編集し、url に https://api.lmuai.com/v1/chat/completions と sk- キーを設定してカスタムモデルを追加し、チャットボックスから Claude Opus 5、GPT-5.6、Qwen、DeepSeek などを利用。ホットリロードとプロジェクトレベルの設定に対応。
+keywords:
+  - CodeBuddy
+  - CodeBuddy 設定
+  - CodeBuddy サードパーティ API
+  - CodeBuddy リレー
+  - CodeBuddy models.json
+  - CodeBuddy カスタムモデル
+  - CodeBuddy を Claude に接続
+  - Tencent Cloud CodeBuddy
+  - availableModels
+alternateNames:
+  - CodeBuddy を LMU AI に接続
+  - CodeBuddy でサードパーティ API を設定する方法
+  - Tencent Cloud CodeBuddy と LMU AI
+faq:
+  - q: CodeBuddy の models.json はどこに置く？
+    a: '両方のレベルに対応しています。**ユーザーレベル**（推奨）：`~/.codebuddy/models.json`、全体に適用されます。**プロジェクトレベル**：`<project-root>/.codebuddy/models.json`、こちらが優先されます。マージ順は高い方から低い方へ、プロジェクトレベル → ユーザーレベル → 組み込みデフォルトとなり、同じ `id` を持つモデルは上書きされます。'
+  - q: url はベース URL かフルパスか？
+    a: '**フルパス**でなければなりません。通常は `/chat/completions` で終わり、LMU AI の場合は `https://api.lmuai.com/v1/chat/completions` です。公式ドキュメントでは `https://api.example.com/v1` や `https://api.myservice.com` のような書きかけの形を明確に**誤った例**として挙げているため、それらをコピーしたチュートリアルは動作しません。'
+  - q: CodeBuddy は Anthropic プロトコルに対応している？
+    a: いいえ。公式ドキュメントでは現時点で OpenAI 形式の API のみに対応していると述べられているため、OpenAI 互換プロトコル（`/v1/chat/completions`）で LMU AI に接続してください。Claude モデルも問題なく動作します — `claude-opus-5` のようなモデル ID を入力するだけで、LMU AI バックエンドが OpenAI ↔ Anthropic の変換を処理します。
+  - q: 設定したのにモデルがドロップダウンに出てこない
+    a: 次の順に確認してください — (1) `availableModels` が設定されている場合、そこに列挙された ID のみが表示されます（すべてを表示するには省略するか空にしてください）；(2) JSON が有効か（カンマの抜けや末尾カンマがあるとファイル全体が無効になります）；(3) 必須の `id` フィールドがあるか；(4) ファイルが実際にディスクに保存されたか。
+  - q: 設定を編集したら CodeBuddy を再起動する必要がある？
+    a: いいえ。models.json は**ホットリロード**に対応しており、変更は自動的に検出され（1 秒のデバウンス付き）アプリに同期されます。何も起こらない場合は、まずファイルが本当に保存されたか確認してください。
+  - q: LMU AI のモデルだけ表示して組み込みのものを隠すには？
+    a: 表示したいモデル ID だけを列挙するには `availableModels` フィールドを使います。プロジェクトレベルではユーザーレベルをマージするのではなく**完全に上書き**する点に注意してください。また、公式ドキュメントによると、`availableModels` フィールドを削除する際は、`models` 配列の後ろに残る末尾のカンマも削除するのを忘れないでください。さもないと JSON が無効になります。
+---
+
+CodeBuddy（Tencent Cloud のコーディングアシスタント）は、`models.json` 設定ファイルによるカスタムモデルリストに対応した AI コードエディタです。このページでは LMU AI への接続方法を解説します。
+
+---
+
+## インストールとサインイン
+
+1. 公式サイトからお使いの OS 向けのビルドをダウンロードしてインストールします：[https://www.codebuddy.cn](https://www.codebuddy.cn/home/)
+2. プロンプトが表示されたら CodeBuddy アカウントにサインインします
+
+---
+
+## LMU AI を設定する
+
+### ステップ 1：設定ファイルの場所を選ぶ
+
+| レベル | パス | 備考 |
+|------|------|------|
+| **ユーザーレベル**（推奨） | `~/.codebuddy/models.json` | グローバル設定、すべてのプロジェクトに適用 |
+| **プロジェクトレベル** | `<project-root>/.codebuddy/models.json` | プロジェクト固有、ユーザーレベルより優先 |
+
+ファイルが存在しない場合は作成してください。マージ順は高い方から低い方へ：プロジェクトレベル → ユーザーレベル → 組み込みデフォルト。
+
+### ステップ 2：設定を書く
+
+ユーザーレベルの `~/.codebuddy/models.json` を例にとります：
+
+```json
+{
+  "models": [
+    {
+      "id": "claude-opus-5",
+      "name": "Claude Opus 5 (LMU AI)",
+      "vendor": "LMU AI",
+      "apiKey": "sk-your-lmu-ai-api-key",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 32000,
+      "supportsToolCall": true,
+      "supportsImages": true,
+      "supportsReasoning": true
+    },
+    {
+      "id": "gpt-5.6-sol",
+      "name": "GPT-5.6 Sol (LMU AI)",
+      "vendor": "LMU AI",
+      "apiKey": "sk-your-lmu-ai-api-key",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "maxInputTokens": 400000,
+      "maxOutputTokens": 32000,
+      "supportsToolCall": true
+    }
+  ]
+}
+```
+
+<Callout type="warn" title="url はベース URL ではなくフルパスであること">
+
+`url` フィールドには**完全なエンドポイントパス**を指定し、`/chat/completions` で終わる必要があります：
+
+- ✅ 正しい：`https://api.lmuai.com/v1/chat/completions`
+- ❌ 誤り：`https://api.lmuai.com/v1`
+- ❌ 誤り：`https://api.lmuai.com`
+
+これはコピペした最小限の例が失敗する最も一般的な原因です — 多くのチュートリアルがこれをベース URL として扱っており、その結果 CodeBuddy はエンドポイントに到達できません。
+
+</Callout>
+
+<Callout type="info" title="CodeBuddy は OpenAI 形式のみ対応">
+
+公式ドキュメントでは現時点で **OpenAI 形式** の API のみに対応していると述べられているため、OpenAI 互換プロトコルで LMU AI に接続してください。
+
+Claude モデルも問題なく動作します：`claude-opus-5` のようなモデル ID を直接入力するだけで、LMU AI バックエンドが OpenAI ↔ Anthropic の変換を処理します。
+
+</Callout>
+
+### ステップ 3：モデルを選んでチャットを始める
+
+ファイルを保存するだけで OK です — models.json は**ホットリロード**（1 秒のデバウンス）に対応しているため、CodeBuddy を再起動する必要はありません。チャットボックスのモデルピッカーで新しく設定したモデルを選択すれば準備完了です。
+
+models.json 経由で追加されたモデルは自動的に `custom` とタグ付けされ、UI 上で見分けやすくなります。
+
+---
+
+## フィールドリファレンス
+
+`models` 配列の各エントリで利用できるフィールド：
+
+| フィールド | 型 | 必須 | 備考 |
+|------|------|------|------|
+| `id` | string | ✓ | 一意のモデル識別子 — LMU AI のモデル ID を使用 |
+| `name` | string | - | ドロップダウンでの表示名 |
+| `vendor` | string | - | ベンダー名；任意の文字列 |
+| `apiKey` | string | - | LMU AI コンソールで生成した `sk-` キー（環境変数名ではなく、実際のキー値） |
+| `url` | string | - | 完全なエンドポイントパス；LMU AI の場合は `https://api.lmuai.com/v1/chat/completions` |
+| `maxInputTokens` | number | - | 最大入力トークン数 |
+| `maxOutputTokens` | number | - | 最大出力トークン数 |
+| `supportsToolCall` | boolean | - | ツール呼び出しに対応するか |
+| `supportsImages` | boolean | - | 画像入力に対応するか |
+| `supportsReasoning` | boolean | - | 推論モードに対応するか |
+
+---
+
+## 特定のモデルだけ表示する
+
+トップレベルの `availableModels` フィールドで、ドロップダウンに表示されるモデルを制御します：
+
+```json
+{
+  "models": [
+    {
+      "id": "claude-opus-5",
+      "name": "Claude Opus 5 (LMU AI)",
+      "apiKey": "sk-your-lmu-ai-api-key",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "supportsToolCall": true
+    }
+  ],
+  "availableModels": ["claude-opus-5"]
+}
+```
+
+- 省略または空配列 → すべてのモデルが表示される
+- 設定されると → 列挙されたモデル ID のみが表示される（組み込みモデルもカスタムモデルも同様）
+- プロジェクトレベルの `availableModels` はユーザーレベルのものをマージせず**完全に上書き**する
+
+<Callout type="warn" title="availableModels を削除するときはカンマに注意">
+
+公式ドキュメントより：`availableModels` フィールドを削除したあとは、その上の `models` 配列の後ろに残る末尾の `,` も削除するのを忘れないでください。さもないと JSON が無効になり、設定全体が動作しなくなります。
+
+</Callout>
+
+---
+
+## よく使うモデル ID
+
+| モデル ID | 備考 |
+|------|------|
+| `claude-opus-5` | Claude Opus 5（フラッグシップ、推奨） |
+| `claude-sonnet-5` | Claude Sonnet 5（バランス型） |
+| `claude-haiku-4-5` | Claude Haiku 4.5（高速） |
+| `gpt-5.6-sol` | GPT-5.6 Sol |
+| `glm-5.2` | GLM-5.2 |
+| `qwen3.8-max-preview` | Qwen 3.8 Max Preview |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k3` | Kimi K3 |
+
+どのモデルを入力すればいいか分からない？[モデルギャラリー](/ja/docs/guide/models) にアクセスすれば、利用可能なすべてのモデル ID を確認し、ワンクリックでコピーできます。
+
+1M コンテキストウィンドウを使うには、モデル ID に `[1M]` サフィックスを付けて書き（例：`claude-opus-5[1M]`）、`maxInputTokens` を相応に引き上げてください。
+
+---
+
+## トラブルシューティング
+
+### 設定が反映されない？
+
+1. **JSON が有効**か確認する（カンマの抜けや末尾カンマが定番の原因）
+2. **ファイルパス**が正しいか確認する（`~/.codebuddy/models.json`）
+3. 各エントリに必須の `id` フィールドがあるか確認する
+4. ファイルが実際に**ディスクに保存された**か確認する（ホットリロードには 1 秒のデバウンスがある）
+
+### モデルがドロップダウンに出てこない？
+
+- `availableModels` が設定されている場合、そのモデル ID がそこに列挙されているか確認する
+- `models` 配列内のエントリが完全か確認する
+
+### 401 / 404 が出る？
+
+- **401**：`apiKey` は LMU AI コンソールで生成した `sk-` キーですか？
+- **404**：`url` にほぼ間違いなく `/chat/completions` が欠けています — フルパスでなければなりません
+
+---
+
+## 注意事項
+
+- `url` は**完全なエンドポイントパス** `https://api.lmuai.com/v1/chat/completions` でなければならず、`/v1` だけやドメインのみではいけません
+- CodeBuddy は **OpenAI 形式のみ**に対応；Claude モデルは LMU AI のプロトコル変換を経由します
+- `apiKey` には実際のキー値を指定します — 環境変数名は使えません
+- 設定は**ホットリロード**されるため、保存するだけで十分で、再起動は不要です
+- 各モデルエントリには独自の `apiKey` と `url` が必要です
+- プロジェクトレベルの設定は `id` ごとにユーザーレベルを上書きしますが、`availableModels` はマージではなく丸ごと置き換えられます

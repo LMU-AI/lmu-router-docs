@@ -1,0 +1,394 @@
+---
+title: Exportar Detalhes de Uso
+description: "Guia de exportação de uso da LMU AI: faça login para obter um JWT e, em seguida, chame /api/v1/usage com paginação, intervalo de datas e filtragem por modelo, com exemplos em três linguagens."
+ogDescription: "A LMU AI oferece uma API pública de detalhes de uso: faça login com sua conta e senha para obter um JWT e, em seguida, chame /api/v1/usage para automatizar a exportação dos detalhes de cada requisição, o consumo de tokens e o custo de cada modelo Claude / GPT / Gemini / modelo chinês — sem downloads manuais de CSV."
+keywords:
+  - detalhes de uso da API Claude
+  - exportação de uso da API Claude
+  - API de uso da LMU AI
+  - endpoint de uso da API GPT
+  - detalhes de uso automatizados
+  - exportação de faturamento de API de IA
+  - uso sub2api
+faq:
+  - q: "Por que não posso extrair os detalhes de uso diretamente com uma chave de API sk-?"
+    a: "A chave sk- serve apenas para chamadas de negócio no gateway (/v1/messages, etc.) e não expõe consultas de detalhes em nível de conta. Isso é uma decisão de segurança deliberada — se uma chave vazar, você não quer que toda a sua fatura seja despejada. Dados em nível de conta devem usar autenticação de conta (JWT)."
+  - q: Como exporto os detalhes de uso de tokens da minha LMU AI via API?
+    a: "Dois passos: primeiro chame o endpoint de login com sua conta e senha para obter um JWT; em seguida, chame /api/v1/usage com esse JWT para obter os detalhes completos, idênticos à página /usage do console, com suporte a paginação, intervalo de datas e filtragem por ID de modelo. A documentação fornece exemplos completos em três linguagens: Bash / Python / Node.js."
+  - q: E se o JWT expirar?
+    a: "Basta chamar o endpoint de login novamente para obter um novo JWT. Um script de exportação de longa duração deve encapsular o 'login para obter um token' em uma função reutilizável que renova e tenta novamente automaticamente quando encontra uma falha de autenticação."
+---
+
+Faça login com sua conta e senha para obter um JWT e, em seguida, use esse JWT para chamar `/api/v1/usage` e extrair **a tabela completa de detalhes de uso de tokens, idêntica à página `/usage` do console**.
+
+Ideal para scripts de longa duração que automatizam exportação, reconciliação e carregamento em BI corporativo — sem precisar baixar um CSV manualmente a cada vez.
+
+<Callout type="info">
+**Por que você não pode extrair diretamente com uma chave de API `sk-...`?** A chave serve apenas para chamadas de negócio no gateway (/v1/messages, etc.) e não expõe consultas de detalhes em nível de conta — isso é uma decisão de segurança deliberada: se uma chave vazar, você não quer que toda a sua fatura seja despejada. Dados em nível de conta devem usar autenticação de conta (JWT).
+</Callout>
+
+---
+
+## 1. Visão geral da API
+
+| Item | Valor |
+|---|---|
+| URL base | `https://api.lmuai.com` |
+| Autenticação | `Authorization: Bearer <access_token>` (o JWT do login da conta) |
+| Validade do access token | **86400 segundos (24 horas)**, renovável com refresh_token |
+| Formato de resposta | JSON; `code: 0` significa sucesso; em caso de falha, `code != 0` com um campo `message` |
+| Uso recomendado | Exportação automatizada de faturamento, carregamento em BI corporativo, scripts de reconciliação |
+
+---
+
+## 2. Passo 1 — Faça login para obter um JWT
+
+### `POST /api/v1/auth/login`
+
+```http
+POST /api/v1/auth/login HTTP/1.1
+Content-Type: application/json
+
+{
+  "email": "your@email.com",
+  "password": "your-password"
+}
+```
+
+**Resposta** (trecho):
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "access_token": "eyJhbGc...",
+    "refresh_token": "rt_756a220ffa...",
+    "expires_in": 86400,
+    "token_type": "Bearer",
+    "user": { "id": 3, "email": "...", "balance": 1575.13 }
+  }
+}
+```
+
+Todas as requisições subsequentes precisam apenas incluir `Authorization: Bearer <access_token>`.
+
+---
+
+## 3. Passo 2 — Extraia os detalhes de uso
+
+### `GET /api/v1/usage`
+
+```http
+GET /api/v1/usage?page=1&page_size=200&start_date=2026-06-01&end_date=2026-06-23&timezone=Asia/Shanghai
+Authorization: Bearer <access_token>
+```
+
+### Parâmetros de consulta
+
+| Parâmetro | Tipo | Obrigatório | Padrão | Descrição |
+|---|---|---|---|---|
+| `page` | int | Não | 1 | Número da página, começando em 1 |
+| `page_size` | int | Não | 20 | Linhas por página, 200 recomendado (valores excessivos são truncados) |
+| `start_date` | string | Não | — | Data inicial `YYYY-MM-DD`, interpretada por `timezone` |
+| `end_date` | string | Não | — | Data final (inclui aquele dia) |
+| `timezone` | string | Não | UTC | Fuso horário para interpretar os parâmetros de data, ex.: `Asia/Shanghai`; **fortemente recomendado**, caso contrário os limites não corresponderão ao seu horário local |
+| `api_key_id` | int | Não | — | Ver os detalhes de apenas uma chave (deve pertencer ao usuário atual) |
+| `model` | string | Não | — | Filtrar por ID de modelo (ex.: `claude-sonnet-5`) |
+| `stream` | bool | Não | — | `true` apenas para streaming, `false` apenas para não-streaming |
+| `billing_type` | int | Não | — | Enum de tipo de faturamento (veja abaixo) |
+| `sort_by` | string | Não | `created_at` | Campo de ordenação |
+| `sort_order` | string | Não | `desc` | `asc` ou `desc` |
+
+### Estrutura da resposta
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "items": [ { /* UsageLog */ }, ... ],
+    "total": 30423,
+    "page": 1,
+    "page_size": 200,
+    "pages": 153
+  }
+}
+```
+
+<Callout type="warn">
+**Os campos de paginação ficam no nível superior de `data`, não no envelope externo**. O array de detalhes fica em `data.items` — `data` em si não é um array.
+</Callout>
+
+### Mapeamento de campos de um único registro
+
+Estes correspondem exatamente a cada coluna da página `/usage` do console:
+
+| Coluna do console | Campo JSON | Tipo | Descrição |
+|---|---|---|---|
+| **Modelo** | `model` | string | O ID de modelo efetivamente faturado |
+| **Esforço de raciocínio** | `reasoning_effort` | string \| null | `low` / `medium` / `high` / `xhigh` / `max` |
+| **Endpoint de entrada** | `inbound_endpoint` | string \| null | O caminho que o cliente chamou, ex.: `/v1/messages` |
+| **Endpoint upstream** | `upstream_endpoint` | string \| null | O caminho upstream normalizado |
+| **Tipo de requisição** | `request_type` | string | `chat` / `stream` / `responses` / `messages`, etc. |
+| **Streaming** | `stream` | bool | Se foi em streaming |
+| **Modo de faturamento** | `billing_mode` | string | `token` / `per_request` / `image` / `subscription` |
+| **Tipo de faturamento** | `billing_type` | int | Enum de tipo de faturamento |
+| **Multiplicador** | `rate_multiplier` | float | O multiplicador de canal aplicado a esta requisição |
+| **Tokens de entrada** | `input_tokens` | int | |
+| **Tokens de saída** | `output_tokens` | int | |
+| **Criação de cache** | `cache_creation_tokens` | int | Todas as gravações de cache |
+| **Criação de cache 5m** | `cache_creation_5m_tokens` | int | Camada efêmera de 5 minutos da Anthropic |
+| **Criação de cache 1h** | `cache_creation_1h_tokens` | int | Camada de 1 hora da Anthropic |
+| **Leitura de cache** | `cache_read_tokens` | int | |
+| **Custo de entrada** | `input_cost` | float | USD |
+| **Custo de saída** | `output_cost` | float | USD |
+| **Custo de criação de cache** | `cache_creation_cost` | float | USD |
+| **Custo de leitura de cache** | `cache_read_cost` | float | USD |
+| **Total pelo preço de tabela** | `total_cost` | float | USD, antes do multiplicador |
+| **Cobrança efetiva** | `actual_cost` | float | **= total_cost × rate_multiplier**, o que é efetivamente deduzido do seu saldo |
+| **Latência do primeiro token** | `first_token_ms` | int \| null | TTFT, válido para streaming |
+| **Duração total** | `duration_ms` | int \| null | |
+| **Horário** | `created_at` | ISO8601 | Horário de gravação no servidor |
+| **ID da requisição** | `request_id` | string | Para diagnóstico e rastreamento |
+| **Geração de imagem** | `image_count` / `image_size` / `image_output_tokens` / `image_output_cost` | — | Preenchido apenas para requisições multimodais |
+| **API Key** | `api_key_id` + objeto aninhado `api_key` | int + obj | |
+| **Grupo** | `group_id` + objeto aninhado `group` | int + obj | |
+
+<Callout type="warn">
+Cada registro carrega objetos aninhados `user` / `api_key` / `group` (cerca de +1KB por linha). **O objeto `api_key` contém o texto completo da chave — certifique-se de redigi-lo em logs / capturas de tela / CSVs de scripts**; para exportação em massa, se você não precisar dos objetos aninhados, use `jq` ou mapeamento de campos no cliente para manter apenas os campos necessários.
+</Callout>
+
+### Enum de tipo de faturamento (billing_type)
+
+| Valor | Significado |
+|---|---|
+| `0` | Faturado por token (a grande maioria das requisições) |
+| `1` | Deduzido da cota de uma assinatura |
+
+O campo `billing_mode` é a versão em string, descrevendo o modelo de precificação específico (`token` / `per_request` / `image` / `subscription`, etc.); é mais legível e recomendado para categorização.
+
+---
+
+## 4. Renovação do token
+
+O access token expira após 24 horas. Há duas maneiras de renová-lo:
+
+### Renovar com refresh_token (recomendado para scripts)
+
+```http
+POST /api/v1/auth/refresh
+Content-Type: application/json
+
+{
+  "refresh_token": "rt_756a220ffa..."
+}
+```
+
+Retorna um novo `access_token` (e geralmente rotaciona também o `refresh_token`). O refresh token é válido por 30 dias.
+
+### Fazer login novamente
+
+Grosseiro, mas simples, bom para scripts pontuais: chame `/auth/login` novamente antes de cada execução.
+
+---
+
+## 5. Exemplos de código
+
+### Bash + curl + jq
+
+```bash
+#!/usr/bin/env bash
+set -e
+
+EMAIL="${EMAIL:?set EMAIL env}"
+PASSWORD="${PASSWORD:?set PASSWORD env}"
+BASE="https://api.lmuai.com"
+
+JWT=$(curl -s -X POST "$BASE/api/v1/auth/login" \
+  -H "Content-Type: application/json" \
+  -d "{\"email\":\"$EMAIL\",\"password\":\"$PASSWORD\"}" \
+  | jq -r '.data.access_token')
+
+[ -n "$JWT" ] && [ "$JWT" != "null" ] || { echo "login failed" >&2; exit 1; }
+
+START="2026-06-01"; END="2026-06-30"; TZ="Asia/Shanghai"; PAGE_SIZE=200
+
+# Fetch page 1 to get total
+META=$(curl -s "$BASE/api/v1/usage?page=1&page_size=$PAGE_SIZE&start_date=$START&end_date=$END&timezone=$TZ" \
+  -H "Authorization: Bearer $JWT")
+PAGES=$(echo "$META" | jq -r '.data.pages')
+
+# CSV header
+echo "created_at,model,request_type,input_tokens,output_tokens,cache_read_tokens,total_cost,actual_cost,duration_ms" > usage.csv
+
+# Write page 1
+echo "$META" | jq -r '.data.items[] | [.created_at, .model, .request_type, .input_tokens, .output_tokens, .cache_read_tokens, .total_cost, .actual_cost, .duration_ms] | @csv' >> usage.csv
+
+# Fetch remaining pages
+for ((p=2; p<=PAGES; p++)); do
+  curl -s "$BASE/api/v1/usage?page=$p&page_size=$PAGE_SIZE&start_date=$START&end_date=$END&timezone=$TZ" \
+    -H "Authorization: Bearer $JWT" \
+    | jq -r '.data.items[] | [.created_at, .model, .request_type, .input_tokens, .output_tokens, .cache_read_tokens, .total_cost, .actual_cost, .duration_ms] | @csv' >> usage.csv
+done
+
+echo "saved $(wc -l < usage.csv) lines to usage.csv"
+```
+
+### Python
+
+```python
+import os, csv, requests
+
+BASE = "https://api.lmuai.com"
+EMAIL = os.environ["EMAIL"]
+PASSWORD = os.environ["PASSWORD"]
+
+def login() -> str:
+    r = requests.post(f"{BASE}/api/v1/auth/login",
+                      json={"email": EMAIL, "password": PASSWORD},
+                      timeout=15)
+    r.raise_for_status()
+    data = r.json()
+    if data["code"] != 0:
+        raise RuntimeError(data.get("message", "login failed"))
+    return data["data"]["access_token"]
+
+def fetch_usage(jwt: str, **params):
+    """Yield each row from paginated /usage endpoint."""
+    page = 1
+    while True:
+        r = requests.get(f"{BASE}/api/v1/usage",
+                         headers={"Authorization": f"Bearer {jwt}"},
+                         params={**params, "page": page, "page_size": 200},
+                         timeout=30)
+        r.raise_for_status()
+        d = r.json()["data"]
+        for row in d.get("items", []):
+            yield row
+        if page >= d.get("pages", 1):
+            return
+        page += 1
+
+if __name__ == "__main__":
+    jwt = login()
+    cols = ["created_at","model","request_type","input_tokens","output_tokens",
+            "cache_read_tokens","total_cost","actual_cost","duration_ms"]
+    with open("usage.csv", "w", newline="") as f:
+        w = csv.writer(f); w.writerow(cols)
+        for row in fetch_usage(jwt, start_date="2026-06-01", end_date="2026-06-30",
+                               timezone="Asia/Shanghai"):
+            w.writerow([row.get(c) for c in cols])
+    print("done")
+```
+
+### Node.js
+
+```js
+import fs from 'node:fs'
+
+const BASE = 'https://api.lmuai.com'
+const { EMAIL, PASSWORD } = process.env
+
+async function login() {
+  const r = await fetch(`${BASE}/api/v1/auth/login`, {
+    method: 'POST',
+    headers: { 'Content-Type': 'application/json' },
+    body: JSON.stringify({ email: EMAIL, password: PASSWORD }),
+  })
+  const j = await r.json()
+  if (j.code !== 0) throw new Error(j.message || 'login failed')
+  return j.data.access_token
+}
+
+async function* fetchUsage(jwt, params) {
+  for (let page = 1; ; page++) {
+    const q = new URLSearchParams({ ...params, page, page_size: '200' })
+    const r = await fetch(`${BASE}/api/v1/usage?${q}`, {
+      headers: { Authorization: `Bearer ${jwt}` },
+    })
+    const j = await r.json()
+    for (const row of j.data.items) yield row
+    if (page >= j.data.pages) return
+  }
+}
+
+const jwt = await login()
+const cols = ['created_at','model','request_type','input_tokens','output_tokens',
+              'cache_read_tokens','total_cost','actual_cost','duration_ms']
+const out = fs.createWriteStream('usage.csv')
+out.write(cols.join(',') + '\n')
+for await (const row of fetchUsage(jwt, {
+  start_date: '2026-06-01', end_date: '2026-06-30', timezone: 'Asia/Shanghai',
+})) {
+  out.write(cols.map(c => JSON.stringify(row[c] ?? '')).join(',') + '\n')
+}
+console.log('done')
+```
+
+---
+
+## 6. Notas práticas
+
+1. **Adicione um atraso entre as viradas de página em massa** — ao paginar N páginas seguidas, recomenda-se `sleep(0.1~0.3s)` para evitar acionar limites de taxa.
+2. **Não extraia um intervalo de tempo muito longo de uma só vez** — abranger vários meses e milhões de linhas é lento. Fatiar por mês é mais estável.
+3. **`page_size` de 200 recomendado** — o servidor trunca valores excessivos.
+4. **Economize banda** — os objetos aninhados `user` / `api_key` / `group` são grandes; se você quiser apenas as linhas de detalhe, filtre com `jq` no cliente.
+5. **Erros comuns**:
+   - `401` JWT expirado → renove com `refresh_token` ou faça login novamente
+   - `403` Acesso não autorizado (ex.: consultar a chave de outra pessoa via `api_key_id`) → verifique se a chave pertence ao usuário atual
+   - `400` Parâmetro inválido (ex.: formato de `start_date`) → verifique se `YYYY-MM-DD` + `timezone` são válidos
+
+---
+
+## 7. Recomendações de segurança (leitura obrigatória)
+
+<Callout type="warn">
+**Sua senha de conta + JWT equivalem a acesso total à conta.** Antes de criar um script de exportação, certifique-se de que:
+</Callout>
+
+| Item | Recomendação |
+|---|---|
+| Gerenciamento de credenciais | **Nunca** faça commit de senha / access_token / refresh_token no git ou em logs de CI; use variáveis de ambiente, um gerenciador de segredos ou `.env` (com `.gitignore`) |
+| Segurança da conta | Recomendamos fortemente habilitar a **autenticação de dois fatores TOTP** (habilite nas configurações da conta). Esta API suporta verificação TOTP durante o login |
+| Rotação regular | Altere a senha da sua conta regularmente; rotacione o refresh_token imediatamente após sua expiração |
+| Monitoramento de anomalias | Observe o "último horário de login / IP" da conta; altere sua senha imediatamente se notar um dispositivo desconhecido |
+| Redação de campos | O `api_key.key` aninhado (texto completo sk-...), o `user.email` e o `refresh_token` na resposta são todos campos sensíveis — **redija-os antes de saída / logs / CSV** |
+| Menor privilégio | Se puder separá-los, **use uma subconta dedicada para o script de exportação** (se sua organização tiver uma estrutura multiconta) para evitar exposição de longo prazo da conta principal |
+| Novas tentativas em erros | Não tente novamente indefinidamente em caso de falha de login — isso facilmente aciona os controles de risco; recomenda-se backoff exponencial |
+
+---
+
+## 8. Referência rápida de campos
+
+Útil para mapeamento de colunas de CSV:
+
+| Rótulo | Campo | Unidade |
+|---|---|---|
+| Modelo | `model` | — |
+| Esforço de raciocínio | `reasoning_effort` | — |
+| Endpoint de entrada | `inbound_endpoint` | path |
+| Endpoint upstream | `upstream_endpoint` | path |
+| Tipo de requisição | `request_type` | enum |
+| Streaming | `stream` | bool |
+| Modo de faturamento | `billing_mode` | enum |
+| Tipo de faturamento | `billing_type` | int |
+| Multiplicador | `rate_multiplier` | float |
+| Tokens de entrada | `input_tokens` | int |
+| Tokens de saída | `output_tokens` | int |
+| Tokens de leitura de cache | `cache_read_tokens` | int |
+| Tokens de gravação de cache | `cache_creation_tokens` | int |
+| Gravação de cache 5m | `cache_creation_5m_tokens` | int |
+| Gravação de cache 1h | `cache_creation_1h_tokens` | int |
+| Custo de entrada | `input_cost` | USD |
+| Custo de saída | `output_cost` | USD |
+| Custo de criação de cache | `cache_creation_cost` | USD |
+| Custo de leitura de cache | `cache_read_cost` | USD |
+| Total pelo preço de tabela | `total_cost` | USD |
+| Cobrança efetiva | `actual_cost` | USD |
+| Primeiro token | `first_token_ms` | ms |
+| Duração total | `duration_ms` | ms |
+| Horário | `created_at` | ISO8601 |
+| ID da requisição | `request_id` | string |
+| Grupo | `group_id` / `group.name` | int / string |
+| API Key | `api_key_id` / `api_key.name` | int / string |

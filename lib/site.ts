@@ -15,11 +15,36 @@ export const SITE_NAME_EN = 'LMU AI Docs';
 export const SITE_DESCRIPTION_EN =
   'LMU AI (Lingmou AI) API documentation: a stable, reliable relay for Claude, GPT, Gemini and Grok — plus leading Chinese models — with one API key across Claude Code, Codex CLI, Cursor, Cherry Studio and other AI coding tools.';
 
+// 新增主流语种的站点级文案（忠实翻译既有中立描述，不新增事实；不含大陆/海外定位
+// 断言——新语种同一份文案两站通用）。cn/en 仍走上面的字面量常量，逐字节不变。
+const SITE_NAME_I18N: Record<string, string> = {
+  ja: 'LMU AI ドキュメント',
+  ko: 'LMU AI 문서',
+  es: 'Documentación de LMU AI',
+  pt: 'Documentação da LMU AI',
+  de: 'LMU AI Dokumentation',
+  fr: 'Documentation LMU AI',
+  ru: 'Документация LMU AI',
+  ar: 'وثائق LMU AI',
+};
+const SITE_DESCRIPTION_I18N: Record<string, string> = {
+  ja: 'LMU AI（Lingmou AI）API ドキュメント：Claude、GPT、Gemini、Grok に加え主要な中国製モデルにも対応する安定した中継サービス。1 つの API キーで Claude Code、Codex CLI、Cursor、Cherry Studio などの AI コーディングツールに接続できます。',
+  ko: 'LMU AI(Lingmou AI) API 문서: Claude, GPT, Gemini, Grok과 주요 중국 모델까지 지원하는 안정적인 중계 서비스. 하나의 API 키로 Claude Code, Codex CLI, Cursor, Cherry Studio 등 AI 코딩 도구에 연결합니다.',
+  es: 'Documentación de la API de LMU AI (Lingmou AI): un relay estable y fiable para Claude, GPT, Gemini y Grok, además de los principales modelos chinos, con una sola clave API en Claude Code, Codex CLI, Cursor, Cherry Studio y otras herramientas de programación con IA.',
+  pt: 'Documentação da API da LMU AI (Lingmou AI): um relay estável e confiável para Claude, GPT, Gemini e Grok — além dos principais modelos chineses — com uma única chave de API no Claude Code, Codex CLI, Cursor, Cherry Studio e outras ferramentas de programação com IA.',
+  de: 'LMU AI (Lingmou AI) API-Dokumentation: ein stabiler, zuverlässiger Relay-Dienst für Claude, GPT, Gemini und Grok sowie führende chinesische Modelle – mit einem einzigen API-Schlüssel in Claude Code, Codex CLI, Cursor, Cherry Studio und anderen KI-Programmierwerkzeugen.',
+  fr: "Documentation de l'API LMU AI (Lingmou AI) : un relais stable et fiable pour Claude, GPT, Gemini et Grok, ainsi que les principaux modèles chinois, avec une seule clé API sur Claude Code, Codex CLI, Cursor, Cherry Studio et d'autres outils de développement IA.",
+  ru: 'Документация API LMU AI (Lingmou AI): стабильный и надёжный релей для Claude, GPT, Gemini и Grok, а также ведущих китайских моделей — с единым API-ключом в Claude Code, Codex CLI, Cursor, Cherry Studio и других инструментах ИИ-разработки.',
+  ar: 'وثائق واجهة LMU AI (Lingmou AI) البرمجية: خدمة تحويل مستقرة وموثوقة لـ Claude وGPT وGemini وGrok إضافةً إلى أبرز النماذج الصينية، بمفتاح API واحد عبر Claude Code وCodex CLI وCursor وCherry Studio وغيرها من أدوات البرمجة بالذكاء الاصطناعي.',
+};
+
 export function siteName(locale: string): string {
-  return locale === 'en' ? SITE_NAME_EN : SITE_NAME;
+  if (locale === 'cn') return SITE_NAME;
+  return SITE_NAME_I18N[locale] ?? SITE_NAME_EN;
 }
 export function siteDescription(locale: string): string {
-  return locale === 'en' ? SITE_DESCRIPTION_EN : SITE_DESCRIPTION;
+  if (locale === 'cn') return SITE_DESCRIPTION;
+  return SITE_DESCRIPTION_I18N[locale] ?? SITE_DESCRIPTION_EN;
 }
 
 // 产品实体（区别于「文档站」SITE_NAME=灵眸文档）：灵眸 AI 本体是大模型 API 中转服务。
@@ -28,7 +53,8 @@ export function siteDescription(locale: string): string {
 export const PRODUCT_NAME = '灵眸 AI';
 export const PRODUCT_NAME_EN = 'LMU AI';
 export function productName(locale: string): string {
-  return locale === 'en' ? PRODUCT_NAME_EN : PRODUCT_NAME;
+  // 品牌名：中文站用「灵眸 AI」，其余语种一律用英文品牌「LMU AI」（不逐字翻译品牌）。
+  return locale === 'cn' ? PRODUCT_NAME : PRODUCT_NAME_EN;
 }
 
 // 定位描述按变体走：.com 陈述北京网关（境内直连免代理）；.ai 陈述国际站网关
@@ -41,8 +67,22 @@ export const PRODUCT_DESCRIPTION = IS_AI
 export const PRODUCT_DESCRIPTION_EN = IS_AI
   ? 'LMU AI (Lingmou AI) is a large-model API relay. One API key calls Claude, OpenAI GPT, Gemini and leading Chinese models; the international gateway offers direct access from outside mainland China, and the same account, key and balance also work on the mainland endpoint. Compatible with mainstream AI tools such as Claude Code, Codex CLI, Cursor and Cherry Studio.'
   : 'LMU AI (Lingmou AI) is a large-model API relay for users in mainland China. One API key calls Claude, OpenAI GPT, Gemini and leading Chinese models; the gateway is hosted inside mainland China for direct, proxy-free access, and it is compatible with mainstream AI tools such as Claude Code, Codex CLI, Cursor and Cherry Studio.';
+// 新语种产品描述用海外中立措辞：不写网关位置（大陆/海外均不断言），同一份文案两站
+// 通用，避免在某一站说错定位（no-fabrication）。cn/en 仍走上面的 IS_AI 字面量。
+const PRODUCT_DESCRIPTION_I18N: Record<string, string> = {
+  ja: 'LMU AI（Lingmou AI）は大規模モデルの API 中継サービスです。1 つの API キーで Claude、OpenAI GPT、Gemini および主要な中国製大規模モデルを呼び出せ、Claude Code、Codex CLI、Cursor、Cherry Studio などの主流 AI ツールに対応します。',
+  ko: 'LMU AI(Lingmou AI)는 대규모 모델 API 중계 서비스입니다. 하나의 API 키로 Claude, OpenAI GPT, Gemini 및 주요 중국 대규모 모델을 호출할 수 있으며 Claude Code, Codex CLI, Cursor, Cherry Studio 등 주요 AI 도구와 호환됩니다.',
+  es: 'LMU AI (Lingmou AI) es un relay de API de grandes modelos. Una sola clave API llama a Claude, OpenAI GPT, Gemini y los principales modelos chinos, y es compatible con herramientas de IA populares como Claude Code, Codex CLI, Cursor y Cherry Studio.',
+  pt: 'A LMU AI (Lingmou AI) é um relay de API de grandes modelos. Uma única chave de API chama Claude, OpenAI GPT, Gemini e os principais modelos chineses, e é compatível com ferramentas de IA populares como Claude Code, Codex CLI, Cursor e Cherry Studio.',
+  de: 'LMU AI (Lingmou AI) ist ein Relay-Dienst für Large-Model-APIs. Ein einziger API-Schlüssel ruft Claude, OpenAI GPT, Gemini und führende chinesische Modelle auf und ist mit gängigen KI-Tools wie Claude Code, Codex CLI, Cursor und Cherry Studio kompatibel.',
+  fr: "LMU AI (Lingmou AI) est un service de relais d'API de grands modèles. Une seule clé API appelle Claude, OpenAI GPT, Gemini et les principaux modèles chinois, et il est compatible avec les outils d'IA courants comme Claude Code, Codex CLI, Cursor et Cherry Studio.",
+  ru: 'LMU AI (Lingmou AI) — это релей API больших моделей. Один API-ключ вызывает Claude, OpenAI GPT, Gemini и ведущие китайские модели и совместим с популярными ИИ-инструментами, такими как Claude Code, Codex CLI, Cursor и Cherry Studio.',
+  ar: 'إن LMU AI (Lingmou AI) خدمة تحويل لواجهات النماذج الكبيرة البرمجية. يستدعي مفتاح API واحد نماذج Claude وOpenAI GPT وGemini وأبرز النماذج الصينية، وهي متوافقة مع أدوات الذكاء الاصطناعي الشائعة مثل Claude Code وCodex CLI وCursor وCherry Studio.',
+};
 export function productDescription(locale: string): string {
-  return locale === 'en' ? PRODUCT_DESCRIPTION_EN : PRODUCT_DESCRIPTION;
+  if (locale === 'cn') return PRODUCT_DESCRIPTION;
+  if (locale === 'en') return PRODUCT_DESCRIPTION_EN;
+  return PRODUCT_DESCRIPTION_I18N[locale] ?? PRODUCT_DESCRIPTION_EN;
 }
 
 // featureList：逐条对应站内既有卖点（首页 OG、SITE_DESCRIPTION、关键事实、models.ts）。
@@ -65,8 +105,70 @@ export const PRODUCT_FEATURES_EN = [
   'Covers Claude, GPT, Gemini and Chinese models including Qwen, DeepSeek, GLM, Kimi, MiniMax and MiMo',
   'Image generation and image editing API',
 ];
+// 新语种 featureList 去掉「网关位置」这一条（该条随站点变体走，新语种两站共用一份文案，
+// 不对某一站做错误定位），其余 5 条忠实翻译。cn/en 仍走上面的 IS_AI 六条数组。
+const PRODUCT_FEATURES_I18N: Record<string, string[]> = {
+  ja: [
+    '1 つの API キーで Anthropic、OpenAI 互換、Gemini ネイティブの 3 プロトコルに対応',
+    'Claude Code、Codex CLI、Cursor、Cherry Studio などの主流 AI プログラミングツールに対応',
+    'マルチソースのフェイルオーバー',
+    'Claude、GPT、Gemini と、通義千問（Qwen）、DeepSeek、GLM、Kimi、MiniMax、MiMo などの中国製大規模モデルをカバー',
+    '画像生成・画像編集 API を提供',
+  ],
+  ko: [
+    '하나의 API 키로 Anthropic, OpenAI 호환, Gemini 네이티브 세 가지 프로토콜 지원',
+    'Claude Code, Codex CLI, Cursor, Cherry Studio 등 주요 AI 프로그래밍 도구와 호환',
+    '다중 소스 장애 조치(failover)',
+    'Claude, GPT, Gemini와 Qwen, DeepSeek, GLM, Kimi, MiniMax, MiMo 등 중국 대규모 모델 지원',
+    '이미지 생성 및 이미지 편집 API 제공',
+  ],
+  es: [
+    'Una sola clave API funciona con los protocolos Anthropic, compatible con OpenAI y nativo de Gemini',
+    'Compatible con herramientas de programación con IA como Claude Code, Codex CLI, Cursor y Cherry Studio',
+    'Conmutación por error de múltiples fuentes',
+    'Cubre Claude, GPT, Gemini y modelos chinos como Qwen, DeepSeek, GLM, Kimi, MiniMax y MiMo',
+    'API de generación y edición de imágenes',
+  ],
+  pt: [
+    'Uma única chave de API funciona nos protocolos Anthropic, compatível com OpenAI e nativo do Gemini',
+    'Compatível com ferramentas de programação com IA como Claude Code, Codex CLI, Cursor e Cherry Studio',
+    'Failover de múltiplas fontes',
+    'Cobre Claude, GPT, Gemini e modelos chineses como Qwen, DeepSeek, GLM, Kimi, MiniMax e MiMo',
+    'API de geração e edição de imagens',
+  ],
+  de: [
+    'Ein einziger API-Schlüssel funktioniert über die Protokolle Anthropic, OpenAI-kompatibel und Gemini-nativ',
+    'Kompatibel mit gängigen KI-Programmierwerkzeugen wie Claude Code, Codex CLI, Cursor und Cherry Studio',
+    'Multi-Source-Failover',
+    'Unterstützt Claude, GPT, Gemini sowie chinesische Modelle wie Qwen, DeepSeek, GLM, Kimi, MiniMax und MiMo',
+    'API zur Bildgenerierung und Bildbearbeitung',
+  ],
+  fr: [
+    'Une seule clé API fonctionne avec les protocoles Anthropic, compatible OpenAI et natif Gemini',
+    'Compatible avec les outils de développement IA courants comme Claude Code, Codex CLI, Cursor et Cherry Studio',
+    'Bascule multi-source (failover)',
+    'Couvre Claude, GPT, Gemini et des modèles chinois comme Qwen, DeepSeek, GLM, Kimi, MiniMax et MiMo',
+    "API de génération et d'édition d'images",
+  ],
+  ru: [
+    'Один API-ключ работает с протоколами Anthropic, OpenAI-совместимым и нативным Gemini',
+    'Совместим с популярными инструментами ИИ-разработки: Claude Code, Codex CLI, Cursor и Cherry Studio',
+    'Отказоустойчивость с несколькими источниками',
+    'Поддерживает Claude, GPT, Gemini и китайские модели: Qwen, DeepSeek, GLM, Kimi, MiniMax и MiMo',
+    'API генерации и редактирования изображений',
+  ],
+  ar: [
+    'مفتاح API واحد يعمل عبر بروتوكولات Anthropic والمتوافق مع OpenAI وGemini الأصلي',
+    'متوافق مع أدوات البرمجة بالذكاء الاصطناعي الشائعة مثل Claude Code وCodex CLI وCursor وCherry Studio',
+    'تجاوز الفشل من مصادر متعددة',
+    'يغطي Claude وGPT وGemini والنماذج الصينية مثل Qwen وDeepSeek وGLM وKimi وMiniMax وMiMo',
+    'واجهة برمجية لتوليد الصور وتحريرها',
+  ],
+};
 export function productFeatures(locale: string): string[] {
-  return locale === 'en' ? PRODUCT_FEATURES_EN : PRODUCT_FEATURES;
+  if (locale === 'cn') return PRODUCT_FEATURES;
+  if (locale === 'en') return PRODUCT_FEATURES_EN;
+  return PRODUCT_FEATURES_I18N[locale] ?? PRODUCT_FEATURES_EN;
 }
 
 export const SITE_KEYWORDS = [

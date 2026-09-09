@@ -1,0 +1,925 @@
+---
+title: Gemini Batch Image API
+description: "Асинхронный пакетный API изображений LMU AI: отправляйте множество задач генерации изображений Gemini за раз, опрашивайте статус и детали, скачивайте изображения или ZIP, с идемпотентностью и оценкой стоимости."
+ogDescription: "Документация по пакетному API изображений Gemini от LMU AI: POST /v1/images/batches для отправки многопромптовых задач, опрос статуса, запрос деталей, скачивание ZIP, отмена задач и обработка ошибок, таких как BATCH_IMAGE_DISABLED."
+keywords:
+  - Gemini batch image API
+  - Gemini Batch API
+  - API пакетной генерации изображений
+  - пакетные задачи Gemini
+  - images batches
+  - пакетная генерация изображений LMU AI
+  - Gemini JSONL Batch
+  - пакетный text-to-image
+alternateNames:
+  - Асинхронный пакетный API изображений LMU AI
+  - API пакетной обработки изображений Gemini
+  - Image Batches API
+faq:
+  - q: Пакетный API изображений — это публичный или внутренний API?
+    a: "Это расширенный API, который LMU AI предоставляет пользователям. Он аутентифицируется с помощью вашего собственного ключа API sk- через Authorization Bearer, и также напрямую вызывается страницей пакетных изображений в консоли LMU AI."
+  - q: Могу ли я использовать gpt-image-2 с пакетным API?
+    a: "Пока нет. Валидация бэкенд-провайдера и группы для /v1/images/batches сейчас поддерживает только Gemini; для GPT используйте /v1/images/generations, /v1/images/edits или асинхронный API одиночных задач."
+  - q: Что означает BATCH_IMAGE_DISABLED?
+    a: "Это означает, что в текущем развёртывании релея API не включена глобальная функция пакетных изображений; это не ошибка ключа API или промпта. Передайте администратору код ошибки и идентификатор запроса."
+  - q: Поддерживает ли пакетная генерация изображений 2K и 4K?
+    a: "Пакетный API в настоящее время принимает только 1K. API generateContent Gemini реального времени поддерживает 1K, 2K и 4K; если пакетный API будет расширен позже, документация будет обновлена соответствующим образом."
+  - q: Возвращает ли пакетная задача все изображения сразу после её отправки?
+    a: "Нет. Пакетный API — это API асинхронных задач: после отправки он возвращает идентификатор пакета, и клиенту нужно опрашивать статус задачи, а затем скачивать отдельные изображения или ZIP после её завершения."
+---
+
+Пакетный API изображений Gemini от LMU AI позволяет отправлять множество задач генерации изображений Gemini за раз. Сервер асинхронно создаёт пакетную задачу, отслеживает её статус, организует результаты и производит расчёт стоимости.
+
+Основной эндпоинт:
+
+```text
+POST https://api.lmuai.com/v1/images/batches
+```
+
+<Callout type="info" title="Это расширенный API LMU AI">
+
+Пакетный API находится по адресу `/v1/images/batches`. Это API асинхронных задач, который LMU AI предоставляет пользователям — а не нативный путь `/v1beta` Google Gemini.
+
+**Текущая реализация поддерживает только Gemini.** Хотя тело запроса включает универсальное поле `model`, вы не можете отправить `gpt-image-2` или модели изображений Grok на этот эндпоинт. Для text-to-image GPT используйте [GPT Image API](/ru/docs/api/gpt-image); для text-to-image Grok используйте [Grok Image API](/ru/docs/api/grok-image).
+
+Если вам нужно только сгенерировать одно изображение Gemini или вам нужны `2K / 4K`, используйте [Gemini Image API реального времени](/ru/docs/api/gemini-image).
+
+</Callout>
+
+---
+
+## 1. Когда его использовать
+
+Пакетный API хорошо подходит, когда вы:
+
+- отправляете от десятков до сотен разных промптов за раз;
+- не нуждаетесь в немедленном возврате задач изображений в рамках того же HTTP-запроса;
+- нуждаетесь в статусе задач, деталях сбоев, отмене и пакетном скачивании;
+- производите иллюстрации для статей, ассеты для e-commerce, датасеты или дизайн-кандидатов офлайн;
+- хотите использовать `Idempotency-Key` для предотвращения дублирующих отправок и двойного списания.
+
+Он не подходит, когда вы:
+
+- измеряете задержку одной генерации изображения в реальном времени;
+- нуждаетесь в `2K / 4K`;
+- нуждаетесь в синхронном ожидании изображения и его немедленном отображении;
+- проводите стресс-тесты параллелизма или RPM.
+
+---
+
+## 2. Предварительные условия
+
+Пакетная функция требует, чтобы администратор включил её как на стороне развёртывания, так и на стороне группы, и настроил совместимые вышестоящие аккаунты и цены.
+
+Вы можете сначала запросить список моделей, чтобы проверить, доступна ли функция:
+
+```http
+GET /v1/images/batches/models
+```
+
+<Callout type="warn" title="Если возвращается BATCH_IMAGE_DISABLED">
+
+`BATCH_IMAGE_DISABLED` означает, что глобальная функция пакетных изображений в релее API не включена. Это не ошибка ключа API, модели или промпта.
+
+Передайте администратору полный код ошибки и идентификатор запроса из заголовков ответа, например:
+
+```text
+Error code: BATCH_IMAGE_DISABLED
+Request ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+</Callout>
+
+Общие условия допуска:
+
+- текущий статус ключа API — активный;
+- платформа группы ключа API — Gemini;
+- группа разрешает пакетную генерацию изображений;
+- доступны ресурсы для выполнения пакетных изображений;
+- для модели настроена цена пакетных изображений;
+- сервис асинхронных пакетных задач работает нормально.
+
+---
+
+## 3. Аутентификация
+
+Пакетный API использует ваш собственный ключ API LMU AI:
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+Пример:
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/models' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Не размещайте ваш ключ API в URL, исходном коде фронтенда или публичных репозиториях.
+
+---
+
+## 4. Обзор эндпоинтов
+
+| Метод | Путь | Описание |
+|---|---|---|
+| `GET` | `/v1/images/batches/models` | Список моделей, которые текущий ключ может использовать для пакетной генерации изображений |
+| `POST` | `/v1/images/batches` | Создать пакетную задачу изображений |
+| `GET` | `/v1/images/batches` | Список пакетных задач, созданных текущим ключом |
+| `GET` | `/v1/images/batches/{id}` | Запросить статус конкретной задачи |
+| `GET` | `/v1/images/batches/{id}/items` | Запросить детали элементов задачи |
+| `GET` | `/v1/images/batches/{id}/items/{custom_id}/content` | Скачать изображение для отдельного элемента задачи |
+| `GET` | `/v1/images/batches/{id}/download` | Скачать весь пакет как ZIP |
+| `POST` | `/v1/images/batches/{id}/cancel` | Отменить задачу |
+| `DELETE` | `/v1/images/batches/{id}/outputs` | Удалить выходные файлы пакета |
+| `DELETE` | `/v1/images/batches/{id}` | Удалить запись пакетной задачи |
+
+Все данные задач изолированы по ключу API, использованному для создания задачи.
+
+---
+
+## 5. Список доступных пакетных моделей
+
+### `GET /v1/images/batches/models`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/models' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Типичный ответ (фрагмент):
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "gemini-3.1-flash-image",
+      "object": "image.batch.model"
+    }
+  ]
+}
+```
+
+<Callout type="info" title="Список пакетных моделей отличается от обычного списка моделей">
+
+Используйте `/v1/images/batches/models` как селектор моделей для пакетных задач. Он дополнительно проверяет разрешения на пакетную функцию, ресурсы выполнения, поддержку моделей и конфигурацию пакетного биллинга.
+
+Не каждая модель, возвращаемая обычными `/v1/models` или `/v1beta/models`, может использоваться для асинхронной пакетной генерации изображений.
+
+</Callout>
+
+---
+
+## 6. Создание пакетной задачи
+
+### `POST /v1/images/batches`
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1/images/batches' \
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+  --header 'Idempotency-Key: client-batch-20260725-001' \
+  --header 'Content-Type: application/json' \
+  --data-raw '{
+    "model": "gemini-3.1-flash-image",
+    "task_name": "Product image batch eval 001",
+    "response_mime_type": "image/png",
+    "image_size": "1K",
+    "items": [
+      {
+        "custom_id": "image_001",
+        "prompt": "An orange tabby cat wearing an astronaut helmet, cinematic lighting",
+        "output_count": 1
+      },
+      {
+        "custom_id": "image_002",
+        "prompt": "A futuristic city in morning mist, ultra-wide-angle photography",
+        "output_count": 1
+      },
+      {
+        "custom_id": "image_003",
+        "prompt": "A seaside lighthouse at sunset, watercolor illustration, warm tones",
+        "output_count": 1
+      }
+    ]
+  }'
+```
+
+### Поля запроса верхнего уровня
+
+| Поле | Тип | Обязательно | По умолчанию | Описание |
+|---|---:|:---:|---|---|
+| `model` | string | Да | — | Должно быть из списка пакетных моделей |
+| `task_name` | string | Нет | Генерируется автоматически | Имя задачи; слишком длинное содержимое обрезается |
+| `parent_batch_id` | string | Нет | — | Связывает родительскую задачу, подходит для повторного выполнения неудавшихся элементов |
+| `items` | array | Да | — | Элементы пакетной задачи, минимум один |
+| `response_mime_type` | string | Нет | `image/png` | Ожидаемый выходной MIME-тип |
+| `aspect_ratio` | string | Нет | — | В текущей версии пока не передаётся вышестоящему провайдеру; не полагайтесь на это поле для управления соотношением сторон |
+| `image_size` | string | Нет | `1K` | В настоящее время поддерживается только `1K` |
+| `metadata` | object | Нет | — | Пользовательские строковые пары ключ-значение |
+
+### Поля `items[]`
+
+| Поле | Тип | Обязательно | По умолчанию | Описание |
+|---|---:|:---:|---|---|
+| `custom_id` | string | Нет | Генерируется автоматически | Идентификатор задачи вызывающего, должен быть уникальным в рамках одного пакета |
+| `prompt` | string | Да | — | Каждая задача может использовать свой промпт |
+| `output_count` | integer | Нет | `1` | В настоящее время до 4 на элемент, в зависимости от конфигурации развёртывания |
+| `reference_images` | array | Нет | — | Референсные изображения для image-to-image |
+
+### Idempotency-Key
+
+Настоятельно рекомендуется включать уникальный ключ при каждом создании задачи:
+
+```http
+Idempotency-Key: client-batch-20260725-001
+```
+
+Когда тот же ключ API повторно отправляет запрос с тем же `Idempotency-Key` и идентичным телом запроса, сервер может вернуть исходную задачу, избегая дублирующего создания и дублирующих удержаний средств после сетевого тайм-аута.
+
+Если вы повторно используете тот же `Idempotency-Key`, но с другим содержимым запроса, возвращается:
+
+```text
+BATCH_IMAGE_IDEMPOTENCY_CONFLICT
+```
+
+---
+
+## 7. Текущие ограничения пакета
+
+Ниже приведены значения по умолчанию из исходного кода; фактическое развёртывание может быть скорректировано администратором:
+
+| Ограничение | По умолчанию |
+|---|---:|
+| Макс. входных элементов на пакет | 200 |
+| Макс. выходных изображений на пакет | 200 |
+| Макс. `output_count` на элемент | 4 |
+| Макс. символов на промпт | 8000 |
+| Макс. размер одного встроенного референсного изображения | 10 MiB |
+| Макс. элементов на ZIP по умолчанию | 200 |
+
+### Соотношение сторон пакета пока нельзя указать
+
+<Callout type="warn" title="aspect_ratio в настоящее время не имеет эффекта">
+
+Хотя структура пакетного запроса сохраняет поле `aspect_ratio`, текущая логика построения запросов Gemini Batch и Vertex Batch пока не записывает его в вышестоящий `generationConfig.imageConfig`.
+
+В результате соотношение сторон пакетной задачи в настоящее время определяется поведением вышестоящего провайдера по умолчанию. Не указывайте `aspect_ratio` в вашем запросе и не полагайтесь на него как на стабильную возможность API.
+
+Когда вам нужен точный контроль над соотношениями сторон, такими как `1:1`, `16:9` или `21:9`, используйте [Gemini Image API реального времени](/ru/docs/api/gemini-image).
+
+</Callout>
+
+### Поддерживается только 1K
+
+<Callout type="warn" title="Пакетный API пока не поддерживает 2K / 4K">
+
+`image_size` пакетного API в настоящее время принимает только:
+
+```json
+{
+  "image_size": "1K"
+}
+```
+
+Отправка `2K` или `4K` возвращает `BATCH_IMAGE_INVALID_ITEMS`.
+
+Когда вам нужны `2K / 4K`, используйте [Gemini Image API реального времени](/ru/docs/api/gemini-image) и управляйте параллелизмом множественных запросов на стороне клиента.
+
+</Callout>
+
+### Как output_count разворачивается в задачи
+
+Если элемент устанавливает:
+
+```json
+{
+  "custom_id": "poster",
+  "prompt": "Movie poster",
+  "output_count": 3
+}
+```
+
+сервер разворачивает его в отдельные идентификаторы задач, например:
+
+```text
+poster_01
+poster_02
+poster_03
+```
+
+Общее количество изображений после разворачивания не может превышать максимальное количество выходных изображений пакета.
+
+---
+
+## 8. Пакетный image-to-image
+
+Каждый элемент может включать `reference_images`:
+
+```json
+{
+  "model": "gemini-3.1-flash-image",
+  "task_name": "Product image style transfer",
+  "image_size": "1K",
+  "items": [
+    {
+      "custom_id": "product_001",
+      "prompt": "Place the product on a clean light-gray studio background, keeping the product structure and text accurate",
+      "reference_images": [
+        {
+          "id": "source_001",
+          "type": "reference",
+          "mime_type": "image/png",
+          "data": "BASE64_IMAGE_DATA"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### Поля референсного изображения
+
+| Поле | Тип | Обязательно | Описание |
+|---|---:|:---:|---|
+| `id` | string | Нет | Идентификатор референсного изображения |
+| `type` | string | Нет | Тег назначения референсного изображения |
+| `mime_type` | string | Да | `image/png`, `image/jpeg` или `image/webp` |
+| `data` | string | Одно из двух | Содержимое изображения в Base64 |
+
+Для интеграции с публичным API мы рекомендуем передавать референсные изображения в Base64 через `data`. Другие методы ссылок на хранилище являются контролируемой продвинутой возможностью — обратитесь к администратору, если они вам нужны.
+
+Количество референсных изображений зависит от модели. Сервис в настоящее время применяет следующие ограничения по умолчанию на основе имени модели:
+
+- имена, содержащие `flash-image`: до 3 референсных изображений на задачу;
+- имена, содержащие `pro-image`: до 14 референсных изображений на задачу.
+
+Фактическое используемое количество также может зависеть от возможностей вышестоящей модели и конфигурации развёртывания.
+
+---
+
+## 9. Ответ создания задачи
+
+Успешное создание возвращает HTTP `200` и объект пакета:
+
+```json
+{
+  "id": "imgbatch_abc123",
+  "object": "image.batch",
+  "task_name": "Product image batch eval 001",
+  "status": "queued",
+  "model": "gemini-3.1-flash-image",
+  "item_count": 3,
+  "success_count": 0,
+  "fail_count": 0,
+  "estimated_cost": 0.15,
+  "hold_amount": 0.09,
+  "actual_cost": null,
+  "created_at": 1784995200,
+  "submitted_at": 1784995201,
+  "settled_at": null
+}
+```
+
+### Ключевые поля
+
+| Поле | Описание |
+|---|---|
+| `id` | Идентификатор пакета, используемый для последующих запросов и скачиваний |
+| `status` | Статус задачи, отображаемый пользователю |
+| `item_count` | Общее количество элементов задачи после разворачивания |
+| `success_count` | Количество успешных задач |
+| `fail_count` | Количество неудавшихся задач |
+| `estimated_cost` | Оценочная стоимость на момент отправки |
+| `hold_amount` | Удержание баланса, размещённое при создании задачи |
+| `actual_cost` | Фактическая стоимость после расчёта; `null`, пока не завершено |
+
+<Callout type="info" title="Успешная отправка не означает, что изображения готовы">
+
+`200` от эндпоинта создания означает лишь, что пакет был принят и отправлен в конвейер асинхронной обработки. Клиент должен продолжать опрашивать статус задачи, пока он не достигнет `completed`, `failed` или `cancelled`.
+
+</Callout>
+
+---
+
+## 10. Запрос статуса задачи
+
+### `GET /v1/images/batches/{id}`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/imgbatch_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+### Статусы, отображаемые пользователю
+
+| Статус | Описание | Терминальный |
+|---|---|:---:|
+| `queued` | Создано, загружено или отправлено; ожидает вышестоящей обработки | Нет |
+| `running` | Вышестоящий провайдер генерирует изображения | Нет |
+| `processing_results` | Скачивание и индексация вышестоящих результатов | Нет |
+| `settling` | Расчёт фактической стоимости | Нет |
+| `completed` | Обработка завершена; результаты можно запросить и скачать | Да |
+| `failed` | Пакет не выполнен | Да |
+| `cancelled` | Отменено | Да |
+| `output_deleted` | Выходные файлы удалены, но запись задачи остаётся | Да |
+
+Рекомендуемые интервалы опроса:
+
+```text
+First 2 minutes: every 10-15 seconds
+After 2 minutes: every 30 seconds
+Long tasks: gradually increase to every 60 seconds
+```
+
+Не опрашивайте каждую секунду.
+
+<Callout type="warn" title="Веб-хуки завершения пока не поддерживаются">
+
+Пакетный API в настоящее время не имеет конфигурации `callback_url`, `webhook_url` или коллбэка завершения. Он не уведомляет сервер вызывающего проактивно при завершении задачи.
+
+Вызывающему нужно опрашивать `GET /v1/images/batches/{id}`, прекратить опрос, как только статус достигнет `completed`, `failed`, `cancelled` или `output_deleted`, а затем запросить детали или скачать результаты.
+
+</Callout>
+
+---
+
+## 11. Список задач
+
+### `GET /v1/images/batches`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches?status=completed&limit=20' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+### Параметры запроса
+
+| Параметр | Тип | Описание |
+|---|---|---|
+| `status` | string | `queued`, `running`, `processing_results`, `settling`, `completed`, `failed`, `cancelled`, `output_deleted` |
+| `task_name` | string | Нечёткий поиск по имени задачи |
+| `downloaded` | string | `true` / `false`, фильтр по признаку скачивания |
+| `from` | string | Начало диапазона времени создания |
+| `to` | string | Конец диапазона времени создания |
+| `limit` | integer | По умолчанию 20, максимум 100 |
+| `cursor` | string | Курсор пагинации |
+
+Ответ:
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "imgbatch_abc123",
+      "object": "image.batch",
+      "task_name": "Product image batch eval 001",
+      "status": "completed",
+      "model": "gemini-3.1-flash-image",
+          "item_count": 3,
+      "success_count": 3,
+      "fail_count": 0,
+      "estimated_cost": 0.15,
+      "hold_amount": 0.09,
+      "actual_cost": 0.12,
+      "created_at": 1784995200,
+      "submitted_at": 1784995201,
+      "settled_at": 1784998800
+    }
+  ],
+  "has_more": false
+}
+```
+
+---
+
+## 12. Запрос деталей элементов задачи
+
+### `GET /v1/images/batches/{id}/items`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/items?status=success&limit=100' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Поддерживаемые значения `status`:
+
+```text
+all
+pending
+success
+failed
+```
+
+Типичный ответ (фрагмент):
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "custom_id": "image_001",
+      "status": "success",
+      "prompt_preview": "An orange tabby cat wearing an astronaut helmet...",
+      "mime_type": "image/png",
+      "file_extension": "png",
+      "image_count": 1,
+      "error": null
+    },
+    {
+      "custom_id": "image_002",
+      "status": "failed",
+      "prompt_preview": "A futuristic city in morning mist...",
+      "mime_type": null,
+      "file_extension": null,
+      "image_count": 0,
+      "error": {
+        "code": "PROVIDER_ITEM_FAILED",
+        "message": "image generation failed",
+        "source": "provider"
+      }
+    }
+  ],
+  "has_more": false
+}
+```
+
+По умолчанию элементы задачи отображаются по 100 на странице, максимум 500.
+
+---
+
+## 13. Скачивание изображений
+
+### Скачать отдельный элемент задачи
+
+```bash
+curl \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/items/image_001/content' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  --output image_001.png
+```
+
+Если элемент задачи имеет несколько изображений, вы можете указать:
+
+```text
+?image_index=0
+?image_index=1
+```
+
+`image_index` начинается с 0.
+
+### Скачать весь пакет как ZIP
+
+```bash
+curl \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/download' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  --output imgbatch_abc123.zip
+```
+
+Необязательные параметры:
+
+```text
+?status=success
+?max_items=100
+```
+
+ZIP содержит изображения и манифест результатов. После успешного скачивания задача записывает `downloaded_at`.
+
+---
+
+## 14. Отмена и удаление
+
+### Отмена задачи
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/cancel' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Задача, которая уже достигла терминального состояния, не будет отменена повторно. Возможность предотвратить вышестоящие списания зависит от текущего состояния вышестоящей задачи Batch.
+
+### Удаление выходных файлов
+
+```bash
+curl --request DELETE \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/outputs' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+После удаления выходных данных статус отображается как `output_deleted`, и изображения больше нельзя скачать.
+
+### Удаление записи задачи
+
+```bash
+curl --request DELETE \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+Только задачи в терминальном состоянии могут иметь свою запись удалённой. Успех возвращает HTTP `204`.
+
+<Callout type="warn" title="Удаление записи и удаление изображений — это две разные вещи">
+
+- Удаление выходных данных: очищает файлы изображений, но запись задачи остаётся;
+- Удаление записи: скрывает задачу из списка задач текущего пользователя;
+- Производственные системы должны убедиться, что результаты были скачаны и заархивированы, прежде чем удалять.
+
+</Callout>
+
+---
+
+## 15. Полный рабочий процесс на Node.js
+
+```js
+import { mkdir, writeFile } from 'node:fs/promises';
+
+const BASE_URL = process.env.LMU_BASE_URL || 'https://api.lmuai.com';
+const API_KEY = process.env.LMU_API_KEY;
+
+if (!API_KEY) throw new Error('Missing LMU_API_KEY');
+
+const headers = {
+  Authorization: `Bearer ${API_KEY}`,
+};
+
+async function jsonRequest(path, options = {}) {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      ...headers,
+      ...(options.headers || {}),
+    },
+  });
+
+  const text = await response.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(`Non-JSON response: HTTP ${response.status}`);
+  }
+
+  if (!response.ok) {
+    const error = data?.error || {};
+    throw new Error(
+      `${error.code || response.status}: ${error.message || text}`,
+    );
+  }
+
+  return data;
+}
+
+const batch = await jsonRequest('/v1/images/batches', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Idempotency-Key': `client-${Date.now()}`,
+  },
+  body: JSON.stringify({
+    model: 'gemini-3.1-flash-image',
+    task_name: 'Node batch image demo',
+    image_size: '1K',
+    items: [
+      { custom_id: 'cat', prompt: 'A cinematic astronaut orange tabby cat' },
+      { custom_id: 'city', prompt: 'A futuristic city in morning mist' },
+    ],
+  }),
+});
+
+console.log('batch id:', batch.id);
+
+let job = batch;
+while (!['completed', 'failed', 'cancelled', 'output_deleted'].includes(job.status)) {
+  await new Promise((resolve) => setTimeout(resolve, 15_000));
+  job = await jsonRequest(`/v1/images/batches/${encodeURIComponent(batch.id)}`);
+  console.log('status:', job.status);
+}
+
+if (job.status !== 'completed') {
+  throw new Error(`Batch task did not complete successfully: ${job.status}`);
+}
+
+const items = await jsonRequest(
+  `/v1/images/batches/${encodeURIComponent(batch.id)}/items?status=success`,
+);
+
+await mkdir('batch-output', { recursive: true });
+
+for (const item of items.data || []) {
+  const response = await fetch(
+    `${BASE_URL}/v1/images/batches/${encodeURIComponent(batch.id)}` +
+      `/items/${encodeURIComponent(item.custom_id)}/content`,
+    { headers },
+  );
+
+  if (!response.ok) {
+    console.error('Download failed:', item.custom_id, response.status);
+    continue;
+  }
+
+  const extension = item.file_extension || 'png';
+  await writeFile(
+    `batch-output/${item.custom_id}.${extension}`,
+    Buffer.from(await response.arrayBuffer()),
+  );
+}
+```
+
+---
+
+## 16. Полный рабочий процесс на Python
+
+```python
+import os
+import time
+from pathlib import Path
+import requests
+
+BASE_URL = os.getenv("LMU_BASE_URL", "https://api.lmuai.com")
+API_KEY = os.environ["LMU_API_KEY"]
+HEADERS = {"Authorization": f"Bearer {API_KEY}"}
+
+payload = {
+    "model": "gemini-3.1-flash-image",
+    "task_name": "Python batch image demo",
+    "image_size": "1K",
+    "items": [
+        {"custom_id": "cat", "prompt": "A cinematic astronaut orange tabby cat"},
+        {"custom_id": "city", "prompt": "A futuristic city in morning mist"},
+    ],
+}
+
+response = requests.post(
+    f"{BASE_URL}/v1/images/batches",
+    headers={
+        **HEADERS,
+        "Content-Type": "application/json",
+        "Idempotency-Key": f"client-{int(time.time())}",
+    },
+    json=payload,
+    timeout=300,
+)
+response.raise_for_status()
+batch = response.json()
+print("batch id:", batch["id"])
+
+terminal = {"completed", "failed", "cancelled", "output_deleted"}
+job = batch
+while job["status"] not in terminal:
+    time.sleep(15)
+    response = requests.get(
+        f"{BASE_URL}/v1/images/batches/{batch['id']}",
+        headers=HEADERS,
+        timeout=60,
+    )
+    response.raise_for_status()
+    job = response.json()
+    print("status:", job["status"])
+
+if job["status"] != "completed":
+    raise RuntimeError(f"Batch task did not complete successfully: {job['status']}")
+
+items_response = requests.get(
+    f"{BASE_URL}/v1/images/batches/{batch['id']}/items",
+    headers=HEADERS,
+    params={"status": "success"},
+    timeout=60,
+)
+items_response.raise_for_status()
+items = items_response.json().get("data", [])
+
+output_dir = Path("batch-output")
+output_dir.mkdir(exist_ok=True)
+
+for item in items:
+    content = requests.get(
+        f"{BASE_URL}/v1/images/batches/{batch['id']}"
+        f"/items/{item['custom_id']}/content",
+        headers=HEADERS,
+        timeout=300,
+    )
+    content.raise_for_status()
+    extension = item.get("file_extension") or "png"
+    (output_dir / f"{item['custom_id']}.{extension}").write_bytes(content.content)
+```
+
+---
+
+## 17. Биллинг и удержания баланса
+
+Пакетные задачи следуют процессу «оценка, удержание, затем расчёт по завершении»:
+
+1. Сервер оценивает стоимость на основе модели, количества задач, множителя группы и пакетной скидки;
+2. Он размещает удержание `hold_amount` при создании задачи;
+3. После завершения вышестоящей обработки он вычисляет `actual_cost` на основе количества успешных изображений;
+4. После расчёта он высвобождает любое избыточное удержание;
+5. Если задача завершается неудачно или отменяется до отправки, система пытается высвободить удержание в соответствии со статусом задачи.
+
+Поля ответа:
+
+```text
+estimated_cost
+hold_amount
+actual_cost
+```
+
+представляют оценочную сумму, удержанную сумму и итоговую фактическую сумму соответственно.
+
+<Callout type="info" title="Ценообразование следует текущей конфигурации группы">
+
+Пакетная скидка, множитель группы, множитель аккаунта и цена за изображение могут настраиваться администратором. Документация не обещает фиксированных цен; итоговое списание определяется деталями использования в консоли и `actual_cost` пакета.
+
+</Callout>
+
+---
+
+## 18. Формат ошибок
+
+Пакетный API использует следующую структуру ошибок:
+
+```json
+{
+  "error": {
+    "type": "invalid_request_error",
+    "code": "BATCH_IMAGE_INVALID_ITEMS",
+    "message": "batch image items are invalid"
+  }
+}
+```
+
+Также записывайте идентификатор запроса из заголовков ответа. В консоли сообщение об ошибке отображается как:
+
+```text
+Error code: BATCH_IMAGE_DISABLED
+Request ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+### Распространённые коды ошибок
+
+| Код ошибки | HTTP | Значение | Что делать |
+|---|---:|---|---|
+| `BATCH_IMAGE_DISABLED` | 404 | Глобальная пакетная генерация изображений не включена | Передайте администратору код ошибки и идентификатор запроса |
+| `BATCH_IMAGE_GROUP_DISABLED` | 403 | Группа текущего ключа не разрешает пакетную генерацию изображений или не является группой Gemini | Смените ключ или обратитесь к администратору для включения разрешения группы |
+| `BATCH_IMAGE_NO_ACCOUNT_AVAILABLE` | 502 | В настоящее время нет доступных ресурсов для выполнения пакета | Сохраните идентификатор запроса и обратитесь к администратору |
+| `BATCH_IMAGE_SETTLEMENT_PRICING_MISSING` | 400 | У пакетной модели нет цены биллинга | Обратитесь к администратору для настройки цены модели |
+| `BATCH_IMAGE_INVALID_MODEL` | 400 | Модель не была предоставлена | Используйте модель из списка пакетных моделей |
+| `BATCH_IMAGE_INVALID_ITEMS` | 400 | Элементы, разрешение или поля запроса недействительны | Проверьте тело запроса; в настоящее время поддерживается только 1K |
+| `BATCH_IMAGE_DUPLICATE_CUSTOM_ID` | 400 | Дублирующийся `custom_id` | Убедитесь, что он уникален в рамках одного пакета |
+| `BATCH_IMAGE_PROMPT_TOO_LONG` | 400 | Промпт слишком длинный | Сократите промпт |
+| `BATCH_IMAGE_TOO_MANY_OUTPUT_IMAGES` | 400 | Количество изображений после разворачивания превышает лимит | Уменьшите items или output_count |
+| `BATCH_IMAGE_INVALID_REFERENCE_IMAGE` | 400 | Формат, размер или URI референсного изображения недействительны | Проверьте MIME-тип, Base64 и file_uri |
+| `BATCH_IMAGE_INSUFFICIENT_BALANCE` | 402 | Недостаточно баланса для размещения удержания | Пополните или уменьшите объём задачи |
+| `BATCH_IMAGE_IDEMPOTENCY_CONFLICT` | 409 | Тот же ключ идемпотентности сопоставляется с другим телом запроса | Используйте новый Idempotency-Key |
+| `BATCH_IMAGE_PROVIDER_SUBMIT_FAILED` | 502 | Создание вышестоящей пакетной задачи не удалось | Сохраните идентификатор запроса, повторите ограниченное число раз или обратитесь к администратору |
+| `BATCH_IMAGE_QUEUE_FAILED` | 502 | Сервис асинхронных задач временно недоступен | Сохраните идентификатор запроса и обратитесь к администратору |
+| `BATCH_IMAGE_NOT_READY` | 409 | Вы попытались скачать до завершения задачи | Дождитесь статуса completed |
+| `BATCH_IMAGE_OUTPUT_DELETED` | 410 | Выходные данные уже очищены | Их нельзя скачать снова; нужно пересоздать задачу |
+| `BATCH_IMAGE_ITEM_FAILED` | 409 | У указанного элемента задачи нет успешного изображения | Проверьте item.error |
+| `BATCH_IMAGE_DOWNLOAD_LIMITED` | 429 | Слишком много одновременных скачиваний | Повторите позже |
+
+---
+
+## 19. Пакетный API против API реального времени
+
+| Аспект | Gemini image реального времени | Асинхронный пакетный image |
+|---|---|---|
+| Эндпоинт | `/v1beta/models/{model}:generateContent` | `/v1/images/batches` |
+| Способ возврата | Возвращает изображение в Base64 в том же HTTP-запросе | Возвращает идентификатор пакета; опрос и скачивание позже |
+| Разрешение | `1K / 2K / 4K` | В настоящее время принимает только `1K`, а вышестоящий провайдер использует свою конфигурацию изображений по умолчанию |
+| Соотношение сторон | Управляется перечислением соотношений, которое модель фактически поддерживает | В настоящее время не может быть указано; используется соотношение сторон вышестоящего провайдера по умолчанию |
+| Множественные промпты | Клиент делает несколько запросов | Один пакет содержит несколько элементов |
+| Несколько изображений на элемент | Несколько отдельных запросов | `output_count`, до 4 по умолчанию |
+| Управление состоянием | Вызывающий отслеживает сам | Встроенный статус задачи, детали, отмена и удаление |
+| Способ скачивания | Декодирование Base64 | Скачивание отдельного изображения или ZIP |
+| Стоимость | Оплата за запрос в реальном времени | Оценка, удержание баланса, расчёт по завершении |
+| Лучше всего для | Онлайн-взаимодействие, тестирование качества, стресс-тесты производительности | Крупномасштабное офлайн-производство |
+
+---
+
+## 20. Чек-лист интеграции
+
+- [ ] `/v1/images/batches/models` возвращает хотя бы одну модель;
+- [ ] используемый вами ключ API принадлежит группе Gemini, которая разрешает пакетную генерацию изображений;
+- [ ] создание задачи включает уникальный `Idempotency-Key`;
+- [ ] `image_size` использует `1K`;
+- [ ] все значения `custom_id` уникальны;
+- [ ] вы можете опрашивать до `completed` или определённого терминального состояния;
+- [ ] вы можете запрашивать детали успешных / неудавшихся задач;
+- [ ] вы можете скачать отдельное изображение;
+- [ ] вы можете скачать ZIP и прочитать манифест результатов;
+- [ ] вы можете идентифицировать неудавшиеся элементы и избегать повторной отправки всего пакета;
+- [ ] вы проверили estimated_cost, hold_amount и actual_cost;
+- [ ] логи записывают код ошибки и идентификатор запроса, но не полный ключ API.
+
+---
+
+## Следующие шаги
+
+- Text-to-image и image-to-image реального времени: [Gemini Image API](/ru/docs/api/gemini-image)
+- Запрос деталей использования и стоимости: [Экспорт деталей использования](/ru/docs/api/usage-export)
+- Ключи API и детали протоколов: [Протоколы API](/ru/docs/guide/api-protocols)

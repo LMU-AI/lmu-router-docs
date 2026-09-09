@@ -1,0 +1,101 @@
+---
+title: Cherry Studio
+description: Connectez Cherry Studio à l'API LMU AI et configurez des canaux de modèles Claude, chinois et OpenAI, avec une connexion directe vers l'étranger.
+ogDescription: Connectez Cherry Studio à LMU AI — ajoutez des canaux de modèles Claude / OpenAI / Gemini / chinois en un clic, avec une connexion directe vers l'étranger.
+keywords:
+  - Cherry Studio
+  - Cherry Studio Claude
+  - Configurer l'API Cherry Studio
+  - Utiliser Cherry Studio en Chine
+  - Cherry Studio OpenAI
+  - Cherry Studio Gemini
+  - Relais API Cherry Studio
+alternateNames:
+  - Connecter Cherry Studio à LMU AI
+---
+
+Cherry Studio est un client de bureau IA multi-modèles.
+
+---
+
+## Télécharger et installer
+
+- **Site officiel bureau** : [https://www.cherry-ai.com/](https://www.cherry-ai.com/)
+- **Mobile (Android & iOS)** : [https://github.com/CherryHQ/cherry-studio-app/releases](https://github.com/CherryHQ/cherry-studio-app/releases)
+  - Android : téléchargez le fichier `.apk`
+  - iOS : téléchargez le fichier `.ipa`
+
+Le processus d'installation mobile ressemble beaucoup à celui du bureau — regardez de plus près et vous vous y retrouverez.
+
+---
+
+## Les deux protocoles
+
+LMU AI prend en charge deux protocoles de connexion ; choisissez-en un selon le type de modèle :
+
+| Protocole | Modèles |
+|------|----------|
+| **Anthropic** | Modèles Claude, modèles chinois (DeepSeek, Qwen, etc.) |
+| **OpenAI-Response** | Modèles OpenAI (GPT-4, GPT-5, etc.) |
+
+---
+
+## Méthode 1 : protocole Anthropic (modèles Claude et chinois)
+
+### Étape 1 — Ajouter un fournisseur
+
+Allez dans les Paramètres de Cherry Studio → cliquez sur Ajouter un fournisseur :
+
+1. **Nom du fournisseur** : ce que vous voulez (par ex. `LMU AI`)
+2. **Type de fournisseur** : sélectionnez **`Anthropic`** dans la liste déroulante
+
+![Ajouter un fournisseur Anthropic](/images/tools/cherry-studio/c-studio-1.png)
+
+### Étape 2 — Saisir les détails de l'API
+
+- **API Key** : saisissez la clé `sk-` générée dans la console
+- **API Host** : saisissez l'adresse de requête du relais API
+
+```
+https://api.lmuai.com
+```
+
+Cliquez sur Récupérer la liste des modèles pour obtenir les modèles disponibles ; la série Claude et les modèles chinois se chargent automatiquement.
+
+![Configuration Anthropic terminée](/images/tools/cherry-studio/c-studio-2.png)
+
+---
+
+## Méthode 2 : protocole OpenAI-Response (modèles OpenAI)
+
+### Étape 1 — Ajouter un fournisseur
+
+Allez dans les Paramètres de Cherry Studio → cliquez sur Ajouter un fournisseur :
+
+1. **Nom du fournisseur** : ce que vous voulez (par ex. `LMU AI`)
+2. **Type de fournisseur** : sélectionnez **`OpenAI-Response`** dans la liste déroulante (la deuxième option, pas le premier OpenAI)
+
+### Étape 2 — Saisir les détails de l'API
+
+- **API Key** : saisissez la clé `sk-` générée dans la console
+- **API Host** : saisissez l'adresse de requête du relais API
+
+```
+https://api.lmuai.com
+```
+
+Cliquez sur Récupérer la liste des modèles pour obtenir les modèles disponibles ; la série GPT se charge automatiquement.
+
+![Configuration OpenAI-Response terminée](/images/tools/cherry-studio/c-studio-3.png)
+
+Une fois configuré, vous pouvez sélectionner et utiliser le modèle dans l'écran de discussion :
+
+![L'écran de discussion](/images/tools/cherry-studio/c-studio-4.png)
+
+---
+
+## Remarques
+
+- La même API Key et le même API Host fonctionnent pour les deux protocoles ; ajoutez simplement deux fournisseurs selon les besoins
+- Pour le type OpenAI-Response, veillez à choisir la deuxième option, pas le premier OpenAI
+- Saisissez l'adresse du relais API comme adresse d'API ; ne saisissez pas l'adresse officielle d'OpenAI ou d'Anthropic

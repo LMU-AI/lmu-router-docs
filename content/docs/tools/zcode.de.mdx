@@ -1,0 +1,133 @@
+---
+title: ZCode
+description: Fügen Sie im ZCode-Editor einen benutzerdefinierten Provider hinzu, um sich mit der LMU AI API zu verbinden — ein Eintrag enthält sowohl den Anthropic- als auch den OpenAI-Endpunkt und gibt Ihnen Claude, GPT und chinesische Modelle.
+ogDescription: Verbinden Sie den ZCode-Editor mit LMU AI — gehen Sie zu Einstellungen → Model Providers → Add provider, geben Sie die Anthropic-/OpenAI-Endpunkte und Ihren sk--Schlüssel ein, fügen Sie dann Modell-IDs manuell hinzu, um Claude Opus 5, GPT-5.6, GLM, Qwen, DeepSeek und mehr zu nutzen.
+keywords:
+  - ZCode
+  - ZCode Konfiguration
+  - ZCode Drittanbieter-API
+  - ZCode Relay
+  - ZCode benutzerdefinierter Provider
+  - ZCode mit Claude verbinden
+  - ZCode chinesische Modelle
+  - ZCode Modell hinzufügen
+  - Agentic Development Environment
+alternateNames:
+  - ZCode mit LMU AI verbinden
+  - So konfigurieren Sie eine Drittanbieter-API in ZCode
+  - Einrichtung eines benutzerdefinierten Providers in ZCode
+faq:
+  - q: Wie verbinde ich ZCode mit LMU AI?
+    a: 'Öffnen Sie **Settings → Model Providers**, klicken Sie unten in der Provider-Liste auf der linken Seite auf "Add provider", geben Sie ihm einen beliebigen Namen (z. B. `LMU AI`), setzen Sie den Anthropic-Endpunkt auf `https://api.lmuai.com` und den OpenAI-Endpunkt auf `https://api.lmuai.com/v1`, geben Sie den in der LMU AI-Konsole generierten `sk-`-Schlüssel ein, speichern Sie dann, klicken Sie auf "Add model", um eine Modell-ID manuell einzugeben (z. B. `claude-opus-5`), und schalten Sie den Aktivierungs-Umschalter ein.'
+  - q: Benötigen die Endpunkte ein `/v1`-Suffix?
+    a: Die beiden Protokolle unterscheiden sich. Der **Anthropic-Endpunkt** nimmt `https://api.lmuai.com` (**kein** `/v1` — der Client hängt `/v1/messages` selbst an), während der **OpenAI-Endpunkt** `https://api.lmuai.com/v1` (**mit** `/v1`) nimmt. Dies entspricht den offiziellen Beispielen für Drittanbieter-Provider, bei denen Anthropic-artige Einträge den bloßen Host verwenden und OpenAI-artige Einträge bis zu `/v1` reichen.
+  - q: LMU AI-Modelle erscheinen nicht im Modellwähler
+    a: 'Benutzerdefinierte Provider rufen nicht automatisch eine Modellliste ab. Nachdem Sie den Provider gespeichert haben, klicken Sie auf "**Add model**" und geben Sie die Modell-ID von Hand ein (z. B. `claude-opus-5`, `glm-5.2`), schalten Sie dann den Aktivierungs-Umschalter ein. Sie ist dann im Modellwähler im Chat-Feld auswählbar.'
+  - q: Kann ich das Kontextfenster für die Modelle eines benutzerdefinierten Providers ändern?
+    a: Ja. Öffnen Sie unter **Settings → Model Providers** ein Modell und erweitern Sie "**Advanced**", um das Kontextfenster und die maximalen Ausgabe-Tokens für dieses einzelne Modell festzulegen. Die Hauptlinien-Claude-Modelle von LMU AI unterstützen ein 1M-Kontextfenster — verwenden Sie eine Modell-ID mit dem `[1M]`-Suffix (z. B. `claude-opus-5[1M]`), um es zu aktivieren.
+  - q: Warum unterscheiden sich die Thinking-Effort-Stufen vom offiziellen Endpunkt?
+    a: Dies ist dokumentiertes ZCode-Verhalten — eine Drittanbieter-Bereitstellung eines gleichnamigen Modells kann andere Effort-Stufen akzeptieren als der offizielle Endpunkt, und benutzerdefinierte Modelle bieten je nach Modellkonfiguration typischerweise nur ein Ein/Aus-Paar oder gar keine Stufen. Die Funktionalität ist nicht beeinträchtigt; nutzen Sie es einfach wie gewohnt.
+  - q: Beeinflusst die HTTP-Proxy-Einstellung von ZCode Anfragen an LMU AI?
+    a: Ja. Der HTTP-Proxy in den Einstellungen von ZCode ist kein globaler Proxy, aber Modellanfragen gehören zu dem Verkehr, der durch ihn läuft. Wenn ein Proxy Sie an der Verbindung hindert, schalten Sie ihn aus und versuchen Sie es erneut — und beachten Sie, dass auch die Umgebungsvariablen `HTTP_PROXY` / `HTTPS_PROXY` gelten und ZCode nach deren Änderung einen Neustart benötigt.
+---
+
+ZCode ist eine Agentic Development Environment (ADE) Desktop-App, die für Aufgaben mit langem Horizont gebaut wurde. Es unterstützt benutzerdefinierte Provider für jeden Modelldienst, der das Anthropic- oder OpenAI-Protokoll spricht — diese Seite behandelt die Verbindung mit LMU AI.
+
+---
+
+## ZCode installieren
+
+Laden Sie den Build für Ihr Betriebssystem von der offiziellen Website herunter und installieren Sie ihn:
+
+- Website: [https://zcode.z.ai](https://zcode.z.ai)
+
+---
+
+## LMU AI als Provider hinzufügen
+
+Öffnen Sie **Settings → Model Providers** und klicken Sie am **unteren** Ende der Provider-Liste auf der linken Seite auf "**Add provider**", füllen Sie dann aus:
+
+| Feld | Wert |
+|------|------|
+| **Name** | beliebig, z. B. `LMU AI` |
+| **Anthropic endpoint** | `https://api.lmuai.com` |
+| **OpenAI endpoint** | `https://api.lmuai.com/v1` |
+| **API Key** | der in der LMU AI-Konsole generierte `sk-`-Schlüssel |
+
+<Callout type="warn" title="Die beiden Endpunkte nehmen unterschiedliche /v1-Formen">
+
+- **Anthropic endpoint**: `https://api.lmuai.com` — **kein** `/v1`; der Client hängt `/v1/messages` selbst an
+- **OpenAI endpoint**: `https://api.lmuai.com/v1` — **muss** `/v1` enthalten
+
+Ein Verwechseln erzeugt einen 401 oder 404. Beide Adressen können im selben Provider-Eintrag leben — ZCode verwendet je nach ausgewähltem Modell das passende Protokoll.
+
+</Callout>
+
+---
+
+## Modelle hinzufügen
+
+Benutzerdefinierte Provider **rufen nicht automatisch eine Modellliste ab**, fügen Sie sie also von Hand hinzu:
+
+1. Speichern Sie die Provider-Konfiguration
+2. Klicken Sie auf "**Add model**"
+3. Geben Sie die Modell-ID manuell ein, z. B. `claude-opus-5`
+4. Schalten Sie den **Aktivierungs-Umschalter** ein
+
+Wiederholen Sie dies für jedes gewünschte Modell. Gängige Modell-IDs:
+
+| Modell-ID | Hinweise |
+|------|------|
+| `claude-opus-5` | Claude Opus 5 (Flaggschiff, empfohlen) |
+| `claude-sonnet-5` | Claude Sonnet 5 (ausgewogen) |
+| `claude-haiku-4-5` | Claude Haiku 4.5 (schnell) |
+| `gpt-5.6-sol` | GPT-5.6 Sol |
+| `glm-5.2` | GLM-5.2 |
+| `qwen3.8-max-preview` | Qwen 3.8 Max Preview |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k3` | Kimi K3 |
+
+Nicht sicher, welches Modell Sie eingeben sollen? Gehen Sie zur [Model Gallery](/de/docs/guide/models), um jede verfügbare Modell-ID zu sehen und sie mit einem Klick zu kopieren.
+
+---
+
+## Das 1M-Kontextfenster aktivieren
+
+Hauptlinien-Modelle wie `claude-opus-5` und `claude-sonnet-5` unterstützen ein 1M-Token-Kontextfenster — fügen Sie das `[1M]`-Suffix an die Modell-ID an, um es zu aktivieren:
+
+```
+claude-opus-5[1M]
+```
+
+Geben Sie die vollständige ID mit dem Suffix über die oben beschriebenen "Add model"-Schritte ein.
+
+<Callout type="info" title="Das Kontextfenster kann pro Modell eingestellt werden">
+
+Öffnen Sie unter **Settings → Model Providers** ein Modell und erweitern Sie "**Advanced**", um das **Kontextfenster** und die **maximalen Ausgabe-Tokens** für dieses einzelne Modell festzulegen. Beide sind für die Modelle eines benutzerdefinierten Providers editierbar.
+
+Es wird empfohlen, die maximalen Ausgabe-Tokens leer zu lassen (dann folgt es dem eigenen Limit des Modells). Beachten Sie, dass der Ausgabebereich denselben Kontext wie Ihr Gesprächsverlauf teilt, sodass je höher Sie ihn setzen, desto weniger Verlauf mitgeführt werden kann und desto früher die automatische Komprimierung einsetzt.
+
+</Callout>
+
+---
+
+## Die Einrichtung überprüfen
+
+**Starten Sie ZCode neu**, nachdem die Konfiguration abgeschlossen ist, wählen Sie Ihr neu hinzugefügtes Modell im Modellwähler des Chat-Feldes aus und senden Sie eine einfache Anweisung zum Testen. Eine normale Antwort bedeutet, dass Sie eingerichtet sind.
+
+<Callout type="info" title="Keine Verbindung? Überprüfen Sie zuerst den Proxy">
+
+Der HTTP-Proxy in den Einstellungen von ZCode ist kein globaler Proxy, aber **Modellanfragen laufen durch ihn**. Wenn ein Proxy die Verbindung stört, schalten Sie ihn aus und versuchen Sie es erneut. Die Umgebungsvariablen `HTTP_PROXY` / `HTTPS_PROXY` gelten ebenfalls, und ZCode benötigt einen Neustart, nachdem Sie sie geändert haben.
+
+</Callout>
+
+---
+
+## Hinweise
+
+- LMU AI ist ein Drittanbieter-/benutzerdefinierter Provider, erstellen Sie ihn daher mit "**Add provider**" am unteren Ende der Liste — ändern Sie nicht die integrierten Anbietereinträge
+- Der **Anthropic-Endpunkt** nimmt `https://api.lmuai.com` (kein `/v1`); der **OpenAI-Endpunkt** nimmt `https://api.lmuai.com/v1` (mit `/v1`)
+- Geben Sie als API Key den in der LMU AI-Konsole generierten `sk-`-Schlüssel ein
+- Benutzerdefinierte Provider erfordern, jedes Modell von Hand hinzuzufügen und seinen Aktivierungs-Umschalter einzuschalten, bevor es im Wähler erscheint
+- Eine Drittanbieter-Bereitstellung eines gleichnamigen Modells kann andere **Thinking-Effort-Stufen** bieten als der offizielle Endpunkt; benutzerdefinierte Modelle stellen typischerweise nur ein Ein/Aus-Paar oder gar keine bereit
+- Wenn Sie mit einem benutzerdefinierten Modell bildbezogene Fehler erhalten, bestätigen Sie, dass das Modell selbst Bildeingaben akzeptiert, und deklarieren Sie seine Bildfähigkeit in der Modellkonfiguration

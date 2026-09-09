@@ -1,0 +1,283 @@
+---
+title: Grok Image API
+description: "LMU AI の OpenAI Images 互換 API 経由で Grok 画像モデルを呼び出す：テキストから画像、編集、URL および Base64 入力、ダウンロード、モデル選択、エラー修正。"
+ogDescription: "LMU AI Grok Image API 統合ガイド：grok-imagine-image で POST /v1/images/generations、grok-imagine-image-quality で POST /v1/images/edits による画像編集。"
+keywords:
+  - Grok Image API
+  - grok-imagine-image
+  - grok-imagine-image-quality
+  - Grok 画像編集
+  - xAI Images API
+  - LMU AI Grok 画像生成
+alternateNames:
+  - Grok 画像生成 API
+  - xAI 画像生成互換 API
+faq:
+  - q: Grok 画像生成はどのエンドポイントを使いますか？
+    a: "テキストから画像は POST /v1/images/generations を、画像編集は POST /v1/images/edits を使います。OpenAI 互換クライアントの base_url を https://api.lmuai.com/v1 に設定してください。"
+  - q: テキストから画像にはどのモデルを推奨しますか？
+    a: "標準的なテキストから画像には grok-imagine-image を推奨します。品質モデルや画像編集が必要な場合は grok-imagine-image-quality を使ってください。現在の API キーに対する GET /v1/models のレスポンスが真の情報源です。"
+  - q: Grok の画像結果はどのように返されますか？
+    a: "通常は data[].url が返されます。ダウンロードリンクは期限切れになる場合があるため、ジョブ完了後すぐにダウンロードして、ご自身のオブジェクトストレージに保存することを推奨します。"
+  - q: Grok は非同期またはバッチ画像生成に対応していますか？
+    a: "本番環境では現在、非同期画像ジョブは有効化されておらず、/v1/images/batches も Grok には対応していません。同期 Images API を使い、クライアント側で並列数を制御してください。"
+---
+
+LMU AI は OpenAI Images 互換パス経由で Grok 画像生成と画像編集を提供します。
+
+<Callout type="info" title="Base URL">
+
+OpenAI 互換 SDK：
+
+```text
+https://api.lmuai.com/v1
+```
+
+完全な HTTP エンドポイント：
+
+```text
+POST https://api.lmuai.com/v1/images/generations
+POST https://api.lmuai.com/v1/images/edits
+```
+
+</Callout>
+
+## 1. API 概要
+
+| メソッド | パス | 説明 |
+|---|---|---|
+| `GET` | `/v1/models` | 現在の Grok グループで利用可能なモデルを照会 |
+| `POST` | `/v1/images/generations` | Grok テキストから画像、同期レスポンス |
+| `POST` | `/v1/images/edits` | Grok 画像編集 / 画像から画像、同期レスポンス |
+
+現在、公開されている Grok の非同期ジョブや複数項目バッチ API はありません。
+
+## 2. 推奨モデル
+
+| シナリオ | 推奨モデル |
+|---|---|
+| 標準的なテキストから画像 | `grok-imagine-image` |
+| 品質重視のテキストから画像 | `grok-imagine-image-quality` |
+| 画像編集 / 画像から画像 | `grok-imagine-image-quality` |
+
+まず現在の API キーでモデルを照会します：
+
+```bash
+curl https://api.lmuai.com/v1/models \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+<Callout type="warn" title="画像編集には品質モデルを使用">
+
+画像編集の例では `grok-imagine-image-quality` を使用します。`grok-imagine-edit` をデフォルトモデルとして使うことは推奨しません：この互換名は一部のモデルリストに現れる場合がありますが、一部の上流チャネルは呼び出し時に `404` を返します。
+
+</Callout>
+
+## 3. 認証
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+API キーは、画像生成が有効化された Grok グループに属している必要があります。
+
+## 4. テキストから画像
+
+### `POST /v1/images/generations`
+
+```bash
+curl https://api.lmuai.com/v1/images/generations \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "grok-imagine-image",
+    "prompt": "A blue ceramic mug, centered on a light-gray studio background, soft side lighting, no text",
+    "n": 1,
+    "size": "1024x1024"
+  }'
+```
+
+JavaScript：
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.LMU_API_KEY,
+  baseURL: "https://api.lmuai.com/v1",
+});
+
+const result = await client.images.generate({
+  model: "grok-imagine-image",
+  prompt: "A blue ceramic mug, light-gray studio background, soft side lighting, no text",
+  n: 1,
+  size: "1024x1024",
+});
+
+const url = result.data?.[0]?.url;
+if (!url) throw new Error("No image URL in the response");
+console.log(url);
+```
+
+Python：
+
+```python
+from openai import OpenAI
+import requests
+
+client = OpenAI(
+    api_key="YOUR_API_KEY",
+    base_url="https://api.lmuai.com/v1",
+)
+
+result = client.images.generate(
+    model="grok-imagine-image",
+    prompt="A blue ceramic mug, light-gray studio background, soft side lighting, no text",
+    n=1,
+    size="1024x1024",
+)
+
+url = result.data[0].url
+if not url:
+    raise RuntimeError("No image URL in the response")
+
+image = requests.get(url, timeout=60)
+image.raise_for_status()
+with open("grok-output.jpg", "wb") as f:
+    f.write(image.content)
+```
+
+## 5. テキストから画像のパラメータ
+
+| フィールド | 型 | 必須 | 説明 |
+|---|---:|---:|---|
+| `model` | string | Yes | 推奨：`grok-imagine-image` または `grok-imagine-image-quality` |
+| `prompt` | string | Yes | 画像の説明 |
+| `n` | integer | No | 画像の枚数；テストは `1` から始めることを推奨します |
+| `size` | string | No | OpenAI 互換のサイズパラメータ；実際の出力サイズは Grok 上流の能力によって決まります |
+| `response_format` | string | No | レスポンス形式の互換パラメータ；Grok は通常 URL を返します |
+
+<Callout type="warn" title="size で固定の出力ピクセルを強制することに依存しないでください">
+
+Grok チャネルは互換または課金パラメータとして `size` を受け付ける場合がありますが、最終的な画像のピクセルとアスペクト比は上流の生成結果によって決まります。固定ピクセルが必要な場合は、画像をダウンロードしてご自身でクロップまたはリサイズしてください。
+
+</Callout>
+
+## 6. 画像編集 / 画像から画像
+
+### `POST /v1/images/edits`
+
+Grok の画像編集は JSON で行うのが最適です；`image.url` に以下のいずれかを渡してください：
+
+- 一般公開されている HTTPS 画像 URL；または
+- `data:image/...;base64,...` の Data URL。
+
+### 画像 URL を使用
+
+```bash
+curl https://api.lmuai.com/v1/images/edits \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "grok-imagine-image-quality",
+    "prompt": "Keep the mug's shape, composition, and lighting; change the mug from blue to yellow; no text",
+    "image": {
+      "url": "https://example.com/input.jpg",
+      "type": "image_url"
+    },
+    "response_format": "url"
+  }'
+```
+
+### ローカル画像を Data URL に変換
+
+Python：
+
+```python
+import base64
+import mimetypes
+import requests
+
+api_key = "YOUR_API_KEY"
+image_path = "input.jpg"
+mime_type = mimetypes.guess_type(image_path)[0] or "image/jpeg"
+
+with open(image_path, "rb") as f:
+    data_url = f"data:{mime_type};base64,{base64.b64encode(f.read()).decode()}"
+
+payload = {
+    "model": "grok-imagine-image-quality",
+    "prompt": "Keep the subject and composition; change the background to a seaside at dusk; no text",
+    "image": {
+        "url": data_url,
+        "type": "image_url",
+    },
+    "response_format": "url",
+}
+
+response = requests.post(
+    "https://api.lmuai.com/v1/images/edits",
+    headers={
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    },
+    json=payload,
+    timeout=300,
+)
+response.raise_for_status()
+result = response.json()
+print(result["data"][0]["url"])
+```
+
+<Callout type="warn" title="Data URL はリクエストボディを肥大化させます">
+
+Base64 はリクエストボディを約 3 分の 1 増加させます。大きな画像は先に圧縮するか、ご自身の HTTPS オブジェクトストレージにアップロードして URL を渡してください。Cookie、ログインセッション、または一時的なホットリンク保護が必要なアドレスは使用しないでください。
+
+</Callout>
+
+## 7. レスポンス形式
+
+典型的な Grok 画像レスポンス：
+
+```json
+{
+  "data": [
+    {
+      "url": "https://image-host.example/generated.jpg"
+    }
+  ],
+  "usage": {
+    "cost_in_usd_ticks": 200000000
+  }
+}
+```
+
+クライアントは以下を行うべきです：
+
+1. HTTP ステータスコードを確認する；
+2. `data` が空でない配列かどうかを確認する；
+3. `data[0].url` が空でないかどうかを確認する；
+4. 画像をすぐにダウンロードしてご自身のストレージに保存する；
+5. 一時 URL を恒久的なリソースアドレスとして扱わない。
+
+`usage` フィールドは上流チャネルによって返され、その構造は GPT 画像 API と異なる場合があります。最終的なコストは LMU AI の請求と使用量の詳細に従います；いかなる単一の上流フィールドも、アカウントに課金される金額として扱わないでください。
+
+## 8. よくあるエラー
+
+| HTTP | よくある原因 | 推奨される対応 |
+|---:|---|---|
+| `400` | `model` / `prompt` の欠落、または無効な画像 Data URL | JSON と画像エンコーディングを確認 |
+| `401` | 無効な API キー | Bearer 認証を確認 |
+| `403` | グループで画像生成が有効化されていない | 管理者に連絡して Grok グループの権限を確認 |
+| `404` | チャネル非互換のモデルエイリアスを使用、または上流パスが利用不可 | 編集の場合はまず `grok-imagine-image-quality` に切り替え、リクエスト ID を保存 |
+| `429` | 並列、RPM、または上流のクォータ制限 | 並列数を下げ、指数バックオフでリトライ |
+| `5xx` | 上流の生成が一時的に失敗 | 限られた回数リトライし、リクエスト ID を管理者に提供 |
+
+## 9. 他の画像 API との違い
+
+| ニーズ | 推奨ドキュメント |
+|---|---|
+| Gemini ネイティブのテキストから画像および画像から画像 | [Gemini Image API](/ja/docs/api/gemini-image) |
+| GPT のテキストから画像および編集 | [GPT Image API](/ja/docs/api/gpt-image) |
+| Grok のテキストから画像および編集 | このページ |
+| 複数の Gemini プロンプトの非同期処理 | [Gemini Batch Image API](/ja/docs/api/gemini-image-batch) |

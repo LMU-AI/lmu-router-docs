@@ -1,0 +1,148 @@
+---
+title: Codex App (десктоп)
+description: Настройте базовый URL и ключ LMU AI API в десктопном клиенте Codex App — работает как в Windows, так и на Mac.
+ogDescription: "Подключите десктопный клиент Codex App к LMU AI: укажите базовый URL и API-ключ, чтобы использовать OpenAI Codex / GPT на Windows и Mac без прокси."
+keywords:
+  - Codex App
+  - Codex десктопный клиент
+  - Использование Codex в Китае
+  - Ретранслятор OpenAI Codex
+  - Codex Windows
+  - Codex Mac
+  - GPT десктопный клиент
+alternateNames:
+  - Подключение Codex App к LMU AI
+---
+
+
+Если вы не хотите устанавливать Codex CLI и просто хотите использовать **десктопный клиент Codex App**, воспользуйтесь этим способом.
+
+<Callout type="warn" title="Примечание">
+
+- Если ранее вы входили под своим собственным аккаунтом, сначала **выйдите из текущего аккаунта** в Codex App, а затем перенастройте.
+- После переключения API ваша история чатов пропадёт (история чатов аккаунтного типа хранится в пространстве вашего аккаунта GPT, а не локально).
+- **После переключения на вход через API вся история чатов с этого момента сохраняется локально и не теряется!**
+
+</Callout>
+
+---
+
+## Шаг 1 — Создайте файлы конфигурации
+
+Расположение файлов конфигурации:
+- **Mac/Linux**: папка `.codex` в вашей домашней директории (`~`)
+- **Windows**: `C:\users\your-username\.codex\`
+
+Если папка уже существует, лучше всего удалить в ней `auth.json` и `config.toml` и создать их заново, чтобы избежать помех от старой конфигурации.
+
+**Создайте папку с помощью команды в терминале:**
+
+```bash
+# Mac/Linux
+rm -rf ~/.codex && mkdir ~/.codex
+```
+
+Создайте два файла в папке `.codex`:
+
+### auth.json
+
+Хранит ваш API-ключ:
+
+```json
+{
+  "OPENAI_API_KEY": "your sk- key generated in the console"
+}
+```
+
+### config.toml
+
+Настройте поставщика услуг:
+
+```toml
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+disable_response_storage = true
+sandbox_mode = "danger-full-access"
+windows_wsl_setup_acknowledged = true
+approval_policy = "never"
+file_opener = "vscode"
+model_provider = "codex"
+web_search = "cached"
+suppress_unstable_features_warning = true
+
+[history]
+persistence = "save-all"
+
+[tui]
+notifications = true
+
+[shell_environment_policy]
+inherit = "all"
+ignore_default_excludes = false
+
+[sandbox_workspace_write]
+network_access = true
+
+[features]
+plan_tool = true
+apply_patch_freeform = true
+view_image_tool = true
+unified_exec = false
+streamable_shell = false
+rmcp_client = true
+elevated_windows_sandbox = true
+
+[profiles.auto-max]
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+
+[profiles.review]
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[notice]
+hide_gpt5_1_migration_prompt = true
+
+[model_providers.codex]
+name = "codex"
+base_url = "https://api.lmuai.com"
+wire_api = "responses"
+requires_openai_auth = true
+```
+
+<Callout type="info">
+
+Обычно она находится внутри папки `.codex` в вашей домашней директории. Если вы не можете найти там папку `.codex`, вы можете создать её вручную, вместе с `config.toml` и `auth.json`.
+
+Содержимое файлов конфигурации идентично [руководству по настройке Codex CLI для Mac/Linux](/ru/docs/tools/codex-cli-mac) — вы можете следовать этому руководству, чтобы создать их в терминале, и они точно так же вступают в силу после перезапуска Codex App.
+
+</Callout>
+
+---
+
+## Шаг 2 — Перезапустите Codex App
+
+После сохранения файлов конфигурации перезапустите Codex App, и он автоматически выполнит вход и будет готов к использованию.
+
+---
+
+## Включение контекста в 1M (опционально)
+
+`gpt-5.4` поддерживает длинный контекст в 1M токенов, но по умолчанию он отключён. Добавьте две строки на **верхний уровень** приведённого выше `config.toml` (перед любым `[section]`), затем перезапустите Codex App:
+
+```toml
+model_context_window = 1000000
+model_auto_compact_token_limit = 900000
+```
+
+Значения полей, способы проверки и предостережения см. в разделе [Включение контекста в 1M в Codex](/ru/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional).
+
+---
+
+## Частые ошибки
+
+**Ошибка 401, неверный ключ:**
+
+Причина: запрос по-прежнему идёт на официальный эндпоинт OpenAI, а не на наш API-ретранслятор, либо вы не перезапустили инструмент для перезагрузки файла конфигурации.
+
+Решение: снова следуйте руководству, чтобы создать или заменить файлы `config.toml` и `auth.json`, затем перезапустите приложение.

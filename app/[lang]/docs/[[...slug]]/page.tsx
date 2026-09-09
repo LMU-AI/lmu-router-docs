@@ -110,7 +110,7 @@ export default async function Page({
     ? {
         '@context': 'https://schema.org',
         '@type': 'ItemList',
-        name: lang === 'en' ? 'LMU AI available models' : '灵眸 AI 可用模型清单',
+        name: lang === 'cn' ? '灵眸 AI 可用模型清单' : 'LMU AI available models',
         numberOfItems: PLAZA_MODELS.length,
         itemListElement: PLAZA_MODELS.map((m, i) => ({
           '@type': 'ListItem',
@@ -186,17 +186,14 @@ export async function generateMetadata({
   // 渲染成 <link rel="alternate" type="text/markdown">，作为 Accept 协商之外的显式发现面。
   const mdPath = `/md/${lang}/docs${slug && slug.length > 0 ? `/${slug.join('/')}` : ''}`;
 
-  // hreflang：只在两种语言都真实存在该页面时互指，避免指向 404。
-  // x-default 指默认语言（.com 中文 / .ai 英文）；仅站内互指，不做跨域 alternates。
-  const cnExists = !!source.getPage(slug, 'cn');
-  const enExists = !!source.getPage(slug, 'en');
-  const cnPath = docsPath('cn', slug);
-  const enPath = docsPath('en', slug);
+  // hreflang：遍历所有语种，仅在该页真实存在（fallbackLanguage:null，未翻译即无此页）
+  // 时纳入，避免指向 404。x-default 指默认语言（.com 中文 / .ai 英文）；单语种页不互挂。
+  // 仅站内互指，不做跨域 alternates。key 用 BCP-47 标签（HTML_LANG），与 sitemap 一致。
+  const present = i18n.languages.filter((l) => !!source.getPage(slug, l));
   const languages =
-    cnExists && enExists
+    present.length > 1
       ? {
-          'zh-CN': cnPath,
-          en: enPath,
+          ...Object.fromEntries(present.map((l) => [HTML_LANG[l], docsPath(l, slug)])),
           'x-default': docsPath(i18n.defaultLanguage, slug),
         }
       : undefined;

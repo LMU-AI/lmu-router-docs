@@ -1,0 +1,229 @@
+---
+title: Chatbox
+description: Conecte o Chatbox em todas as plataformas (Windows / macOS / Linux / iOS / Android / Web) à API do LMU AI — protocolo duplo, conexão direta internacional.
+ogDescription: Conecte o Chatbox ao LMU AI — um cliente de chat de IA para desktop e mobile em todas as plataformas que chama os modelos mais recentes (Claude Opus 5 / Sonnet 5, GPT-5.6, DeepSeek, Qwen, GLM e muito mais) pelo protocolo compatível com Anthropic ou OpenAI Responses, compartilhando uma única chave entre os dois protocolos, com conexão direta internacional e saída em streaming.
+keywords:
+  - Configurar a API do Chatbox
+  - Adicionar um modelo no Chatbox
+  - Como preencher o API Host do Chatbox
+  - Protocolo OpenAI Responses do Chatbox
+  - Configuração da API do Chatbox mobile
+  - Conexão direta internacional do Chatbox
+  - claude-opus-5
+  - claude-sonnet-5
+  - gpt-5.6-sol
+  - Modelos chineses no Chatbox
+  - Solução de erros 401 / 403 no Chatbox
+  - Uma chave para os dois protocolos no Chatbox
+alternateNames:
+  - Conectar o Chatbox ao LMU AI
+  - Configurar a API do Claude no Chatbox
+  - Guia de configuração do Chatbox em todas as plataformas
+  - Conexão direta ao Claude no Chatbox na China
+  - Configuração da API do Chatbox mobile
+faq:
+  - q: O API Host do Chatbox precisa de /v1?
+    a: Não. Sempre preencha o campo API Host do Chatbox apenas até o domínio, `https://api.lmuai.com`; o Chatbox acrescenta `/v1` automaticamente — o protocolo Anthropic vira `/v1/messages` e o protocolo OpenAI Responses vira `/v1/responses`. Se você adicionar um `/v1` extra no Host, obtém um caminho quebrado com erro 404 como `/v1/v1/...`.
+  - q: Para o protocolo OpenAI, por que escolher Responses em vez do OpenAI API Compatible simples?
+    a: O OpenAI API Compatible do Chatbox usa o endpoint mais antigo `/chat/completions`; o protocolo OpenAI do LMU AI usa a nova Responses API (`/v1/responses`), então você precisa escolher **OpenAI Responses API Compatible** e definir o API Path como `/responses`.
+  - q: E se o Claude Opus 5 ou o GPT-5.6 não estiver na lista de modelos do Chatbox?
+    a: A lista predefinida de modelos embutida no Chatbox é atualizada com atraso, então novos modelos precisam ser adicionados manualmente via Add Model na configuração do provedor — basta inserir o ID do modelo correspondente (por exemplo, `claude-opus-5`, `claude-sonnet-5`, `gpt-5.6-sol`). Para todos os modelos disponíveis, consulte a Galeria de Modelos.
+  - q: Minhas alterações de configuração não fazem efeito?
+    a: Depois de salvar, recomendamos reiniciar o cliente Chatbox uma vez, ou reselecionar o modelo na tela de chat. No mobile, às vezes também é preciso reiniciar após trocar de rede.
+  - q: Como soluciono erros 401 / 403?
+    a: "Verifique nesta ordem: (1) A API Key é a chave `sk-` gerada no console do LMU AI (e não uma chave oficial da Anthropic / OpenAI)? (2) O API Host está correto (ambos os protocolos usam `https://api.lmuai.com`, nenhum com `/v1`)? (3) Para o protocolo OpenAI, verifique também se o API Mode é `OpenAI Responses API Compatible` e o API Path é `/responses`. (4) Seu plano / grupo de cobrança atual inclui o modelo que você está chamando?"
+  - q: Posso usar uma única chave tanto para o Claude quanto para o GPT no Chatbox?
+    a: Sim. A chave da API do LMU AI suporta os protocolos Anthropic e OpenAI; o API Host é `https://api.lmuai.com` para ambos, apenas o API Mode e o API Path diferem. Adicione dois provedores e use a mesma chave para os dois — Claude / modelos chineses passam pelo protocolo Anthropic, e a série GPT passa pelo protocolo OpenAI Responses.
+  - q: Como configuro o LMU AI no Chatbox mobile (iOS / Android)?
+    a: "Abra o Chatbox → o menu ☰ no canto superior esquerdo → Settings → Model Provider → Add. A partir daí, os campos são exatamente os mesmos do desktop: para o protocolo Anthropic, defina o API Host como `https://api.lmuai.com` e a chave como a chave `sk-` do console, e você pode usar Claude / DeepSeek / Qwen / GLM e outros modelos diretamente no celular."
+  - q: Preciso de uma VPN para conectar o Chatbox ao LMU AI?
+    a: Não. O domínio da API do LMU AI `api.lmuai.com` conecta diretamente do exterior, e tanto a versão desktop quanto a mobile do Chatbox funcionam sem nenhum proxy.
+---
+
+O Chatbox é um cliente de chat de IA multimodelo que cobre todas as plataformas — Windows / macOS / Linux / iOS / Android / Web.
+
+<Callout type="info" title="No mobile (iOS / Android)? Comece por aqui">
+
+A configuração passo a passo para o Chatbox mobile — incluindo uma captura de tela da configuração e a chave "Improve Network Compatibility" — está em sua própria página: **[Chatbox Mobile](./chatbox-mobile)**. O restante desta página se aplica tanto ao desktop quanto ao mobile.
+
+</Callout>
+
+---
+
+## Download e instalação
+
+- **Site oficial**: [https://chatboxai.app](https://chatboxai.app)
+- Baixe e instale a versão para a sua plataforma — não é necessária conta para usar o modo BYOK (traga sua própria chave)
+
+---
+
+## Os dois protocolos
+
+O LMU AI suporta dois protocolos de conexão; escolha um com base no tipo de modelo:
+
+| Protocolo | Modelos | API Host | API Path |
+|------|----------|----------|----------|
+| **Claude API (Anthropic Compatible)** | Modelos Claude, modelos chineses (DeepSeek, Qwen, GLM, Kimi, etc.) | `https://api.lmuai.com` | O padrão está bom |
+| **OpenAI Responses API Compatible** | Modelos OpenAI (GPT-5.6 / GPT-5.5, etc.) | `https://api.lmuai.com` | `/responses` |
+
+<Callout type="info" title="O API Host nunca inclui /v1">
+
+O Chatbox acrescenta o caminho automaticamente ao fazer uma requisição, então **sempre preencha o API Host apenas até o domínio — não inclua `/v1`**. Por exemplo, o protocolo OpenAI Responses acaba ficando como `https://api.lmuai.com/v1/responses`.
+
+</Callout>
+
+---
+
+## Abrindo o ponto de entrada para adicionar provedor
+
+Ambos os protocolos são configurados a partir do mesmo ponto de entrada:
+
+<Tabs items={['Desktop', 'Mobile']}>
+<Tab value="Desktop">
+
+Abra o Chatbox → **Settings no canto inferior esquerdo** → vá em Model Provider → clique em Add na parte inferior.
+
+![Adicionando um provedor no Chatbox desktop](/images/tools/chatbox-max/chatbox-max.png)
+
+</Tab>
+<Tab value="Mobile">
+
+Abra o Chatbox → toque no **ícone de menu ☰ no canto superior esquerdo** para abrir a barra lateral → toque em Settings → vá em Model Provider → toque em Add na parte inferior.
+
+Uma vez na tela de configuração, os campos correspondem um a um à versão desktop (no mobile eles são rotulados como **API Host** e **API Path**); preencha-os seguindo o Método 1 / Método 2 abaixo.
+
+<Callout type="info" title="O mobile tem seu próprio guia passo a passo">
+
+O fluxo no mobile — com uma **captura de tela da configuração**, a chave **"Improve Network Compatibility"** e a **verificação do endereço montado** — está descrito em uma página independente: **[Chatbox Mobile](./chatbox-mobile)**.
+
+</Callout>
+
+</Tab>
+</Tabs>
+
+---
+
+## Método 1: Protocolo Anthropic (Claude e modelos chineses)
+
+### Passo 1 — Criar um provedor
+
+Após abrir a janela de novo provedor a partir do ponto de entrada acima:
+
+1. **API Mode**: selecione **`Claude API (Anthropic Compatible)`**
+2. **Name**: qualquer nome que você quiser (por exemplo, `LMU AI`)
+
+### Passo 2 — Inserir os detalhes da API
+
+- **API Host**: insira o endereço da API do LMU AI (**sem** `/v1`)
+
+  ```
+  https://api.lmuai.com
+  ```
+
+- **API Key**: insira a chave `sk-` gerada no console
+
+### Passo 3 — Adicionar modelos
+
+A lista padrão do Chatbox pode não incluir os modelos mais recentes, então você precisa adicioná-los manualmente. Na página de configurações do provedor, encontre a seção Model → clique em New / Add Model e insira o ID do modelo, por exemplo:
+
+- `claude-opus-5`
+- `claude-sonnet-5`
+- `claude-haiku-4-5`
+- `deepseek-v4-pro`
+- `qwen3.8-max-preview`
+- `glm-5.2`
+- `kimi-k3`
+
+Para a lista completa de modelos disponíveis, consulte a [Galeria de Modelos](/pt/docs/guide/models).
+
+---
+
+## Método 2: Protocolo OpenAI (modelos GPT)
+
+<Callout type="warn" title="Requisitos">
+
+Você precisa atender a uma destas condições:
+
+- Você assinou um **plano GPT**
+- Você usa cobrança pay-as-you-go e selecionou o **grupo GPT** no console do LMU AI
+
+</Callout>
+
+### Passo 1 — Criar um provedor
+
+Após abrir a janela de novo provedor a partir do ponto de entrada acima:
+
+1. **API Mode**: selecione **`OpenAI Responses API Compatible`** (não `OpenAI API Compatible`)
+2. **Name**: qualquer nome que você quiser (por exemplo, `LMUAI-GPT`)
+
+### Passo 2 — Inserir os detalhes da API
+
+| Campo | Valor |
+|------|------|
+| API Key | A chave `sk-` gerada no console |
+| API Host | `https://api.lmuai.com` |
+| API Path | `/responses` |
+
+O Chatbox junta automaticamente o Host, o `/v1` e o Path no endereço completo da requisição `https://api.lmuai.com/v1/responses`, e a URL montada completa é exibida ao vivo abaixo dos campos.
+
+Uma vez preenchida conforme acima, a tela fica assim:
+
+![Exemplo de configuração de um provedor GPT no Chatbox desktop](/images/tools/chatbox-max/chatbox-mac-gpt.png)
+
+### Passo 3 — Adicionar modelos
+
+Na seção Model, clique em New e insira o ID do modelo:
+
+- `gpt-5.6-sol`
+- `gpt-5.6-terra`
+- `gpt-5.6-luna`
+- `gpt-5.5`
+- `gpt-5.4`
+- `gpt-5.2`
+
+---
+
+## Uso
+
+De volta à tela principal, clique no seletor de modelos no topo, mude para o provedor e o modelo que você acabou de adicionar e comece a conversar.
+
+<Callout type="info" title="Uma chave funciona com os dois protocolos">
+
+A chave da API do LMU AI suporta os protocolos Anthropic e OpenAI. O API Host é `https://api.lmuai.com` para ambos — apenas o API Mode e o API Path diferem. Se você quiser usar Claude / modelos chineses além do GPT, basta adicionar um provedor para cada um conforme descrito acima; você pode usar a mesma chave para os dois.
+
+</Callout>
+
+---
+
+## Problemas comuns
+
+### O API Host precisa de `/v1`?
+
+**Não.** Sempre preencha o campo API Host do Chatbox apenas até o domínio: `https://api.lmuai.com`.
+
+O Chatbox acrescenta o `/v1` sozinho:
+
+- Protocolo Anthropic: vira `https://api.lmuai.com/v1/messages`
+- Protocolo OpenAI Responses: defina o Path como `/responses`, que vira `https://api.lmuai.com/v1/responses`
+
+Se você adicionar um `/v1` extra no Host, obtém um caminho quebrado com erro 404 como `…/v1/v1/...`.
+
+### Por que escolher OpenAI Responses em vez do OpenAI API Compatible simples?
+
+O OpenAI API Compatible do Chatbox usa o endpoint mais antigo `/chat/completions`; o protocolo OpenAI do LMU AI usa a nova **Responses API** (`/v1/responses`), então você deve escolher **OpenAI Responses API Compatible** aqui e definir o API Path como `/responses`.
+
+### A lista de modelos do Chatbox não tem Claude Opus 5 / GPT-5.6?
+
+A lista predefinida de modelos embutida no Chatbox é atualizada com atraso, então novos modelos precisam ser adicionados manualmente via Add Model na configuração do provedor — basta inserir o ID do modelo correspondente. Para os modelos disponíveis, consulte a [Galeria de Modelos](/pt/docs/guide/models).
+
+### As alterações não fazem efeito?
+
+Depois de salvar, recomendamos **reiniciar o cliente Chatbox uma vez**, ou reselecionar o modelo na tela de chat.
+
+### Erros 401 / 403?
+
+Verifique nesta ordem:
+
+1. A API Key é a chave `sk-` gerada no console do LMU AI (e não uma chave oficial da Anthropic / OpenAI)?
+2. O API Host está errado (ambos os protocolos usam `https://api.lmuai.com`, **nenhum com** `/v1`; para o protocolo OpenAI, verifique também se o API Mode é `OpenAI Responses API Compatible` e o API Path é `/responses`)?
+3. Seu plano / grupo de cobrança atual inclui o modelo que você está chamando?

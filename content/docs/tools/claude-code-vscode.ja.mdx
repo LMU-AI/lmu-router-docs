@@ -1,0 +1,203 @@
+---
+title: Claude Code 拡張機能（VS Code / Cursor / Trae / Antigravity）
+description: "VS Code をダウンロードし、Claude Code 拡張機能をインストールして、LMU AI API に接続する — CLI と 1 つの settings.json を共有する完全ウォークスルー。"
+ogDescription: "VS Code / Cursor / Trae / Antigravity に Claude Code 拡張機能をインストール + LMU AI API：プロキシなしで Claude 4 を利用し、CLI と settings.json を共有。"
+keywords:
+  - Claude Code VS Code 拡張機能
+  - Claude Code Cursor
+  - Claude Code Trae
+  - Claude Code Antigravity
+  - VS Code Claude 拡張機能
+  - Cursor を Claude に接続
+  - Trae を Claude に接続
+  - Claude IDE リレー
+  - Anthropic VS Code
+  - VS Code ダウンロード
+  - VS Code インストールガイド
+alternateNames:
+  - Claude Code VS Code / Cursor / Trae を LMU AI に接続
+faq:
+  - q: 公式サイトからの VS Code のダウンロードが遅い場合はどうすればいいですか？
+    a: "たいていは、ブラウザが 100〜200 MB のインストーラーをシングルスレッドで取得するためです。公式のダイレクトリンクをマルチスレッド対応のダウンロードツールにコピーすると、通常はずっと速くなります — たとえば Windows ユーザーインストーラー https://update.code.visualstudio.com/latest/win32-x64-user/stable や macOS Universal ビルド https://update.code.visualstudio.com/latest/darwin-universal/stable です。これらのダイレクトリンクにはバージョン番号が含まれず、常に最新の安定版を指します。"
+  - q: Claude Code 拡張機能は API キーを別途設定する必要がありますか？
+    a: "いいえ。拡張機能は Claude Code CLI とまったく同じく ~/.claude/settings.json を読み込みます — CLI で設定したキーと Base URL を自動的に再利用します。VS Code、Cursor、Trae、Antigravity もすべてこの同じ設定を共有するため、1 か所の変更がどこにでも適用されます。"
+  - q: 拡張機能で 401 / Unauthorized エラーが出た場合、どうトラブルシュートすればいいですか？
+    a: "CLI と同じアプローチです — たいていはシェルの環境変数 ANTHROPIC_BASE_URL / ANTHROPIC_API_KEY が settings.json の設定を上書きしているためです。これらの変数をシェルの設定ファイルから削除し、エディタを再起動してください。"
+  - q: Cursor / Trae / Antigravity で Claude Code 拡張機能が見つからない場合はどうすればいいですか？
+    a: "一部の VS Code 派生エディタはプライベートな拡張ストア（Open VSX など）を使用しています。見つからない場合はオフラインでインストールしてください：まず公式 VS Code 拡張マーケットプレイスのページから .vsix パッケージをダウンロードし、エディタの拡張機能パネル右上の「…」メニューから「Install from VSIX」を選びます。"
+  - q: 拡張機能で中国製モデルに切り替えるにはどうすればいいですか？
+    a: "~/.claude/settings.json に \"model\": \"qwen3.8-max-preview\" を追加すると、CLI とすべての VS Code ファミリーのエディタが自動的にそのモデルを使用します。利用可能なモデルの一覧は Model Gallery を参照してください。"
+  - q: Claude Code 拡張機能と CLI、どちらを選ぶべきですか？
+    a: "機能的にはどちらが優れているというものではありません — 好みで選んでください：エディタ内でコーディングするのが好きなら拡張機能を使い、すべてのコンテキストがエディタ内にとどまります。複数のエディタをまたいで作業したり、スクリプトを書いたり、バッチタスクを実行したりする必要があるなら、より柔軟な CLI を使ってください。両者は同じ設定を読み込み、同時に使うこともできます。"
+---
+
+公式 VS Code 拡張機能 **Claude Code for VS Code** を使えば、ターミナルに切り替えることなく、エディタのサイドバーから Claude Code を直接利用できます。この拡張機能は Claude Code CLI と **1 つの設定ファイルを共有** するため、CLI で設定したキー / Base URL がそのまま拡張機能でも動作します — 再設定は不要です。
+
+<Callout type="info" title="Cursor / Trae / Antigravity などのエディタでも動作します">
+
+VS Code コアをベースにしたエディタ（**Cursor、Trae、Antigravity** など）はいずれも、**組み込みの拡張ストアで同じ `Claude Code for VS Code` 拡張機能を検索** してインストール・設定できます — 手順は VS Code とまったく同じです。
+
+このページのスクリーンショットとコマンドはすべて VS Code を例にしていますが、Cursor / Trae / Antigravity のユーザーもそのまま従うことができます。
+
+</Callout>
+
+---
+
+## VS Code のダウンロードとインストール
+
+<Callout type="info" title="Cursor / Trae / Antigravity を使っていますか？">
+
+これらは独立したエディタです — それぞれの公式サイト（VS Code ではなく）から適切なインストーラーをダウンロードし、インストールが終わったら次のセクション [拡張機能のインストール](#install-the-extension) に直接進んでください — 拡張マーケットプレイスとインストール手順は VS Code と同じです。
+
+</Callout>
+
+[code.visualstudio.com](https://code.visualstudio.com/) にアクセスして **Download** ボタンをクリックすると、サイトが自動で OS を検出します。以下の公式ダイレクトリンク（バージョン番号なし、常に最新の安定版を指し、サイトを先に訪れる必要なし）を使うこともできます：
+
+<Tabs items={['Windows', 'macOS', 'Linux']}>
+<Tab value="Windows">
+
+**ダウンロード**：[Windows ユーザーインストーラー (x64)](https://update.code.visualstudio.com/latest/win32-x64-user/stable) — 管理者権限不要で、現在のユーザーのディレクトリにインストールされ、公式推奨です。ARM デバイスの場合は [ARM64 ビルド](https://update.code.visualstudio.com/latest/win32-arm64-user/stable) を使用してください。
+
+**インストール**：
+
+1. ダウンロードした `VSCodeUserSetup-*.exe` をダブルクリック
+2. 手順に沿って「Next」を進め、「Select Additional Tasks」で以下を **チェック**：
+   - 「Add to PATH」（デフォルトでチェック済み、そのままにする） — ターミナルで `code` コマンドを使えるようにします
+   - 「Register Code as an editor for supported file types」
+   - 「Add 'Open with Code' action to the Windows Explorer context menu」（任意、便利）
+3. 完了したら VS Code を起動
+
+</Tab>
+<Tab value="macOS">
+
+**ダウンロード**：[macOS Universal ビルド](https://update.code.visualstudio.com/latest/darwin-universal/stable) — Apple Silicon と Intel チップの両方に対応した 1 つのパッケージです。
+
+**インストール**：
+
+1. `VSCode-darwin-universal.zip` が手に入るので、ダブルクリックして解凍します
+2. 展開された **Visual Studio Code.app** を Finder の **Applications** フォルダにドラッグします
+3. Launchpad から VS Code を開きます
+4. （推奨）`Cmd+Shift+P` を押してコマンドパレットを開き、**Shell Command: Install 'code' command in PATH** を実行します。その後、ターミナルで `code .` により現在のディレクトリを開けます
+
+</Tab>
+<Tab value="Linux">
+
+ディストリビューションごとに選択します：
+
+- **Debian / Ubuntu**：[.deb パッケージ](https://update.code.visualstudio.com/latest/linux-deb-x64/stable) をダウンロードし、`sudo apt install ./code_*.deb`
+- **RHEL / Fedora / openSUSE**：[.rpm パッケージ](https://update.code.visualstudio.com/latest/linux-rpm-x64/stable) をダウンロードし、`sudo rpm -i code-*.rpm`（または `sudo dnf install code-*.rpm`）
+
+`.deb` / `.rpm` のインストールでは、`code` が自動的に PATH に追加され、システムのソフトウェア更新にも組み込まれます。インストールが終わったら、ターミナルで `code` を実行するか、アプリケーションメニューから起動します。
+
+</Tab>
+</Tabs>
+
+<Callout type="info" title="公式サイトやダウンロードが遅い？">
+
+インストーラーは 100〜200 MB あり、ブラウザのシングルスレッドダウンロードは中国では時折遅くなることがあります。上記の **公式ダイレクトリンク** をマルチスレッド対応のダウンロードツールにコピーすると、通常はずっと速くなります — これらのダイレクトリンクにはバージョン番号が含まれず、常に最新の安定版を指します。
+
+</Callout>
+
+---
+
+## 拡張機能のインストール
+
+1. VS Code（または Cursor / Trae / Antigravity）を開き、拡張機能パネルへ移動します（ショートカット `Cmd+Shift+X` / `Ctrl+Shift+X`）
+2. **`Claude Code for VS Code`** を検索し、公式 Anthropic のリリースであることを確認します
+3. **Install** をクリックします。インストールが完了すると、サイドバーに Claude アイコンが表示されます
+
+<Callout type="warn" title="Cursor / Trae / Antigravity 向けの注意">
+
+一部の VS Code 派生エディタはプライベートな拡張ストア（Open VSX など）を使用しています。`Claude Code for VS Code` が見つからない場合：
+
+1. 公式 VS Code 拡張マーケットプレイスのページへ行き、`.vsix` パッケージをダウンロードします
+2. エディタの拡張機能パネル右上の `…` メニューから **Install from VSIX** を選びます
+
+</Callout>
+
+---
+
+## LMU AI API を設定する
+
+<Callout type="info" title="すでに Claude Code CLI を設定済みなら、このセクションはスキップできます">
+
+拡張機能は CLI とまったく同じく `~/.claude/settings.json` を読み込みます。**[Claude Code CLI の設定](/ja/docs/tools/claude-code) でセットアップしたキーと Base URL は、拡張機能によって自動的に再利用されます — 追加の手順は不要です。**
+
+つまり **VS Code、Cursor、Trae、Antigravity はすべて同じ設定を共有** しており、いずれかのエディタで一度変更すれば、他のエディタと CLI にも適用されます。
+
+</Callout>
+
+初めて設定する場合は、以下の手順で設定ファイルを作成します：
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+mkdir -p ~/.claude && touch ~/.claude/settings.json
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+mkdir "$env:USERPROFILE\.claude" -Force
+New-Item "$env:USERPROFILE\.claude\settings.json" -Force
+```
+
+</Tab>
+</Tabs>
+
+以下を追加します（キーはご自身のものに置き換えてください）：
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
+    "ANTHROPIC_AUTH_TOKEN": "sk-your-lmu-ai-api-key",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  }
+}
+```
+
+詳細（デフォルトの中国製モデル設定、`effortLevel` の調整など）は [Claude Code CLI の設定](/ja/docs/tools/claude-code) を参照してください。**すべての設定オプションが適用されます。**
+
+---
+
+## 拡張機能を起動する
+
+1. エディタで `Cmd+Shift+P` / `Ctrl+Shift+P` を押してコマンドパレットを開きます
+2. **`Claude Code: Open`** と入力するか、サイドバーの Claude アイコンをクリックします
+3. 開いたチャットパネルで、Claude Code と対話し、コードを生成し、ファイルを自動編集させることができます
+
+<Callout type="info" title="1 つの設定で、どこでも使える">
+
+- ターミナルで `claude` を実行 → Claude Code CLI を使用
+- **VS Code / Cursor / Trae / Antigravity** のサイドバーで Claude アイコンをクリック → 拡張機能を使用
+
+**両者は同じ `~/.claude/settings.json` を読み込む** ため、キー、Base URL、モデル、タイムアウトの設定は、1 か所で変更すればどこでも有効になります。
+
+</Callout>
+
+---
+
+## よくある問題
+
+### 拡張機能で 401 / Unauthorized
+
+CLI と同じアプローチです — たいていはシェルの環境変数 `ANTHROPIC_BASE_URL` / `ANTHROPIC_API_KEY` が `settings.json` を上書きしているためです。トラブルシュートは [Claude Code CLI の設定 → よくある問題](/ja/docs/tools/claude-code#common-issues) を参照してください。
+
+### 中国製モデルを使う / デフォルトモデルを切り替える
+
+`settings.json` に `"model": "qwen3.8-max-preview"` を追加すると、CLI とすべての VS Code ファミリーのエディタが自動的にそのモデルを使用します。利用可能なモデルの一覧は [Model Gallery](/ja/docs/guide/models) を参照してください。
+
+### Cursor / Trae / Antigravity で拡張機能が見つからない
+
+前述の「Cursor / Trae / Antigravity 向けの注意」に従い、VSIX 経由でオフラインインストールしてください。
+
+### 拡張機能と CLI、どちらを選ぶべきか
+
+- エディタ内でコーディングするのが好き → 拡張機能を使い、すべてのコンテキストがエディタ内にとどまります
+- 複数のエディタをまたいだ作業、スクリプトの記述、バッチタスク → より柔軟な CLI を使用
+
+**どちらが機能的に優れているということはありません** — ご自身に合った方を選んでください。

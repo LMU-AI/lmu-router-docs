@@ -1,0 +1,141 @@
+---
+title: Données et confidentialité
+description: "Gestion des données chez LMU AI : le contenu des requêtes et des réponses n'est jamais conservé, les métadonnées d'appel sont conservées pendant 90 jours, et les données de compte sont stockées uniquement en Chine."
+ogDescription: "Données et confidentialité chez LMU AI : nous ne conservons ni le contenu des requêtes ni celui des réponses, les données de compte et de facturation restent uniquement en Chine, les appels transfrontaliers ne transmettent que la requête nécessaire, et des documents de conformité pour les entreprises, un DPA et une documentation de sécurité sont disponibles sur demande."
+keywords:
+  - Sécurité des données de l'API Claude
+  - Confidentialité de l'API Claude
+  - API IA sans conservation
+  - Conformité de l'API Claude
+  - DPA de l'API Claude
+  - Données IA transfrontalières
+  - Conformité IA pour les entreprises
+  - Conservation des journaux de l'API IA
+  - Stockage des données IA en Chine
+  - Politique de confidentialité de LMU AI
+alternateNames:
+  - Politique de confidentialité de LMU AI
+  - Aperçu de la conformité de l'API Claude
+  - Traitement des données et transfert transfrontalier
+---
+
+Cette page explique les principes que LMU AI suit lors du traitement des données des utilisateurs. Nous considérons « stockage minimal, isolation et transparence » comme les trois fondements de notre gestion des données.
+
+## Quelles données nous traitons
+
+Nous divisons les données en deux catégories : les **données de compte** et les **données de requête**. Les deux sont traitées et stockées de manière complètement différente.
+
+### Données de compte
+
+| Type | Contenu | Objectif |
+|------|------|------|
+| Informations d'identité | E-mail, numéro de téléphone | Connexion, récupération de mot de passe, notifications |
+| Informations de facturation | Forfait, quota, historique des commandes | Facturation et factures |
+| Informations d'identification | Clé API (stockée chiffrée), session de connexion | Authentification |
+| Métadonnées d'utilisation | Heure d'appel, modèle, utilisation de tokens, durée | Facturation, statistiques, rapports |
+
+### Données de requête
+
+| Type | Contenu | Objectif |
+|------|------|------|
+| Corps de requête | Le prompt, les messages et les paramètres que vous envoyez | Transmis au modèle en amont pour générer une réponse |
+| Corps de réponse | Le contenu que le modèle renvoie | Vous est retourné |
+
+**Distinction clé** : les données de compte servent à exploiter la plateforme elle-même ; les données de requête servent uniquement à réaliser votre appel API unique et en cours.
+
+## Où les données sont stockées
+
+Notre infrastructure comporte deux couches :
+
+**Couche d'accès (en Chine)**
+- Serveurs principaux, base de données utilisateurs, système de facturation
+- **Toutes les données de compte sont stockées ici**
+- Votre e-mail, votre numéro de téléphone, vos commandes et votre clé API ne quittent jamais la Chine
+
+**Couche de canaux en amont (multi-régions, y compris à l'étranger)**
+- Utilisée pour accéder aux interfaces officielles des fournisseurs de modèles tels qu'OpenAI / Anthropic / etc.
+- Ces canaux **servent uniquement de relais pour le trafic des modèles** et ne conservent aucune information d'identité utilisateur
+- Les nœuds de canal ne stockent pas les comptes utilisateurs et ne savent pas de quel utilisateur provient une requête (ils ne voient que la charge utile de requête anonymisée)
+
+<Mermaid chart={`flowchart TD
+    U[User login / billing] -- Account data --> DB[(Database in China)]
+    U -- Initiate API call<br/>User identity stripped after API key auth --> G[Access gateway<br/>In China]
+    G -- Request payload --> UP[Upstream channels, multi-region<br/>No user data stored]
+    UP -- Response data --> G
+
+    classDef cn fill:#eef6ff,stroke:#3b82f6,color:#1e3a8a;
+    classDef ext fill:#fff7ed,stroke:#f97316,color:#7c2d12;
+    class U,G,DB cn;
+    class UP ext;
+`} />
+
+## Politique de conservation des journaux
+
+| Type de données | Durée de conservation | Emplacement de stockage |
+|---------|---------|---------|
+| Contenu du corps de requête / réponse | **Non conservé** | — |
+| Métadonnées d'appel (heure, modèle, token, durée, code de statut) | 90 jours | En Chine |
+| Journaux d'erreurs (peuvent inclure des fragments de requête tronqués) | 90 jours | En Chine |
+| Données de compte et de commande | Pour toute la durée de vie du compte ; supprimées dans les 30 jours suivant la résiliation | En Chine |
+
+**À propos du contenu des requêtes**
+
+- Nous **ne stockons ni votre prompt ni le contenu de la réponse** — une fois une requête transmise, elle est libérée de la mémoire et n'est jamais écrite dans une base de données ou un fichier
+- Lorsqu'un canal en amont renvoie une erreur, le journal d'erreurs peut contenir des **fragments de requête tronqués** (utilisés pour reproduire le problème) ; ces données sont supprimées après 90 jours
+- Les journaux d'erreurs ne servent pas à entraîner un quelconque modèle et ne sont pas examinés de manière proactive par des humains ; ils ne sont consultés par les ingénieurs concernés que lorsque vous soumettez un ticket nécessitant une assistance de dépannage
+
+<Callout type="info" title="Journaux d'audit optionnels pour le niveau Entreprise">
+
+Les clients Entreprise peuvent choisir d'activer la fonction de journaux d'audit et de conserver les données de requête / réponse selon les exigences de conformité de votre entreprise. Une fois activés, les journaux sont stockés de manière chiffrée, et l'accès peut être contrôlé par les administrateurs de votre entreprise. Voir [Forfaits Entreprise](/fr/docs/enterprise) pour plus de détails.
+
+</Callout>
+
+## Transfert transfrontalier de données
+
+Comme les serveurs des modèles en amont (Claude, GPT, etc.) sont situés à l'étranger, **les corps de requête et de réponse d'un appel API transitent par des canaux à l'étranger lors du transfert**. Il s'agit d'un chemin technique nécessaire pour tout service de relais qui accède aux API de grands modèles à l'étranger.
+
+Nos engagements à ce stade :
+
+- **Nous ne conservons aucune donnée sur les nœuds à l'étranger** : les canaux se contentent de transférer, et la mémoire est libérée dès que le transfert est terminé
+- **Nous ne transportons pas l'identité de l'utilisateur** : les requêtes que voient les canaux en amont ont déjà été dépouillées des champs de compte tels que l'e-mail, le numéro de téléphone et les associations de commandes
+- **Transmission chiffrée** : utilisateur ↔ couche d'accès, couche d'accès ↔ canal en amont, et canal en amont ↔ fournisseur de modèle sont tous en TLS 1.2+ de bout en bout
+- **Nous ne partageons pas avec des tiers** : à l'exception des fournisseurs de modèles en amont nécessaires pour réaliser l'appel en cours, nous ne transmettons le contenu de votre requête à aucun tiers
+
+<Callout type="warn" title="Conseils sur les données sensibles">
+
+Comme le contenu des requêtes doit transiter par des canaux à l'étranger pour atteindre le fournisseur de modèle, **n'envoyez pas via l'API des requêtes contenant des données hautement sensibles telles que des secrets d'État, des secrets commerciaux ou des numéros d'identité personnelle**. Si vous avez de telles exigences de conformité, contactez le service commercial pour discuter d'un déploiement sur site ou d'un canal conforme.
+
+</Callout>
+
+## Ce que nous ne faisons pas
+
+- **Nous ne lisons pas** votre prompt ni le contenu de la réponse à des fins d'analyse humaine, d'analyse commerciale ou d'entraînement de modèle
+- **Nous ne vendons pas** vos données à des tiers
+- **Nous ne conservons pas** le contenu des requêtes et des réponses **sans vous en informer**
+- **Nous ne transférons pas les données de compte à l'étranger** (les données de compte sont stockées uniquement en Chine)
+
+## Pratiques de sécurité
+
+- Les clés API sont stockées chiffrées dans la base de données, n'affichant que quelques caractères de début et de fin
+- Toutes les opérations internes qui accèdent à la base de données sont enregistrées dans un journal d'audit
+- Les changements de clé (forfait, réinitialisation de clé API, retraits, etc.) déclenchent des notifications par e-mail / SMS
+- Les membres de l'équipe accédant aux données de production doivent passer par une approbation et le principe du moindre privilège
+
+Si vous constatez une anomalie de compte suspectée, veuillez immédiatement :
+1. Réinitialiser votre clé API dans la console
+2. Contacter le service commercial ou l'assistance : business@lmuai.com / WeChat 18599001010
+
+## Support de conformité pour les entreprises
+
+Les clients Entreprise ayant l'un des besoins suivants doivent nous contacter via le canal commercial :
+
+- Signature d'un accord de traitement des données (DPA)
+- Politiques de conservation des journaux personnalisées
+- Déploiement d'une passerelle sur site (le contenu des requêtes ne transite pas par les canaux partagés)
+- Documents de support pour les questionnaires MLPS / RGPD / SOC2
+
+## Modifications de la politique
+
+En cas de modifications substantielles de cette politique, nous publierons un avis à un endroit visible du site web et informerons les utilisateurs actifs par e-mail. Le fait de continuer à utiliser le service après une mise à jour de la politique constitue une acceptation de la nouvelle politique.
+
+*Dernière mise à jour : 2026-05-06*

@@ -1,0 +1,112 @@
+---
+title: Entreprise
+description: "Forfaits API entreprise LMU AI pour Claude / GPT / Gemini : 6 SKU (Standard Entreprise + Flagship) sur Anthropic et OpenAI, avec contrats, factures et support."
+ogDescription: Forfaits entreprise LMU AI — abonnements relais API de niveau entreprise pour Claude / GPT / Gemini, 6 SKU répartis entre Standard Entreprise et Flagship Entreprise, avec signature de contrat, factures avec TVA et un contact commercial dédié.
+keywords:
+  - API Claude entreprise
+  - Claude API entreprise
+  - relais API Claude entreprise
+  - facture API Claude
+  - contrat API Claude
+  - forfait entreprise API LLM
+  - forfait équipe API IA
+  - achat groupé API Claude
+  - accès IA conforme pour entreprise
+alternateNames:
+  - édition entreprise LMU AI
+  - forfaits relais entreprise Claude / GPT
+  - API Claude Standard Entreprise / Flagship Entreprise
+faq:
+  - q: Quelle est la différence essentielle entre les forfaits entreprise et les forfaits personnels ?
+    a: Principalement l'échelle des quotas, les objectifs de stabilité et le support commercial. Les paliers entreprise s'engagent sur un objectif de disponibilité de 99,5 % et fournissent un rapport de disponibilité mensuel, et prennent en charge la signature de contrat et les factures avec TVA. Les conditions exactes sont fixées via le contact commercial et le contrat.
+  - q: Pouvez-vous signer des contrats et émettre des factures ?
+    a: Oui. Les forfaits entreprise permettent de signer un contrat d'achat et d'émettre des factures avec TVA ; indiquez l'intitulé de facturation et le numéro fiscal lors de la commande ou pendant le contact commercial.
+  - q: Une seule clé API peut-elle appeler à la fois Claude et GPT ?
+    a: Oui. Les modèles que vous pouvez appeler sont déterminés par le groupe de la clé API, indépendamment du protocole d'appel ; avec un forfait entreprise, vous pouvez utiliser les modèles de la plateforme correspondant au SKU que vous avez commandé.
+---
+
+Pour les équipes qui ont déjà intégré des appels IA dans un produit ou un flux de travail interne, nous proposons des forfaits entreprise distincts des forfaits personnels, couvrant à la fois les plateformes **Anthropic (Claude)** et **OpenAI (GPT)** sur deux paliers — **Standard Entreprise / Flagship Entreprise** — pour un total de **6 SKU**.
+
+## Les problèmes que nous résolvons
+
+Si votre équipe a rencontré l'un des points suivants, un forfait entreprise est généralement mieux adapté qu'un forfait personnel :
+
+- **Volatilité affectant la production** : des échecs d'appel occasionnels qui vous obligent à écrire vous-même du code de repli, de nouvelle tentative et de surveillance
+- **Structure de quotas rigide** : les passes journalières / hebdomadaires ne peuvent pas soutenir les besoins simultanés d'une équipe, multi-personnes, multi-scénarios
+- **Réponse du support lente** : attendre des heures le support lorsqu'un incident survient, avec l'activité à l'arrêt
+- **Documents de conformité manquants** : la comptabilité a besoin de factures, le juridique a besoin d'un contrat
+- **Aucune visibilité** : ne pas savoir combien de tokens chaque projet a dépensés, qui exécute quoi, ni comment répartir les coûts
+
+## Forfaits entreprise en vente
+
+Les 6 paliers ci-dessous sont les SKU entreprise actuellement en vente ; les prix et les cycles sont conformes à la [page tarifaire officielle](https://api.lmuai.com/pricing). **Les autres spécifications (temps de réponse, déploiement privé, etc.) sont à confirmer lors du contact commercial.**
+
+| Forfait | Modèle | Cycle | Concurrence | Prix | Prix catalogue |
+|------|------|------|------|------|------|
+| **G-PRO Standard Entreprise** | GPT (OpenAI) | 30 jours | à partir de 40 | ¥2,999 | ¥18,350 |
+| **C-PRO Standard Entreprise** | Claude (Anthropic) | 30 jours | à partir de 40 | ¥3,999 | ¥14,790 |
+| **C-MAX Standard Entreprise** | Claude (Anthropic) | 30 jours | à partir de 40 | ¥7,799 | ¥14,800 |
+| **G-PRO · Flagship Entreprise** | GPT (OpenAI) | 30 jours | à partir de 80 | ¥6,250 | ¥42,375 |
+| **C-PRO · Flagship Entreprise** | Claude (Anthropic) | 30 jours | à partir de 80 | ¥8,250 | ¥42,375 |
+| **C-MAX · Flagship Entreprise** | Claude (Anthropic) | 30 jours | à partir de 80 | ¥16,500 | ¥42,375 |
+
+> Nommage : **G-PRO** fournit les modèles de la série GPT ; **C-PRO / C-MAX** fournissent tous deux les modèles de la série Claude, correspondant à différents pools de comptes en amont sur la plateforme Anthropic. Nous recommandons de confirmer votre cas d'usage avec l'équipe commerciale avant de commander.
+
+## Capacités communes à tous les paliers entreprise
+
+Quel que soit le palier choisi, chaque forfait entreprise inclut :
+
+| Capacité | Description |
+|------|------|
+| **Routage multi-sources + basculement automatique** | Voir [Architecture de fiabilité](/fr/docs/guide/reliability) |
+| **Objectif de disponibilité de 99,5 % + rapport mensuel** | Les paliers entreprise s'engagent sur un objectif de disponibilité de 99,5 % et fournissent un rapport de disponibilité mensuel ; voir la [section SLA](/fr/docs/guide/reliability#service-level-sla) |
+| **API de détail d'utilisation** | Récupérez automatiquement les détails des appels, la consommation de tokens et le coût via le [point de terminaison /api/v1/usage](/fr/docs/api/usage-export) |
+| **Aucune conservation de contenu** | Les prompts et les contenus de réponse ne sont pas conservés ; voir [Données et confidentialité](/fr/docs/guide/privacy) |
+| **Contrats et factures** | Prend en charge la signature d'un contrat d'achat et l'émission de factures avec TVA |
+| **Une seule clé sur toutes les plateformes** | Les modèles que vous pouvez appeler sont déterminés par le groupe de la clé API, indépendamment du protocole ; voir [Protocoles d'API](/fr/docs/guide/api-protocols) |
+
+> Des conditions de SLA et d'indemnisation supérieures peuvent être arrangées avec l'équipe commerciale ; le contrat fait foi.
+
+## Ce que nous ne vendons pas
+
+Pour vous faire gagner du temps, les éléments suivants sont **en dehors de notre périmètre actuel** :
+
+- Les appels API impliquant du contenu politique, pornographique, de jeux d'argent ou de fraude
+- Tout forfait nécessitant de contourner les conditions d'utilisation d'un fournisseur de modèle
+
+## Comment commencer
+
+### Vous ne savez pas quel palier vous convient ?
+
+Contactez directement l'équipe commerciale, et nous vous conseillerons en fonction de votre volume d'appels, de votre préférence de plateforme (Anthropic / OpenAI) et de vos exigences de conformité.
+
+### Contact commercial
+
+- **E-mail** : business@lmuai.com
+- **WeChat / téléphone** : 18599001010
+
+Veuillez inclure brièvement dans votre e-mail / message :
+
+1. La taille de l'équipe et le cas d'usage (par ex. un outil de rédaction IA pour 10 personnes, utilisant principalement Claude Sonnet)
+2. Le volume d'appels mensuel estimé (ce n'est pas grave si vous ne le connaissez pas — nous pouvons l'estimer ensemble)
+3. Toute exigence particulière en matière de conformité, de contrats ou de factures
+
+## FAQ
+
+<Callout type="info" title="Les forfaits entreprise et personnels peuvent-ils coexister ?">
+
+Oui. Un compte peut détenir plusieurs forfaits à la fois, et les appels sont routés selon le groupe de la clé API — voir [Protocoles d'API · Protocole et modèles disponibles sont deux choses différentes](/fr/docs/guide/api-protocols#protocol-vs-models).
+
+</Callout>
+
+<Callout type="info" title="Puis-je mélanger Claude et GPT ?">
+
+Les modèles qu'une clé API peut appeler sont déterminés par son groupe : si vous avez commandé un SKU de la plateforme Anthropic, vous pouvez appeler les modèles de la série Claude ; si vous avez commandé un SKU de la plateforme OpenAI, vous pouvez appeler les modèles de la série GPT. Lorsque vous avez besoin des deux plateformes, commandez séparément les SKU correspondants.
+
+</Callout>
+
+<Callout type="info" title="Comment négocier un SLA supérieur ou des conditions d'indemnisation ?">
+
+Au-delà de l'objectif de disponibilité par défaut de 99,5 % des paliers entreprise, si vous avez besoin d'un SLA supérieur ou de conditions d'indemnisation explicites, arrangez-les via le contact commercial ; le contrat fait foi.
+
+</Callout>

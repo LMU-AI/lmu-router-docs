@@ -1,0 +1,214 @@
+---
+title: CodeBuddy
+description: Verbinden Sie CodeBuddy über models.json mit der LMU AI API – geben Sie den vollständigen /chat/completions-Endpunkt ein, um Claude, GPT und chinesische Modelle zu nutzen.
+ogDescription: Verbinden Sie CodeBuddy mit LMU AI – bearbeiten Sie ~/.codebuddy/models.json, um benutzerdefinierte Modelle hinzuzufügen, wobei url auf https://api.lmuai.com/v1/chat/completions gesetzt und Ihr sk--Schlüssel eingetragen wird, und nutzen Sie dann Claude Opus 5, GPT-5.6, Qwen, DeepSeek und mehr direkt aus dem Chatfeld; unterstützt Hot Reload und Konfiguration auf Projektebene.
+keywords:
+  - CodeBuddy
+  - CodeBuddy Konfiguration
+  - CodeBuddy Drittanbieter-API
+  - CodeBuddy Relay
+  - CodeBuddy models.json
+  - CodeBuddy benutzerdefiniertes Modell
+  - CodeBuddy mit Claude verbinden
+  - Tencent Cloud CodeBuddy
+  - availableModels
+alternateNames:
+  - CodeBuddy mit LMU AI verbinden
+  - Wie man eine Drittanbieter-API in CodeBuddy konfiguriert
+  - Tencent Cloud CodeBuddy mit LMU AI
+faq:
+  - q: Wohin gehört CodeBuddys models.json?
+    a: 'Beide Ebenen werden unterstützt. **Benutzerebene** (empfohlen): `~/.codebuddy/models.json`, gilt global; **Projektebene**: `<project-root>/.codebuddy/models.json`, hat Vorrang. Die Zusammenführungsreihenfolge von höchster zu niedrigster Priorität ist Projektebene → Benutzerebene → integrierte Standardwerte, und Modelle mit derselben `id` werden überschrieben.'
+  - q: Sollte url eine Basis-URL oder ein vollständiger Pfad sein?
+    a: 'Es muss der **vollständige Pfad** sein, normalerweise mit `/chat/completions` endend – für LMU AI `https://api.lmuai.com/v1/chat/completions`. Die offizielle Dokumentation führt halb geschriebene Formen wie `https://api.example.com/v1` und `https://api.myservice.com` ausdrücklich als **falsche Beispiele** auf, sodass Tutorials, die diese kopieren, nicht funktionieren.'
+  - q: Unterstützt CodeBuddy das Anthropic-Protokoll?
+    a: Nein. Die offizielle Dokumentation gibt an, dass derzeit nur APIs im OpenAI-Format unterstützt werden, verbinden Sie sich also über das OpenAI-kompatible Protokoll (`/v1/chat/completions`) mit LMU AI. Claude-Modelle funktionieren dennoch – geben Sie einfach eine Modell-ID wie `claude-opus-5` ein, und das LMU AI-Backend übernimmt die Umwandlung zwischen OpenAI und Anthropic.
+  - q: Ich habe es konfiguriert, aber das Modell erscheint nicht im Dropdown
+    a: Prüfen Sie diese Punkte der Reihe nach – (1) wenn `availableModels` gesetzt ist, werden nur die dort aufgeführten IDs angezeigt (lassen Sie es weg oder leer, um alles anzuzeigen); (2) ist das JSON gültig (ein fehlendes oder ein nachgestelltes Komma macht die gesamte Datei ungültig); (3) ist das erforderliche Feld `id` vorhanden; (4) wurde die Datei tatsächlich auf die Festplatte gespeichert.
+  - q: Muss ich CodeBuddy nach dem Bearbeiten der Konfiguration neu starten?
+    a: Nein. models.json unterstützt **Hot Reload** – Änderungen werden automatisch erkannt (mit 1 Sekunde Entprellung) und mit der App synchronisiert. Wenn nichts passiert, stellen Sie zunächst sicher, dass die Datei wirklich gespeichert wurde.
+  - q: Wie zeige ich nur LMU AI-Modelle an und blende die integrierten aus?
+    a: Verwenden Sie das Feld `availableModels`, um nur die Modell-IDs aufzulisten, die Sie sehen möchten. Beachten Sie, dass es auf Projektebene die Benutzerebene **vollständig überschreibt** statt sie zusammenzuführen. Denken Sie außerdem gemäß der offiziellen Dokumentation daran, beim Löschen des Felds `availableModels` das dann nachgestellte Komma nach dem `models`-Array zu entfernen, sonst wird das JSON ungültig.
+---
+
+CodeBuddy (der Coding-Assistent von Tencent Cloud) ist ein KI-Code-Editor, der eine benutzerdefinierte Modellliste über eine `models.json`-Konfigurationsdatei unterstützt. Diese Seite behandelt die Verbindung mit LMU AI.
+
+---
+
+## Installieren und anmelden
+
+1. Laden Sie die Version für Ihr Betriebssystem von der offiziellen Website herunter und installieren Sie sie: [https://www.codebuddy.cn](https://www.codebuddy.cn/home/)
+2. Melden Sie sich bei Ihrem CodeBuddy-Konto an, wenn Sie dazu aufgefordert werden
+
+---
+
+## LMU AI konfigurieren
+
+### Schritt 1: Speicherort der Konfigurationsdatei wählen
+
+| Ebene | Pfad | Hinweise |
+|------|------|------|
+| **Benutzerebene** (empfohlen) | `~/.codebuddy/models.json` | Globale Konfiguration, gilt für alle Projekte |
+| **Projektebene** | `<project-root>/.codebuddy/models.json` | Projektspezifisch, hat Vorrang vor der Benutzerebene |
+
+Erstellen Sie die Datei, falls sie nicht existiert. Zusammenführungsreihenfolge von höchster zu niedrigster Priorität: Projektebene → Benutzerebene → integrierte Standardwerte.
+
+### Schritt 2: Die Konfiguration schreiben
+
+Am Beispiel der Benutzerebene `~/.codebuddy/models.json`:
+
+```json
+{
+  "models": [
+    {
+      "id": "claude-opus-5",
+      "name": "Claude Opus 5 (LMU AI)",
+      "vendor": "LMU AI",
+      "apiKey": "sk-your-lmu-ai-api-key",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "maxInputTokens": 200000,
+      "maxOutputTokens": 32000,
+      "supportsToolCall": true,
+      "supportsImages": true,
+      "supportsReasoning": true
+    },
+    {
+      "id": "gpt-5.6-sol",
+      "name": "GPT-5.6 Sol (LMU AI)",
+      "vendor": "LMU AI",
+      "apiKey": "sk-your-lmu-ai-api-key",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "maxInputTokens": 400000,
+      "maxOutputTokens": 32000,
+      "supportsToolCall": true
+    }
+  ]
+}
+```
+
+<Callout type="warn" title="url muss der vollständige Pfad sein, keine Basis-URL">
+
+Das Feld `url` nimmt den **vollständigen Endpunktpfad** entgegen, der mit `/chat/completions` endet:
+
+- ✅ Richtig: `https://api.lmuai.com/v1/chat/completions`
+- ❌ Falsch: `https://api.lmuai.com/v1`
+- ❌ Falsch: `https://api.lmuai.com`
+
+Dies ist der häufigste Grund, warum ein kopiertes Minimalbeispiel fehlschlägt – viele Tutorials behandeln es als Basis-URL, und CodeBuddy kann den Endpunkt dann nicht erreichen.
+
+</Callout>
+
+<Callout type="info" title="CodeBuddy unterstützt nur das OpenAI-Format">
+
+Die offizielle Dokumentation gibt an, dass derzeit nur APIs im **OpenAI-Format** unterstützt werden, verbinden Sie sich also über das OpenAI-kompatible Protokoll mit LMU AI.
+
+Claude-Modelle funktionieren ebenfalls einwandfrei: Geben Sie einfach eine Modell-ID wie `claude-opus-5` direkt ein, und das LMU AI-Backend übernimmt die Umwandlung zwischen OpenAI und Anthropic.
+
+</Callout>
+
+### Schritt 3: Modell auswählen und mit dem Chatten beginnen
+
+Speichern Sie einfach die Datei – models.json unterstützt **Hot Reload** (1 Sekunde Entprellung), sodass CodeBuddy nicht neu gestartet werden muss. Wählen Sie Ihr neu konfiguriertes Modell im Modell-Picker des Chatfelds aus, und Sie sind startklar.
+
+Über models.json hinzugefügte Modelle werden automatisch als `custom` gekennzeichnet, sodass sie in der Oberfläche leicht zu erkennen sind.
+
+---
+
+## Feldreferenz
+
+Für jeden Eintrag im `models`-Array verfügbare Felder:
+
+| Feld | Typ | Erforderlich | Hinweise |
+|------|------|------|------|
+| `id` | string | ✓ | Eindeutiger Modellbezeichner – verwenden Sie die LMU AI-Modell-ID |
+| `name` | string | - | Anzeigename im Dropdown |
+| `vendor` | string | - | Anbietername; beliebig |
+| `apiKey` | string | - | Der in der LMU AI-Konsole generierte `sk-`-Schlüssel (der tatsächliche Schlüsselwert, kein Umgebungsvariablenname) |
+| `url` | string | - | Vollständiger Endpunktpfad; für LMU AI `https://api.lmuai.com/v1/chat/completions` |
+| `maxInputTokens` | number | - | Maximale Eingabe-Tokens |
+| `maxOutputTokens` | number | - | Maximale Ausgabe-Tokens |
+| `supportsToolCall` | boolean | - | Ob Tool-Aufrufe unterstützt werden |
+| `supportsImages` | boolean | - | Ob Bildeingabe unterstützt wird |
+| `supportsReasoning` | boolean | - | Ob der Reasoning-Modus unterstützt wird |
+
+---
+
+## Nur bestimmte Modelle anzeigen
+
+Verwenden Sie das Feld `availableModels` auf oberster Ebene, um zu steuern, welche Modelle im Dropdown erscheinen:
+
+```json
+{
+  "models": [
+    {
+      "id": "claude-opus-5",
+      "name": "Claude Opus 5 (LMU AI)",
+      "apiKey": "sk-your-lmu-ai-api-key",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "supportsToolCall": true
+    }
+  ],
+  "availableModels": ["claude-opus-5"]
+}
+```
+
+- Weggelassen oder ein leeres Array → alle Modelle werden angezeigt
+- Einmal gesetzt → nur die aufgeführten Modell-IDs erscheinen (sowohl integrierte als auch benutzerdefinierte Modelle)
+- Ein `availableModels` auf Projektebene **überschreibt vollständig** das auf Benutzerebene, statt es zusammenzuführen
+
+<Callout type="warn" title="Achten Sie auf das Komma beim Entfernen von availableModels">
+
+Gemäß der offiziellen Dokumentation: Denken Sie nach dem Löschen des Felds `availableModels` daran, das dann nachgestellte `,` nach dem `models`-Array darüber zu entfernen, sonst wird das JSON ungültig und die gesamte Konfiguration funktioniert nicht mehr.
+
+</Callout>
+
+---
+
+## Häufige Modell-IDs
+
+| Modell-ID | Hinweise |
+|------|------|
+| `claude-opus-5` | Claude Opus 5 (Flaggschiff, empfohlen) |
+| `claude-sonnet-5` | Claude Sonnet 5 (ausgewogen) |
+| `claude-haiku-4-5` | Claude Haiku 4.5 (schnell) |
+| `gpt-5.6-sol` | GPT-5.6 Sol |
+| `glm-5.2` | GLM-5.2 |
+| `qwen3.8-max-preview` | Qwen 3.8 Max Preview |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k3` | Kimi K3 |
+
+Nicht sicher, welches Modell Sie eingeben sollen? Gehen Sie zur [Modellgalerie](/de/docs/guide/models), um alle verfügbaren Modell-IDs zu sehen und mit einem Klick zu kopieren.
+
+Für ein Kontextfenster von 1 Mio. schreiben Sie die Modell-ID mit dem Suffix `[1M]` (z. B. `claude-opus-5[1M]`) und erhöhen Sie `maxInputTokens` entsprechend.
+
+---
+
+## Fehlerbehebung
+
+### Konfiguration wird nicht wirksam?
+
+1. Prüfen Sie, dass das **JSON gültig** ist (ein fehlendes oder nachgestelltes Komma ist meist die Ursache)
+2. Bestätigen Sie, dass der **Dateipfad** korrekt ist (`~/.codebuddy/models.json`)
+3. Bestätigen Sie, dass jeder Eintrag das erforderliche Feld `id` enthält
+4. Bestätigen Sie, dass die Datei tatsächlich **auf die Festplatte gespeichert** wurde (Hot Reload hat 1 Sekunde Entprellung)
+
+### Modell fehlt im Dropdown?
+
+- Wenn `availableModels` gesetzt ist, prüfen Sie, dass die Modell-ID dort aufgeführt ist
+- Prüfen Sie, dass der Eintrag im `models`-Array vollständig ist
+
+### 401 / 404 erhalten?
+
+- **401**: Ist `apiKey` der in der LMU AI-Konsole generierte `sk-`-Schlüssel?
+- **404**: Bei `url` fehlt fast sicher `/chat/completions` – es muss der vollständige Pfad sein
+
+---
+
+## Hinweise
+
+- `url` muss der **vollständige Endpunktpfad** `https://api.lmuai.com/v1/chat/completions` sein, nicht nur `/v1` oder die bloße Domain
+- CodeBuddy unterstützt **nur das OpenAI-Format**; Claude-Modelle laufen über die Protokollumwandlung von LMU AI
+- `apiKey` nimmt den tatsächlichen Schlüsselwert entgegen – Umgebungsvariablennamen werden nicht unterstützt
+- Die Konfiguration wird **hot geladen**, sodass Speichern ausreicht; kein Neustart nötig
+- Jeder Modelleintrag benötigt seinen eigenen `apiKey` und `url`
+- Die Konfiguration auf Projektebene überschreibt die Benutzerebene pro `id`, während `availableModels` als Ganzes ersetzt statt zusammengeführt wird

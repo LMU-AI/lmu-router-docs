@@ -1,0 +1,210 @@
+---
+title: OpenCode
+description: LMU AI API를 OpenCode에서 OpenAI / Anthropic 호환 백엔드로 구성하여 Claude, Codex, GLM 및 기타 모델을 사용하세요.
+ogDescription: OpenCode를 LMU AI에 연결 — 하나의 설정으로 Claude / GPT / Codex / GLM을 한 번에 활성화하며, OpenAI 및 Anthropic 프로토콜 모두와 호환됩니다.
+keywords:
+  - OpenCode
+  - OpenCode 설정
+  - OpenCode Claude
+  - 중국에서 OpenCode
+  - OpenCode Anthropic 호환
+  - OpenCode GLM
+  - OpenCode Codex
+alternateNames:
+  - OpenCode를 LMU AI에 연결
+---
+
+
+공식 문서를 따라 OpenCode를 설치하기만 하면 됩니다 — 웹사이트에 상세한 튜토리얼이 있습니다:
+
+- 공식 문서: [https://opencode.ai/docs/](https://opencode.ai/docs/)
+
+---
+
+## 모델 구성
+
+설치 후 설정 파일 `~/.config/opencode/opencode.json`을 편집하세요. OpenCode는 업스트림 서비스에 연결하기 위한 두 가지 프로토콜을 지원합니다 — 제공업체에 맞는 것을 선택하기만 하면 됩니다.
+
+### 프로토콜 선택
+
+| 프로토콜 | `npm` | `baseURL` 형식 | 사용 시점 |
+| --- | --- | --- | --- |
+| OpenAI 프로토콜 | `@ai-sdk/openai` | `/v1`로 끝남, 예: `https://xxx.com/v1` | GPT, Codex 및 대부분의 OpenAI 호환 서비스 |
+| Anthropic 프로토콜 | `@ai-sdk/anthropic` | 마찬가지로 `/v1`로 끝남, 예: `https://xxx.com/v1` | Claude의 네이티브 프로토콜, 그리고 Anthropic 프로토콜을 선언하는 중국 모델(GLM 등) |
+
+<Callout type="warn" title="흔한 baseURL 함정">
+
+OpenAI와 Anthropic 프로토콜 모두에서 `baseURL`은 **반드시 `/v1` 레벨까지 내려가야 합니다**. SDK는 그 뒤에 특정 엔드포인트(예: `/chat/completions` 또는 `/messages`)만 덧붙이므로, `/v1`을 생략하면 요청이 조용히 삭제됩니다 — 모델이 오류를 반환하지 않고 빈 내용으로 응답합니다.
+
+</Callout>
+
+### 예시 1 — OpenAI 프로토콜
+
+동작하는 최소 설정(하나의 제공업체 아래에 여러 모델을 구성할 수 있습니다):
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "openai": {
+      "options": {
+        "baseURL": "https://api.lmuai.com/v1"
+      },
+      "models": {
+        "gpt-5.5": { "name": "GPT-5.5" },
+        "gpt-5.4": { "name": "GPT-5.4" }
+      }
+    }
+  }
+}
+```
+
+<Callout type="info" title="왜 provider id로 `openai`를 사용하나요?">
+
+OpenCode는 `openai`를 **내장 provider id**로 인식하므로, `@ai-sdk/openai`를 자동으로 로드하고 `/v1/responses` 엔드포인트를 사용합니다(추론 모델을 완전히 지원). 따라서 OpenAI 프로토콜 서비스에 연결할 때는 provider id를 `openai`로 지정하고 `baseURL`을 자체 게이트웨이로 가리키기만 하면 됩니다 — `npm` 필드를 직접 작성할 필요가 없습니다.
+
+</Callout>
+
+모델의 기능 선언(컨텍스트 길이, reasoning-effort 변형 등)을 다듬어야 한다면, 해당 모델 항목에 필드를 추가하기만 하면 됩니다:
+
+```json
+"gpt-5.5": {
+  "name": "GPT-5.5",
+  "limit": { "context": 1050000, "output": 128000 },
+  "options": { "store": false },
+  "variants": { "low": {}, "medium": {}, "high": {}, "xhigh": {} }
+}
+```
+
+여기서 `variants`는 전환 가능한 reasoning-effort 레벨을 정의합니다. OpenCode에서 런타임 중에 `Ctrl + T`를 눌러 전환하세요.
+
+### 예시 2 — Anthropic 프로토콜(중국 모델에서 흔함)
+
+일부 중국 모델(GLM 등)은 국내 벤더가 제공하지만 API에서 **Anthropic 프로토콜**을 따르므로 `@ai-sdk/anthropic`가 필요합니다:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "lmuai": {
+      "npm": "@ai-sdk/anthropic",
+      "name": "lmuai",
+      "options": {
+        "baseURL": "https://api.lmuai.com/v1"
+      },
+      "models": {
+        "glm-5.1": {
+          "name": "GLM-5.1"
+        }
+      }
+    }
+  }
+}
+```
+
+<Callout type="info" title="어떤 프로토콜인지 어떻게 구분하나요?">
+
+제공업체 문서의 요청 예시를 확인하세요:
+- 엔드포인트가 `/v1/chat/completions` → OpenAI 프로토콜
+- 엔드포인트가 `/v1/messages`이고 `anthropic-version` 요청 헤더가 있음 → Anthropic 프로토콜
+
+</Callout>
+
+### 예시 3 — Claude 네이티브 모델
+
+**네이티브 Claude 모델**(예: `claude-sonnet-4-6`)에 연결하려면 provider id로 내장 `anthropic`을 사용해야 합니다 — 사용자 지정 이름은 사용할 수 없습니다:
+
+```json
+{
+  "$schema": "https://opencode.ai/config.json",
+  "provider": {
+    "anthropic": {
+      "npm": "@ai-sdk/anthropic",
+      "options": {
+        "baseURL": "https://api.lmuai.com/v1"
+      }
+    }
+  }
+}
+```
+
+검증:
+
+```bash
+opencode run --model anthropic/claude-sonnet-4-6 "Hello"
+```
+
+<Callout type="warn" title="왜 Claude 모델은 사용자 지정 provider id를 사용할 수 없나요?">
+
+`openai`와 마찬가지로 `anthropic`은 OpenCode의 **내장 provider id**이며, OpenCode는 그 아래에 전체 Claude 모델 라인업(`claude-sonnet-4-6` 등)의 내장 정의를 제공합니다.
+
+그래서 `opencode run --model anthropic/claude-sonnet-4-6 "Hello"`가 동작합니다. 하지만 provider id를 사용자 지정 이름(예: `lmuai/claude-sonnet-4-6`)으로 바꾸면 OpenCode가 모델 정의를 찾을 수 없어 테스트가 실패합니다.
+
+요컨대: **네이티브 Claude 모델에는 `anthropic`을 사용하고, GLM 같은 사용자 지정 모델에만 사용자 지정 provider id(예: `lmuai`)를 사용하세요.**
+
+</Callout>
+
+여러 프로토콜과 여러 제공업체를 한 번에 사용해야 한다면, 모두 `provider` 아래에 넣기만 하면 됩니다 — 서로 간섭하지 않습니다. 예를 들어 LMU AI는 GPT 시리즈(`openai`), Claude 시리즈(`anthropic`), GLM 시리즈(`lmuai`, Anthropic 프로토콜)를 동시에 제공하며, 세 제공업체 모두 하나의 게이트웨이를 공유할 수 있습니다.
+
+---
+
+## 키 구성
+
+### 방법 1 — 명령줄(권장)
+
+```bash
+# Log in or update the key for a provider
+opencode auth login
+
+# List all configured providers and their key status
+opencode auth list
+
+# Remove the key for a specific provider
+opencode auth logout <provider-name>
+```
+
+### 방법 2 — 설정 파일 수동 편집
+
+`~/.local/share/opencode/auth.json`에 해당 제공업체의 API 키를 추가하세요:
+
+```json
+{
+  "provider-name": {
+    "type": "api",
+    "key": "your-api-key"
+  }
+}
+```
+
+<Callout type="warn" title="참고">
+
+`auth.json`의 제공업체 이름은 `opencode.json`의 제공업체 이름과 **정확히 일치해야** 합니다.
+
+`opencode.json`의 `options` 블록에 `apiKey`를 넣지 마세요 — OpenCode는 거기에서 키를 읽지 않습니다. 반드시 `auth.json` 또는 `opencode auth login`을 통해야 합니다.
+
+</Callout>
+
+---
+
+## 설정 검증
+
+구성이 완료되면 명령 하나로 빠르게 검증하세요:
+
+```bash
+opencode run --model provider-name/model-name "Hello"
+```
+
+예를 들어 `opencode run --model lmuai/glm-5.1 "Hello"`. 정상 응답이 오면 설정이 동작하는 것입니다.
+
+출력이 전혀 없다면(오류도 응답도 없음), 대개 다음 두 가지 문제 중 하나입니다:
+
+1. **baseURL에 `/v1`이 누락됨** — 위 "프로토콜 선택" 섹션의 팁을 참고하세요.
+2. **`auth.json`에 키가 구성되지 않음** — `opencode auth list`에 해당 제공업체가 표시되는지 확인하세요.
+
+더 많은 디버깅 정보를 얻으려면 `--print-logs --log-level INFO`를 추가하세요.
+
+---
+
+## 팁
+
+OpenCode에서 `Ctrl + T`를 눌러 reasoning-effort 레벨(변형) 간을 전환하세요.

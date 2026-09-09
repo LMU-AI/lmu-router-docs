@@ -1,0 +1,182 @@
+---
+title: WorkBuddy
+description: اربط WorkBuddy بمُرحّل LMU AI عبر نموذج مخصّص متوافق مع OpenAI — اضبط الـ Base URL ومفتاح sk- لاستدعاء Claude وGPT والنماذج الصينية.
+ogDescription: اربط WorkBuddy (من نفس عائلة Tencent CodeBuddy) بـ LMU AI عبر نموذج مخصّص (متوافق مع OpenAI) — اضبط الـ Base URL https://api.lmuai.com/v1 ومفتاح sk- الخاص بك لاستدعاء Claude Sonnet 5 / GPT-5.6 / DeepSeek / GLM والمزيد، سواء عبر الواجهة أو ملف models.json، مع اتصال مباشر من الخارج.
+keywords:
+  - إعداد واجهة WorkBuddy API
+  - نموذج WorkBuddy المخصّص
+  - ربط WorkBuddy بـ LMU AI
+  - WorkBuddy متوافق مع OpenAI
+  - WorkBuddy Base URL
+  - WorkBuddy models.json
+  - مُرحّل Tencent WorkBuddy
+  - نموذج CodeBuddy المخصّص
+  - استكشاف أخطاء WorkBuddy 401 404
+alternateNames:
+  - ربط WorkBuddy بـ LMU AI
+  - إعداد مُرحّل LMU AI في WorkBuddy
+  - دليل نموذج Tencent WorkBuddy المخصّص
+faq:
+  - q: هل يجب أن يتضمن نقطة نهاية WorkBuddy المسار /v1؟
+    a: عند ملء نقطة النهاية / الـ Base URL ضمن النموذج المخصّص في الواجهة، توقّف عند https://api.lmuai.com/v1 (مع /v1، بدون /chat/completions)؛ فسيُلحق WorkBuddy المسار /chat/completions تلقائيًا. وعند ضبط url يدويًا في models.json، اكتب المسار الكامل https://api.lmuai.com/v1/chat/completions. كلاهما يشير إلى نفس نقطة النهاية — لا تكتب /chat/completions في نقطة النهاية مرتين، وإلا فسيُرجع المسار المكرّر خطأ 404.
+  - q: هل يمكن لـ WorkBuddy استخدام Claude أو النماذج الصينية؟
+    a: نعم. يستخدم النموذج المخصّص في WorkBuddy البروتوكول المتوافق مع OpenAI (/v1/chat/completions)، ويؤدي الخادم الخلفي لـ LMU AI تحويل البروتوكول، لذا طالما أن مجموعة مفتاحك تملك المصدر الأعلى المطابق، فإن معرّفات النماذج مثل claude-sonnet-5 وdeepseek-v4-pro وglm-5.2 تعمل جميعها. والنماذج المتاحة فعليًا تعتمد على مجموعتك.
+  - q: لماذا يفشل مفتاح مجموعة Claude Max؟
+    a: تدعم مجموعة Claude Max بروتوكول Anthropic فقط ولا يمكن استخدامها مع عنوان بروتوكول OpenAI مثل https://api.lmuai.com/v1، لذا لا يمكن استخدامها مع النموذج المخصّص في WorkBuddy. استخدم بدلاً من ذلك مفتاح مجموعة الدفع حسب الاستخدام أو الاشتراك القياسي.
+  - q: التغييرات على models.json لا تُحدث أي تأثير؟
+    a: بعد تحرير models.json يجب أن تُغلق WorkBuddy تمامًا وتُعيد تشغيلها؛ واحفظ الملف بترميز UTF-8 بدون BOM، إذ قد يتسبب وجود BOM في فشل تحميله. أما بالنسبة لنموذج أُضيف عبر الواجهة، فما عليك سوى إعادة اختياره في مُنتقي النماذج بعد الحفظ.
+---
+
+WorkBuddy هو مساعد Tencent للبرمجة بالذكاء الاصطناعي (من نفس عائلة CodeBuddy). وهو يدعم الاتصال بأي واجهة API متوافقة مع OpenAI عبر **نموذج مخصّص (متوافق مع OpenAI)**، فيمكنك توجيهه إلى مُرحّل LMU AI واستخدام مفتاح `sk-` واحد لاستدعاء Claude وGPT والنماذج الصينية.
+
+---
+
+## قبل أن تبدأ
+
+- مفتاح LMU AI API يبدأ بـ `sk-`: سجّل وأنشئ واحدًا في [وحدة تحكم LMU AI](https://api.lmuai.com).
+- دوّن عنوان LMU AI المتوافق مع OpenAI (الـ Base URL)، **مع** `/v1`:
+
+  ```
+  https://api.lmuai.com/v1
+  ```
+
+- تأكّد من أن مجموعة مفتاحك تملك المصدر الأعلى للنموذج الذي تريد استخدامه (النماذج المتاحة تعتمد على المجموعة).
+
+<Callout type="warn" title="لا تستخدم مفتاح مجموعة Claude Max">
+
+تدعم مجموعة Claude Max بروتوكول Anthropic فقط و**لا يمكن** ملؤها في عنوان بروتوكول OpenAI مثل `https://api.lmuai.com/v1`، لذا لن تعمل مع النموذج المخصّص في WorkBuddy. استخدم بدلاً من ذلك مفتاح مجموعة **الدفع حسب الاستخدام** أو **الاشتراك القياسي**.
+
+</Callout>
+
+---
+
+## الطريقة 1: إضافة نموذج مخصّص في الواجهة (موصى بها)
+
+1. افتح WorkBuddy وانتقل إلى إعدادات النموذج: إمّا عبر **Settings → Model**، أو افتح مُنتقي النماذج في مربّع المحادثة، مرّر إلى الأسفل، واختر **Configure custom models**.
+2. انقر **Add Model** واضبط المزوّد / النوع على **Custom**.
+3. املأ هذه الحقول الثلاثة:
+
+   | الحقل | القيمة |
+   |------|------|
+   | نقطة النهاية / الـ Base URL | `https://api.lmuai.com/v1` |
+   | API Key | مفتاح `sk-` المُنشأ في وحدة التحكم |
+   | اسم النموذج | معرّف نموذج LMU AI، مثل `gpt-5.6-sol` أو `claude-sonnet-5` |
+
+4. (اختياري) بدّل Tool Call وImage input وغيرها بحسب قدرات النموذج.
+5. احفظ، ارجع إلى مُنتقي النماذج، اختر النموذج الذي أضفته للتو، وابدأ المحادثة.
+
+![مربّع حوار "Add Model" في WorkBuddy وقد تمّ ملؤه: المزوّد مضبوط على Custom، ونقطة النهاية تتوقف عند `https://api.lmuai.com/v1`](/images/tools/workbuddy/workbuddy-add-model.png)
+
+<Callout type="info" title="لا تكتب /chat/completions في نقطة النهاية مرتين">
+
+يُلحق WorkBuddy تلقائيًا `/chat/completions` بنقطة النهاية. لذا أوقف نقطة النهاية عند `https://api.lmuai.com/v1` ولا تُضف `/chat/completions` — وإلا فستصبح `…/v1/chat/completions/chat/completions` وتُرجع خطأ 404.
+
+</Callout>
+
+---
+
+## الطريقة 2: تحرير models.json (دقيقة، وقابلة للتحكّم بالإصدارات)
+
+يخزّن WorkBuddy / CodeBuddy أيضًا النماذج المخصّصة في ملف إعدادات، وهو مناسب للإعداد بالجملة أو على مستوى الفريق.
+
+يوجد ملف الإعدادات في مجلد `.codebuddy` داخل مجلد المستخدم الرئيسي (تستخدم بعض الإصدارات `.workbuddy` — استخدم أيًّا كان موجودًا فعليًا على جهازك):
+
+- **Windows (مستوى المستخدم)**: `C:\Users\<your-username>\.codebuddy\models.json`
+- **macOS / Linux (مستوى المستخدم)**: `~/.codebuddy/models.json`
+- **مستوى المشروع**: `<your-project-dir>\.codebuddy\models.json`
+
+عند الاستخدام لأول مرة، ثبّت التطبيق، سجّل الدخول، وافتح أي مشروع مرة واحدة حتى يُنشأ مجلد الإعدادات. مثال (استبدل `apiKey` بمفتاح `sk-` الخاص بك):
+
+```json
+{
+  "models": [
+    {
+      "id": "gpt-5.6-sol",
+      "name": "LMU AI GPT-5.6 Sol",
+      "vendor": "LMU AI",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "apiKey": "sk-your-key",
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 8192,
+      "supportsToolCall": true,
+      "supportsImages": false
+    },
+    {
+      "id": "claude-sonnet-5",
+      "name": "LMU AI Claude Sonnet 5",
+      "vendor": "LMU AI",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "apiKey": "sk-your-key",
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 8192,
+      "supportsToolCall": true,
+      "supportsImages": false
+    }
+  ],
+  "availableModels": ["gpt-5.6-sol", "claude-sonnet-5"]
+}
+```
+
+ملاحظات:
+
+- هنا يجب أن يكون `url` هو **المسار الكامل** `https://api.lmuai.com/v1/chat/completions` (بخلاف الطريقة 1، فإنه يتضمّن `/chat/completions`).
+- `maxInputTokens` و`maxOutputTokens` و`supportsToolCall` و`supportsImages` هي **قيم معلَنة من جانب العميل** — عدّلها لتطابق القدرات الفعلية للنموذج الذي اخترته.
+- احفظ الملف بترميز **UTF-8 بدون BOM**؛ فقد يتسبب وجود BOM في فشل تحميله.
+- يمكنك أيضًا ضبط المفتاح كمتغيّر بيئة والإشارة إليه، مثل `"apiKey": "${LMU_API_KEY}"` (`setx LMU_API_KEY "sk-..."` على Windows، و`export LMU_API_KEY=sk-...` على macOS / Linux).
+- بعد التحرير، **أغلق WorkBuddy تمامًا وأعِد تشغيله**، ثم اختر النموذج في المُنتقي.
+
+---
+
+## النماذج المتاحة
+
+معرّفات النماذج الشائعة (النماذج التي يمكنك استخدامها فعليًا تعتمد على مجموعتك؛ انظر القائمة الكاملة في [النماذج](../guide/models)):
+
+- **GPT**: `gpt-5.6-sol`، `gpt-5.6-terra`، `gpt-5.6-luna`، `gpt-5.5`
+- **Claude**: `claude-opus-5`، `claude-sonnet-5`، `claude-haiku-4-5`
+- **الصينية**: `deepseek-v4-pro`، `qwen3.8-max-preview`، `glm-5.2`، `kimi-k3`
+
+يستخدم WorkBuddy البروتوكول المتوافق مع OpenAI، ويؤدي الخادم الخلفي لـ LMU AI تحويل البروتوكول تلقائيًا، لذا تعمل معرّفات نماذج Claude / الصينية أيضًا — شريطة أن تملك مجموعتك المصدر الأعلى المطابق.
+
+---
+
+## الأسئلة الشائعة
+
+### خطأ 401 / 403
+
+تحقّق بالترتيب:
+
+1. ما إذا كان API Key هو مفتاح `sk-` مُنشأ في وحدة تحكم LMU AI (وليس مفتاح OpenAI / Anthropic الرسمي).
+2. ما إذا كانت نقطة النهاية صحيحة: `https://api.lmuai.com/v1` (مع `/v1`).
+3. ما إذا كانت مجموعة مفتاحك تتضمّن النموذج الذي تستدعيه.
+
+### 404 / Not Found
+
+عادةً ما تكون نقطة النهاية قد كُتب فيها `/chat/completions` مرتين، أو تنقصها `/v1`:
+
+- الطريقة 1 (الواجهة): أوقف نقطة النهاية عند `https://api.lmuai.com/v1`؛ فيُلحق WorkBuddy `/chat/completions`.
+- الطريقة 2 (models.json): اضبط `url` على المسار الكامل `https://api.lmuai.com/v1/chat/completions`.
+
+### "Model unavailable" / "No available accounts"
+
+لقد استدعيت نموذجًا خارج نطاق مجموعتك (على سبيل المثال، استخدام مجموعة Claude Max لاستدعاء GPT). تحقّق من النماذج التي يمكن لمجموعتك الحالية استدعاؤها ضمن "Available models" في وحدة التحكم، أو بدّل المجموعات. انظر [بروتوكولات API](../guide/api-protocols).
+
+### التغييرات لا تُحدث أي تأثير
+
+بعد تحرير `models.json`، **أغلق WorkBuddy تمامًا وأعِد تشغيله**؛ واحفظ الملف بترميز **UTF-8 بدون BOM**. أما بالنسبة لنموذج أُضيف عبر الواجهة، فما عليك سوى إعادة اختياره في مُنتقي النماذج بعد الحفظ.
+
+---
+
+## ملاحظات
+
+<CN>
+- أدخِل عنوان مُرحّل LMU AI فقط كنقطة نهاية؛ لا تُدخل عنوان OpenAI / Anthropic الرسمي.
+- يمكن استخدام نفس مفتاح `sk-` مع أدوات أخرى في الوقت نفسه؛ يستخدم WorkBuddy البروتوكول المتوافق مع OpenAI.
+- يتصل نطاق LMU AI API مباشرةً في الصين، دون الحاجة إلى وكيل.
+</CN>
+<Intl>
+- أدخِل عنوان مُرحّل LMU AI فقط كنقطة نهاية؛ لا تُدخل عنوان OpenAI / Anthropic الرسمي.
+- يمكن استخدام نفس مفتاح `sk-` مع أدوات أخرى في الوقت نفسه؛ يستخدم WorkBuddy البروتوكول المتوافق مع OpenAI.
+- يتصل نطاق LMU AI الخارجي لـ API مباشرةً من الخارج، دون الحاجة إلى وكيل.
+</Intl>
+
+للمزيد، انظر [بروتوكولات API](../guide/api-protocols) و[الأسئلة الشائعة](../guide/faq).

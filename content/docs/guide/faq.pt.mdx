@@ -1,0 +1,302 @@
+---
+title: FAQ
+description: Soluções para erros comuns e problemas de configuração da API de IA da LMU — 401 / 403 / 429 / 500, cobrança de tokens, troca de modelos e solução de problemas do Claude Code / Codex CLI.
+ogDescription: FAQ e solução de problemas da LMU AI — erros 401/403/429/500, cobrança de tokens, seleção de modelos e falhas de configuração do Claude Code / Codex CLI / Cursor, respondidos em um só lugar.
+keywords:
+  - erro da API Claude
+  - Claude API 401 403 429
+  - falha na configuração do Claude Code
+  - erro do Codex CLI
+  - cobrança de token da API Claude
+  - limite de taxa da API Claude
+  - códigos de erro da API Anthropic
+  - códigos de erro da API OpenAI
+  - FAQ da API de relay
+  - solução de problemas da LMU AI
+alternateNames:
+  - FAQ da LMU AI
+  - Erros comuns da API Claude / Codex
+  - guia de solução de problemas da API Claude
+faq:
+  - q: "Como corrijo o erro stream disconnected before completion no Claude Code?"
+    a: "Geralmente é causado por uma VPN / proxy / proxy do sistema que fica rotacionando o IP de saída e quebra a conexão. O gateway internacional da LMU AI oferece acesso direto — desligue todos os proxies e tente novamente. Verifique também se sua rede local fica alternando entre Wi-Fi e dados móveis."
+  - q: "O que causa o erro exceeded retry limit, last status: 429 Too Many Requests?"
+    a: "Sua cota diária foi esgotada. Verifique em Minha Assinatura a cota e, se precisar de mais, compre um plano de um nível DIFERENTE (por exemplo, troque um passe diário por um passe mensal) e, em seguida, mude para o grupo do novo plano em Chaves de API no console. Comprar o mesmo plano o renova em vez de adicionar cota, então não aumentará o limite diário."
+  - q: "Como soluciono o erro 401 Unauthorized: Incorrect API key provided?"
+    a: "Significa que a requisição ainda foi para o endpoint oficial da OpenAI em vez do relay da LMU AI. Verifique nesta ordem: se tanto config.toml quanto auth.json foram criados ou substituídos corretamente; reinicie o IDE (VS Code / Cursor) para recarregar a configuração; e se você havia feito login com uma conta oficial ou de outro provedor, saia primeiro e reconfigure."
+  - q: "O Windows diz scripts are disabled on this system — como corrijo isso?"
+    a: "Execute Set-ExecutionPolicy RemoteSigned -Scope CurrentUser no PowerShell, depois feche o terminal e abra um novo."
+  - q: "O Windows diz CODEX is not recognized as a cmdlet — o que devo fazer?"
+    a: "O Node.js não está instalado ou seu PATH está quebrado. Reinstale o Node.js 20 ou superior, depois abra um novo terminal."
+  - q: "O que causa o erro 503 No available accounts?"
+    a: "Geralmente ANTHROPIC_AUTH_TOKEN / ANTHROPIC_BASE_URL / ANTHROPIC_MODEL está definido em ~/.zshrc ou ~/.bashrc; essas variáveis globais sobrescrevem a chave de API configurada no seu IDE. Corrija removendo essas linhas da configuração do shell, ou mova-as para um arquivo separado ~/.claude_env que você carrega apenas ao iniciar o Claude Code CLI."
+  - q: "O que causa o erro 400 Invalid signature in thinking block?"
+    a: "O bloco de raciocínio (thinking block) do Claude carrega uma assinatura criptografada vinculada à conta upstream específica que o gerou. Quando você troca de modelos entre grupos dentro de uma mesma conversa, a assinatura do histórico antigo não pode ser verificada pelo upstream do novo grupo, então retorna 400. Corrija iniciando uma nova conversa ao trocar de grupo, ou mantenha um grupo por conversa. Esse erro não pode ser recuperado com nova tentativa."
+  - q: "O endpoint de imagem retorna 400 Unknown parameter: 'tools[0].n' — e agora?"
+    a: "O cliente colocou um array tools em uma requisição de imagem. /v1/images/generations e /v1/images/edits não suportam chamadas de ferramentas — remova todo o campo tools. Para gerar várias imagens, coloque a quantidade no n de nível superior (apenas generations; edits não suporta múltiplas). Esse é um erro de requisição inválida, então trocar de conta ou tentar novamente não ajudará."
+  - q: "Posso acessar a API da LMU AI diretamente do exterior?"
+    a: "Sim, diretamente. O gateway internacional da LMU AI torna api.lmuai.com acessível diretamente de fora da China continental. Uma VPN ou proxy que rotaciona o IP de saída na verdade tende a causar desconexões de stream."
+  - q: "O Codex retorna unexpected status 401 Unauthorized: API_KEY_REQUIRED — o que devo fazer?"
+    a: "É um bug conhecido do Codex: quando um provedor de modelo personalizado usa a wire API responses, a requisição não carrega nenhuma chave de API (nenhum dos três cabeçalhos de chave é enviado). Adicione requires_openai_auth = true dentro de [model_providers.<seu id>] no config.toml, salve e reabra o terminal."
+---
+
+
+## Problema 1: Stream desconectado / timeout [#issue-1]
+
+**Mensagem de erro:**
+```
+stream disconnected before completion: error sending request for url
+(https://api.lmuai.com/responses)
+```
+
+**Causa:** uma desconexão de stream clássica, geralmente por:
+- uma rede local instável (troca frequente entre Wi-Fi / dados móveis, sinal fraco, perda de pacotes)
+- **uma VPN / proxy / proxy do sistema está ativo**: o proxy rotaciona o IP de saída e quebra a conexão
+
+**Solução:**
+<CN>
+1. **Desligue qualquer VPN / proxy / proxy do sistema e tente novamente** — a LMU AI é uma conexão doméstica direta e não precisa de VPN
+2. Verifique se sua rede local está estável; troque para uma rede mais confiável se necessário
+</CN>
+<Intl>
+1. **Desligue qualquer VPN / proxy / proxy do sistema e tente novamente** — o gateway internacional da LMU AI conecta diretamente, sem necessidade de proxy extra
+2. Verifique se sua rede local está estável; troque para uma rede mais confiável se necessário
+</Intl>
+
+<CN>
+<Callout type="info" title="Sem necessidade de VPN — o acesso direto dentro da China é o mais rápido">
+
+O gateway da LMU AI está hospedado **dentro da China continental**, então pode ser chamado diretamente de uma rede doméstica **sem necessidade de VPN, proxy ou qualquer artifício**. Uma conexão direta oferece os resultados mais rápidos e estáveis; por outro lado, uma VPN ou proxy que rotaciona o IP de saída tende a causar desconexões de stream.
+
+</Callout>
+</CN>
+<Intl>
+<Callout type="info" title="Acesso direto do exterior — sem necessidade de proxy extra">
+
+O **gateway internacional** da LMU AI `api.lmuai.com` pode ser chamado diretamente de redes fora da China continental **sem necessidade de proxy extra**. Uma conexão direta oferece os resultados mais rápidos e estáveis; por outro lado, um proxy que rotaciona o IP de saída tende a causar desconexões de stream.
+
+</Callout>
+</Intl>
+
+---
+
+## Problema 2: Erro de retentativa 429 [#issue-2]
+
+**Mensagem de erro:**
+```
+exceeded retry limit, last status: 429 Too Many Requests
+```
+
+**Causa:** sua cota diária foi esgotada.
+
+**Solução:**
+1. Abra **Minha Assinatura** e confirme se a cota diária foi esgotada
+2. Se precisar de mais, compre um plano de um **nível diferente** e, em seguida, mude para o grupo do novo plano em **Chaves de API** no console
+
+<Callout type="warn" title="Renovação vs. adicionar cota">
+
+- **Não compre o mesmo plano** — o mesmo plano renova, não adiciona cota
+- Para adicionar cota, compre um plano diferente (por exemplo, troque um passe diário por um passe mensal)
+
+</Callout>
+
+---
+
+## Problema 3: 401 Incorrect API key [#issue-3]
+
+**Mensagem de erro:**
+```
+unexpected status 401 Unauthorized: Incorrect API key provided
+```
+
+**Causa:** a requisição ainda foi para o endpoint oficial da OpenAI em vez do nosso relay.
+
+**Solução:**
+1. Confirme que tanto o `config.toml` quanto o `auth.json` foram criados ou substituídos corretamente
+2. Reinicie o IDE (VS Code / Cursor, etc.) para recarregar os arquivos de configuração
+3. Se você havia feito login com uma conta oficial ou de outro provedor, saia primeiro e depois reconfigure
+
+<Callout type="info" title="O que fazer ao encontrar um erro">
+
+Tire uma captura de tela do erro e traduza-o — isso geralmente identifica a causa rapidamente.
+
+</Callout>
+
+---
+
+## Problema 4: Scripts estão desativados (Windows) [#issue-4]
+
+**Mensagem de erro:**
+```
+codex: cannot be loaded because running scripts is disabled on this system.
+```
+
+**Solução:** execute o seguinte no terminal, depois abra um novo terminal:
+
+```powershell
+Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
+```
+
+---
+
+## Problema 5: Node.js não encontrado (Windows) [#issue-5]
+
+**Mensagem de erro:** `CODEX` is not recognized as a cmdlet, ou similar
+
+**Causa:** o Node.js não está instalado ou seu PATH está quebrado.
+
+**Solução:** reinstale o Node.js 20+, depois abra um novo terminal.
+
+---
+
+## Problema 6: 503 No available accounts (variáveis de ambiente sobrescrevem a chave) [#issue-6]
+
+**Mensagem de erro:**
+```
+Error code: 503 - {'error': {'message': 'No available accounts: no available accounts', 'type': 'api_error'}}
+```
+
+**Causa:** seu `~/.zshrc` (ou `~/.bashrc`) define `ANTHROPIC_AUTH_TOKEN` / `ANTHROPIC_BASE_URL` / `ANTHROPIC_MODEL`. Uma vez que o shell inicia, essas variáveis entram em vigor globalmente e sobrescrevem a chave de API configurada no seu IDE (Cursor, VS Code, etc.), então a requisição usa a chave errada.
+
+**Solução (escolha uma):**
+
+**Opção A: remova as variáveis do `.zshrc`**
+
+Abra o `~/.zshrc` e apague estas linhas:
+```bash
+export ANTHROPIC_AUTH_TOKEN="..."
+export ANTHROPIC_BASE_URL="..."
+export ANTHROPIC_MODEL="..."
+```
+Depois execute `source ~/.zshrc` para aplicar e reinicie o IDE.
+
+**Opção B: mova as variáveis para um arquivo separado, carregado apenas para o Claude Code CLI**
+
+1. Crie `~/.claude_env` com as três linhas:
+```bash
+export ANTHROPIC_AUTH_TOKEN="sk-your-lmu-ai-api-key"
+export ANTHROPIC_BASE_URL="https://api.lmuai.com"
+export ANTHROPIC_MODEL="the-model-you-use"
+```
+
+2. Apague essas três linhas do `~/.zshrc`.
+
+3. Carregue-as manualmente ao iniciar o Claude Code:
+```bash
+source ~/.claude_env && claude
+```
+
+Dessa forma, o IDE usa a chave do seu arquivo de configuração e o Claude Code CLI usa as variáveis de ambiente, sem interferir um no outro.
+
+---
+
+## Problema 7: 400 Invalid signature in thinking block (troca de modelos entre grupos) [#issue-7]
+
+**Mensagem de erro:**
+```
+upstream error: 400 messages.<index>.content.<index>:
+Invalid `signature` in `thinking` block
+```
+
+**Causa:** quando o Extended Thinking do Claude gera um bloco `thinking`, ele anexa uma **assinatura criptografada** que é fortemente vinculada à **conta upstream específica** que o produziu. Se você **trocar de modelos entre grupos** dentro de uma mesma conversa (por exemplo, de `claude-sonnet-5` em um grupo "Claude-Pro direto" para `claude-fable-5` em um grupo "Claude-MAX de alto multiplicador"), o cliente envia o histórico anterior (incluindo o bloco thinking assinado) para a conta upstream do novo grupo. Grupos diferentes usam **upstreams diferentes** e não conseguem verificar uma assinatura emitida por outro, então retorna 400.
+
+**Gatilhos típicos:**
+- O cliente suporta troca de modelos no meio da conversa e carrega todo o histórico anterior
+- Os grupos antes e depois da troca vêm de **contas upstream diferentes** (por exemplo, "grupo direto" ↔ "grupo relay / MAX de alto multiplicador")
+
+**Solução (qualquer uma):**
+
+1. **Inicie uma nova conversa ao trocar de grupo** — não carregar nenhum histórico antigo é a correção mais simples e confiável.
+2. **Mantenha um grupo por conversa** — se você precisar de colaboração multi-modelo, troque dentro do mesmo grupo (mesmo upstream).
+3. **Remova os blocos thinking do histórico** — se o cliente suportar edição de histórico, remova os blocos `thinking` antes de trocar de grupo.
+
+<Callout type="info" title="Por que tentar novamente não ajuda?">
+
+Este é um **erro de cliente 4xx irrecuperável causado por uma assinatura inválida**. Uma vez que o gateway o detecta, ele passa o 400 diretamente de volta ao cliente e não tenta novamente automaticamente em outra conta — porque qualquer upstream não correspondente falharia da mesma forma.
+
+</Callout>
+
+---
+
+## Problema 8: 400 Unknown parameter: 'tools[0].n' (tools enviado a um endpoint de imagem) [#issue-8]
+
+**Mensagem de erro:**
+```
+400 - {'error': {'code': 'unknown_parameter', 'message': "Unknown parameter: 'tools[0].n'.", 'param': 'tools[0].n', 'type': 'invalid_request_error'}}
+```
+
+**Endpoints afetados:** `/v1/images/generations`, `/v1/images/edits` (geração / edição de imagens).
+
+**Causa:** o cliente colocou um array `tools` no corpo da requisição de imagem, com um campo `n` dentro de `tools[0]`. Os endpoints de imagem da OpenAI **não aceitam `tools`** (chamadas de ferramentas pertencem aos endpoints Chat / Responses; endpoints de imagem não têm esse conceito), então o upstream o rejeita com 400.
+
+Isso geralmente vem de um cliente / wrapper de SDK com bug que coloca a "quantidade de imagens `n`" no lugar errado — aninhada em `tools[0].n`, ou copiada de um template de requisição Chat.
+
+**Solução:**
+
+1. **Remova o campo `tools` do corpo da requisição** — `generations` / `edits` de imagem não suportam chamadas de ferramentas; descarte o campo inteiro.
+2. **Para gerar várias imagens, coloque a quantidade no `n` de nível superior** — apenas `/v1/images/generations` suporta `n` (múltiplas por chamada); `/v1/images/edits` não, então descarte o `n` ali.
+3. **Verifique a versão do SDK do cliente** — se um wrapper monta os parâmetros automaticamente, atualize ou substitua-o para que não aplique um template de Chat aos endpoints de imagem.
+
+<Callout type="info" title="Por que trocar de conta / tentar novamente não ajuda?">
+
+Este é um erro de cliente 4xx causado por um **corpo de requisição inválido**, não relacionado à conta ou grupo upstream — o gateway passa a requisição como está, e qualquer conta retorna o mesmo 400. Você precisa corrigir os parâmetros da requisição que o cliente envia.
+
+</Callout>
+
+---
+
+## Problema 9: Preciso de VPN? [#issue-9]
+
+<CN>
+**Não.** O gateway da LMU AI está hospedado **dentro da China continental**, e `api.lmuai.com` pode ser chamado diretamente de uma rede doméstica sem VPN, proxy ou artifício.
+
+Por outro lado, uma VPN ou proxy que rotaciona o IP de saída tende a causar desconexões de stream (veja [Problema 1](#issue-1)). Uma conexão doméstica direta oferece os resultados mais rápidos e estáveis.
+</CN>
+<Intl>
+**Não.** O **gateway internacional** da LMU AI `api.lmuai.com` pode ser chamado diretamente de redes fora da China continental sem VPN ou proxy.
+
+Por outro lado, uma VPN ou proxy que rotaciona o IP de saída tende a causar desconexões de stream (veja [Problema 1](#issue-1)). Uma conexão direta oferece os resultados mais rápidos e estáveis.
+</Intl>
+
+---
+
+## Problema 10: 401 API_KEY_REQUIRED (Codex não envia chave) [#issue-10]
+
+**Mensagem de erro:**
+```
+unexpected status 401 Unauthorized: {"code":"API_KEY_REQUIRED","message":"API key is required in Authorization header (Bearer scheme), x-api-key header, or x-goog-api-key header"}, url: https://api.lmuai.com/responses, request id: ...
+```
+
+**Causa:** um bug do Codex — quando um provedor de modelo personalizado usa `wire_api = "responses"`, a requisição que o Codex envia não carrega **nenhuma chave de API** (nenhum dos `Authorization`, `x-api-key`, `x-goog-api-key` é enviado), então o gateway não encontra chave e retorna 401 `API_KEY_REQUIRED`.
+
+Observe que isso é diferente do `Incorrect API key provided` do [Problema 3](#issue-3): aquele envia uma chave que está errada (geralmente porque a requisição foi para o endpoint oficial da OpenAI em vez do relay da LMU AI), enquanto este não envia **nenhuma chave**.
+
+**Solução:** abra o `~/.codex/config.toml`, encontre a seção do seu provedor de modelo `[model_providers.<ID>]` (geralmente `[model_providers.codex]` se você seguiu o guia deste site) e adicione `requires_openai_auth = true` dentro dela:
+
+```toml
+[model_providers.codex]
+name = "codex"
+base_url = "https://api.lmuai.com"
+wire_api = "responses"
+requires_openai_auth = true
+```
+
+Salve, reabra o terminal e reinicie o Codex.
+
+<Callout type="info" title="Usuários que seguiram o guia deste site não são afetados">
+
+Todos os guias do Codex neste site ([Mac](/pt/docs/tools/codex-cli-mac) / [Windows](/pt/docs/tools/codex-cli-windows) / [Servidor](/pt/docs/tools/codex-cli-server) / [Codex App](/pt/docs/tools/codex-app)) já incluem `requires_openai_auth = true` em seu exemplo de `config.toml`. Se você encontrar esse erro, sua configuração provavelmente foi copiada de um guia mais antigo ou de outra fonte que omitiu essa linha — adicione-a conforme mostrado acima.
+
+</Callout>
+
+---
+
+## Ainda com problemas?
+
+Se um ambiente especial ainda bloqueá-lo durante a instalação ou configuração, entre em contato com o suporte:
+- Adicione o suporte no WeChat
+- Contate o suporte no Xianyu (闲鱼)
+
+> Horário de assistência remota: **após as 14h** (as manhãs são dedicadas à resolução de configurações de ambiente complexas remotamente).
+>
+> Se você precisar de ajuda remota, baixe o **NetEase UU Remote** primeiro e envie-o ao suporte; orientação técnica e assistência remota acontecem à tarde após as 14h.

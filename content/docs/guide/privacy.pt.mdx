@@ -1,0 +1,141 @@
+---
+title: Dados e privacidade
+description: "Tratamento de dados da LMU AI: o conteúdo de requisições e respostas nunca é persistido, os metadados de chamadas são mantidos por 90 dias e os dados de conta são armazenados apenas dentro da China."
+ogDescription: "Dados e privacidade da LMU AI: não retemos conteúdo de requisições ou respostas, os dados de conta e cobrança permanecem apenas dentro da China, as chamadas transfronteiriças transmitem apenas a requisição necessária e materiais de conformidade empresarial, um DPA e documentação de segurança estão disponíveis mediante solicitação."
+keywords:
+  - segurança de dados da Claude API
+  - privacidade da Claude API
+  - API de IA sem retenção
+  - conformidade da Claude API
+  - DPA da Claude API
+  - dados transfronteiriços de IA
+  - conformidade de IA empresarial
+  - retenção de logs de API de IA
+  - armazenamento de dados de IA na China
+  - política de privacidade da LMU AI
+alternateNames:
+  - política de privacidade da LMU AI
+  - visão geral de conformidade da Claude API
+  - Processamento de dados e transferência transfronteiriça
+---
+
+Esta página explica os princípios que a LMU AI segue ao lidar com dados de usuários. Tratamos "armazenamento mínimo, isolamento e transparência" como as três bases do nosso tratamento de dados.
+
+## Quais dados tratamos
+
+Dividimos os dados em duas categorias: **dados de conta** e **dados de requisição**. As duas são tratadas e armazenadas de maneiras completamente diferentes.
+
+### Dados de conta
+
+| Tipo | Conteúdo | Finalidade |
+|------|------|------|
+| Informações de identidade | E-mail, número de telefone | Login, recuperação de senha, notificações |
+| Informações de cobrança | Plano, cota, registros de pedidos | Cobrança e faturas |
+| Informações de credenciais | Chave de API (armazenada criptografada), sessão de login | Autenticação |
+| Metadados de uso | Horário da chamada, modelo, uso de tokens, duração | Cobrança, estatísticas, relatórios |
+
+### Dados de requisição
+
+| Tipo | Conteúdo | Finalidade |
+|------|------|------|
+| Corpo da requisição | O prompt, as mensagens e os parâmetros que você envia | Encaminhados ao modelo upstream para gerar uma resposta |
+| Corpo da resposta | O conteúdo que o modelo retorna | Retornado a você |
+
+**Distinção fundamental**: os dados de conta são usados para operar a própria plataforma; os dados de requisição são usados apenas para completar a sua chamada de API atual e única.
+
+## Onde os dados são armazenados
+
+Nossa infraestrutura tem duas camadas:
+
+**Camada de acesso (dentro da China)**
+- Servidores principais, banco de dados de usuários, sistema de cobrança
+- **Todos os dados de conta são armazenados aqui**
+- Seu e-mail, número de telefone, pedidos e chave de API nunca saem da China
+
+**Camada de canais upstream (multirregião, incluindo o exterior)**
+- Usada para acessar as interfaces oficiais de provedores de modelos como OpenAI / Anthropic / etc.
+- Esses canais **servem apenas como retransmissores de tráfego de modelo** e não persistem nenhuma informação de identidade do usuário
+- Os nós de canal não armazenam contas de usuário e não sabem de qual usuário vem uma requisição (eles veem apenas a carga de requisição anonimizada)
+
+<Mermaid chart={`flowchart TD
+    U[User login / billing] -- Account data --> DB[(Database in China)]
+    U -- Initiate API call<br/>User identity stripped after API key auth --> G[Access gateway<br/>In China]
+    G -- Request payload --> UP[Upstream channels, multi-region<br/>No user data stored]
+    UP -- Response data --> G
+
+    classDef cn fill:#eef6ff,stroke:#3b82f6,color:#1e3a8a;
+    classDef ext fill:#fff7ed,stroke:#f97316,color:#7c2d12;
+    class U,G,DB cn;
+    class UP ext;
+`} />
+
+## Política de retenção de logs
+
+| Tipo de dado | Período de retenção | Local de armazenamento |
+|---------|---------|---------|
+| Conteúdo do corpo de requisição / resposta | **Não persistido** | — |
+| Metadados de chamadas (horário, modelo, token, duração, código de status) | 90 dias | Dentro da China |
+| Logs de erro (podem incluir fragmentos truncados da requisição) | 90 dias | Dentro da China |
+| Dados de conta e de pedidos | Durante a vida da conta; apagados em até 30 dias após o cancelamento | Dentro da China |
+
+**Sobre o conteúdo das requisições**
+
+- **Não armazenamos o conteúdo do seu prompt ou da resposta** — uma vez que uma requisição é encaminhada, ela é liberada da memória e nunca é gravada em nenhum banco de dados ou arquivo
+- Quando um canal upstream retorna um erro, o log de erro pode conter **fragmentos truncados da requisição** (usados para reproduzir o problema); esses dados são apagados após 90 dias
+- Os logs de erro não são usados para treinar nenhum modelo e não são revisados proativamente por humanos; eles só são acessados pelos engenheiros pertinentes quando você abre um chamado que precisa de ajuda na resolução de problemas
+
+<Callout type="info" title="Logs de auditoria opcionais para o nível Enterprise">
+
+Clientes Enterprise podem optar pelo recurso de logs de auditoria e reter dados de requisição / resposta de acordo com os requisitos de conformidade da sua empresa. Uma vez ativado, os logs são armazenados criptografados, e o acesso pode ser controlado pelos administradores da sua empresa. Consulte [Planos Enterprise](/pt/docs/enterprise) para detalhes.
+
+</Callout>
+
+## Transferência transfronteiriça de dados
+
+Como os servidores dos modelos upstream (Claude, GPT, etc.) estão localizados no exterior, **os corpos de requisição e resposta de uma chamada de API passam por canais no exterior durante o encaminhamento**. Este é um caminho técnico necessário para qualquer serviço de retransmissão que acessa APIs de grandes modelos no exterior.
+
+Nossos compromissos nesta etapa:
+
+- **Não persistimos nenhum dado nos nós no exterior**: os canais apenas encaminham, e a memória é liberada assim que o encaminhamento é concluído
+- **Não carregamos identidade do usuário**: as requisições que os canais upstream veem já foram despojadas de campos de conta como e-mail, número de telefone e associações de pedidos
+- **Transmissão criptografada**: usuário ↔ camada de acesso, camada de acesso ↔ canal upstream e canal upstream ↔ provedor de modelo são todos TLS 1.2+ de ponta a ponta
+- **Não compartilhamos com terceiros**: além dos provedores de modelo upstream necessários para completar a chamada atual, não passamos o conteúdo da sua requisição a nenhum terceiro
+
+<Callout type="warn" title="Recomendação sobre dados sensíveis">
+
+Como o conteúdo da requisição precisa passar por canais no exterior para chegar ao provedor de modelo, **não envie pela API requisições que contenham dados altamente sensíveis como segredos de Estado, segredos comerciais ou números de documentos de identidade pessoais**. Se você tiver tais requisitos de conformidade, entre em contato com o time de vendas para discutir implantação on-premises ou um canal em conformidade.
+
+</Callout>
+
+## O que não fazemos
+
+- **Não lemos** o conteúdo do seu prompt ou da resposta para análise humana, análise comercial ou qualquer treinamento de modelo
+- **Não vendemos** nenhum dos seus dados a terceiros
+- **Não retemos** conteúdo de requisição e resposta **sem informar você**
+- **Não transferimos dados de conta através das fronteiras** (os dados de conta são armazenados apenas dentro da China)
+
+## Práticas de segurança
+
+- As chaves de API são armazenadas criptografadas no banco de dados, mostrando apenas alguns caracteres iniciais e finais
+- Todas as operações internas que acessam o banco de dados são registradas em log de auditoria
+- Mudanças de chave (plano, redefinição de chave de API, saques, etc.) disparam notificações por e-mail / SMS
+- Membros da equipe que acessam dados de produção devem passar por aprovação e pelo princípio do menor privilégio
+
+Se você notar uma suspeita de anomalia na conta, por favor imediatamente:
+1. Redefina sua chave de API no console
+2. Entre em contato com vendas ou suporte: business@lmuai.com / WeChat 18599001010
+
+## Suporte de conformidade empresarial
+
+Clientes Enterprise com qualquer uma das necessidades a seguir devem entrar em contato pelo canal comercial:
+
+- Assinatura de um Acordo de Processamento de Dados (DPA)
+- Políticas personalizadas de retenção de logs
+- Implantação de gateway on-premises (o conteúdo da requisição não passa por canais compartilhados)
+- Materiais de apoio para questionários MLPS / GDPR / SOC2
+
+## Alterações na política
+
+Se houver mudanças materiais nesta política, publicaremos um aviso em local de destaque no site e notificaremos usuários ativos por e-mail. Continuar a usar o serviço após uma atualização da política constitui aceitação da nova política.
+
+*Última atualização: 2026-05-06*

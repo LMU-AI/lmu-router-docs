@@ -1,0 +1,293 @@
+---
+title: GPT Image API
+description: "Llama a gpt-image-2 a través de la API de LMU AI compatible con OpenAI Images para texto a imagen, edición de imágenes, parámetros, guardado en Base64, búsqueda de modelos y solución de errores."
+ogDescription: "Guía de integración de la GPT Image API de LMU AI: POST /v1/images/generations para texto a imagen, POST /v1/images/edits para edición de imágenes, usando gpt-image-2 y analizando resultados de imagen en Base64."
+keywords:
+  - GPT Image API
+  - API gpt-image-2
+  - OpenAI Images API
+  - images generations
+  - images edits
+  - edición de imágenes GPT
+  - generación de imágenes GPT de LMU AI
+alternateNames:
+  - API de generación de imágenes GPT
+  - API compatible con OpenAI Images
+faq:
+  - q: ¿Qué endpoint usa la generación de imágenes GPT?
+    a: "El texto a imagen usa POST /v1/images/generations, y la edición de imágenes usa POST /v1/images/edits. Configura la base_url del SDK de OpenAI en https://api.lmuai.com/v1."
+  - q: ¿Qué modelo de imagen GPT se recomienda actualmente?
+    a: "Usa GET /v1/models para consultar tu clave API actual; el grupo de imágenes GPT actual admite gpt-image-2, y recomendamos configurar model explícitamente al hacer la llamada."
+  - q: ¿Los resultados de imagen GPT se devuelven como URL o Base64?
+    a: "gpt-image-2 normalmente devuelve una imagen en Base64 en data[].b64_json. Los clientes también deberían comprobar data[].url para mayor compatibilidad entre distintos canales."
+  - q: ¿Puede GPT llamar a /v1/images/batches?
+    a: "Actualmente no. /v1/images/batches solo admite trabajos por lotes de Gemini por ahora."
+---
+
+LMU AI ofrece una API compatible con OpenAI Images para **texto a imagen** y **edición de imágenes / imagen a imagen** usando `gpt-image-2`.
+
+<Callout type="info" title="Base URL">
+
+SDK de OpenAI:
+
+```text
+https://api.lmuai.com/v1
+```
+
+Cuando escribas solicitudes HTTP a mano, usa los endpoints completos:
+
+```text
+POST https://api.lmuai.com/v1/images/generations
+POST https://api.lmuai.com/v1/images/edits
+```
+
+</Callout>
+
+## 1. Descripción general de la API
+
+| Método | Ruta | Content-Type | Descripción |
+|---|---|---|---|
+| `GET` | `/v1/models` | — | Consulta los modelos disponibles para tu clave API actual |
+| `POST` | `/v1/images/generations` | `application/json` | Texto a imagen GPT, respuesta síncrona |
+| `POST` | `/v1/images/edits` | `multipart/form-data` | Edición de imágenes GPT / imagen a imagen, respuesta síncrona |
+
+<Callout type="warn" title="Aún no hay una API por lotes de múltiples elementos para GPT">
+
+`/v1/images/batches` actualmente solo admite Gemini y no puede aceptar `gpt-image-2`. Para generar varias imágenes GPT, haz que el cliente envíe las solicitudes una a la vez y gestiona la concurrencia y el RPM por tu cuenta.
+
+El entorno de producción tampoco tiene actualmente habilitado ningún endpoint de trabajos de imagen asíncronos, así que confía en las dos APIs síncronas de esta página.
+
+</Callout>
+
+## 2. Autenticación
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+No coloques tu clave API en el código front-end del navegador, en repositorios públicos, en cadenas de consulta de URL ni en registros. Recomendamos hacer las llamadas desde tu propio servidor.
+
+## 3. Consultar modelos
+
+```bash
+curl https://api.lmuai.com/v1/models \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+Busca el modelo de imagen en el `data[].id` de la respuesta, por ejemplo:
+
+```json
+{
+  "object": "list",
+  "data": [
+    {"id": "gpt-image-2", "object": "model"}
+  ]
+}
+```
+
+La lista de modelos está determinada por el grupo al que pertenece tu clave API. Diferentes claves API en el mismo sitio pueden devolver diferentes modelos.
+
+## 4. Texto a imagen
+
+### `POST /v1/images/generations`
+
+```bash
+curl https://api.lmuai.com/v1/images/generations \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-image-2",
+    "prompt": "A red ceramic mug, centered on a light-gray studio background, soft side lighting, no text",
+    "n": 1,
+    "size": "1024x1024",
+    "quality": "low",
+    "output_format": "png"
+  }'
+```
+
+### SDK de Python
+
+```python
+from openai import OpenAI
+import base64
+
+client = OpenAI(
+    api_key="YOUR_API_KEY",
+    base_url="https://api.lmuai.com/v1",
+)
+
+result = client.images.generate(
+    model="gpt-image-2",
+    prompt="A red ceramic mug, light-gray studio background, soft side lighting, no text",
+    size="1024x1024",
+    quality="low",
+)
+
+item = result.data[0]
+
+if item.b64_json:
+    with open("gpt-output.png", "wb") as f:
+        f.write(base64.b64decode(item.b64_json))
+elif item.url:
+    print(item.url)
+else:
+    raise RuntimeError("No valid image in the response")
+```
+
+### JavaScript
+
+```javascript
+import OpenAI from "openai";
+import fs from "node:fs";
+
+const client = new OpenAI({
+  apiKey: process.env.LMU_API_KEY,
+  baseURL: "https://api.lmuai.com/v1",
+});
+
+const result = await client.images.generate({
+  model: "gpt-image-2",
+  prompt: "A red ceramic mug, light-gray studio background, soft side lighting, no text",
+  size: "1024x1024",
+  quality: "low",
+  output_format: "png",
+});
+
+const item = result.data?.[0];
+if (item?.b64_json) {
+  fs.writeFileSync("gpt-output.png", Buffer.from(item.b64_json, "base64"));
+} else if (item?.url) {
+  console.log(item.url);
+} else {
+  throw new Error("No valid image in the response");
+}
+```
+
+## 5. Parámetros de texto a imagen
+
+| Campo | Tipo | Requerido | Descripción |
+|---|---:|---:|---|
+| `model` | string | Recomendado | Actualmente `gpt-image-2` |
+| `prompt` | string | Sí | Descripción de la imagen |
+| `n` | integer | No | Número de imágenes; el rango disponible lo determinan el modelo y el canal ascendente |
+| `size` | string | No | Tamaño solicitado, p. ej. `1024x1024`; las dimensiones reales en píxeles siguen a la imagen devuelta |
+| `quality` | string | No | Nivel de calidad, p. ej. `low`, `medium`, `high`; sujeto a las capacidades del modelo |
+| `background` | string | No | Configuración de fondo, p. ej. fondo transparente; sujeto a las capacidades del modelo |
+| `output_format` | string | No | `png`, `jpeg`, `webp`, etc.; sujeto a las capacidades del modelo |
+| `output_compression` | integer | No | Calidad de compresión para formatos como JPEG / WebP |
+| `response_format` | string | No | Parámetro de compatibilidad de formato de respuesta; los clientes deberían comprobar tanto `b64_json` como `url` |
+| `moderation` | string | No | Parámetro de moderación de contenido; sujeto a las capacidades del modelo |
+| `stream` | boolean | No | Interruptor para respuestas de imagen en streaming; para llamadas normales del lado del servidor recomendamos no usar streaming |
+| `partial_images` | integer | No | Número de imágenes parciales en escenarios de streaming; sujeto a las capacidades del modelo |
+
+<Callout type="warn" title="size no es un recorte garantizado">
+
+Diferentes cuentas ascendentes y backends de imagen pueden mapear o normalizar `size` según sus capacidades. Incluso si solicitas `1024x1024`, los píxeles reales de la imagen pueden diferir. Cuando necesites una relación de aspecto o un tamaño de píxeles fijo, lee las dimensiones del archivo de salida y recorta o redimensiona por tu cuenta.
+
+</Callout>
+
+## 6. Edición de imágenes / imagen a imagen
+
+### `POST /v1/images/edits`
+
+La edición de imágenes GPT usa `multipart/form-data`:
+
+```bash
+curl https://api.lmuai.com/v1/images/edits \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -F "model=gpt-image-2" \
+  -F "prompt=Keep the mug's shape, composition, and lighting; change the mug from red to green; no text" \
+  -F "image=@./input.png" \
+  -F "size=1024x1024" \
+  -F "quality=low" \
+  -F "output_format=png"
+```
+
+SDK de Python:
+
+```python
+from openai import OpenAI
+import base64
+
+client = OpenAI(
+    api_key="YOUR_API_KEY",
+    base_url="https://api.lmuai.com/v1",
+)
+
+with open("input.png", "rb") as image_file:
+    result = client.images.edit(
+        model="gpt-image-2",
+        image=image_file,
+        prompt="Keep the subject and composition; change the background to a neon street on a rainy night",
+        size="1024x1024",
+        quality="low",
+    )
+
+item = result.data[0]
+if item.b64_json:
+    with open("gpt-edited.png", "wb") as f:
+        f.write(base64.b64decode(item.b64_json))
+```
+
+Si el modelo y el canal admiten la edición con máscara, puedes añadir:
+
+```bash
+-F "mask=@./mask.png"
+```
+
+El endpoint de edits también acepta parámetros como `input_fidelity`, `background`, `output_format` y `output_compression`; el efecto exacto depende de las capacidades del modelo.
+
+## 7. Formato de respuesta
+
+Una respuesta de imagen GPT típica:
+
+```json
+{
+  "created": 1760000000,
+  "data": [
+    {
+      "b64_json": "iVBORw0KGgoAAA..."
+    }
+  ],
+  "background": "opaque",
+  "output_format": "png",
+  "quality": "low",
+  "size": "1024x1024",
+  "model": "gpt-image-2",
+  "usage": {
+    "input_tokens": 48,
+    "output_tokens": 186,
+    "total_tokens": 234
+  }
+}
+```
+
+Los clientes deben realizar tres niveles de validación:
+
+1. Si el código de estado HTTP es `2xx`;
+2. Si `data` es un array no vacío;
+3. Si existe un `b64_json` o `url` no vacío en `data[]`.
+
+Cuando obtengas un HTTP 200 pero ningún campo de imagen válido, trátalo como una falla a nivel de negocio.
+
+## 8. Errores comunes
+
+| HTTP | Causa común | Acción recomendada |
+|---:|---|---|
+| `400` | Cuerpo de solicitud, formato de imagen, parámetro o modelo incorrecto | Revisa el JSON / multipart, los nombres de campos y el ID del modelo |
+| `401` | Clave API inválida | Revisa el encabezado Bearer y no agregues espacios alrededor de la clave |
+| `403` | El grupo al que pertenece tu clave API no tiene habilitada la generación de imágenes | Contacta al administrador para revisar los permisos de imágenes del grupo |
+| `404` | Ruta incorrecta, o la API de imágenes no es compatible con el grupo actual | Confirma que estás usando `/v1/images/generations` o `/v1/images/edits` |
+| `429` | Límites de concurrencia, RPM o cuota ascendente | Usa retroceso exponencial y reduce la concurrencia y el RPM |
+| `5xx` | El upstream o el relay de la API no está disponible temporalmente | Registra el ID de solicitud y reintenta un número limitado de veces |
+
+Al solucionar problemas, guarda el ID de solicitud de los encabezados de la respuesta y proporciónalo al administrador; no envíes tu clave API completa.
+
+## 9. Diferencias con otras APIs de imagen
+
+| Necesidad | Documento recomendado |
+|---|---|
+| Texto a imagen nativo de Gemini, imagen a imagen, 1K / 2K / 4K | [Gemini Image API](/es/docs/api/gemini-image) |
+| Texto a imagen y edición GPT | Esta página |
+| Texto a imagen y edición Grok | [Grok Image API](/es/docs/api/grok-image) |
+| Enviar múltiples prompts de Gemini a la vez | [Gemini Batch Image API](/es/docs/api/gemini-image-batch) |

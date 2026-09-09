@@ -1,0 +1,10 @@
+{
+  "title": "Открытый API",
+  "pages": [
+    "gemini-image",
+    "gpt-image",
+    "grok-image",
+    "gemini-image-batch",
+    "usage-export"
+  ]
+}

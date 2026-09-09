@@ -1,0 +1,131 @@
+---
+title: Códigos de Erro
+description: "Referência de códigos de erro da LMU AI: significados e correções para os status 401 / 403 / 404 / 429 / 5xx, códigos de negócio de imagem em lote e busca a partir do texto bruto do erro até a correção."
+ogDescription: Folha de consulta de códigos de erro da LMU AI — uma única página cobrindo a causa e a correção típicas para 400 / 401 / 402 / 403 / 404 / 413 / 429 / 500 / 502 / 503 / 504, os códigos de negócio de imagem em lote BATCH_IMAGE_*, e links diretos para erros brutos comuns como stream disconnected, Incorrect API key, No available accounts e Invalid signature in thinking block.
+keywords:
+  - códigos de erro LMU AI
+  - erro 401 da API Claude
+  - erro 403 da API Claude
+  - limite de taxa 429 da API Claude
+  - API 503 No available accounts
+  - Invalid signature in thinking block
+  - Incorrect API key provided
+  - stream disconnected
+  - códigos de erro BATCH_IMAGE
+  - solução de problemas da API de IA
+alternateNames:
+  - tabela de códigos de erro da LMU AI
+  - referência de códigos de status da API Claude / GPT
+  - como corrigir erros de API
+  - códigos de erro da API relay
+# Only entries that actually appear in the tables below. The 6 lookup-by-raw-text
+# cases are all in faq.en.mdx, which owns the FAQPage; this page only tables and links.
+faq:
+  - q: "O que geralmente causa um 404 Not Found?"
+    a: "Na maioria das vezes, a Base URL não corresponde ao protocolo: uma URL de protocolo OpenAI sem /v1, uma URL Anthropic que inclui /v1 indevidamente, ou um caminho Gemini que não usa o endpoint completo /v1beta/models/... Verifique novamente a Base URL e o endpoint na página de Protocolos de API."
+  - q: "Devo tentar novamente em um 5xx ou entrar em contato direto com o suporte?"
+    a: "Um 5xx é uma falha transitória no upstream ou no relay. Tente novamente um número limitado de vezes com backoff exponencial e salve o request ID dos cabeçalhos da resposta. Se o mesmo tipo de requisição continuar falhando dentro de 5 minutos, envie o request ID ao suporte — nunca envie sua chave de API completa."
+---
+
+Esta página reúne os códigos de erro espalhados pelos documentos individuais de API em uma única folha de consulta. **Primeiro localize a classe geral pelo código de status HTTP, depois encontre a correção específica pelo texto bruto do erro.**
+
+<Callout type="info" title="Registre o request ID antes de solucionar o problema">
+
+O request ID nos cabeçalhos da resposta é a informação mais útil para diagnosticar um problema. Ao entrar em contato com o suporte, inclua o request ID e o texto completo do erro — **não envie sua chave de API completa**.
+
+</Callout>
+
+---
+
+## Códigos de status HTTP
+
+| Status | Causa típica | O que fazer |
+|---:|---|---|
+| `400` | Corpo da requisição, parâmetro, ID de modelo ou caminho de modelo inválido; formato / codificação de imagem incorretos | Corrija a requisição — **não tente novamente sem alterações**; trocar de conta ou repetir não resolverá |
+| `401` | Chave de API ausente, inválida ou desativada; a Base URL não corresponde ao protocolo; a IDE não foi reiniciada, então a configuração antiga ainda está em vigor | Verifique a chave e a Base URL (veja [Protocolos de API](/pt/docs/guide/api-protocols)), reinicie a IDE; detalhes na [Questão 3](/pt/docs/guide/faq#issue-3) |
+| `402` | Saldo insuficiente | Recarregue ou reduza a carga de trabalho |
+| `403` | Duas possibilidades, ambas possíveis: ① o **grupo da chave de API não tem a geração de imagens habilitada**; ② **saldo, assinatura, elegibilidade de cobrança ou permissão insuficientes** | Primeiro confirme o saldo da conta e o status da assinatura, depois confirme que o grupo tem a capacidade; se ambos estiverem corretos e ainda der erro, contate o suporte |
+| `404` | URL de protocolo OpenAI sem `/v1`, URL Anthropic incluindo `/v1` indevidamente, Gemini não usando `/v1beta/models/...`; ou o endpoint não é suportado pelo grupo atual | Verifique novamente a Base URL e o endpoint completo em [Protocolos de API](/pt/docs/guide/api-protocols) |
+| `413` | Corpo da requisição de imagem-para-imagem grande demais | Comprima a imagem de entrada |
+| `429` | ① Cota diária esgotada; ② concorrência, RPM ou cota upstream limitados | Para cota esgotada veja a [Questão 2](/pt/docs/guide/faq#issue-2); para limitação de taxa, faça backoff exponencial e reduza a concorrência e o RPM |
+| `500` | Erro interno ou de capacidade | Registre o código de erro e o request ID, tente novamente um número limitado de vezes |
+| `502` | Autenticação, permissão ou serviço upstream falhou temporariamente | Faça backoff e tente novamente; contate o suporte se necessário |
+| `503` | Nenhuma conta upstream disponível ou upstream sobrecarregado; também pode ser **uma variável de ambiente sobrescrevendo a chave** | Primeiro verifique as variáveis de ambiente (veja a [Questão 6](/pt/docs/guide/faq#issue-6)), depois tente novamente com atraso e menor tráfego |
+| `504` | Timeout do gateway ou do upstream | Reenvie como uma requisição nova e independente |
+
+<Callout type="warn" title="O que repetir e o que deve ser corrigido">
+
+- **Não repita**: `400`, `401` e qualquer erro explícito de saldo, permissão, parâmetro ou política de conteúdo — a requisição em si é inválida, e qualquer conta upstream retornará o mesmo resultado. Você precisa corrigir a requisição primeiro.
+- **Seguro repetir**: `429`, `502`, `503`, `504` e quedas de rede, resets de conexão e timeouts de leitura — todas falhas transitórias. Use backoff exponencial por um número **limitado** de tentativas (2–3 recomendadas) para evitar pagar por chamadas repetidas; em `429` também reduza a concorrência e o RPM.
+
+Esta classificação vem das orientações de repetição nas APIs de imagem — veja [Gemini Image · Orientação de repetição](/pt/docs/api/gemini-image#retry-recommendations).
+
+</Callout>
+
+Descrições completas de erro para cada API: [Gemini Image](/pt/docs/api/gemini-image), [GPT Image](/pt/docs/api/gpt-image), [Grok Image](/pt/docs/api/grok-image), [Gemini Batch Image](/pt/docs/api/gemini-image-batch).
+
+---
+
+## Códigos de erro de negócio (imagem em lote)
+
+Além dos códigos de status HTTP, a [API Gemini Batch Image](/pt/docs/api/gemini-image-batch) também retorna códigos de erro de negócio, exibidos no console como `error code: BATCH_IMAGE_XXX` mais um request ID.
+
+| Código de erro | HTTP | Significado | O que fazer |
+|---|---:|---|---|
+| `BATCH_IMAGE_DISABLED` | 404 | Geração de imagem em lote desativada globalmente | Envie o código de erro e o request ID ao administrador |
+| `BATCH_IMAGE_GROUP_DISABLED` | 403 | O grupo da chave atual não permite imagem em lote ou não é um grupo Gemini | Troque a chave ou peça ao administrador para habilitar a permissão do grupo |
+| `BATCH_IMAGE_NO_ACCOUNT_AVAILABLE` | 502 | Nenhum recurso de execução em lote disponível no momento | Salve o request ID e contate o administrador |
+| `BATCH_IMAGE_SETTLEMENT_PRICING_MISSING` | 400 | O modelo em lote não tem preço de cobrança | Peça ao administrador para configurar o preço do modelo |
+| `BATCH_IMAGE_INVALID_MODEL` | 400 | Nenhum modelo fornecido | Use um modelo da lista de modelos em lote |
+| `BATCH_IMAGE_INVALID_ITEMS` | 400 | Itens, resolução ou campos da requisição inválidos | Verifique o corpo da requisição; por enquanto apenas 1K é suportado |
+| `BATCH_IMAGE_DUPLICATE_CUSTOM_ID` | 400 | `custom_id` duplicado | Garanta que seja único dentro do lote |
+| `BATCH_IMAGE_PROMPT_TOO_LONG` | 400 | Prompt muito longo | Encurte o prompt |
+| `BATCH_IMAGE_TOO_MANY_OUTPUT_IMAGES` | 400 | A contagem de imagens após a expansão excede o limite | Reduza os itens ou o output_count |
+| `BATCH_IMAGE_INVALID_REFERENCE_IMAGE` | 400 | Formato, tamanho ou URI de imagem de referência inválidos | Verifique MIME, Base64 e file_uri |
+| `BATCH_IMAGE_INSUFFICIENT_BALANCE` | 402 | Saldo baixo demais para reservar a cobrança | Recarregue ou reduza a carga de trabalho |
+| `BATCH_IMAGE_IDEMPOTENCY_CONFLICT` | 409 | A mesma chave de idempotência mapeia para um corpo de requisição diferente | Use uma nova Idempotency-Key |
+| `BATCH_IMAGE_PROVIDER_SUBMIT_FAILED` | 502 | Falha na criação da tarefa em lote no upstream | Salve o request ID, tente novamente um número limitado de vezes ou contate o administrador |
+| `BATCH_IMAGE_QUEUE_FAILED` | 502 | O serviço de tarefas assíncronas está temporariamente indisponível | Salve o request ID e contate o administrador |
+| `BATCH_IMAGE_NOT_READY` | 409 | Tentou fazer download antes de a tarefa ser concluída | Aguarde até o status se tornar completed |
+| `BATCH_IMAGE_OUTPUT_DELETED` | 410 | A saída já foi removida | Não pode mais ser baixada; crie a tarefa novamente |
+| `BATCH_IMAGE_ITEM_FAILED` | 409 | O item de tarefa especificado não tem imagem bem-sucedida | Verifique item.error |
+| `BATCH_IMAGE_DOWNLOAD_LIMITED` | 429 | Downloads simultâneos demais | Tente novamente mais tarde |
+
+---
+
+## Buscar pelo texto bruto do erro
+
+Compare o texto de erro que você realmente vê com a tabela abaixo e vá direto para a correção detalhada.
+
+| Texto bruto do erro | Significado | Correção detalhada |
+|---|---|---|
+| `stream disconnected before completion` | Stream caiu, geralmente uma VPN / proxy / proxy do sistema rotacionando o IP de saída | [Questão 1](/pt/docs/guide/faq#issue-1) |
+| `exceeded retry limit, last status: 429 Too Many Requests` | Cota diária esgotada | [Questão 2](/pt/docs/guide/faq#issue-2) |
+| `401 Unauthorized: Incorrect API key provided` | A requisição ainda foi para o endpoint oficial, não para o relay da LMU AI | [Questão 3](/pt/docs/guide/faq#issue-3) |
+| `running scripts is disabled on this system` (Windows) | Restrição de política de execução do PowerShell | [Questão 4](/pt/docs/guide/faq#issue-4) |
+| `CODEX is not recognized as a cmdlet` (Windows) | Node.js não instalado ou PATH quebrado | [Questão 5](/pt/docs/guide/faq#issue-5) |
+| `503 No available accounts` | Uma variável de ambiente do shell sobrescreve a chave configurada na IDE | [Questão 6](/pt/docs/guide/faq#issue-6) |
+| `400 Invalid signature in thinking block` | Trocar de modelo entre grupos em uma mesma conversa; a assinatura de thinking não pode ser verificada | [Questão 7](/pt/docs/guide/faq#issue-7) |
+| `400 Unknown parameter: 'tools[0].n'` | Um parâmetro `tools` foi enviado indevidamente a um endpoint de imagem | [Questão 8](/pt/docs/guide/faq#issue-8) |
+| `No available accounts` / modelo indisponível | Chamou um modelo fora do intervalo disponível do grupo atual | [Protocolos de API → Solução de problemas](/pt/docs/guide/api-protocols#troubleshooting) |
+
+---
+
+## Erros na API de exportação de uso
+
+A [API de exportação de uso](/pt/docs/api/usage-export) usa autenticação JWT, então sua semântica de erro difere do canal de chave de API acima:
+
+| Status | Causa | O que fazer |
+|---:|---|---|
+| `401` | JWT expirado | Renove com o `refresh_token`, ou faça login novamente |
+| `403` | Acesso não autorizado (ex.: consultar um `api_key_id` que não é seu) | Verifique se a chave pertence à conta atual |
+| `400` | Parâmetro inválido (ex.: formato de `start_date` incorreto) | Verifique o formato `YYYY-MM-DD` e se o `timezone` é válido |
+
+---
+
+## Ainda com problemas?
+
+- Casos práticos passo a passo estão no [FAQ](/pt/docs/guide/faq)
+- As regras de Base URL / endpoint estão em [Protocolos de API](/pt/docs/guide/api-protocols)
+- A proteção contra uma chave roubada está em [Segurança de Chaves](/pt/docs/guide/key-security)
+- Ao entrar em contato com o suporte, inclua o **request ID** e o texto completo do erro

@@ -1,0 +1,31 @@
+{
+  "title": "Ferramentas",
+  "pages": [
+    "---Claude Code---",
+    "claude-code",
+    "claude-code-desktop",
+    "claude-code-vscode",
+    "claude-code-gpt",
+    "---Codex---",
+    "codex-cli-mac",
+    "codex-cli-windows",
+    "codex-cli-server",
+    "codex-app",
+    "---Ferramentas e clientes de terceiros---",
+    "cc-switch",
+    "opencode",
+    "crush",
+    "cherry",
+    "chatbox",
+    "chatbox-mobile",
+    "hermes",
+    "zcode",
+    "codebuddy",
+    "vscode-plugin",
+    "cursor",
+    "trae",
+    "workbuddy",
+    "kilo-code-idea",
+    "obsidian"
+  ]
+}

@@ -1,0 +1,133 @@
+---
+title: Segurança de chave
+description: "Guia de whitelist/blacklist de IP para chaves da API LMU AI: restrinja quais IPs podem chamar sua chave para impedir que uma chave vazada seja abusada; suporta IPs únicos e faixas CIDR."
+ogDescription: "Segurança de chaves LMU AI: configure whitelists e blacklists de IP para suas chaves de API Claude / GPT / modelos chineses, com suporte a IPs únicos, faixas CIDR e IPv6, para que uma chave vazada não possa ser usada por outros para esgotar sua cota — inclui solução de problemas e melhores práticas de produção."
+keywords:
+  - segurança de chave de API
+  - whitelist de IP de chave de API
+  - prevenir abuso de chave de API
+  - o que fazer se uma chave de API Claude vazar
+  - configuração de whitelist CIDR
+  - whitelist IPv6
+  - 403 ACCESS_DENIED
+  - segurança de chave Claude Code
+  - restrição de IP de chave LMU AI
+  - proteção de chave de API de IA
+alternateNames:
+  - configuração de whitelist de IP para chave de API Claude
+  - guia de segurança de chaves LMU AI
+  - configurações de proteção contra abuso de chave de API
+  - Como limitar prejuízos após o vazamento de uma chave
+  - tutorial de proteção de chave Claude Code
+faq:
+  - q: Posso usar a whitelist e a blacklist de IP ao mesmo tempo?
+    a: Sim. Quando ambas estão configuradas, a blacklist tem efeito primeiro — mesmo que um IP esteja na whitelist, ele ainda é rejeitado se corresponder à blacklist.
+  - q: Por que não consigo me conectar quando coloco um IP privado (LAN) na whitelist?
+    a: Os servidores da LMU AI não conseguem ver IPs privados (como 192.168.x.x ou 10.x.x.x); eles só veem seu **IP de saída público**. Use `curl https://ifconfig.me` para descobrir seu IP de saída real e, então, insira-o.
+  - q: Meu IP de casa muda — como uso a whitelist?
+    a: Se você tem um IP público dinâmico, pode inserir a faixa CIDR atribuída pelo seu provedor (como `123.45.0.0/16`) para ampliar a faixa; se não conseguir determinar a faixa, recomendamos não habilitar a whitelist e usar outras proteções (limitação de taxa, cota total, whitelist de modelos).
+  - q: O que devo fazer se minha chave de API LMU AI vazar?
+    a: Imediatamente **redefina ou exclua** a chave no console; se uma whitelist de IP já estiver configurada, a chave vazada não poderá ser usada a partir de IPs desconhecidos, o que reduz significativamente seus prejuízos. Também recomendamos rastrear a origem do vazamento (commits em repositórios públicos, logs, histórico de conversas, capturas de tela etc.) e habilitar uma whitelist de IP imediatamente na nova chave.
+  - q: Quantos IPs uma chave pode ter? Suporta IPv6?
+    a: "Uma regra por linha; você pode misturar IPs únicos e faixas CIDR, e não há limite rígido para o número de entradas. Tanto IPv4 quanto IPv6 são suportados (exemplo de IPv6: `2001:db8::/32`). Se você tiver saída tanto v4 quanto v6, insira ambas."
+  - q: Como configuro a whitelist para chamadas a partir de um servidor de produção?
+    a: Insira o **IP público** do servidor (não o IP privado). Se você usa um balanceador de carga ou tem múltiplos IPs de saída, adicione todos os possíveis IPs de saída ou suas faixas CIDR à whitelist; para desenvolvimento local, use uma chave separada sem whitelist para evitar interferências.
+  - q: A whitelist de IP, a limitação de taxa e a cota total entram em conflito?
+    a: Não, e recomendamos combiná-las. A whitelist de IP limita "quem pode usar", a limitação de taxa limita "com que velocidade" e a cota total limita "quanto". Configure as três em uma chave de produção para defesa em profundidade — mesmo que a whitelist seja contornada, a limitação de taxa e a cota ainda oferecem uma rede de proteção.
+  - q: Por que minha chamada é rejeitada com 403 ACCESS_DENIED?
+    a: Muito provavelmente o IP não correspondeu à whitelist. Use `curl https://ifconfig.me` para verificar seu IP de saída real, compare-o com a whitelist da chave e adicione o IP atual ou limpe temporariamente a whitelist para testar; se ainda for rejeitado, verifique se ele corresponde à blacklist, se a chave está desativada e se a cota está esgotada.
+---
+
+Se uma chave vaza, outras pessoas podem usá-la para consumir sua cota. Uma **whitelist de IP** é a proteção mais direta — apenas os IPs em que você confia têm permissão para usar a chave.
+
+## Onde configurar
+
+Vá para **console → API Keys → Editar (ou Criar)** e encontre os dois campos, **whitelist de IP** e **blacklist de IP**.
+
+Uma regra por linha, em um dos dois formatos:
+
+| Formato | Exemplo | Descrição |
+|------|------|------|
+| IP único | `203.0.113.10` | Corresponde a exatamente um IP |
+| Faixa CIDR | `203.0.113.0/24` | Corresponde a toda uma faixa de IPs (`/24` = 256 IPs) |
+
+Tanto IPv4 quanto IPv6 são suportados (exemplo de IPv6: `2001:db8::/32`).
+
+## Como isso tem efeito
+
+- **Whitelist vazia** → sem restrição de origem; qualquer IP pode usar a chave
+- **Whitelist não vazia** → apenas os IPs da lista podem usá-la; todos os outros são rejeitados
+- **Blacklist** → IPs correspondentes são rejeitados, **tendo prioridade sobre a whitelist**
+- Você pode usar ambas ao mesmo tempo (a blacklist é verificada primeiro, depois a whitelist)
+
+Quando rejeitada, a API retorna `403 ACCESS_DENIED`.
+
+## Descubra seu IP de saída real (importante!)
+
+**Este é o erro mais fácil de cometer**: o IP que você configura na chave deve ser o **IP de saída público** que os servidores da LMU AI veem, não o endereço privado mostrado por `ipconfig` / `ifconfig` no seu computador.
+
+```bash
+# Command line
+curl https://ifconfig.me
+# or
+curl https://ip.sb
+```
+
+Ou abra [ip.sb](https://ip.sb) / [ifconfig.me](https://ifconfig.me) no seu navegador.
+
+<Callout type="warn">
+  Seu IP de saída muda quando você ativa uma VPN ou um proxy corporativo, ou quando seu dispositivo móvel troca de rede Wi-Fi. Confirme-o com o comando acima antes de configurar a whitelist.
+</Callout>
+
+## Cenários comuns
+
+**Cenário 1: Um IP fixo de escritório**
+```
+Whitelist:
+203.0.113.10
+```
+
+**Cenário 2: Trabalhando de casa e do escritório**
+```
+Whitelist:
+203.0.113.10      # Company egress
+198.51.100.20     # Home broadband
+```
+
+**Cenário 3: Rodando no seu próprio servidor na nuvem**
+```
+Whitelist:
+<your cloud server's public IP>
+```
+Permita apenas que seu servidor chame a API e use uma chave separada (sem whitelist) para desenvolvimento local.
+
+**Cenário 4: Você só quer bloquear temporariamente um IP suspeito**
+```
+Blacklist:
+1.2.3.4
+```
+Todo o resto funciona normalmente, sem impacto no uso comum.
+
+## Solução de problemas
+
+**P: Minha chamada retorna 403 ACCESS_DENIED — é uma restrição de IP?**
+
+Muito provavelmente. Verifique nesta ordem:
+
+1. Use `curl https://ifconfig.me` para confirmar seu IP de saída real atual
+2. Compare-o com a whitelist da chave para ver se ele corresponde
+3. Se não corresponder, adicione o IP atual à whitelist ou limpe temporariamente a whitelist para testar
+4. Se ainda for rejeitado, verifique se ele está na blacklist, se a chave está desativada e se a cota está esgotada
+
+**P: Coloquei um IP na whitelist, mas ainda sou rejeitado?**
+
+- Você inseriu um **IP privado** (`192.168.x.x` / `10.x.x.x` / `172.16-31.x.x`)? Substitua-o pelo seu IP de saída público.
+- Você inseriu um endereço IPv6, mas acessa a internet por IPv4 (ou vice-versa)? Insira ambos.
+- Você inseriu um CIDR com formato inválido (como `1.2.3.4/33`)? Regras inválidas são silenciosamente ignoradas.
+
+## Práticas recomendadas
+
+- Para **chaves de produção**, recomendamos fortemente configurar uma whitelist de IP para minimizar a superfície de ataque
+- Para **chaves de desenvolvimento / depuração**, você pode dispensar a whitelist, mas deve definir um **limite de cota total** como rede de proteção
+- Se você está especialmente preocupado com vazamentos, combine-a com [**limitação de taxa**, **cota total** e **whitelist de modelos**](/pt/docs/guide/how-to-use-token) para uma defesa em camadas
+- No momento em que suspeitar que uma chave vazou, **redefina ou exclua** ela no console imediatamente

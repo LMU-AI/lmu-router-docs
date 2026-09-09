@@ -1,0 +1,88 @@
+---
+title: IDEA Kilo Code
+description: IntelliJ IDEA の Kilo Code プラグインで LMU AI API に接続 — Claude は Anthropic プロトコルを、GPT は Responses プロトコルを使用します。
+ogDescription: IntelliJ IDEA / PyCharm / GoLand に Kilo Code プラグインをインストール + LMU AI — プロキシなしで JetBrains スイート全体で Claude、GPT、中国の大規模モデルを使用。
+keywords:
+  - IDEA Kilo Code
+  - Kilo Code プラグイン
+  - IntelliJ IDEA AI プラグイン
+  - JetBrains Claude
+  - PyCharm Claude
+  - GoLand Claude
+  - Kilo Code 設定
+  - IDEA を Claude に接続
+  - JetBrains AI 中継
+alternateNames:
+  - IntelliJ IDEA / JetBrains を LMU AI に接続
+---
+
+## プラグインをインストール
+
+1. IntelliJ IDEA を開き、**Settings → Plugins → Marketplace** に移動します
+2. **Kilo Code** を検索し、プラグインが見つかったら Install をクリックします
+3. インストール完了後に IDEA を再起動します
+
+---
+
+## プラグインを設定
+
+Kilo Code の設定パネルを開き、使用したいモデルのタイプに合ったオプションを選択します：
+
+<Tabs items={['中国のモデル / Claude (Anthropic)', 'OpenAI モデル (OpenAI Compatible)']}>
+<Tab value="Chinese models / Claude (Anthropic)">
+
+`claude-opus-5`、`claude-sonnet-5`、`qwen3.8-max-preview`、`deepseek-v4-pro`、`glm-5.2`、`kimi-k3` など、すべての Claude モデルと中国のモデルで動作します。
+
+| フィールド | 値 |
+|------|------|
+| **API Provider** | `Anthropic` |
+| **Anthropic API Key** | LMU AI コンソールで生成した `sk-` キー |
+| **Use custom base URL** | ✅ チェックする |
+| **Base URL** | `https://api.lmuai.com` |
+| **Model** | `claude-opus-5`、`qwen3.7-max` などの最新モデル |
+
+![Anthropic プロバイダを選択し、Use custom base URL をチェックして https://api.lmuai.com に設定し、モデルを claude-opus-4-6 に設定した Kilo Code](/images/tools/Kilo/kilo.png)
+
+<Callout type="info">
+
+必ず **Use custom base URL** をチェックしてください。そうしないと、プラグインは LMU AI 中継ではなく公式の Anthropic エンドポイントにリクエストを送信します。
+
+</Callout>
+
+</Tab>
+<Tab value="OpenAI models (OpenAI Compatible)">
+
+`gpt-5.6-sol`、`gpt-5.6-terra`、`gpt-5.5`、`gpt-5.4` など、すべての OpenAI モデルで動作します。
+
+| フィールド | 値 |
+|------|------|
+| **API Provider** | `OpenAI Compatible (Responses)` |
+| **Base URL** | `https://api.lmuai.com/v1` |
+| **API Key** | LMU AI コンソールで生成した `sk-` キー |
+| **Model** | 例：`gpt-5.5` |
+
+![OpenAI Compatible (Responses) プロバイダを選択し、Base URL を https://api.lmuai.com/v1 に設定し、モデルを gpt-5.5 に設定した Kilo Code](/images/tools/Kilo/kilo-openai.png)
+
+<Callout type="warn">
+
+OpenAI モデルの Base URL は **必ず `/v1` で終わる**必要があります。Anthropic プロトコル（`/v1` なし）とは異なりますので、混同しないでください。
+
+</Callout>
+
+</Tab>
+</Tabs>
+
+---
+
+## モデル名リファレンス
+
+どのモデルを入力すればよいか分からない場合は、[モデルギャラリー](/ja/docs/guide/models) にアクセスして、利用可能なすべてのモデル ID を確認し、ワンクリックでコピーできます。
+
+---
+
+## 注意事項
+
+- **Claude / 中国のモデル**を使用する場合 → `Anthropic` プロトコルを選択し、Base URL は `https://api.lmuai.com`（`/v1` なし）
+- **OpenAI モデル**を使用する場合 → `OpenAI Compatible (Responses)` プロトコルを選択し、Base URL は `https://api.lmuai.com/v1`（`/v1` あり）
+- API Key には、どちらのプロトコルでも LMU AI コンソールで生成した `sk-` キーを入力します
+- 設定が完了したら、右上の **Save** をクリックして設定を保存し、使用を開始します

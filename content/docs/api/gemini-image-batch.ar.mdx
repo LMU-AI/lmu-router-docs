@@ -1,0 +1,925 @@
+---
+title: Gemini Batch Image API
+description: "واجهة برمجة الصور الدفعية غير المتزامنة من LMU AI: أرسِل العديد من مهام صور Gemini دفعة واحدة، واستعلم عن الحالة والتفاصيل، ونزّل الصور أو ملف ZIP، مع دعم الـ idempotency وتقديرات التكلفة."
+ogDescription: "وثائق واجهة برمجة الصور الدفعية من Gemini في LMU AI: أرسل POST /v1/images/batches لتقديم مهام متعددة المطالبات، واستعلم عن الحالة، واستفسر عن التفاصيل، ونزّل ملف ZIP، وألغِ المهام، وعالِج الأخطاء مثل BATCH_IMAGE_DISABLED."
+keywords:
+  - واجهة برمجة الصور الدفعية من Gemini
+  - Gemini Batch API
+  - واجهة برمجة توليد الصور الدفعية
+  - مهام Gemini الدفعية
+  - images batches
+  - توليد الصور الدفعية من LMU AI
+  - Gemini JSONL Batch
+  - النص إلى صورة الدفعي
+alternateNames:
+  - واجهة برمجة الصور الدفعية غير المتزامنة من LMU AI
+  - واجهة برمجة معالجة صور Gemini الدفعية
+  - Image Batches API
+faq:
+  - q: هل واجهة برمجة الصور الدفعية واجهة عامة أم داخلية؟
+    a: "إنها واجهة برمجة إضافية توفّرها LMU AI للمستخدمين. تُصادِق باستخدام مفتاح API الخاص بك من نوع sk- عبر Authorization Bearer، وتُستدعى أيضًا مباشرةً من صفحة الصور الدفعية في وحدة تحكم LMU AI."
+  - q: هل يمكنني استخدام gpt-image-2 مع الواجهة الدفعية؟
+    a: "ليس حاليًا. مزوّد الخلفية والتحقق من المجموعة لـ /v1/images/batches يدعمان Gemini فقط في الوقت الحالي؛ بالنسبة إلى GPT، استخدم /v1/images/generations أو /v1/images/edits أو واجهة المهمة الفردية غير المتزامنة."
+  - q: ماذا يعني BATCH_IMAGE_DISABLED؟
+    a: "يعني أن نشر مُرحّل API الحالي لم يُفعّل ميزة الصور الدفعية العامة؛ وهو ليس خطأً في مفتاح API أو المطالبة. زوّد المسؤول برمز الخطأ ومعرّف الطلب."
+  - q: هل يدعم توليد الصور الدفعية دقة 2K و4K؟
+    a: "تقبل الواجهة الدفعية حاليًا 1K فقط. تدعم واجهة generateContent الفورية من Gemini دقة 1K و2K و4K؛ وإذا تم توسيع الواجهة الدفعية لاحقًا، فسيتم تحديث الوثائق وفقًا لذلك."
+  - q: هل تُرجِع المهمة الدفعية جميع الصور فورًا بعد إرسالها؟
+    a: "لا. الواجهة الدفعية هي واجهة مهام غير متزامنة: بعد الإرسال تُرجِع معرّف دفعة، ويحتاج العميل إلى استطلاع حالة المهمة، ثم تنزيل الصور المفردة أو ملف ZIP بمجرد اكتمالها."
+---
+
+تتيح لك واجهة برمجة الصور الدفعية من Gemini في LMU AI إرسال عدة مهام صور Gemini دفعة واحدة. ينشئ الخادم المهمة الدفعية بشكل غير متزامن، ويتتبّع حالتها، وينظّم النتائج، ويسوّي التكلفة.
+
+نقطة النهاية الرئيسية:
+
+```text
+POST https://api.lmuai.com/v1/images/batches
+```
+
+<Callout type="info" title="هذه واجهة برمجة إضافية من LMU AI">
+
+توجد الواجهة الدفعية في `/v1/images/batches`. وهي واجهة مهام غير متزامنة توفّرها LMU AI للمستخدمين — وليست مسار Google Gemini الأصلي `/v1beta`.
+
+**التنفيذ الحالي يدعم Gemini فقط.** رغم أن نص الطلب يتضمّن حقل `model` عامًّا، لا يمكنك إرسال نماذج صور `gpt-image-2` أو Grok إلى هذه النقطة. بالنسبة إلى النص إلى صورة من GPT، استخدم [GPT Image API](/ar/docs/api/gpt-image)؛ وبالنسبة إلى النص إلى صورة من Grok، استخدم [Grok Image API](/ar/docs/api/grok-image).
+
+إذا كنت تحتاج فقط إلى توليد صورة Gemini واحدة، أو كنت بحاجة إلى `2K / 4K`، فاستخدم [واجهة برمجة صور Gemini الفورية](/ar/docs/api/gemini-image).
+
+</Callout>
+
+---
+
+## 1. متى تستخدمها
+
+الواجهة الدفعية مناسبة عندما:
+
+- ترسل عشرات إلى مئات المطالبات المختلفة دفعة واحدة؛
+- لا تحتاج إلى أن تُرجِع مهام الصور فورًا ضمن طلب HTTP نفسه؛
+- تحتاج إلى حالة المهمة، وتفاصيل الفشل، والإلغاء، والتنزيل الدفعي؛
+- تنتج رسومًا توضيحية للمقالات، أو أصول تجارة إلكترونية، أو مجموعات بيانات، أو مرشحات تصميم بشكل غير متصل؛
+- تريد استخدام `Idempotency-Key` لمنع الإرسال المكرّر والتكاليف المزدوجة.
+
+وهي غير مناسبة عندما:
+
+- تقيس زمن الاستجابة لتوليد صورة فورية واحدة؛
+- تحتاج إلى `2K / 4K`؛
+- تحتاج إلى الانتظار المتزامن لصورة وعرضها فورًا؛
+- تُجري اختبارات ضغط على التزامن أو RPM.
+
+---
+
+## 2. المتطلبات المسبقة
+
+تتطلب الميزة الدفعية أن يُفعّلها المسؤول على جانبي النشر والمجموعة، وأن يهيّئ حسابات المصدر المتوافقة والتسعير.
+
+يمكنك طلب قائمة النماذج أولًا للتحقق مما إذا كانت الميزة متاحة:
+
+```http
+GET /v1/images/batches/models
+```
+
+<Callout type="warn" title="إذا أرجعت BATCH_IMAGE_DISABLED">
+
+يعني `BATCH_IMAGE_DISABLED` أن ميزة الصور الدفعية العامة لمُرحّل API لم تُفعّل. وهو ليس خطأً في مفتاح API أو النموذج أو المطالبة.
+
+زوّد المسؤول برمز الخطأ الكامل ومعرّف الطلب من ترويسات الاستجابة، على سبيل المثال:
+
+```text
+Error code: BATCH_IMAGE_DISABLED
+Request ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+</Callout>
+
+شروط القبول الشائعة:
+
+- حالة مفتاح API الحالي نشطة؛
+- منصة مجموعة مفتاح API هي Gemini؛
+- المجموعة تسمح بتوليد الصور الدفعي؛
+- موارد تنفيذ الصور الدفعية متاحة؛
+- النموذج مهيّأ بتسعير الصور الدفعية؛
+- خدمة المهام الدفعية غير المتزامنة تعمل بشكل طبيعي.
+
+---
+
+## 3. المصادقة
+
+تستخدم الواجهة الدفعية مفتاح API الخاص بك في LMU AI:
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+مثال:
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/models' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+لا تضع مفتاح API في عناوين URL أو في كود المصدر الأمامي أو في المستودعات العامة.
+
+---
+
+## 4. نظرة عامة على نقاط النهاية
+
+| الطريقة | المسار | الوصف |
+|---|---|---|
+| `GET` | `/v1/images/batches/models` | سرد النماذج التي يمكن للمفتاح الحالي استخدامها لتوليد الصور الدفعي |
+| `POST` | `/v1/images/batches` | إنشاء مهمة صور دفعية |
+| `GET` | `/v1/images/batches` | سرد المهام الدفعية التي أنشأها المفتاح الحالي |
+| `GET` | `/v1/images/batches/{id}` | الاستعلام عن حالة مهمة محددة |
+| `GET` | `/v1/images/batches/{id}/items` | الاستعلام عن تفاصيل عناصر المهمة |
+| `GET` | `/v1/images/batches/{id}/items/{custom_id}/content` | تنزيل صورة عنصر مهمة واحد |
+| `GET` | `/v1/images/batches/{id}/download` | تنزيل الدفعة بأكملها كملف ZIP |
+| `POST` | `/v1/images/batches/{id}/cancel` | إلغاء مهمة |
+| `DELETE` | `/v1/images/batches/{id}/outputs` | حذف ملفات مخرجات الدفعة |
+| `DELETE` | `/v1/images/batches/{id}` | حذف سجل المهمة الدفعية |
+
+جميع بيانات المهام معزولة بمفتاح API المستخدَم لإنشاء المهمة.
+
+---
+
+## 5. سرد النماذج الدفعية المتاحة
+
+### `GET /v1/images/batches/models`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/models' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+استجابة نموذجية (مقتطف):
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "gemini-3.1-flash-image",
+      "object": "image.batch.model"
+    }
+  ]
+}
+```
+
+<Callout type="info" title="قائمة النماذج الدفعية تختلف عن قائمة النماذج العادية">
+
+استخدم `/v1/images/batches/models` كمُحدِّد النموذج للمهام الدفعية. فهو يتحقق إضافيًا من أذونات الميزة الدفعية، وموارد التنفيذ، ودعم النموذج، وتهيئة الفوترة الدفعية.
+
+ليس كل نموذج تُرجِعه القائمة العادية `/v1/models` أو `/v1beta/models` قابلًا للاستخدام في توليد الصور الدفعي غير المتزامن.
+
+</Callout>
+
+---
+
+## 6. إنشاء مهمة دفعية
+
+### `POST /v1/images/batches`
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1/images/batches' \
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+  --header 'Idempotency-Key: client-batch-20260725-001' \
+  --header 'Content-Type: application/json' \
+  --data-raw '{
+    "model": "gemini-3.1-flash-image",
+    "task_name": "Product image batch eval 001",
+    "response_mime_type": "image/png",
+    "image_size": "1K",
+    "items": [
+      {
+        "custom_id": "image_001",
+        "prompt": "An orange tabby cat wearing an astronaut helmet, cinematic lighting",
+        "output_count": 1
+      },
+      {
+        "custom_id": "image_002",
+        "prompt": "A futuristic city in morning mist, ultra-wide-angle photography",
+        "output_count": 1
+      },
+      {
+        "custom_id": "image_003",
+        "prompt": "A seaside lighthouse at sunset, watercolor illustration, warm tones",
+        "output_count": 1
+      }
+    ]
+  }'
+```
+
+### حقول الطلب على المستوى الأعلى
+
+| الحقل | النوع | مطلوب | الافتراضي | الوصف |
+|---|---:|:---:|---|---|
+| `model` | string | نعم | — | يجب أن يأتي من قائمة النماذج الدفعية |
+| `task_name` | string | لا | مُولَّد تلقائيًا | اسم المهمة؛ المحتوى الطويل جدًا يُقتطع |
+| `parent_batch_id` | string | لا | — | يربط مهمة أصل، ومناسب لإعادة محاولة العناصر الفاشلة |
+| `items` | array | نعم | — | عناصر المهمة الدفعية، عنصر واحد على الأقل |
+| `response_mime_type` | string | لا | `image/png` | نوع MIME المتوقع للمخرجات |
+| `aspect_ratio` | string | لا | — | غير مُمرَّر إلى المصدر في الإصدار الحالي؛ لا تعتمد على هذا الحقل للتحكم في نسبة العرض إلى الارتفاع |
+| `image_size` | string | لا | `1K` | يُدعم `1K` فقط حاليًا |
+| `metadata` | object | لا | — | أزواج مفتاح-قيمة نصية مخصصة |
+
+### حقول `items[]`
+
+| الحقل | النوع | مطلوب | الافتراضي | الوصف |
+|---|---:|:---:|---|---|
+| `custom_id` | string | لا | مُولَّد تلقائيًا | معرّف مهمة المستدعي، يجب أن يكون فريدًا ضمن الدفعة نفسها |
+| `prompt` | string | نعم | — | يمكن أن تستخدم كل مهمة مطالبة مختلفة |
+| `output_count` | integer | لا | `1` | حتى 4 لكل عنصر حاليًا، خاضع لتهيئة النشر |
+| `reference_images` | array | لا | — | صور مرجعية للتحويل من صورة إلى صورة |
+
+### Idempotency-Key
+
+يُوصى بشدة بتضمين مفتاح فريد مع كل عملية إنشاء مهمة:
+
+```http
+Idempotency-Key: client-batch-20260725-001
+```
+
+عندما يعيد مفتاح API نفسه الإرسال بنفس `Idempotency-Key` ونص طلب مطابق، يمكن للخادم أن يُرجِع المهمة الأصلية، متجنبًا الإنشاء المكرّر وحجوزات التكلفة المزدوجة بعد انتهاء مهلة الشبكة.
+
+إذا أعدت استخدام نفس `Idempotency-Key` لكن بمحتوى طلب مختلف، فسيُرجِع:
+
+```text
+BATCH_IMAGE_IDEMPOTENCY_CONFLICT
+```
+
+---
+
+## 7. الحدود الدفعية الحالية
+
+الحدود الافتراضية في الكود المصدري مبيّنة أدناه؛ ويمكن للمسؤول تعديل النشر الفعلي:
+
+| الحد | الافتراضي |
+|---|---:|
+| الحد الأقصى لعناصر الإدخال لكل دفعة | 200 |
+| الحد الأقصى لصور المخرجات لكل دفعة | 200 |
+| الحد الأقصى لـ `output_count` لكل عنصر | 4 |
+| الحد الأقصى للأحرف لكل مطالبة | 8000 |
+| الحد الأقصى للحجم لكل صورة مرجعية مضمّنة | 10 MiB |
+| الحد الأقصى الافتراضي للعناصر لكل ZIP | 200 |
+
+### لا يمكن تحديد نسبة العرض إلى الارتفاع الدفعية بعد
+
+<Callout type="warn" title="aspect_ratio ليس له تأثير حاليًا">
+
+رغم أن بنية الطلب الدفعية تحتفظ بحقل `aspect_ratio`، فإن منطق بناء طلبات Gemini Batch وVertex Batch الحالي لا يكتبه بعد في `generationConfig.imageConfig` للمصدر.
+
+نتيجة لذلك، تتحدد نسبة العرض إلى الارتفاع للمهمة الدفعية حاليًا بالسلوك الافتراضي للمصدر. احذف `aspect_ratio` من طلبك ولا تعتمد عليه كقدرة API مستقرة.
+
+عندما تحتاج إلى تحكم دقيق في نسب العرض إلى الارتفاع مثل `1:1` أو `16:9` أو `21:9`، فاستخدم [واجهة برمجة صور Gemini الفورية](/ar/docs/api/gemini-image).
+
+</Callout>
+
+### يُدعم 1K فقط
+
+<Callout type="warn" title="الواجهة الدفعية لا تدعم 2K / 4K بعد">
+
+`image_size` في الواجهة الدفعية تقبل حاليًا فقط:
+
+```json
+{
+  "image_size": "1K"
+}
+```
+
+إرسال `2K` أو `4K` يُرجِع `BATCH_IMAGE_INVALID_ITEMS`.
+
+عندما تحتاج إلى `2K / 4K`، استخدم [واجهة برمجة صور Gemini الفورية](/ar/docs/api/gemini-image) وأدِر تزامن الطلبات المتعددة على جانب العميل.
+
+</Callout>
+
+### كيف يتوسّع output_count إلى مهام
+
+إذا حدّد عنصر ما:
+
+```json
+{
+  "custom_id": "poster",
+  "prompt": "Movie poster",
+  "output_count": 3
+}
+```
+
+يوسّعه الخادم إلى معرّفات مهام منفصلة، على سبيل المثال:
+
+```text
+poster_01
+poster_02
+poster_03
+```
+
+لا يمكن أن يتجاوز العدد الإجمالي للصور بعد التوسّع الحد الأقصى لعدد مخرجات الدفعة.
+
+---
+
+## 8. التحويل من صورة إلى صورة دفعيًا
+
+يمكن أن يتضمّن كل عنصر `reference_images`:
+
+```json
+{
+  "model": "gemini-3.1-flash-image",
+  "task_name": "Product image style transfer",
+  "image_size": "1K",
+  "items": [
+    {
+      "custom_id": "product_001",
+      "prompt": "Place the product on a clean light-gray studio background, keeping the product structure and text accurate",
+      "reference_images": [
+        {
+          "id": "source_001",
+          "type": "reference",
+          "mime_type": "image/png",
+          "data": "BASE64_IMAGE_DATA"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### حقول الصورة المرجعية
+
+| الحقل | النوع | مطلوب | الوصف |
+|---|---:|:---:|---|
+| `id` | string | لا | معرّف الصورة المرجعية |
+| `type` | string | لا | وسم لغرض الصورة المرجعية |
+| `mime_type` | string | نعم | `image/png` أو `image/jpeg` أو `image/webp` |
+| `data` | string | أحد اثنين | محتوى Base64 للصورة |
+
+بالنسبة إلى تكامل API العام، نوصي بتمرير الصور المرجعية بصيغة Base64 عبر `data`. أما طرق الإشارة إلى التخزين الأخرى فهي قدرة متقدمة خاضعة للتحكم — تواصل مع المسؤول إذا كنت بحاجة إليها.
+
+يعتمد عدد الصور المرجعية على النموذج. تطبّق الخدمة حاليًا الحدود الافتراضية التالية بناءً على اسم النموذج:
+
+- الأسماء التي تحتوي على `flash-image`: حتى 3 صور مرجعية لكل مهمة؛
+- الأسماء التي تحتوي على `pro-image`: حتى 14 صورة مرجعية لكل مهمة.
+
+قد يتأثر العدد القابل للاستخدام فعليًا أيضًا بقدرات نموذج المصدر وتهيئة النشر.
+
+---
+
+## 9. استجابة إنشاء المهمة
+
+يُرجِع الإنشاء الناجح HTTP `200` وكائن الدفعة:
+
+```json
+{
+  "id": "imgbatch_abc123",
+  "object": "image.batch",
+  "task_name": "Product image batch eval 001",
+  "status": "queued",
+  "model": "gemini-3.1-flash-image",
+  "item_count": 3,
+  "success_count": 0,
+  "fail_count": 0,
+  "estimated_cost": 0.15,
+  "hold_amount": 0.09,
+  "actual_cost": null,
+  "created_at": 1784995200,
+  "submitted_at": 1784995201,
+  "settled_at": null
+}
+```
+
+### الحقول الرئيسية
+
+| الحقل | الوصف |
+|---|---|
+| `id` | معرّف الدفعة، يُستخدم للاستعلامات والتنزيلات اللاحقة |
+| `status` | حالة المهمة المعروضة للمستخدم |
+| `item_count` | إجمالي عناصر المهمة بعد التوسّع |
+| `success_count` | عدد المهام الناجحة |
+| `fail_count` | عدد المهام الفاشلة |
+| `estimated_cost` | التكلفة المقدّرة وقت الإرسال |
+| `hold_amount` | حجز الرصيد الموضوع عند إنشاء المهمة |
+| `actual_cost` | التكلفة الفعلية بعد التسوية؛ `null` أثناء عدم الاكتمال |
+
+<Callout type="info" title="الإرسال الناجح لا يعني أن الصور جاهزة">
+
+`200` من نقطة نهاية الإنشاء يعني فقط أن الدفعة قُبلت وأُرسلت إلى خط المعالجة غير المتزامن. يجب على العميل الاستمرار في استطلاع حالة المهمة حتى تصل إلى `completed` أو `failed` أو `cancelled`.
+
+</Callout>
+
+---
+
+## 10. الاستعلام عن حالة المهمة
+
+### `GET /v1/images/batches/{id}`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/imgbatch_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+### الحالات المعروضة للمستخدم
+
+| الحالة | الوصف | نهائية |
+|---|---|:---:|
+| `queued` | أُنشئت أو رُفعت أو أُرسلت؛ في انتظار معالجة المصدر | لا |
+| `running` | المصدر يولّد الصور | لا |
+| `processing_results` | تنزيل وفهرسة نتائج المصدر | لا |
+| `settling` | تسوية التكلفة الفعلية | لا |
+| `completed` | اكتملت المعالجة؛ يمكن الاستعلام عن النتائج وتنزيلها | نعم |
+| `failed` | فشلت الدفعة | نعم |
+| `cancelled` | أُلغيت | نعم |
+| `output_deleted` | حُذفت ملفات المخرجات، لكن سجل المهمة يبقى | نعم |
+
+فترات الاستطلاع الموصى بها:
+
+```text
+First 2 minutes: every 10-15 seconds
+After 2 minutes: every 30 seconds
+Long tasks: gradually increase to every 60 seconds
+```
+
+لا تستطلع كل ثانية.
+
+<Callout type="warn" title="لا تُدعم إشعارات الويب عند الاكتمال بعد">
+
+لا تحتوي الواجهة الدفعية حاليًا على `callback_url` أو `webhook_url` أو أي تهيئة لاستدعاء الاكتمال. وهي لا تُخطر خادم المستدعي بشكل استباقي عند اكتمال مهمة.
+
+يحتاج المستدعي إلى استطلاع `GET /v1/images/batches/{id}`، والتوقف عن الاستطلاع بمجرد وصول الحالة إلى `completed` أو `failed` أو `cancelled` أو `output_deleted`، ثم الاستعلام عن التفاصيل أو تنزيل النتائج.
+
+</Callout>
+
+---
+
+## 11. سرد المهام
+
+### `GET /v1/images/batches`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches?status=completed&limit=20' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+### معلمات الاستعلام
+
+| المعلمة | النوع | الوصف |
+|---|---|---|
+| `status` | string | `queued` أو `running` أو `processing_results` أو `settling` أو `completed` أو `failed` أو `cancelled` أو `output_deleted` |
+| `task_name` | string | بحث تقريبي حسب اسم المهمة |
+| `downloaded` | string | `true` / `false`، تصفية حسب ما إذا كانت قد نُزّلت |
+| `from` | string | بداية نطاق وقت الإنشاء |
+| `to` | string | نهاية نطاق وقت الإنشاء |
+| `limit` | integer | الافتراضي 20، الحد الأقصى 100 |
+| `cursor` | string | مؤشر ترقيم الصفحات |
+
+الاستجابة:
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "imgbatch_abc123",
+      "object": "image.batch",
+      "task_name": "Product image batch eval 001",
+      "status": "completed",
+      "model": "gemini-3.1-flash-image",
+          "item_count": 3,
+      "success_count": 3,
+      "fail_count": 0,
+      "estimated_cost": 0.15,
+      "hold_amount": 0.09,
+      "actual_cost": 0.12,
+      "created_at": 1784995200,
+      "submitted_at": 1784995201,
+      "settled_at": 1784998800
+    }
+  ],
+  "has_more": false
+}
+```
+
+---
+
+## 12. الاستعلام عن تفاصيل عناصر المهمة
+
+### `GET /v1/images/batches/{id}/items`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/items?status=success&limit=100' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+قيم `status` المدعومة:
+
+```text
+all
+pending
+success
+failed
+```
+
+استجابة نموذجية (مقتطف):
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "custom_id": "image_001",
+      "status": "success",
+      "prompt_preview": "An orange tabby cat wearing an astronaut helmet...",
+      "mime_type": "image/png",
+      "file_extension": "png",
+      "image_count": 1,
+      "error": null
+    },
+    {
+      "custom_id": "image_002",
+      "status": "failed",
+      "prompt_preview": "A futuristic city in morning mist...",
+      "mime_type": null,
+      "file_extension": null,
+      "image_count": 0,
+      "error": {
+        "code": "PROVIDER_ITEM_FAILED",
+        "message": "image generation failed",
+        "source": "provider"
+      }
+    }
+  ],
+  "has_more": false
+}
+```
+
+عناصر المهمة افتراضيًا 100 لكل صفحة، بحد أقصى 500.
+
+---
+
+## 13. تنزيل الصور
+
+### تنزيل عنصر مهمة واحد
+
+```bash
+curl \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/items/image_001/content' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  --output image_001.png
+```
+
+إذا كان لعنصر مهمة عدة صور، يمكنك تحديد:
+
+```text
+?image_index=0
+?image_index=1
+```
+
+يبدأ `image_index` من 0.
+
+### تنزيل الدفعة بأكملها كملف ZIP
+
+```bash
+curl \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/download' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  --output imgbatch_abc123.zip
+```
+
+المعلمات الاختيارية:
+
+```text
+?status=success
+?max_items=100
+```
+
+يحتوي ملف ZIP على الصور وبيان بالنتائج. بعد التنزيل الناجح، تسجّل المهمة `downloaded_at`.
+
+---
+
+## 14. الإلغاء والحذف
+
+### إلغاء مهمة
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/cancel' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+المهمة التي وصلت بالفعل إلى حالة نهائية لن تُلغى مرة أخرى. وما إذا كان لا يزال بالإمكان منع رسوم المصدر يعتمد على الحالة الحالية لمهمة Batch لدى المصدر.
+
+### حذف ملفات المخرجات
+
+```bash
+curl --request DELETE \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/outputs' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+بعد حذف المخرجات، تظهر الحالة كـ `output_deleted` ولم يعد بالإمكان تنزيل الصور.
+
+### حذف سجل المهمة
+
+```bash
+curl --request DELETE \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+يمكن حذف سجل المهام التي في حالة نهائية فقط. النجاح يُرجِع HTTP `204`.
+
+<Callout type="warn" title="حذف السجل وحذف الصور أمران مختلفان">
+
+- حذف المخرجات: ينظّف ملفات الصور، لكن سجل المهمة يبقى؛
+- حذف السجل: يخفي المهمة من قائمة مهام المستخدم الحالي؛
+- ينبغي لأنظمة الإنتاج التأكد من تنزيل النتائج وأرشفتها قبل الحذف.
+
+</Callout>
+
+---
+
+## 15. سير عمل كامل بلغة Node.js
+
+```js
+import { mkdir, writeFile } from 'node:fs/promises';
+
+const BASE_URL = process.env.LMU_BASE_URL || 'https://api.lmuai.com';
+const API_KEY = process.env.LMU_API_KEY;
+
+if (!API_KEY) throw new Error('Missing LMU_API_KEY');
+
+const headers = {
+  Authorization: `Bearer ${API_KEY}`,
+};
+
+async function jsonRequest(path, options = {}) {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      ...headers,
+      ...(options.headers || {}),
+    },
+  });
+
+  const text = await response.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(`Non-JSON response: HTTP ${response.status}`);
+  }
+
+  if (!response.ok) {
+    const error = data?.error || {};
+    throw new Error(
+      `${error.code || response.status}: ${error.message || text}`,
+    );
+  }
+
+  return data;
+}
+
+const batch = await jsonRequest('/v1/images/batches', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Idempotency-Key': `client-${Date.now()}`,
+  },
+  body: JSON.stringify({
+    model: 'gemini-3.1-flash-image',
+    task_name: 'Node batch image demo',
+    image_size: '1K',
+    items: [
+      { custom_id: 'cat', prompt: 'A cinematic astronaut orange tabby cat' },
+      { custom_id: 'city', prompt: 'A futuristic city in morning mist' },
+    ],
+  }),
+});
+
+console.log('batch id:', batch.id);
+
+let job = batch;
+while (!['completed', 'failed', 'cancelled', 'output_deleted'].includes(job.status)) {
+  await new Promise((resolve) => setTimeout(resolve, 15_000));
+  job = await jsonRequest(`/v1/images/batches/${encodeURIComponent(batch.id)}`);
+  console.log('status:', job.status);
+}
+
+if (job.status !== 'completed') {
+  throw new Error(`Batch task did not complete successfully: ${job.status}`);
+}
+
+const items = await jsonRequest(
+  `/v1/images/batches/${encodeURIComponent(batch.id)}/items?status=success`,
+);
+
+await mkdir('batch-output', { recursive: true });
+
+for (const item of items.data || []) {
+  const response = await fetch(
+    `${BASE_URL}/v1/images/batches/${encodeURIComponent(batch.id)}` +
+      `/items/${encodeURIComponent(item.custom_id)}/content`,
+    { headers },
+  );
+
+  if (!response.ok) {
+    console.error('Download failed:', item.custom_id, response.status);
+    continue;
+  }
+
+  const extension = item.file_extension || 'png';
+  await writeFile(
+    `batch-output/${item.custom_id}.${extension}`,
+    Buffer.from(await response.arrayBuffer()),
+  );
+}
+```
+
+---
+
+## 16. سير عمل كامل بلغة Python
+
+```python
+import os
+import time
+from pathlib import Path
+import requests
+
+BASE_URL = os.getenv("LMU_BASE_URL", "https://api.lmuai.com")
+API_KEY = os.environ["LMU_API_KEY"]
+HEADERS = {"Authorization": f"Bearer {API_KEY}"}
+
+payload = {
+    "model": "gemini-3.1-flash-image",
+    "task_name": "Python batch image demo",
+    "image_size": "1K",
+    "items": [
+        {"custom_id": "cat", "prompt": "A cinematic astronaut orange tabby cat"},
+        {"custom_id": "city", "prompt": "A futuristic city in morning mist"},
+    ],
+}
+
+response = requests.post(
+    f"{BASE_URL}/v1/images/batches",
+    headers={
+        **HEADERS,
+        "Content-Type": "application/json",
+        "Idempotency-Key": f"client-{int(time.time())}",
+    },
+    json=payload,
+    timeout=300,
+)
+response.raise_for_status()
+batch = response.json()
+print("batch id:", batch["id"])
+
+terminal = {"completed", "failed", "cancelled", "output_deleted"}
+job = batch
+while job["status"] not in terminal:
+    time.sleep(15)
+    response = requests.get(
+        f"{BASE_URL}/v1/images/batches/{batch['id']}",
+        headers=HEADERS,
+        timeout=60,
+    )
+    response.raise_for_status()
+    job = response.json()
+    print("status:", job["status"])
+
+if job["status"] != "completed":
+    raise RuntimeError(f"Batch task did not complete successfully: {job['status']}")
+
+items_response = requests.get(
+    f"{BASE_URL}/v1/images/batches/{batch['id']}/items",
+    headers=HEADERS,
+    params={"status": "success"},
+    timeout=60,
+)
+items_response.raise_for_status()
+items = items_response.json().get("data", [])
+
+output_dir = Path("batch-output")
+output_dir.mkdir(exist_ok=True)
+
+for item in items:
+    content = requests.get(
+        f"{BASE_URL}/v1/images/batches/{batch['id']}"
+        f"/items/{item['custom_id']}/content",
+        headers=HEADERS,
+        timeout=300,
+    )
+    content.raise_for_status()
+    extension = item.get("file_extension") or "png"
+    (output_dir / f"{item['custom_id']}.{extension}").write_bytes(content.content)
+```
+
+---
+
+## 17. الفوترة وحجوزات الرصيد
+
+تتبع المهام الدفعية تدفق "التقدير، ثم الحجز، ثم التسوية عند الاكتمال":
+
+1. يقدّر الخادم التكلفة بناءً على النموذج وعدد المهام ومضاعف المجموعة والخصم الدفعي؛
+2. يضع حجز `hold_amount` عند إنشاء المهمة؛
+3. بعد انتهاء معالجة المصدر، يحسب `actual_cost` بناءً على عدد الصور الناجحة؛
+4. بعد التسوية، يحرّر أي حجز زائد؛
+5. إذا فشلت المهمة أو أُلغيت قبل الإرسال، يحاول النظام تحرير الحجز وفقًا لحالة المهمة.
+
+حقول الاستجابة:
+
+```text
+estimated_cost
+hold_amount
+actual_cost
+```
+
+تمثّل المبلغ المقدّر والمبلغ المحجوز والمبلغ الفعلي النهائي، على التوالي.
+
+<Callout type="info" title="التسعير يتبع تهيئة المجموعة الحالية">
+
+يمكن للمسؤول تهيئة الخصم الدفعي ومضاعف المجموعة ومضاعف الحساب وسعر الصورة الواحدة. لا تعِد الوثائق بأسعار ثابتة؛ ويتحدد الرسم النهائي بتفاصيل الاستخدام في وحدة التحكم وبـ `actual_cost` للدفعة.
+
+</Callout>
+
+---
+
+## 18. صيغة الخطأ
+
+تستخدم الواجهة الدفعية بنية الخطأ التالية:
+
+```json
+{
+  "error": {
+    "type": "invalid_request_error",
+    "code": "BATCH_IMAGE_INVALID_ITEMS",
+    "message": "batch image items are invalid"
+  }
+}
+```
+
+سجّل أيضًا معرّف الطلب من ترويسات الاستجابة. في وحدة التحكم، تُعرض رسالة الخطأ على النحو:
+
+```text
+Error code: BATCH_IMAGE_DISABLED
+Request ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+### رموز الأخطاء الشائعة
+
+| رمز الخطأ | HTTP | المعنى | ما يجب فعله |
+|---|---:|---|---|
+| `BATCH_IMAGE_DISABLED` | 404 | توليد الصور الدفعية العام غير مُفعّل | زوّد المسؤول برمز الخطأ ومعرّف الطلب |
+| `BATCH_IMAGE_GROUP_DISABLED` | 403 | مجموعة المفتاح الحالي لا تسمح بتوليد الصور الدفعي، أو ليست مجموعة Gemini | بدّل المفاتيح أو تواصل مع المسؤول لتفعيل إذن المجموعة |
+| `BATCH_IMAGE_NO_ACCOUNT_AVAILABLE` | 502 | لا توجد موارد تنفيذ دفعية متاحة حاليًا | احفظ معرّف الطلب وتواصل مع المسؤول |
+| `BATCH_IMAGE_SETTLEMENT_PRICING_MISSING` | 400 | النموذج الدفعي لا يملك سعر فوترة | تواصل مع المسؤول لتهيئة سعر النموذج |
+| `BATCH_IMAGE_INVALID_MODEL` | 400 | لم يُقدَّم أي نموذج | استخدم نموذجًا من قائمة النماذج الدفعية |
+| `BATCH_IMAGE_INVALID_ITEMS` | 400 | العناصر أو الدقة أو حقول الطلب غير صالحة | تحقق من نص الطلب؛ يُدعم 1K فقط حاليًا |
+| `BATCH_IMAGE_DUPLICATE_CUSTOM_ID` | 400 | `custom_id` مكرّر | تأكد من أنه فريد ضمن الدفعة نفسها |
+| `BATCH_IMAGE_PROMPT_TOO_LONG` | 400 | المطالبة طويلة جدًا | اختصر المطالبة |
+| `BATCH_IMAGE_TOO_MANY_OUTPUT_IMAGES` | 400 | عدد الصور بعد التوسّع يتجاوز الحد | قلّل العناصر أو output_count |
+| `BATCH_IMAGE_INVALID_REFERENCE_IMAGE` | 400 | صيغة الصورة المرجعية أو حجمها أو URI غير صالح | تحقق من نوع MIME وBase64 وfile_uri |
+| `BATCH_IMAGE_INSUFFICIENT_BALANCE` | 402 | الرصيد غير كافٍ لوضع الحجز | أعد الشحن أو قلّل حجم المهمة |
+| `BATCH_IMAGE_IDEMPOTENCY_CONFLICT` | 409 | مفتاح idempotency نفسه يشير إلى نص طلب مختلف | استخدم Idempotency-Key جديدًا |
+| `BATCH_IMAGE_PROVIDER_SUBMIT_FAILED` | 502 | فشل إنشاء مهمة الدفعة لدى المصدر | احفظ معرّف الطلب، وأعد المحاولة عددًا محدودًا من المرات، أو تواصل مع المسؤول |
+| `BATCH_IMAGE_QUEUE_FAILED` | 502 | خدمة المهام غير المتزامنة غير متاحة مؤقتًا | احفظ معرّف الطلب وتواصل مع المسؤول |
+| `BATCH_IMAGE_NOT_READY` | 409 | حاولت التنزيل قبل اكتمال المهمة | انتظر حتى تصبح الحالة completed |
+| `BATCH_IMAGE_OUTPUT_DELETED` | 410 | المخرجات نُظّفت بالفعل | لا يمكن تنزيلها مرة أخرى؛ تحتاج إلى إعادة إنشاء المهمة |
+| `BATCH_IMAGE_ITEM_FAILED` | 409 | عنصر المهمة المحدد لا يملك صورة ناجحة | تحقق من item.error |
+| `BATCH_IMAGE_DOWNLOAD_LIMITED` | 429 | عدد كبير جدًا من التنزيلات المتزامنة | أعد المحاولة لاحقًا |
+
+---
+
+## 19. الواجهة الدفعية مقابل الواجهة الفورية
+
+| الجانب | صور Gemini الفورية | الصور الدفعية غير المتزامنة |
+|---|---|---|
+| نقطة النهاية | `/v1beta/models/{model}:generateContent` | `/v1/images/batches` |
+| طريقة الإرجاع | تُرجِع صورة Base64 في طلب HTTP نفسه | تُرجِع معرّف دفعة؛ الاستطلاع والتنزيل لاحقًا |
+| الدقة | `1K / 2K / 4K` | تقبل حاليًا `1K` فقط، والمصدر يستخدم تهيئة صوره الافتراضية |
+| نسبة العرض إلى الارتفاع | يتحكم بها تعداد النِّسب الذي يدعمه النموذج فعليًا | لا يمكن تحديدها حاليًا؛ تستخدم نسبة العرض إلى الارتفاع الافتراضية للمصدر |
+| مطالبات متعددة | يُجري العميل عدة طلبات | تحتوي الدفعة الواحدة على عدة عناصر |
+| صور متعددة لكل عنصر | عدة طلبات منفصلة | `output_count`، حتى 4 افتراضيًا |
+| إدارة الحالة | يتتبّعها المستدعي بنفسه | حالة مهمة وتفاصيل وإلغاء وحذف مدمجة |
+| طريقة التنزيل | فك ترميز Base64 | تنزيل صورة مفردة أو ZIP |
+| التكلفة | تُفوتر لكل طلب فوري | تقدير، وحجز رصيد، وتسوية عند الاكتمال |
+| الأنسب لـ | التفاعل الفوري، واختبار الجودة، واختبارات ضغط الأداء | الإنتاج غير المتصل واسع النطاق |
+
+---
+
+## 20. قائمة تحقق التكامل
+
+- [ ] `/v1/images/batches/models` يُرجِع نموذجًا واحدًا على الأقل؛
+- [ ] مفتاح API الذي تستخدمه ينتمي إلى مجموعة Gemini تسمح بتوليد الصور الدفعي؛
+- [ ] إنشاء المهمة يتضمّن `Idempotency-Key` فريدًا؛
+- [ ] `image_size` يستخدم `1K`؛
+- [ ] جميع قيم `custom_id` فريدة؛
+- [ ] يمكنك الاستطلاع حتى `completed` أو حالة نهائية محددة؛
+- [ ] يمكنك الاستعلام عن تفاصيل النجاح / الفشل؛
+- [ ] يمكنك تنزيل صورة مفردة؛
+- [ ] يمكنك تنزيل ملف ZIP وقراءة بيان النتائج؛
+- [ ] يمكنك تحديد العناصر الفاشلة وتجنّب إعادة إرسال الدفعة بأكملها؛
+- [ ] تحققت من estimated_cost وhold_amount وactual_cost؛
+- [ ] تسجّل السجلات رمز الخطأ ومعرّف الطلب لكن دون مفتاح API الكامل.
+
+---
+
+## الخطوات التالية
+
+- النص إلى صورة والتحويل من صورة إلى صورة بشكل فوري: [Gemini Image API](/ar/docs/api/gemini-image)
+- الاستعلام عن تفاصيل الاستخدام والتكلفة: [تصدير تفاصيل الاستخدام](/ar/docs/api/usage-export)
+- مفاتيح API وتفاصيل البروتوكول: [بروتوكولات API](/ar/docs/guide/api-protocols)

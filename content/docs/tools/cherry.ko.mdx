@@ -1,0 +1,101 @@
+---
+title: Cherry Studio
+description: Cherry Studio를 LMU AI API에 연결하고 Claude, 중국어, OpenAI 모델 채널을 설정하며, 해외 직접 연결을 제공합니다.
+ogDescription: Cherry Studio를 LMU AI에 연결 — Claude / OpenAI / Gemini / 중국어 모델 채널을 원클릭으로 추가하고, 해외 직접 연결을 제공합니다.
+keywords:
+  - Cherry Studio
+  - Cherry Studio Claude
+  - Cherry Studio API 설정
+  - 중국에서 Cherry Studio 사용하기
+  - Cherry Studio OpenAI
+  - Cherry Studio Gemini
+  - Cherry Studio API 릴레이
+alternateNames:
+  - Cherry Studio를 LMU AI에 연결
+---
+
+Cherry Studio는 멀티 모델 AI 데스크톱 클라이언트입니다.
+
+---
+
+## 다운로드 및 설치
+
+- **데스크톱 공식 사이트**: [https://www.cherry-ai.com/](https://www.cherry-ai.com/)
+- **모바일 (Android & iOS)**: [https://github.com/CherryHQ/cherry-studio-app/releases](https://github.com/CherryHQ/cherry-studio-app/releases)
+  - Android: `.apk` 파일 다운로드
+  - iOS: `.ipa` 파일 다운로드
+
+모바일 설치 과정은 데스크톱과 거의 동일합니다 — 조금만 살펴보면 알 수 있습니다.
+
+---
+
+## 두 가지 프로토콜
+
+LMU AI는 두 가지 연결 프로토콜을 지원하며, 모델 유형에 따라 하나를 선택하세요:
+
+| 프로토콜 | 모델 |
+|------|----------|
+| **Anthropic** | Claude 모델, 중국어 모델 (DeepSeek, Qwen 등) |
+| **OpenAI-Response** | OpenAI 모델 (GPT-4, GPT-5 등) |
+
+---
+
+## 방법 1: Anthropic 프로토콜 (Claude 및 중국어 모델)
+
+### 1단계 — 제공자 추가
+
+Cherry Studio 설정으로 이동 → 제공자 추가 클릭:
+
+1. **제공자 이름**: 원하는 대로 (예: `LMU AI`)
+2. **제공자 유형**: 드롭다운에서 **`Anthropic`** 선택
+
+![Anthropic 제공자 추가](/images/tools/cherry-studio/c-studio-1.png)
+
+### 2단계 — API 세부 정보 입력
+
+- **API Key**: 콘솔에서 생성한 `sk-` 키 입력
+- **API Host**: API 릴레이 요청 주소 입력
+
+```
+https://api.lmuai.com
+```
+
+모델 목록 가져오기를 클릭하여 사용 가능한 모델을 검색하면 Claude 시리즈와 중국어 모델이 자동으로 로드됩니다.
+
+![Anthropic 설정 완료](/images/tools/cherry-studio/c-studio-2.png)
+
+---
+
+## 방법 2: OpenAI-Response 프로토콜 (OpenAI 모델)
+
+### 1단계 — 제공자 추가
+
+Cherry Studio 설정으로 이동 → 제공자 추가 클릭:
+
+1. **제공자 이름**: 원하는 대로 (예: `LMU AI`)
+2. **제공자 유형**: 드롭다운에서 **`OpenAI-Response`** 선택 (첫 번째 OpenAI가 아닌 두 번째 옵션)
+
+### 2단계 — API 세부 정보 입력
+
+- **API Key**: 콘솔에서 생성한 `sk-` 키 입력
+- **API Host**: API 릴레이 요청 주소 입력
+
+```
+https://api.lmuai.com
+```
+
+모델 목록 가져오기를 클릭하여 사용 가능한 모델을 검색하면 GPT 시리즈가 자동으로 로드됩니다.
+
+![OpenAI-Response 설정 완료](/images/tools/cherry-studio/c-studio-3.png)
+
+설정이 완료되면 채팅 화면에서 모델을 선택하여 사용할 수 있습니다:
+
+![채팅 화면](/images/tools/cherry-studio/c-studio-4.png)
+
+---
+
+## 참고 사항
+
+- 동일한 API Key와 API Host가 두 프로토콜 모두에서 작동합니다; 필요에 따라 두 개의 제공자를 추가하기만 하면 됩니다
+- OpenAI-Response 유형의 경우 첫 번째 OpenAI가 아닌 두 번째 옵션을 반드시 선택하세요
+- API 주소로 API 릴레이 주소를 입력하세요; 공식 OpenAI 또는 Anthropic 주소를 입력하지 마세요

@@ -1,0 +1,925 @@
+---
+title: Gemini 배치 이미지 API
+description: "LMU AI 비동기 배치 이미지 API: 여러 개의 Gemini 이미지 작업을 한 번에 제출하고, 상태와 상세 정보를 폴링하며, 이미지 또는 ZIP을 다운로드하고, 멱등성과 비용 추정을 처리합니다."
+ogDescription: "LMU AI Gemini 배치 이미지 API 문서: POST /v1/images/batches로 다중 프롬프트 작업을 제출하고, 상태를 폴링하며, 상세 정보를 조회하고, ZIP을 다운로드하며, 작업을 취소하고, BATCH_IMAGE_DISABLED 같은 오류를 처리합니다."
+keywords:
+  - Gemini 배치 이미지 API
+  - Gemini Batch API
+  - 배치 이미지 생성 API
+  - Gemini 배치 작업
+  - images batches
+  - LMU AI 배치 이미지 생성
+  - Gemini JSONL Batch
+  - 배치 텍스트-이미지 변환
+alternateNames:
+  - LMU AI 비동기 배치 이미지 API
+  - Gemini 이미지 배치 처리 API
+  - Image Batches API
+faq:
+  - q: 배치 이미지 API는 공개 API인가요, 아니면 내부 API인가요?
+    a: "LMU AI가 사용자에게 제공하는 확장 API입니다. Authorization Bearer를 통해 본인의 sk- API 키로 인증하며, LMU AI 콘솔의 배치 이미지 페이지에서도 직접 호출됩니다."
+  - q: 배치 API에서 gpt-image-2를 사용할 수 있나요?
+    a: "현재는 불가능합니다. /v1/images/batches의 백엔드 제공자 및 그룹 검증은 지금은 Gemini만 지원합니다. GPT의 경우 /v1/images/generations, /v1/images/edits 또는 비동기 단일 작업 API를 사용하세요."
+  - q: BATCH_IMAGE_DISABLED는 무슨 의미인가요?
+    a: "현재 API 릴레이 배포에서 전역 배치 이미지 기능이 활성화되지 않았음을 의미합니다. API 키나 프롬프트 오류가 아닙니다. 오류 코드와 요청 ID를 관리자에게 제공하세요."
+  - q: 배치 이미지 생성은 2K와 4K를 지원하나요?
+    a: "배치 API는 현재 1K만 허용합니다. 실시간 Gemini generateContent API는 1K, 2K, 4K를 지원합니다. 향후 배치 API가 확장되면 문서를 그에 맞게 업데이트할 예정입니다."
+  - q: 배치 작업을 제출하면 곧바로 모든 이미지가 반환되나요?
+    a: "아니요. 배치 API는 비동기 작업 API입니다. 제출 후 배치 ID를 반환하며, 클라이언트는 작업 상태를 폴링한 다음 완료되면 개별 이미지 또는 ZIP을 다운로드해야 합니다."
+---
+
+LMU AI Gemini 배치 이미지 API를 사용하면 여러 개의 Gemini 이미지 작업을 한 번에 제출할 수 있습니다. 서버는 배치 작업을 비동기로 생성하고, 상태를 추적하며, 결과를 정리하고, 비용을 정산합니다.
+
+주요 엔드포인트:
+
+```text
+POST https://api.lmuai.com/v1/images/batches
+```
+
+<Callout type="info" title="이것은 LMU AI 확장 API입니다">
+
+배치 API는 `/v1/images/batches`에 있습니다. LMU AI가 사용자에게 제공하는 비동기 작업 API이며, Google Gemini의 네이티브 `/v1beta` 경로가 아닙니다.
+
+**현재 구현은 Gemini만 지원합니다.** 요청 본문에 일반적인 `model` 필드가 포함되어 있더라도, 이 엔드포인트에서는 `gpt-image-2`나 Grok 이미지 모델을 제출할 수 없습니다. GPT 텍스트-이미지 변환은 [GPT 이미지 API](/ko/docs/api/gpt-image)를, Grok 텍스트-이미지 변환은 [Grok 이미지 API](/ko/docs/api/grok-image)를 사용하세요.
+
+단일 Gemini 이미지만 생성하거나 `2K / 4K`가 필요하다면 [실시간 Gemini 이미지 API](/ko/docs/api/gemini-image)를 사용하세요.
+
+</Callout>
+
+---
+
+## 1. 사용 시점
+
+배치 API는 다음과 같은 경우에 적합합니다:
+
+- 수십에서 수백 개의 서로 다른 프롬프트를 한 번에 제출할 때;
+- 이미지 작업이 동일한 HTTP 요청 내에서 즉시 반환될 필요가 없을 때;
+- 작업 상태, 실패 상세 정보, 취소, 배치 다운로드가 필요할 때;
+- 아티클 삽화, 이커머스 자산, 데이터셋 또는 디자인 후보를 오프라인으로 생성할 때;
+- `Idempotency-Key`를 사용해 중복 제출과 이중 과금을 방지하고 싶을 때.
+
+다음과 같은 경우에는 적합하지 않습니다:
+
+- 단일 실시간 이미지 생성의 지연 시간을 측정할 때;
+- `2K / 4K`가 필요할 때;
+- 이미지를 동기적으로 기다렸다가 즉시 표시해야 할 때;
+- 동시성 또는 RPM 부하 테스트를 실행할 때.
+
+---
+
+## 2. 사전 요구 사항
+
+배치 기능은 관리자가 배포 측과 그룹 측 모두에서 활성화하고, 호환되는 업스트림 계정과 가격을 구성해야 합니다.
+
+먼저 모델 목록을 요청하여 기능이 사용 가능한지 확인할 수 있습니다:
+
+```http
+GET /v1/images/batches/models
+```
+
+<Callout type="warn" title="BATCH_IMAGE_DISABLED를 반환하는 경우">
+
+`BATCH_IMAGE_DISABLED`는 API 릴레이의 전역 배치 이미지 기능이 활성화되지 않았음을 의미합니다. API 키, 모델 또는 프롬프트 오류가 아닙니다.
+
+응답 헤더의 전체 오류 코드와 요청 ID를 관리자에게 제공하세요. 예:
+
+```text
+Error code: BATCH_IMAGE_DISABLED
+Request ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+</Callout>
+
+일반적인 허용 조건:
+
+- 현재 API 키 상태가 활성 상태일 것;
+- API 키의 그룹 플랫폼이 Gemini일 것;
+- 그룹이 배치 이미지 생성을 허용할 것;
+- 배치 이미지 실행 리소스가 사용 가능할 것;
+- 모델에 배치 이미지 가격이 구성되어 있을 것;
+- 비동기 배치 작업 서비스가 정상 실행 중일 것.
+
+---
+
+## 3. 인증
+
+배치 API는 본인의 LMU AI API 키를 사용합니다:
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+예:
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/models' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+API 키를 URL, 프런트엔드 소스 코드 또는 공개 저장소에 넣지 마세요.
+
+---
+
+## 4. 엔드포인트 개요
+
+| 메서드 | 경로 | 설명 |
+|---|---|---|
+| `GET` | `/v1/images/batches/models` | 현재 키가 배치 이미지 생성에 사용할 수 있는 모델 목록 조회 |
+| `POST` | `/v1/images/batches` | 배치 이미지 작업 생성 |
+| `GET` | `/v1/images/batches` | 현재 키가 생성한 배치 작업 목록 조회 |
+| `GET` | `/v1/images/batches/{id}` | 특정 작업의 상태 조회 |
+| `GET` | `/v1/images/batches/{id}/items` | 작업 항목 상세 조회 |
+| `GET` | `/v1/images/batches/{id}/items/{custom_id}/content` | 단일 작업 항목의 이미지 다운로드 |
+| `GET` | `/v1/images/batches/{id}/download` | 배치 전체를 ZIP으로 다운로드 |
+| `POST` | `/v1/images/batches/{id}/cancel` | 작업 취소 |
+| `DELETE` | `/v1/images/batches/{id}/outputs` | 배치 출력 파일 삭제 |
+| `DELETE` | `/v1/images/batches/{id}` | 배치 작업 레코드 삭제 |
+
+모든 작업 데이터는 작업을 생성한 API 키로 격리됩니다.
+
+---
+
+## 5. 사용 가능한 배치 모델 목록
+
+### `GET /v1/images/batches/models`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/models' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+일반적인 응답(발췌):
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "gemini-3.1-flash-image",
+      "object": "image.batch.model"
+    }
+  ]
+}
+```
+
+<Callout type="info" title="배치 모델 목록은 일반 모델 목록과 다릅니다">
+
+`/v1/images/batches/models`를 배치 작업의 모델 선택기로 사용하세요. 여기서는 배치 기능 권한, 실행 리소스, 모델 지원, 배치 과금 구성을 추가로 확인합니다.
+
+일반 `/v1/models` 또는 `/v1beta/models`가 반환하는 모든 모델을 비동기 배치 이미지 생성에 사용할 수 있는 것은 아닙니다.
+
+</Callout>
+
+---
+
+## 6. 배치 작업 생성
+
+### `POST /v1/images/batches`
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1/images/batches' \
+  --header 'Authorization: Bearer YOUR_API_KEY' \
+  --header 'Idempotency-Key: client-batch-20260725-001' \
+  --header 'Content-Type: application/json' \
+  --data-raw '{
+    "model": "gemini-3.1-flash-image",
+    "task_name": "Product image batch eval 001",
+    "response_mime_type": "image/png",
+    "image_size": "1K",
+    "items": [
+      {
+        "custom_id": "image_001",
+        "prompt": "An orange tabby cat wearing an astronaut helmet, cinematic lighting",
+        "output_count": 1
+      },
+      {
+        "custom_id": "image_002",
+        "prompt": "A futuristic city in morning mist, ultra-wide-angle photography",
+        "output_count": 1
+      },
+      {
+        "custom_id": "image_003",
+        "prompt": "A seaside lighthouse at sunset, watercolor illustration, warm tones",
+        "output_count": 1
+      }
+    ]
+  }'
+```
+
+### 최상위 요청 필드
+
+| 필드 | 타입 | 필수 | 기본값 | 설명 |
+|---|---:|:---:|---|---|
+| `model` | string | 예 | — | 배치 모델 목록에서 가져와야 함 |
+| `task_name` | string | 아니요 | 자동 생성 | 작업 이름; 너무 긴 내용은 잘림 |
+| `parent_batch_id` | string | 아니요 | — | 상위 작업을 연결하며, 실패한 항목 재시도에 적합 |
+| `items` | array | 예 | — | 배치 작업 항목, 최소 하나 이상 |
+| `response_mime_type` | string | 아니요 | `image/png` | 예상되는 출력 MIME 타입 |
+| `aspect_ratio` | string | 아니요 | — | 현재 버전에서는 업스트림으로 전달되지 않음; 종횡비 제어에 이 필드를 의존하지 마세요 |
+| `image_size` | string | 아니요 | `1K` | 현재는 `1K`만 지원 |
+| `metadata` | object | 아니요 | — | 사용자 지정 문자열 키-값 쌍 |
+
+### `items[]` 필드
+
+| 필드 | 타입 | 필수 | 기본값 | 설명 |
+|---|---:|:---:|---|---|
+| `custom_id` | string | 아니요 | 자동 생성 | 호출자의 작업 ID, 동일 배치 내에서 고유해야 함 |
+| `prompt` | string | 예 | — | 각 작업은 서로 다른 프롬프트를 사용할 수 있음 |
+| `output_count` | integer | 아니요 | `1` | 현재 항목당 최대 4개, 배포 구성에 따라 달라짐 |
+| `reference_images` | array | 아니요 | — | 이미지-이미지 변환을 위한 참조 이미지 |
+
+### Idempotency-Key
+
+작업을 생성할 때마다 고유한 값을 포함하는 것을 강력히 권장합니다:
+
+```http
+Idempotency-Key: client-batch-20260725-001
+```
+
+동일한 API 키가 동일한 `Idempotency-Key`와 동일한 요청 본문으로 재제출하면, 서버는 원래 작업을 반환하여 네트워크 시간 초과 후 중복 생성과 중복 비용 홀드를 방지할 수 있습니다.
+
+동일한 `Idempotency-Key`를 재사용하되 요청 내용이 다르면 다음을 반환합니다:
+
+```text
+BATCH_IMAGE_IDEMPOTENCY_CONFLICT
+```
+
+---
+
+## 7. 현재 배치 제한
+
+아래는 소스 코드의 기본 제한입니다. 실제 배포는 관리자가 조정할 수 있습니다:
+
+| 제한 | 기본값 |
+|---|---:|
+| 배치당 최대 입력 항목 수 | 200 |
+| 배치당 최대 출력 이미지 수 | 200 |
+| 항목당 최대 `output_count` | 4 |
+| 프롬프트당 최대 문자 수 | 8000 |
+| 인라인 참조 이미지당 최대 크기 | 10 MiB |
+| ZIP당 기본 최대 항목 수 | 200 |
+
+### 배치 종횡비는 아직 지정할 수 없음
+
+<Callout type="warn" title="aspect_ratio는 현재 효과가 없습니다">
+
+배치 요청 구조에 `aspect_ratio` 필드가 유지되어 있지만, 현재 Gemini Batch 및 Vertex Batch 요청 생성 로직은 이를 아직 업스트림 `generationConfig.imageConfig`에 기록하지 않습니다.
+
+그 결과, 배치 작업의 종횡비는 현재 업스트림 기본 동작에 의해 결정됩니다. 요청에서 `aspect_ratio`를 생략하고 이를 안정적인 API 기능으로 의존하지 마세요.
+
+`1:1`, `16:9`, `21:9`와 같은 종횡비를 정밀하게 제어해야 할 때는 [실시간 Gemini 이미지 API](/ko/docs/api/gemini-image)를 사용하세요.
+
+</Callout>
+
+### 1K만 지원됨
+
+<Callout type="warn" title="배치 API는 아직 2K / 4K를 지원하지 않습니다">
+
+배치 API의 `image_size`는 현재 다음만 허용합니다:
+
+```json
+{
+  "image_size": "1K"
+}
+```
+
+`2K` 또는 `4K`를 제출하면 `BATCH_IMAGE_INVALID_ITEMS`를 반환합니다.
+
+`2K / 4K`가 필요할 때는 [실시간 Gemini 이미지 API](/ko/docs/api/gemini-image)를 사용하고 클라이언트 측에서 다중 요청 동시성을 관리하세요.
+
+</Callout>
+
+### output_count가 작업으로 확장되는 방식
+
+항목이 다음과 같이 설정되면:
+
+```json
+{
+  "custom_id": "poster",
+  "prompt": "Movie poster",
+  "output_count": 3
+}
+```
+
+서버는 이를 별도의 작업 ID로 확장합니다. 예:
+
+```text
+poster_01
+poster_02
+poster_03
+```
+
+확장 후 총 이미지 수는 배치의 최대 출력 수를 초과할 수 없습니다.
+
+---
+
+## 8. 배치 이미지-이미지 변환
+
+각 항목에 `reference_images`를 포함할 수 있습니다:
+
+```json
+{
+  "model": "gemini-3.1-flash-image",
+  "task_name": "Product image style transfer",
+  "image_size": "1K",
+  "items": [
+    {
+      "custom_id": "product_001",
+      "prompt": "Place the product on a clean light-gray studio background, keeping the product structure and text accurate",
+      "reference_images": [
+        {
+          "id": "source_001",
+          "type": "reference",
+          "mime_type": "image/png",
+          "data": "BASE64_IMAGE_DATA"
+        }
+      ]
+    }
+  ]
+}
+```
+
+### 참조 이미지 필드
+
+| 필드 | 타입 | 필수 | 설명 |
+|---|---:|:---:|---|
+| `id` | string | 아니요 | 참조 이미지 ID |
+| `type` | string | 아니요 | 참조 이미지 용도를 나타내는 태그 |
+| `mime_type` | string | 예 | `image/png`, `image/jpeg` 또는 `image/webp` |
+| `data` | string | 둘 중 하나 | 이미지의 Base64 내용 |
+
+공개 API 통합의 경우, `data`를 통해 Base64 참조 이미지를 전달하는 것을 권장합니다. 다른 스토리지 참조 방식은 제어된 고급 기능이므로 필요하면 관리자에게 문의하세요.
+
+참조 이미지 개수는 모델에 따라 달라집니다. 서비스는 현재 모델 이름을 기반으로 다음 기본 제한을 적용합니다:
+
+- 이름에 `flash-image`가 포함된 경우: 작업당 최대 3개의 참조 이미지;
+- 이름에 `pro-image`가 포함된 경우: 작업당 최대 14개의 참조 이미지.
+
+실제 사용 가능한 개수는 업스트림 모델 기능과 배포 구성에 의해서도 영향을 받을 수 있습니다.
+
+---
+
+## 9. 작업 생성 응답
+
+생성이 성공하면 HTTP `200`과 배치 객체를 반환합니다:
+
+```json
+{
+  "id": "imgbatch_abc123",
+  "object": "image.batch",
+  "task_name": "Product image batch eval 001",
+  "status": "queued",
+  "model": "gemini-3.1-flash-image",
+  "item_count": 3,
+  "success_count": 0,
+  "fail_count": 0,
+  "estimated_cost": 0.15,
+  "hold_amount": 0.09,
+  "actual_cost": null,
+  "created_at": 1784995200,
+  "submitted_at": 1784995201,
+  "settled_at": null
+}
+```
+
+### 주요 필드
+
+| 필드 | 설명 |
+|---|---|
+| `id` | 이후 조회 및 다운로드에 사용되는 배치 ID |
+| `status` | 사용자에게 노출되는 작업 상태 |
+| `item_count` | 확장 후 총 작업 항목 수 |
+| `success_count` | 성공한 작업 수 |
+| `fail_count` | 실패한 작업 수 |
+| `estimated_cost` | 제출 시점의 추정 비용 |
+| `hold_amount` | 작업 생성 시 설정되는 잔액 홀드 |
+| `actual_cost` | 정산 후 실제 비용; 미완료 상태에서는 `null` |
+
+<Callout type="info" title="제출 성공이 이미지 준비 완료를 의미하지는 않습니다">
+
+생성 엔드포인트의 `200`은 배치가 수락되어 비동기 처리 파이프라인에 제출되었음을 의미할 뿐입니다. 클라이언트는 작업 상태가 `completed`, `failed` 또는 `cancelled`에 도달할 때까지 계속 폴링해야 합니다.
+
+</Callout>
+
+---
+
+## 10. 작업 상태 조회
+
+### `GET /v1/images/batches/{id}`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/imgbatch_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+### 사용자 대상 상태
+
+| 상태 | 설명 | 종료 상태 |
+|---|---|:---:|
+| `queued` | 생성됨, 업로드됨 또는 제출됨; 업스트림 처리 대기 중 | 아니요 |
+| `running` | 업스트림이 이미지를 생성 중 | 아니요 |
+| `processing_results` | 업스트림 결과 다운로드 및 인덱싱 중 | 아니요 |
+| `settling` | 실제 비용 정산 중 | 아니요 |
+| `completed` | 처리 완료; 결과 조회 및 다운로드 가능 | 예 |
+| `failed` | 배치 실패 | 예 |
+| `cancelled` | 취소됨 | 예 |
+| `output_deleted` | 출력 파일이 삭제되었으나 작업 레코드는 유지됨 | 예 |
+
+권장 폴링 간격:
+
+```text
+First 2 minutes: every 10-15 seconds
+After 2 minutes: every 30 seconds
+Long tasks: gradually increase to every 60 seconds
+```
+
+매초마다 폴링하지 마세요.
+
+<Callout type="warn" title="완료 웹훅은 아직 지원되지 않습니다">
+
+배치 API는 현재 `callback_url`, `webhook_url` 또는 완료 콜백 구성이 없습니다. 작업이 완료되어도 호출자의 서버에 능동적으로 알리지 않습니다.
+
+호출자는 `GET /v1/images/batches/{id}`를 폴링하고, 상태가 `completed`, `failed`, `cancelled` 또는 `output_deleted`에 도달하면 폴링을 중지한 다음 상세 정보를 조회하거나 결과를 다운로드해야 합니다.
+
+</Callout>
+
+---
+
+## 11. 작업 목록
+
+### `GET /v1/images/batches`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches?status=completed&limit=20' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+### 쿼리 매개변수
+
+| 매개변수 | 타입 | 설명 |
+|---|---|---|
+| `status` | string | `queued`, `running`, `processing_results`, `settling`, `completed`, `failed`, `cancelled`, `output_deleted` |
+| `task_name` | string | 작업 이름으로 퍼지 검색 |
+| `downloaded` | string | `true` / `false`, 다운로드 여부로 필터링 |
+| `from` | string | 생성 시간 범위의 시작 |
+| `to` | string | 생성 시간 범위의 끝 |
+| `limit` | integer | 기본값 20, 최대 100 |
+| `cursor` | string | 페이지네이션 커서 |
+
+응답:
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "id": "imgbatch_abc123",
+      "object": "image.batch",
+      "task_name": "Product image batch eval 001",
+      "status": "completed",
+      "model": "gemini-3.1-flash-image",
+          "item_count": 3,
+      "success_count": 3,
+      "fail_count": 0,
+      "estimated_cost": 0.15,
+      "hold_amount": 0.09,
+      "actual_cost": 0.12,
+      "created_at": 1784995200,
+      "submitted_at": 1784995201,
+      "settled_at": 1784998800
+    }
+  ],
+  "has_more": false
+}
+```
+
+---
+
+## 12. 작업 항목 상세 조회
+
+### `GET /v1/images/batches/{id}/items`
+
+```bash
+curl 'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/items?status=success&limit=100' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+지원되는 `status` 값:
+
+```text
+all
+pending
+success
+failed
+```
+
+일반적인 응답(발췌):
+
+```json
+{
+  "object": "list",
+  "data": [
+    {
+      "custom_id": "image_001",
+      "status": "success",
+      "prompt_preview": "An orange tabby cat wearing an astronaut helmet...",
+      "mime_type": "image/png",
+      "file_extension": "png",
+      "image_count": 1,
+      "error": null
+    },
+    {
+      "custom_id": "image_002",
+      "status": "failed",
+      "prompt_preview": "A futuristic city in morning mist...",
+      "mime_type": null,
+      "file_extension": null,
+      "image_count": 0,
+      "error": {
+        "code": "PROVIDER_ITEM_FAILED",
+        "message": "image generation failed",
+        "source": "provider"
+      }
+    }
+  ],
+  "has_more": false
+}
+```
+
+작업 항목은 페이지당 기본 100개이며, 최대 500개입니다.
+
+---
+
+## 13. 이미지 다운로드
+
+### 단일 작업 항목 다운로드
+
+```bash
+curl \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/items/image_001/content' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  --output image_001.png
+```
+
+작업 항목에 여러 이미지가 있는 경우 다음을 지정할 수 있습니다:
+
+```text
+?image_index=0
+?image_index=1
+```
+
+`image_index`는 0부터 시작합니다.
+
+### 배치 전체를 ZIP으로 다운로드
+
+```bash
+curl \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/download' \
+  -H 'Authorization: Bearer YOUR_API_KEY' \
+  --output imgbatch_abc123.zip
+```
+
+선택 매개변수:
+
+```text
+?status=success
+?max_items=100
+```
+
+ZIP에는 이미지와 결과 매니페스트가 포함됩니다. 다운로드가 성공하면 작업에 `downloaded_at`이 기록됩니다.
+
+---
+
+## 14. 취소 및 삭제
+
+### 작업 취소
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/cancel' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+이미 종료 상태에 도달한 작업은 다시 취소되지 않습니다. 업스트림 과금을 여전히 방지할 수 있는지는 업스트림 Batch 작업의 현재 상태에 따라 달라집니다.
+
+### 출력 파일 삭제
+
+```bash
+curl --request DELETE \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123/outputs' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+출력이 삭제되면 상태가 `output_deleted`로 표시되고 이미지를 더 이상 다운로드할 수 없습니다.
+
+### 작업 레코드 삭제
+
+```bash
+curl --request DELETE \
+  'https://api.lmuai.com/v1/images/batches/imgbatch_abc123' \
+  -H 'Authorization: Bearer YOUR_API_KEY'
+```
+
+종료 상태의 작업만 레코드를 삭제할 수 있습니다. 성공 시 HTTP `204`를 반환합니다.
+
+<Callout type="warn" title="레코드 삭제와 이미지 삭제는 서로 다릅니다">
+
+- 출력 삭제: 이미지 파일을 정리하지만 작업 레코드는 유지됩니다;
+- 레코드 삭제: 현재 사용자의 작업 목록에서 작업을 숨깁니다;
+- 프로덕션 시스템은 결과가 다운로드되어 보관되었는지 확인한 후 삭제해야 합니다.
+
+</Callout>
+
+---
+
+## 15. 전체 Node.js 워크플로
+
+```js
+import { mkdir, writeFile } from 'node:fs/promises';
+
+const BASE_URL = process.env.LMU_BASE_URL || 'https://api.lmuai.com';
+const API_KEY = process.env.LMU_API_KEY;
+
+if (!API_KEY) throw new Error('Missing LMU_API_KEY');
+
+const headers = {
+  Authorization: `Bearer ${API_KEY}`,
+};
+
+async function jsonRequest(path, options = {}) {
+  const response = await fetch(`${BASE_URL}${path}`, {
+    ...options,
+    headers: {
+      ...headers,
+      ...(options.headers || {}),
+    },
+  });
+
+  const text = await response.text();
+  let data;
+  try {
+    data = text ? JSON.parse(text) : null;
+  } catch {
+    throw new Error(`Non-JSON response: HTTP ${response.status}`);
+  }
+
+  if (!response.ok) {
+    const error = data?.error || {};
+    throw new Error(
+      `${error.code || response.status}: ${error.message || text}`,
+    );
+  }
+
+  return data;
+}
+
+const batch = await jsonRequest('/v1/images/batches', {
+  method: 'POST',
+  headers: {
+    'Content-Type': 'application/json',
+    'Idempotency-Key': `client-${Date.now()}`,
+  },
+  body: JSON.stringify({
+    model: 'gemini-3.1-flash-image',
+    task_name: 'Node batch image demo',
+    image_size: '1K',
+    items: [
+      { custom_id: 'cat', prompt: 'A cinematic astronaut orange tabby cat' },
+      { custom_id: 'city', prompt: 'A futuristic city in morning mist' },
+    ],
+  }),
+});
+
+console.log('batch id:', batch.id);
+
+let job = batch;
+while (!['completed', 'failed', 'cancelled', 'output_deleted'].includes(job.status)) {
+  await new Promise((resolve) => setTimeout(resolve, 15_000));
+  job = await jsonRequest(`/v1/images/batches/${encodeURIComponent(batch.id)}`);
+  console.log('status:', job.status);
+}
+
+if (job.status !== 'completed') {
+  throw new Error(`Batch task did not complete successfully: ${job.status}`);
+}
+
+const items = await jsonRequest(
+  `/v1/images/batches/${encodeURIComponent(batch.id)}/items?status=success`,
+);
+
+await mkdir('batch-output', { recursive: true });
+
+for (const item of items.data || []) {
+  const response = await fetch(
+    `${BASE_URL}/v1/images/batches/${encodeURIComponent(batch.id)}` +
+      `/items/${encodeURIComponent(item.custom_id)}/content`,
+    { headers },
+  );
+
+  if (!response.ok) {
+    console.error('Download failed:', item.custom_id, response.status);
+    continue;
+  }
+
+  const extension = item.file_extension || 'png';
+  await writeFile(
+    `batch-output/${item.custom_id}.${extension}`,
+    Buffer.from(await response.arrayBuffer()),
+  );
+}
+```
+
+---
+
+## 16. 전체 Python 워크플로
+
+```python
+import os
+import time
+from pathlib import Path
+import requests
+
+BASE_URL = os.getenv("LMU_BASE_URL", "https://api.lmuai.com")
+API_KEY = os.environ["LMU_API_KEY"]
+HEADERS = {"Authorization": f"Bearer {API_KEY}"}
+
+payload = {
+    "model": "gemini-3.1-flash-image",
+    "task_name": "Python batch image demo",
+    "image_size": "1K",
+    "items": [
+        {"custom_id": "cat", "prompt": "A cinematic astronaut orange tabby cat"},
+        {"custom_id": "city", "prompt": "A futuristic city in morning mist"},
+    ],
+}
+
+response = requests.post(
+    f"{BASE_URL}/v1/images/batches",
+    headers={
+        **HEADERS,
+        "Content-Type": "application/json",
+        "Idempotency-Key": f"client-{int(time.time())}",
+    },
+    json=payload,
+    timeout=300,
+)
+response.raise_for_status()
+batch = response.json()
+print("batch id:", batch["id"])
+
+terminal = {"completed", "failed", "cancelled", "output_deleted"}
+job = batch
+while job["status"] not in terminal:
+    time.sleep(15)
+    response = requests.get(
+        f"{BASE_URL}/v1/images/batches/{batch['id']}",
+        headers=HEADERS,
+        timeout=60,
+    )
+    response.raise_for_status()
+    job = response.json()
+    print("status:", job["status"])
+
+if job["status"] != "completed":
+    raise RuntimeError(f"Batch task did not complete successfully: {job['status']}")
+
+items_response = requests.get(
+    f"{BASE_URL}/v1/images/batches/{batch['id']}/items",
+    headers=HEADERS,
+    params={"status": "success"},
+    timeout=60,
+)
+items_response.raise_for_status()
+items = items_response.json().get("data", [])
+
+output_dir = Path("batch-output")
+output_dir.mkdir(exist_ok=True)
+
+for item in items:
+    content = requests.get(
+        f"{BASE_URL}/v1/images/batches/{batch['id']}"
+        f"/items/{item['custom_id']}/content",
+        headers=HEADERS,
+        timeout=300,
+    )
+    content.raise_for_status()
+    extension = item.get("file_extension") or "png"
+    (output_dir / f"{item['custom_id']}.{extension}").write_bytes(content.content)
+```
+
+---
+
+## 17. 과금 및 잔액 홀드
+
+배치 작업은 "추정, 홀드, 완료 시 정산" 흐름을 따릅니다:
+
+1. 서버는 모델, 작업 수, 그룹 배수, 배치 할인을 기반으로 비용을 추정합니다;
+2. 작업 생성 시 `hold_amount` 홀드를 설정합니다;
+3. 업스트림 처리가 완료되면 성공한 이미지 수를 기반으로 `actual_cost`를 계산합니다;
+4. 정산 후 초과 홀드를 해제합니다;
+5. 제출 전에 작업이 실패하거나 취소되면 시스템은 작업 상태에 따라 홀드를 해제하려고 시도합니다.
+
+응답 필드:
+
+```text
+estimated_cost
+hold_amount
+actual_cost
+```
+
+는 각각 추정 금액, 홀드된 금액, 최종 실제 금액을 나타냅니다.
+
+<Callout type="info" title="가격은 현재 그룹 구성을 따릅니다">
+
+배치 할인, 그룹 배수, 계정 배수, 이미지당 가격은 모두 관리자가 구성할 수 있습니다. 문서는 고정 가격을 약속하지 않습니다. 최종 과금은 콘솔의 사용 상세 정보와 배치의 `actual_cost`에 의해 결정됩니다.
+
+</Callout>
+
+---
+
+## 18. 오류 형식
+
+배치 API는 다음 오류 구조를 사용합니다:
+
+```json
+{
+  "error": {
+    "type": "invalid_request_error",
+    "code": "BATCH_IMAGE_INVALID_ITEMS",
+    "message": "batch image items are invalid"
+  }
+}
+```
+
+또한 응답 헤더의 요청 ID를 기록하세요. 콘솔에서는 오류 메시지가 다음과 같이 표시됩니다:
+
+```text
+Error code: BATCH_IMAGE_DISABLED
+Request ID: xxxxxxxx-xxxx-xxxx-xxxx-xxxxxxxxxxxx
+```
+
+### 일반적인 오류 코드
+
+| 오류 코드 | HTTP | 의미 | 조치 |
+|---|---:|---|---|
+| `BATCH_IMAGE_DISABLED` | 404 | 전역 배치 이미지 생성이 활성화되지 않음 | 오류 코드와 요청 ID를 관리자에게 제공 |
+| `BATCH_IMAGE_GROUP_DISABLED` | 403 | 현재 키의 그룹이 배치 이미지 생성을 허용하지 않거나 Gemini 그룹이 아님 | 키를 변경하거나 관리자에게 그룹 권한 활성화 요청 |
+| `BATCH_IMAGE_NO_ACCOUNT_AVAILABLE` | 502 | 현재 사용 가능한 배치 실행 리소스가 없음 | 요청 ID를 저장하고 관리자에게 문의 |
+| `BATCH_IMAGE_SETTLEMENT_PRICING_MISSING` | 400 | 배치 모델에 과금 가격이 없음 | 관리자에게 모델 가격 구성 요청 |
+| `BATCH_IMAGE_INVALID_MODEL` | 400 | 모델이 제공되지 않음 | 배치 모델 목록의 모델 사용 |
+| `BATCH_IMAGE_INVALID_ITEMS` | 400 | items, 해상도 또는 요청 필드가 유효하지 않음 | 요청 본문 확인; 현재는 1K만 지원됨 |
+| `BATCH_IMAGE_DUPLICATE_CUSTOM_ID` | 400 | 중복된 `custom_id` | 동일 배치 내에서 고유한지 확인 |
+| `BATCH_IMAGE_PROMPT_TOO_LONG` | 400 | 프롬프트가 너무 김 | 프롬프트 단축 |
+| `BATCH_IMAGE_TOO_MANY_OUTPUT_IMAGES` | 400 | 확장 후 이미지 수가 제한을 초과 | items 또는 output_count 감소 |
+| `BATCH_IMAGE_INVALID_REFERENCE_IMAGE` | 400 | 참조 이미지 형식, 크기 또는 URI가 유효하지 않음 | MIME 타입, Base64, file_uri 확인 |
+| `BATCH_IMAGE_INSUFFICIENT_BALANCE` | 402 | 홀드를 설정할 잔액이 부족함 | 충전하거나 작업량 감소 |
+| `BATCH_IMAGE_IDEMPOTENCY_CONFLICT` | 409 | 동일한 멱등성 키가 다른 요청 본문에 매핑됨 | 새 Idempotency-Key 사용 |
+| `BATCH_IMAGE_PROVIDER_SUBMIT_FAILED` | 502 | 업스트림 배치 작업 생성 실패 | 요청 ID를 저장하고 제한된 횟수 재시도하거나 관리자에게 문의 |
+| `BATCH_IMAGE_QUEUE_FAILED` | 502 | 비동기 작업 서비스가 일시적으로 사용 불가 | 요청 ID를 저장하고 관리자에게 문의 |
+| `BATCH_IMAGE_NOT_READY` | 409 | 작업 완료 전에 다운로드를 시도함 | 상태가 completed가 될 때까지 대기 |
+| `BATCH_IMAGE_OUTPUT_DELETED` | 410 | 출력이 이미 정리됨 | 다시 다운로드할 수 없음; 작업을 재생성해야 함 |
+| `BATCH_IMAGE_ITEM_FAILED` | 409 | 지정된 작업 항목에 성공한 이미지가 없음 | item.error 확인 |
+| `BATCH_IMAGE_DOWNLOAD_LIMITED` | 429 | 동시 다운로드가 너무 많음 | 나중에 재시도 |
+
+---
+
+## 19. 배치 API와 실시간 API 비교
+
+| 측면 | 실시간 Gemini 이미지 | 비동기 배치 이미지 |
+|---|---|---|
+| 엔드포인트 | `/v1beta/models/{model}:generateContent` | `/v1/images/batches` |
+| 반환 방식 | 동일한 HTTP 요청에서 Base64 이미지 반환 | 배치 ID 반환; 이후 폴링 및 다운로드 |
+| 해상도 | `1K / 2K / 4K` | 현재 `1K`만 허용, 업스트림은 기본 이미지 구성 사용 |
+| 종횡비 | 모델이 실제로 지원하는 비율 열거형으로 제어 | 현재 지정 불가; 업스트림 기본 종횡비 사용 |
+| 다중 프롬프트 | 클라이언트가 여러 요청 수행 | 하나의 배치에 여러 항목 포함 |
+| 항목당 다중 이미지 | 여러 개의 개별 요청 | `output_count`, 기본 최대 4개 |
+| 상태 관리 | 호출자가 직접 추적 | 내장 작업 상태, 상세 정보, 취소, 삭제 |
+| 다운로드 방식 | Base64 디코딩 | 단일 이미지 다운로드 또는 ZIP |
+| 비용 | 실시간 요청당 과금 | 추정, 잔액 홀드, 완료 시 정산 |
+| 적합한 경우 | 온라인 상호작용, 품질 테스트, 성능 부하 테스트 | 대규모 오프라인 생산 |
+
+---
+
+## 20. 통합 체크리스트
+
+- [ ] `/v1/images/batches/models`가 최소 하나의 모델을 반환함;
+- [ ] 사용하는 API 키가 배치 이미지 생성을 허용하는 Gemini 그룹에 속함;
+- [ ] 작업 생성 시 고유한 `Idempotency-Key`를 포함함;
+- [ ] `image_size`가 `1K`를 사용함;
+- [ ] 모든 `custom_id` 값이 고유함;
+- [ ] `completed` 또는 확실한 종료 상태까지 폴링할 수 있음;
+- [ ] 성공 / 실패 상세 정보를 조회할 수 있음;
+- [ ] 단일 이미지를 다운로드할 수 있음;
+- [ ] ZIP을 다운로드하고 결과 매니페스트를 읽을 수 있음;
+- [ ] 실패한 항목을 식별하고 전체 배치를 재제출하지 않을 수 있음;
+- [ ] estimated_cost, hold_amount, actual_cost를 검증함;
+- [ ] 로그가 오류 코드와 요청 ID를 기록하되 전체 API 키는 기록하지 않음.
+
+---
+
+## 다음 단계
+
+- 실시간 텍스트-이미지 및 이미지-이미지 변환: [Gemini 이미지 API](/ko/docs/api/gemini-image)
+- 사용량 및 비용 상세 정보 조회: [사용 상세 정보 내보내기](/ko/docs/api/usage-export)
+- API 키 및 프로토콜 상세 정보: [API 프로토콜](/ko/docs/guide/api-protocols)

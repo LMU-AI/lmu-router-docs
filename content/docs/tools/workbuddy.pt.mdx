@@ -1,0 +1,182 @@
+---
+title: WorkBuddy
+description: Conecte o WorkBuddy ao relay de IA da LMU via um modelo Custom compatível com OpenAI — defina o Base URL e a chave sk- para chamar Claude, GPT e modelos chineses.
+ogDescription: Conecte o WorkBuddy (mesma família do Tencent CodeBuddy) à LMU AI via um modelo Custom (compatível com OpenAI) — defina o Base URL https://api.lmuai.com/v1 e sua chave sk- para chamar Claude Sonnet 5 / GPT-5.6 / DeepSeek / GLM e muito mais, seja pela interface ou por um arquivo models.json, com conexão direta no exterior.
+keywords:
+  - Configurar a API do WorkBuddy
+  - Modelo personalizado do WorkBuddy
+  - Conectar o WorkBuddy à LMU AI
+  - WorkBuddy compatível com OpenAI
+  - Base URL do WorkBuddy
+  - models.json do WorkBuddy
+  - Relay do Tencent WorkBuddy
+  - Modelo personalizado do CodeBuddy
+  - Solução de problemas 401 404 do WorkBuddy
+alternateNames:
+  - Conectar o WorkBuddy à LMU AI
+  - Configurar o relay da LMU AI no WorkBuddy
+  - Guia de modelo personalizado do Tencent WorkBuddy
+faq:
+  - q: O endpoint do WorkBuddy deve incluir /v1?
+    a: Ao preencher o Endpoint / Base URL no modelo Custom da interface, pare em https://api.lmuai.com/v1 (com /v1, sem /chat/completions); o WorkBuddy adiciona /chat/completions automaticamente. Quando você define o url manualmente no models.json, escreva o caminho completo https://api.lmuai.com/v1/chat/completions. Ambos apontam para o mesmo endpoint — não escreva /chat/completions no endpoint duas vezes, ou o caminho duplicado retorna um 404.
+  - q: O WorkBuddy pode usar Claude ou modelos chineses?
+    a: Sim. O modelo personalizado do WorkBuddy usa o protocolo compatível com OpenAI (/v1/chat/completions), e o backend da LMU AI faz a conversão de protocolo, então, desde que o grupo da sua chave tenha o upstream correspondente, IDs de modelo como claude-sonnet-5, deepseek-v4-pro e glm-5.2 funcionam. Os modelos realmente disponíveis dependem do seu grupo.
+  - q: Por que uma chave do grupo Claude Max falha?
+    a: O grupo Claude Max suporta apenas o protocolo Anthropic e não pode ser usado com um endereço no protocolo OpenAI como https://api.lmuai.com/v1, portanto não pode ser usado com o modelo personalizado do WorkBuddy. Use uma chave de grupo pré-pago ou de assinatura padrão em vez disso.
+  - q: Alterações no models.json não têm efeito?
+    a: Após editar o models.json você deve fechar completamente e reiniciar o WorkBuddy; salve o arquivo como UTF-8 sem BOM, pois um BOM pode fazer com que ele não seja carregado. Para um modelo adicionado pela interface, basta reselecioná-lo no seletor de modelos após salvar.
+---
+
+WorkBuddy é o assistente de codificação com IA da Tencent (mesma família do CodeBuddy). Ele suporta a conexão a qualquer API compatível com OpenAI através de um **modelo Custom (compatível com OpenAI)**, então você pode apontá-lo para o relay da LMU AI e usar uma única chave `sk-` para chamar Claude, GPT e modelos chineses.
+
+---
+
+## Antes de começar
+
+- Uma chave de API da LMU AI que começa com `sk-`: registre-se e gere uma no [console da LMU AI](https://api.lmuai.com).
+- Anote o endereço compatível com OpenAI da LMU AI (Base URL), **com** `/v1`:
+
+  ```
+  https://api.lmuai.com/v1
+  ```
+
+- Certifique-se de que o grupo da sua chave tenha o upstream para o modelo que você quer usar (os modelos disponíveis dependem do grupo).
+
+<Callout type="warn" title="Não use uma chave do grupo Claude Max">
+
+O grupo Claude Max suporta apenas o protocolo Anthropic e **não pode** ser preenchido em um endereço no protocolo OpenAI como `https://api.lmuai.com/v1`, então não funcionará com o modelo personalizado do WorkBuddy. Use uma chave de grupo **pré-pago** ou de **assinatura padrão** em vez disso.
+
+</Callout>
+
+---
+
+## Método 1: Adicionar um modelo personalizado na interface (recomendado)
+
+1. Abra o WorkBuddy e vá até as configurações de modelo: seja via **Settings → Model**, ou abra o seletor de modelos na caixa de chat, role até o final e escolha **Configure custom models**.
+2. Clique em **Add Model** e defina o provedor / tipo como **Custom**.
+3. Preencha estes três campos:
+
+   | Campo | Valor |
+   |------|------|
+   | Endpoint / Base URL | `https://api.lmuai.com/v1` |
+   | API Key | a chave `sk-` gerada no console |
+   | Model Name | um ID de modelo da LMU AI, ex.: `gpt-5.6-sol` ou `claude-sonnet-5` |
+
+4. (Opcional) Ative Tool Call, Image input, etc. conforme as capacidades do modelo.
+5. Salve, volte ao seletor de modelos, selecione o modelo que você acabou de adicionar e comece a conversar.
+
+![A caixa de diálogo "Add Model" do WorkBuddy preenchida: provedor definido como Custom, endpoint parando em `https://api.lmuai.com/v1`](/images/tools/workbuddy/workbuddy-add-model.png)
+
+<Callout type="info" title="Não escreva /chat/completions no endpoint duas vezes">
+
+O WorkBuddy adiciona automaticamente `/chat/completions` ao endpoint. Então pare o endpoint em `https://api.lmuai.com/v1` e não adicione `/chat/completions` — caso contrário ele vira `…/v1/chat/completions/chat/completions` e retorna um 404.
+
+</Callout>
+
+---
+
+## Método 2: Editar o models.json (preciso, versionável)
+
+WorkBuddy / CodeBuddy também armazena modelos personalizados em um arquivo de configuração, que serve para configuração em massa ou de toda a equipe.
+
+O arquivo de configuração fica em uma pasta `.codebuddy` no seu diretório home (algumas versões usam `.workbuddy` — use a que realmente existe na sua máquina):
+
+- **Windows (nível de usuário)**: `C:\Users\<seu-usuario>\.codebuddy\models.json`
+- **macOS / Linux (nível de usuário)**: `~/.codebuddy/models.json`
+- **Nível de projeto**: `<seu-dir-de-projeto>\.codebuddy\models.json`
+
+No primeiro uso, instale, faça login e abra qualquer projeto uma vez para que o diretório de configuração seja criado. Exemplo (substitua `apiKey` pela sua própria chave `sk-`):
+
+```json
+{
+  "models": [
+    {
+      "id": "gpt-5.6-sol",
+      "name": "LMU AI GPT-5.6 Sol",
+      "vendor": "LMU AI",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "apiKey": "sk-your-key",
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 8192,
+      "supportsToolCall": true,
+      "supportsImages": false
+    },
+    {
+      "id": "claude-sonnet-5",
+      "name": "LMU AI Claude Sonnet 5",
+      "vendor": "LMU AI",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "apiKey": "sk-your-key",
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 8192,
+      "supportsToolCall": true,
+      "supportsImages": false
+    }
+  ],
+  "availableModels": ["gpt-5.6-sol", "claude-sonnet-5"]
+}
+```
+
+Notas:
+
+- Aqui o `url` deve ser o **caminho completo** `https://api.lmuai.com/v1/chat/completions` (diferente do Método 1, ele inclui `/chat/completions`).
+- `maxInputTokens`, `maxOutputTokens`, `supportsToolCall` e `supportsImages` são **valores declarados no lado do cliente** — ajuste-os às capacidades reais do modelo que você escolheu.
+- Salve o arquivo como **UTF-8 sem BOM**; um BOM pode fazer com que ele não seja carregado.
+- Você também pode definir a chave como uma variável de ambiente e referenciá-la, ex.: `"apiKey": "${LMU_API_KEY}"` (`setx LMU_API_KEY "sk-..."` no Windows, `export LMU_API_KEY=sk-...` no macOS / Linux).
+- Após editar, **feche completamente e reinicie** o WorkBuddy, depois selecione o modelo no seletor.
+
+---
+
+## Modelos disponíveis
+
+IDs de modelo comuns (os que você pode realmente usar dependem do seu grupo; veja a lista completa em [Modelos](../guide/models)):
+
+- **GPT**: `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`
+- **Claude**: `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`
+- **Chineses**: `deepseek-v4-pro`, `qwen3.8-max-preview`, `glm-5.2`, `kimi-k3`
+
+O WorkBuddy usa o protocolo compatível com OpenAI, e o backend da LMU AI faz a conversão de protocolo automaticamente, então IDs de modelos Claude / chineses também funcionam — desde que o seu grupo tenha o upstream correspondente.
+
+---
+
+## FAQ
+
+### Erro 401 / 403
+
+Verifique nesta ordem:
+
+1. Se a API Key é uma chave `sk-` gerada no console da LMU AI (não uma chave oficial da OpenAI / Anthropic).
+2. Se o endpoint está correto: `https://api.lmuai.com/v1` (com `/v1`).
+3. Se o grupo da sua chave inclui o modelo que você está chamando.
+
+### 404 / Not Found
+
+Geralmente o endpoint tem `/chat/completions` escrito duas vezes, ou está sem `/v1`:
+
+- Método 1 (interface): pare o endpoint em `https://api.lmuai.com/v1`; o WorkBuddy adiciona `/chat/completions`.
+- Método 2 (models.json): defina `url` como o completo `https://api.lmuai.com/v1/chat/completions`.
+
+### "Model unavailable" / "No available accounts"
+
+Você chamou um modelo fora do alcance do seu grupo (por exemplo, usando um grupo Claude Max para chamar GPT). Verifique os modelos que o seu grupo atual pode chamar em "Modelos disponíveis" no console, ou troque de grupo. Veja [Protocolos de API](../guide/api-protocols).
+
+### Alterações não têm efeito
+
+Após editar o `models.json`, **feche completamente e reinicie** o WorkBuddy; salve o arquivo como **UTF-8 sem BOM**. Para um modelo adicionado pela interface, basta reselecioná-lo no seletor de modelos após salvar.
+
+---
+
+## Notas
+
+<CN>
+- Insira apenas o endereço do relay da LMU AI como endpoint; não insira o endereço oficial da OpenAI / Anthropic.
+- A mesma chave `sk-` pode ser usada com outras ferramentas ao mesmo tempo; o WorkBuddy usa o protocolo compatível com OpenAI.
+- O domínio da API da LMU AI conecta diretamente na China, sem necessidade de proxy.
+</CN>
+<Intl>
+- Insira apenas o endereço do relay da LMU AI como endpoint; não insira o endereço oficial da OpenAI / Anthropic.
+- A mesma chave `sk-` pode ser usada com outras ferramentas ao mesmo tempo; o WorkBuddy usa o protocolo compatível com OpenAI.
+- O domínio da API da LMU AI no exterior conecta diretamente do exterior, sem necessidade de proxy.
+</Intl>
+
+Para mais, veja [Protocolos de API](../guide/api-protocols) e o [FAQ](../guide/faq).

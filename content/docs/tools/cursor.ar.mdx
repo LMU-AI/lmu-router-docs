@@ -1,0 +1,169 @@
+---
+title: تهيئة Cursor مع واجهة برمجة تطبيقات خارجية
+description: قم بتهيئة واجهة برمجة تطبيقات خارجية في Cursor — فعّل Override OpenAI Base URL، وأدخل مفتاح sk- الخاص بك، واستخدم Claude وGPT والمزيد في لوحة Chat.
+ogDescription: دليل خطوة بخطوة لتهيئة واجهة برمجة تطبيقات خارجية في Cursor — Settings ← Models ← Override OpenAI Base URL + عنوان LMU AI + مفتاح sk- الخاص بك يتيح للوحة Chat في Cursor التحدث مباشرة إلى Claude Opus / Sonnet وGPT-5 وZhipu GLM وQwen وDeepSeek والمزيد، دون وسيط؛ يتضمن ملاحظات حول Verify وتعارضات التوجيه وحدود Composer.
+keywords:
+  - كيفية تهيئة واجهة برمجة تطبيقات خارجية في Cursor
+  - تهيئة واجهة برمجة تطبيقات الوسيط في Cursor
+  - Cursor Override OpenAI Base URL
+  - نموذج مخصص في Cursor
+  - Cursor BYOK
+  - Cursor مع Claude
+  - claude-opus-5
+  - gpt-5.6-sol
+  - glm-5.2
+  - النماذج الصينية في Cursor
+  - حدود Composer في Cursor
+  - Cursor دون اشتراك
+alternateNames:
+  - كيفية تهيئة واجهة برمجة تطبيقات خارجية في Cursor
+  - كيفية توصيل واجهة برمجة تطبيقات خارجية في Cursor
+  - استخدام واجهة برمجة تطبيقات خارجية في Cursor
+  - دليل تهيئة واجهة برمجة تطبيقات مخصصة في Cursor
+  - دليل Cursor Override OpenAI Base URL
+  - استخدام وسيط خارجي في Cursor
+  - توصيل Cursor بـ LMU AI
+  - Cursor مع Claude / GLM / Qwen عبر وسيط
+  - تهيئة Cursor BYOK
+  - نقطة نهاية مخصصة متوافقة مع OpenAI في Cursor
+faq:
+  - q: كيف أهيّئ واجهة برمجة تطبيقات خارجية في Cursor؟
+    a: الخطوات — افتح Settings (Cmd/Ctrl + Shift + J) ← Models على اليسار ← أوقف النماذج الافتراضية المدمجة ← Add Model وأدخل معرّف نموذج مخصص (مثل `claude-opus-5` أو `gpt-5.6-sol` أو `glm-5.2`) ← فعّل OpenAI API Key والصق مفتاح `sk-` الخاص بك ← فعّل Override OpenAI Base URL وأدخل `https://api.lmuai.com/v1` ← انقر Verify ← اضغط Cmd/Ctrl + L لفتح لوحة Chat وبدّل إلى ذلك النموذج. لاحظ أن **لوحة Chat / Plan فقط هي التي تستخدم واجهة برمجة التطبيقات الخارجية**؛ أما ميزات Cursor الأصلية مثل Composer / Tab autocomplete فما زالت تستخدم الخادم الرسمي.
+  - q: أي بروتوكول لواجهة برمجة التطبيقات الخارجية يدعمه Cursor؟
+    a: فقط **البروتوكول المتوافق مع OpenAI** (`/v1/chat/completions`)، الذي يُتجاوز عبر Settings ← Models ← Override OpenAI Base URL. لا يوجد حاليًا مفتاح "Override Anthropic Base URL" أصلي؛ لاستخدام نماذج Claude في لوحة Chat، أضف معرّف نموذج Claude كنموذج مخصص عبر نقطة النهاية المتوافقة مع OpenAI، ويقوم خادم LMU AI بترجمة البروتوكول بين OpenAI ↔ Anthropic.
+  - q: هل الوسيط الخارجي أرخص لـ Cursor؟
+    a: عادةً نعم. يحسب الوسيط الفاتورة حسب الاستهلاك الفعلي للـ tokens، وهو أكثر فعالية من حيث التكلفة مقارنةً باشتراك Cursor Pro الشهري للمستخدمين كثيفي الاستخدام (خاصةً الاستخدام المتكرر لـ Opus / GPT-5)؛ ومفتاح واحد يخدم Claude / GPT / GLM / Qwen / DeepSeek دفعة واحدة. لاحظ أن Composer / Tab autocomplete في Cursor لا يمكنهما استخدام واجهة برمجة تطبيقات خارجية وما زالا يستهلكان حصة اشتراك Cursor.
+  - q: هل يمكن لـ Cursor استخدام واجهة برمجة تطبيقات وسيط خارجي؟
+    a: نعم، لكن **للوحة Chat / Plan فقط**. يحتوي Settings ← Models في Cursor على مفتاح "Override OpenAI Base URL"؛ بمجرد تفعيله، تمر طلبات لوحة Chat / Plan (Cmd/Ctrl + L) عبر الوسيط الخارجي، بينما تبقى ميزات الوكيل الأصلية مثل Composer / Tab autocomplete / Apply / Inline Edit مقيّدة بالخادم الرسمي لـ Cursor.
+  - q: كيف أستخدم Claude / GLM / Qwen في Cursor؟
+    a: افتح Settings ← Models (Cmd/Ctrl + Shift + J) ← أضف نموذجًا مخصصًا (معرّف النموذج `claude-opus-5` / `claude-sonnet-5` / `glm-5.2`، إلخ) ← فعّل Override OpenAI Base URL ← اضبط Base URL على `https://api.lmuai.com/v1` ← اضبط API Key على مفتاح `sk-` المُولّد في وحدة تحكم LMU AI.
+  - q: بعد تفعيل Override OpenAI Base URL، توقف Claude 3.5 المدمج في Cursor فجأة عن العمل؟
+    a: هذا تعارض توجيه معروف في Cursor — تفعيل تجاوز OpenAI Base URL يقطع فرع Anthropic المدمج في Cursor. للاستمرار في استخدام Claude في لوحة Chat، أضف معرّف نموذج Claude (مثل `claude-opus-5`) كنموذج مخصص، ويقوم خادم LMU AI بترجمة البروتوكول بين OpenAI ↔ Anthropic.
+  - q: هل يمكن لـ Composer / Tab autocomplete في Cursor استخدام LMU AI؟
+    a: لا. ميزات الوكيل الأساسية في Cursor — Composer وTab autocomplete وApply وInline Edit — مقيّدة بالخادم الرسمي لـ Cursor ولا يمكن الاستيلاء عليها بواسطة وسيط خارجي. للحصول على تجربة LMU AI "بكامل القدرات"، ثبّت [إضافة Codex الرسمية](/ar/docs/tools/vscode-plugin) أو [إضافة Claude Code for VS Code](/ar/docs/tools/claude-code-vscode) في Cursor (Cursor متوافق مع سوق إضافات VS Code).
+  - q: يفشل Verify عندما أضيف نموذجًا؟
+    a: "شائع — أسماء النماذج غير الرسمية من OpenAI (مثل `claude-opus-5` و`glm-5.2`) لا تجتاز فحص الاتصال في Cursor. الحل: أضف أولًا اسمًا رسميًا من OpenAI مثل `gpt-4` لتجاوز Verify (للتأكد من اتصال Base URL + المفتاح)، ثم أضف معرّفات النماذج المخصصة التي تريدها بشكل منفصل؛ يحذّر Verify لكنه **يعمل بشكل جيد عمليًا**."
+  - q: هل يحتاج Base URL إلى `/v1`؟
+    a: نعم. أدخل `https://api.lmuai.com/v1`، ويلحق Cursor `/chat/completions` ليصبح الطلب النهائي `https://api.lmuai.com/v1/chat/completions`. حذف `/v1` يعطي خطأ 404.
+  - q: هل أحتاج إلى VPN لاستخدام LMU AI مع Cursor؟
+    a: الجزء من لوحة Chat المُهيّأ لـ LMU AI لا يحتاج — `api.lmuai.com` يتصل مباشرةً. لكن تسجيل الدخول إلى حساب Cursor وComposer وTab autocomplete تستخدم الخادم الرسمي لـ Cursor، والذي قد يحتاج في بعض المناطق إلى تحسين الشبكة.
+---
+
+يمكن لـ Cursor توجيه طلبات لوحة Chat / Plan إلى واجهة برمجة تطبيقات وسيط خارجي عبر **Override OpenAI Base URL**. تشرح هذه الصفحة كيفية استخدام هذه الطريقة الأصلية للاتصال بـ LMU AI.
+
+<Callout type="warn" title="القيد الأساسي: لوحة Chat / Plan فقط هي المتأثرة">
+
+Override OpenAI Base URL في Cursor **يؤثر فقط على لوحة Chat / Plan** (المحادثة التي تُفتح بـ Cmd/Ctrl + L). أما ميزات الوكيل الأساسية في Cursor — **Composer وTab autocomplete وApply وInline Edit** — فكلها مقيّدة بالخادم الرسمي لـ Cursor ولا يمكن الاستيلاء عليها بواسطة وسيط خارجي.
+
+إذا كنت بحاجة إلى تجربة وكيل "بكامل القدرات" في Cursor (بما في ذلك ميزات من نوع Composer)، ثبّت بدلًا من ذلك (Cursor متوافق مع سوق إضافات VS Code):
+
+- [إضافة Codex الرسمية](/ar/docs/tools/vscode-plugin) — وكيل Codex عبر بروتوكول OpenAI الخاص بـ LMU AI
+- [إضافة Claude Code for VS Code](/ar/docs/tools/claude-code-vscode) — وكيل Claude Code عبر بروتوكول Anthropic الخاص بـ LMU AI
+
+</Callout>
+
+---
+
+## خطوات التهيئة
+
+### الخطوة 1 — افتح إعدادات Cursor
+
+اضغط **Cmd + Shift + J** (macOS) أو **Ctrl + Shift + J** (Windows / Linux) لفتح Settings، وانقر **Models** في الشريط الجانبي الأيسر.
+
+### الخطوة 2 — أوقف النماذج الافتراضية (موصى به)
+
+يأتي Cursor مع العديد من النماذج الافتراضية (GPT-4 / Claude-3.5، إلخ)؛ إبقاؤها مفعّلة يتعارض مع التوجيه المخصص. في قائمة النماذج بصفحة Models، أوقفها **جميعًا** (المفتاح مطفأ على اليسار).
+
+### الخطوة 3 — أضف نماذج مخصصة
+
+انقر **Add Model** وأدخل معرّفات نماذج LMU AI التي تريدها، على سبيل المثال:
+
+- `claude-opus-5`
+- `claude-sonnet-5`
+- `gpt-5.6-sol`
+- `glm-5.2`
+- `qwen3.8-max-preview`
+- `deepseek-v4-pro`
+- `kimi-k3`
+
+**أضف كل نموذج مرة واحدة.** للاطلاع على القائمة الكاملة للنماذج المتاحة، راجع [معرض النماذج](/ar/docs/guide/models).
+
+### الخطوة 4 — فعّل Override OpenAI Base URL
+
+مرّر إلى منطقة **OpenAI API Key** في صفحة Models:
+
+1. فعّل مفتاح **OpenAI API Key**
+2. الصق مفتاح وحدة تحكم LMU AI (يبدأ بـ `sk-`) في مربع API Key
+3. فعّل مفتاح **Override OpenAI Base URL**
+4. اضبط Base URL على:
+   ```
+   https://api.lmuai.com/v1
+   ```
+5. انقر **Verify** للتحقق من الاتصال
+
+<Callout type="info" title="فشل Verify لا يعني أن التهيئة خاطئة">
+
+يتحقق Verify في Cursor باستخدام **اسم النموذج** الذي أدخلته، والأسماء غير الرسمية من OpenAI (`claude-opus-5` و`glm-5.2`، إلخ) لن تجتازه. الحل: **أضف `gpt-4` أولًا لتجاوز Verify** (للتأكد من اتصال Base URL + المفتاح)، ثم أضف معرّفات النماذج المخصصة التي تريدها بشكل منفصل؛ يحذّر Verify لكنه يعمل بشكل جيد عمليًا.
+
+</Callout>
+
+### الخطوة 5 — بدّل النموذج واستخدمه
+
+اضغط **Cmd/Ctrl + L** لفتح لوحة Chat ← اختر النموذج المخصص الذي أضفته في الخطوة 3 من قائمة النماذج المنسدلة في الأعلى ← ابدأ الدردشة، وستمر الطلبات عبر LMU AI.
+
+---
+
+## معرّفات النماذج الشائعة
+
+| معرّف النموذج | الوصف |
+|------|------|
+| `claude-opus-5` | Claude Opus 5 (الرائد، موصى به) |
+| `claude-sonnet-5` | Claude Sonnet 5 (متوازن) |
+| `claude-haiku-4-5` | Claude Haiku 4.5 (فائق السرعة) |
+| `gpt-5.6-sol` | GPT-5.6 Sol |
+| `glm-5.2` | Zhipu GLM-5.2 |
+| `qwen3.8-max-preview` | Qwen 3.8 Max Preview |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k3` | Kimi K3 |
+| `claude-opus-4-8` | Claude Opus 4.8 (الجيل السابق) |
+| `claude-sonnet-4-6` | Claude Sonnet 4.6 (الجيل السابق) |
+| `gpt-5.5` | GPT-5.5 (الجيل السابق) |
+| `glm-5.1` | Zhipu GLM-5.1 (الجيل السابق) |
+
+للاطلاع على القائمة الكاملة، راجع [معرض النماذج](/ar/docs/guide/models).
+
+---
+
+## المشكلات الشائعة
+
+### تريد أن يستخدم Composer / Tab autocomplete أيضًا LMU AI؟
+
+لا يمكن لـ Override OpenAI Base URL الأصلي فعل ذلك — فهذه الميزات الأساسية في Cursor مقيّدة بالخادم الرسمي. لتوجيه كل شيء عبر LMU AI، استخدم:
+
+- [إضافة Codex الرسمية](/ar/docs/tools/vscode-plugin) — وكيل ببروتوكول OpenAI
+- [إضافة Claude Code for VS Code](/ar/docs/tools/claude-code-vscode) — وكيل ببروتوكول Anthropic
+
+Cursor متوافق مع سوق إضافات VS Code، لذا تُثبَّت كلتا الإضافتين مباشرةً في Cursor.
+
+### هل يحتاج Base URL إلى `/v1`؟
+
+**نعم.** أدخل `https://api.lmuai.com/v1`. يلحق Cursor `/chat/completions` ليصبح الطلب النهائي `https://api.lmuai.com/v1/chat/completions`. حذف `/v1` يعطي خطأ 404.
+
+### يخطئ Claude 3.5 المدمج بعد تفعيل Override؟
+
+هذا تعارض توجيه معروف في Cursor — تفعيل تجاوز OpenAI Base URL يقطع فرع Anthropic. للاستمرار في استخدام Claude في لوحة Chat، أضف معرّف نموذج Claude (مثل `claude-opus-5`) كنموذج مخصص، ويقوم خادم LMU AI بترجمة البروتوكول بين OpenAI ↔ Anthropic.
+
+### أخطاء 401 / 403؟
+
+تحقق بالترتيب:
+
+1. هل **API Key** هو مفتاح `sk-` المُولّد في وحدة تحكم LMU AI (وليس مفتاح OpenAI رسمي)؟
+2. هل **Base URL** هو `https://api.lmuai.com/v1` (**يجب أن يتضمن `/v1`**)؟
+3. هل **معرّف النموذج** أحد المعرّفات التي يدعمها LMU AI (راجع [معرض النماذج](/ar/docs/guide/models))؟
+4. هل تتضمن خطتك / مجموعة الفوترة الحالية النموذج الذي تستدعيه؟
+
+### هل يؤثر BYOK على اشتراك Cursor الخاص بي؟
+
+- استخدام BYOK **لا يستهلك** حصة الطلبات السريعة الشهرية لـ Cursor
+- الميزات الأساسية مثل Composer / Tab autocomplete **ما زالت تستهلك** حصة اشتراك Cursor (لأنها لا تستخدم BYOK)
+- لإسقاط اشتراك Cursor بالكامل، راجع نهج إضافة Codex / Claude Code أعلاه

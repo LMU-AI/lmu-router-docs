@@ -1,0 +1,112 @@
+---
+title: Enterprise
+description: "Planes de API empresarial de LMU AI para Claude / GPT / Gemini: 6 SKU (Enterprise Standard + Flagship) en Anthropic y OpenAI, con contratos, facturas y soporte."
+ogDescription: Planes empresariales de LMU AI — suscripciones de relay de API de nivel empresarial para Claude / GPT / Gemini, 6 SKU entre Enterprise Standard y Enterprise Flagship, con firma de contrato, facturas con IVA y un contacto comercial dedicado.
+keywords:
+  - API empresarial de Claude
+  - API de Claude para empresas
+  - relay de API de Claude empresarial
+  - factura de API de Claude
+  - contrato de API de Claude
+  - plan empresarial de API de LLM
+  - plan de API de IA para equipos
+  - compra al por mayor de API de Claude
+  - acceso a IA con cumplimiento empresarial
+alternateNames:
+  - edición empresarial de LMU AI
+  - planes de relay empresarial de Claude / GPT
+  - API de Claude Enterprise Standard / Enterprise Flagship
+faq:
+  - q: ¿Cuál es la diferencia principal entre los planes empresariales y los planes personales?
+    a: Principalmente la escala de cuota, los objetivos de estabilidad y el soporte comercial. Los niveles empresariales se comprometen con un objetivo de disponibilidad del 99,5 % y proporcionan un informe mensual de disponibilidad, además de admitir la firma de contratos y la emisión de facturas con IVA. Los términos exactos son según el contacto comercial y el contrato.
+  - q: ¿Pueden firmar contratos y emitir facturas?
+    a: Sí. Los planes empresariales admiten la firma de un contrato de compra y la emisión de facturas con IVA; envía la razón social de la factura y el número de identificación fiscal al hacer el pedido o durante el contacto comercial.
+  - q: ¿Puede una sola clave de API llamar tanto a Claude como a GPT?
+    a: Sí. Los modelos que puedes llamar están determinados por el grupo de la clave de API, independientemente del protocolo de llamada; con un plan empresarial puedes usar los modelos de la plataforma correspondiente al SKU que hayas contratado.
+---
+
+Para equipos que ya han integrado llamadas de IA en un producto o flujo de trabajo interno, ofrecemos planes empresariales separados de los planes personales, que abarcan tanto la plataforma **Anthropic (Claude)** como la plataforma **OpenAI (GPT)** en dos niveles — **Enterprise Standard / Enterprise Flagship** — para un total de **6 SKU**.
+
+## Los problemas que resolvemos
+
+Si tu equipo se ha topado con alguno de los siguientes casos, un plan empresarial suele adaptarse mejor que un plan personal:
+
+- **Volatilidad que afecta la producción**: fallos ocasionales de llamada que te obligan a programar tu propio respaldo, reintentos y monitoreo en el código
+- **Estructura de cuota poco flexible**: los pases por día / semana no pueden sostener las necesidades concurrentes, multiusuario y multiescenario de un equipo
+- **Respuesta de soporte lenta**: esperar horas para obtener soporte cuando algo falla, con el negocio detenido
+- **Falta de materiales de cumplimiento**: finanzas necesita facturas, legal necesita un contrato
+- **Falta de visibilidad**: no saber cuántos tokens gastó cada proyecto, quién está ejecutando qué, ni cómo asignar los costos
+
+## Planes empresariales a la venta
+
+Los 6 niveles a continuación son los SKU empresariales actualmente a la venta; los precios y ciclos son según la [página oficial de precios](https://api.lmuai.com/pricing). **Otras especificaciones (tiempo de respuesta, despliegue privado, etc.) están por confirmar durante el contacto comercial.**
+
+| Plan | Modelo | Ciclo | Concurrencia | Precio | Precio de lista |
+|------|------|------|------|------|------|
+| **G-PRO Enterprise Standard** | GPT (OpenAI) | 30 días | desde 40 | ¥2,999 | ¥18,350 |
+| **C-PRO Enterprise Standard** | Claude (Anthropic) | 30 días | desde 40 | ¥3,999 | ¥14,790 |
+| **C-MAX Enterprise Standard** | Claude (Anthropic) | 30 días | desde 40 | ¥7,799 | ¥14,800 |
+| **G-PRO · Enterprise Flagship** | GPT (OpenAI) | 30 días | desde 80 | ¥6,250 | ¥42,375 |
+| **C-PRO · Enterprise Flagship** | Claude (Anthropic) | 30 días | desde 80 | ¥8,250 | ¥42,375 |
+| **C-MAX · Enterprise Flagship** | Claude (Anthropic) | 30 días | desde 80 | ¥16,500 | ¥42,375 |
+
+> Nomenclatura: **G-PRO** proporciona modelos de la serie GPT; **C-PRO / C-MAX** ambos proporcionan modelos de la serie Claude, correspondientes a diferentes grupos de cuentas ascendentes en la plataforma Anthropic. Recomendamos confirmar tu caso de uso con el equipo comercial antes de hacer el pedido.
+
+## Capacidades compartidas por todos los niveles empresariales
+
+Sea cual sea el nivel que elijas, cada plan empresarial incluye:
+
+| Capacidad | Descripción |
+|------|------|
+| **Enrutamiento multifuente + failover automático** | Consulta [Arquitectura de fiabilidad](/es/docs/guide/reliability) |
+| **Objetivo de disponibilidad del 99,5 % + informe mensual** | Los niveles empresariales se comprometen con un objetivo de disponibilidad del 99,5 % y proporcionan un informe mensual de disponibilidad; consulta la [sección de SLA](/es/docs/guide/reliability#service-level-sla) |
+| **API de detalle de uso** | Extrae automáticamente los detalles de las llamadas, el consumo de tokens y el costo a través del [endpoint /api/v1/usage](/es/docs/api/usage-export) |
+| **Retención cero de contenido** | Los prompts y el contenido de las respuestas no se conservan; consulta [Datos y privacidad](/es/docs/guide/privacy) |
+| **Contratos y facturas** | Admite la firma de un contrato de compra y la emisión de facturas con IVA |
+| **Una clave entre plataformas** | Los modelos que puedes llamar están determinados por el grupo de la clave de API, independientemente del protocolo; consulta [Protocolos de API](/es/docs/guide/api-protocols) |
+
+> Se pueden acordar SLA más altos y términos de compensación con el equipo comercial; el contrato prevalece.
+
+## Lo que no vendemos
+
+Para ahorrarte tiempo, lo siguiente está **fuera de nuestro alcance actual**:
+
+- Llamadas de API que involucren contenido político, pornográfico, de apuestas o de fraude
+- Cualquier plan que requiera eludir los términos de uso de un proveedor de modelos
+
+## Cómo empezar
+
+### ¿No estás seguro de qué nivel te conviene?
+
+Contacta directamente al equipo comercial y te asesoraremos según tu volumen de llamadas, tu preferencia de plataforma (Anthropic / OpenAI) y tus requisitos de cumplimiento.
+
+### Contacto comercial
+
+- **Correo electrónico**: business@lmuai.com
+- **WeChat / teléfono**: 18599001010
+
+Por favor, incluye brevemente en tu correo / mensaje:
+
+1. Tamaño del equipo y caso de uso (p. ej., una herramienta de escritura con IA de 10 personas, que usa principalmente Claude Sonnet)
+2. Volumen mensual estimado de llamadas (está bien si no lo sabes — podemos estimarlo juntos)
+3. Cualquier requisito especial en torno a cumplimiento, contratos o facturas
+
+## Preguntas frecuentes
+
+<Callout type="info" title="¿Pueden coexistir los planes empresariales y personales?">
+
+Sí. Una cuenta puede tener varios planes a la vez, y las llamadas se enrutan según el grupo de la clave de API — consulta [Protocolos de API · El protocolo y los modelos disponibles son dos cosas distintas](/es/docs/guide/api-protocols#protocol-vs-models).
+
+</Callout>
+
+<Callout type="info" title="¿Puedo mezclar Claude y GPT?">
+
+Qué modelos puede llamar una clave de API está determinado por su grupo: si contrataste un SKU de la plataforma Anthropic, puedes llamar a los modelos de la serie Claude; si contrataste un SKU de la plataforma OpenAI, puedes llamar a los modelos de la serie GPT. Cuando necesites ambas plataformas, contrata los SKU correspondientes por separado.
+
+</Callout>
+
+<Callout type="info" title="¿Cómo negocio un SLA más alto o términos de compensación?">
+
+Por encima del objetivo de disponibilidad predeterminado del 99,5 % de los niveles empresariales, si necesitas un SLA más alto o términos de compensación explícitos, acuérdalos a través del contacto comercial; el contrato prevalece.
+
+</Callout>

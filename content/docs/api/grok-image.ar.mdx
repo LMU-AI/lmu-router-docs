@@ -1,0 +1,283 @@
+---
+title: Grok Image API
+description: "استدعِ نماذج صور Grok عبر واجهة LMU AI المتوافقة مع OpenAI Images: التحويل من نص إلى صورة، والتحرير، وإدخال عبر URL و Base64، والتنزيلات، واختيار النموذج، وإصلاح الأخطاء."
+ogDescription: "دليل تكامل LMU AI Grok Image API: POST /v1/images/generations مع grok-imagine-image، و POST /v1/images/edits مع grok-imagine-image-quality لتحرير الصور."
+keywords:
+  - Grok Image API
+  - grok-imagine-image
+  - grok-imagine-image-quality
+  - تحرير صور Grok
+  - xAI Images API
+  - توليد صور Grok من LMU AI
+alternateNames:
+  - واجهة توليد صور Grok
+  - واجهة متوافقة مع توليد صور xAI
+faq:
+  - q: أي نقطة نهاية يستخدمها توليد صور Grok؟
+    a: "التحويل من نص إلى صورة يستخدم POST /v1/images/generations، وتحرير الصور يستخدم POST /v1/images/edits. اضبط base_url لعميل متوافق مع OpenAI على https://api.lmuai.com/v1."
+  - q: أي نموذج يُوصى به للتحويل من نص إلى صورة؟
+    a: "للتحويل القياسي من نص إلى صورة نوصي بـ grok-imagine-image؛ استخدم grok-imagine-image-quality عندما تحتاج إلى نموذج الجودة أو تحرير الصور. استجابة GET /v1/models لمفتاح API الحالي هي مصدر الحقيقة."
+  - q: كيف تُعاد نتائج صور Grok؟
+    a: "عادةً ما تُعيد data[].url. قد ينتهي رابط التنزيل، لذا نوصي بتنزيله مباشرةً بعد اكتمال المهمة وحفظه في وحدة التخزين الكائني الخاصة بك."
+  - q: هل يدعم Grok توليد الصور غير المتزامن أو الدفعي؟
+    a: "بيئة الإنتاج لا تُفعِّل حاليًا مهام الصور غير المتزامنة، و /v1/images/batches لا يدعم Grok أيضًا. استخدم واجهة Images المتزامنة وتحكّم في التزامن من جانب العميل."
+---
+
+توفّر LMU AI توليد صور Grok وتحرير الصور عبر المسار المتوافق مع OpenAI Images.
+
+<Callout type="info" title="Base URL">
+
+حزمة SDK متوافقة مع OpenAI:
+
+```text
+https://api.lmuai.com/v1
+```
+
+نقاط نهاية HTTP الكاملة:
+
+```text
+POST https://api.lmuai.com/v1/images/generations
+POST https://api.lmuai.com/v1/images/edits
+```
+
+</Callout>
+
+## 1. نظرة عامة على الـ API
+
+| الطريقة | المسار | الوصف |
+|---|---|---|
+| `GET` | `/v1/models` | استعلام عن النماذج المتاحة لمجموعة Grok الحالية |
+| `POST` | `/v1/images/generations` | تحويل نص Grok إلى صورة، استجابة متزامنة |
+| `POST` | `/v1/images/edits` | تحرير صور Grok / تحويل صورة إلى صورة، استجابة متزامنة |
+
+لا توجد حاليًا واجهة عامة متاحة لمهام Grok غير المتزامنة أو لدفعات متعددة العناصر.
+
+## 2. النماذج المُوصى بها
+
+| السيناريو | النموذج المُوصى به |
+|---|---|
+| تحويل قياسي من نص إلى صورة | `grok-imagine-image` |
+| تحويل من نص إلى صورة مع أولوية الجودة | `grok-imagine-image-quality` |
+| تحرير الصور / تحويل صورة إلى صورة | `grok-imagine-image-quality` |
+
+استعلم أولًا عن النماذج باستخدام مفتاح API الحالي:
+
+```bash
+curl https://api.lmuai.com/v1/models \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+<Callout type="warn" title="استخدم نموذج الجودة لتحرير الصور">
+
+أمثلة تحرير الصور تستخدم `grok-imagine-image-quality`. لا نوصي بـ `grok-imagine-edit` كنموذج افتراضي: قد يظهر اسم التوافق هذا في بعض قوائم النماذج، لكن بعض القنوات العليا تُعيد `404` عند استدعائه.
+
+</Callout>
+
+## 3. المصادقة
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+يجب أن ينتمي مفتاح API الخاص بك إلى مجموعة Grok مُفعَّل فيها توليد الصور.
+
+## 4. التحويل من نص إلى صورة
+
+### `POST /v1/images/generations`
+
+```bash
+curl https://api.lmuai.com/v1/images/generations \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "grok-imagine-image",
+    "prompt": "A blue ceramic mug, centered on a light-gray studio background, soft side lighting, no text",
+    "n": 1,
+    "size": "1024x1024"
+  }'
+```
+
+JavaScript:
+
+```javascript
+import OpenAI from "openai";
+
+const client = new OpenAI({
+  apiKey: process.env.LMU_API_KEY,
+  baseURL: "https://api.lmuai.com/v1",
+});
+
+const result = await client.images.generate({
+  model: "grok-imagine-image",
+  prompt: "A blue ceramic mug, light-gray studio background, soft side lighting, no text",
+  n: 1,
+  size: "1024x1024",
+});
+
+const url = result.data?.[0]?.url;
+if (!url) throw new Error("No image URL in the response");
+console.log(url);
+```
+
+Python:
+
+```python
+from openai import OpenAI
+import requests
+
+client = OpenAI(
+    api_key="YOUR_API_KEY",
+    base_url="https://api.lmuai.com/v1",
+)
+
+result = client.images.generate(
+    model="grok-imagine-image",
+    prompt="A blue ceramic mug, light-gray studio background, soft side lighting, no text",
+    n=1,
+    size="1024x1024",
+)
+
+url = result.data[0].url
+if not url:
+    raise RuntimeError("No image URL in the response")
+
+image = requests.get(url, timeout=60)
+image.raise_for_status()
+with open("grok-output.jpg", "wb") as f:
+    f.write(image.content)
+```
+
+## 5. معاملات التحويل من نص إلى صورة
+
+| الحقل | النوع | مطلوب | الوصف |
+|---|---:|---:|---|
+| `model` | string | نعم | المُوصى به: `grok-imagine-image` أو `grok-imagine-image-quality` |
+| `prompt` | string | نعم | وصف الصورة |
+| `n` | integer | لا | عدد الصور؛ نوصي ببدء اختباراتك بـ `1` |
+| `size` | string | لا | معامل الحجم المتوافق مع OpenAI؛ حجم الإخراج الفعلي تحدده قدرات Grok العليا |
+| `response_format` | string | لا | معامل توافق تنسيق الاستجابة؛ عادةً ما يُعيد Grok عنوان URL |
+
+<Callout type="warn" title="لا تعتمد على size لفرض بكسلات إخراج ثابتة">
+
+قد تقبل قنوات Grok معامل `size` كمعامل توافق أو فوترة، لكن بكسلات الصورة النهائية ونسبة أبعادها تحددها نتيجة التوليد العليا. عندما تحتاج إلى بكسلات ثابتة، نزّل الصورة وقصّها أو غيّر حجمها بنفسك.
+
+</Callout>
+
+## 6. تحرير الصور / تحويل صورة إلى صورة
+
+### `POST /v1/images/edits`
+
+يُفضَّل إجراء تحرير صور Grok باستخدام JSON؛ مرّر أحد الخيارين التاليين في `image.url`:
+
+- عنوان URL لصورة HTTPS يمكن الوصول إليه علنًا؛ أو
+- عنوان Data URL بصيغة `data:image/...;base64,...`.
+
+### استخدام عنوان URL لصورة
+
+```bash
+curl https://api.lmuai.com/v1/images/edits \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "grok-imagine-image-quality",
+    "prompt": "Keep the mug's shape, composition, and lighting; change the mug from blue to yellow; no text",
+    "image": {
+      "url": "https://example.com/input.jpg",
+      "type": "image_url"
+    },
+    "response_format": "url"
+  }'
+```
+
+### تحويل صورة محلية إلى Data URL
+
+Python:
+
+```python
+import base64
+import mimetypes
+import requests
+
+api_key = "YOUR_API_KEY"
+image_path = "input.jpg"
+mime_type = mimetypes.guess_type(image_path)[0] or "image/jpeg"
+
+with open(image_path, "rb") as f:
+    data_url = f"data:{mime_type};base64,{base64.b64encode(f.read()).decode()}"
+
+payload = {
+    "model": "grok-imagine-image-quality",
+    "prompt": "Keep the subject and composition; change the background to a seaside at dusk; no text",
+    "image": {
+        "url": data_url,
+        "type": "image_url",
+    },
+    "response_format": "url",
+}
+
+response = requests.post(
+    "https://api.lmuai.com/v1/images/edits",
+    headers={
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    },
+    json=payload,
+    timeout=300,
+)
+response.raise_for_status()
+result = response.json()
+print(result["data"][0]["url"])
+```
+
+<Callout type="warn" title="عناوين Data URL تُضخّم جسم الطلب">
+
+يزيد Base64 جسم الطلب بنحو الثلث. بالنسبة للصور الكبيرة، اضغطها أولًا، أو ارفعها إلى وحدة التخزين الكائني HTTPS الخاصة بك ومرّر عنوان URL. لا تستخدم عناوين تتطلب ملفات تعريف الارتباط، أو جلسة تسجيل دخول، أو حماية مؤقتة ضد الربط المباشر.
+
+</Callout>
+
+## 7. تنسيق الاستجابة
+
+استجابة صورة Grok نموذجية:
+
+```json
+{
+  "data": [
+    {
+      "url": "https://image-host.example/generated.jpg"
+    }
+  ],
+  "usage": {
+    "cost_in_usd_ticks": 200000000
+  }
+}
+```
+
+يجب على العملاء:
+
+1. التحقق من رمز حالة HTTP؛
+2. التحقق مما إذا كان `data` مصفوفة غير فارغة؛
+3. التحقق مما إذا كان `data[0].url` غير فارغ؛
+4. تنزيل الصورة فورًا وحفظها في وحدة التخزين الخاصة بك؛
+5. عدم معاملة عنوان URL المؤقت كعنوان مورد دائم.
+
+يُعاد حقل `usage` من القناة العليا، وقد يختلف هيكله عن GPT image API. التكلفة النهائية تتبع فاتورة LMU AI وتفاصيل الاستخدام لديك؛ لا تعامل أي حقل علوي مفرد على أنه المبلغ المُحاسَب على حسابك.
+
+## 8. الأخطاء الشائعة
+
+| HTTP | السبب الشائع | الإجراء المُوصى به |
+|---:|---|---|
+| `400` | نقص `model` / `prompt`، أو Data URL صورة غير صالح | تحقق من JSON وترميز الصورة |
+| `401` | مفتاح API غير صالح | تحقق من مصادقة Bearer |
+| `403` | توليد الصور غير مُفعَّل للمجموعة | اتصل بالمسؤول للتحقق من أذونات مجموعة Grok |
+| `404` | استُخدم اسم نموذج غير متوافق مع القناة، أو المسار العلوي غير متاح | للتحرير، بدّل إلى `grok-imagine-image-quality` أولًا واحفظ معرّف الطلب |
+| `429` | حدود التزامن أو RPM أو الحصة العليا | خفّض التزامن وأعد المحاولة بتراجع أسّي |
+| `5xx` | فشل التوليد العلوي مؤقتًا | أعد المحاولة عددًا محدودًا من المرات وزوّد المسؤول بمعرّف الطلب |
+
+## 9. الاختلافات عن واجهات الصور الأخرى
+
+| الحاجة | الوثيقة المُوصى بها |
+|---|---|
+| التحويل الأصلي من نص إلى صورة ومن صورة إلى صورة في Gemini | [Gemini Image API](/ar/docs/api/gemini-image) |
+| التحويل من نص إلى صورة والتحرير في GPT | [GPT Image API](/ar/docs/api/gpt-image) |
+| التحويل من نص إلى صورة والتحرير في Grok | هذه الصفحة |
+| المعالجة غير المتزامنة لعدة مطالبات Gemini | [Gemini Batch Image API](/ar/docs/api/gemini-image-batch) |

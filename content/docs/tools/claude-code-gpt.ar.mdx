@@ -1,0 +1,174 @@
+---
+title: تهيئة نماذج GPT في Claude Code
+description: "استخدم نماذج GPT (مثل gpt-5.6-sol) في Claude Code عبر واجهة LMU AI API: المتطلبات المسبقة للخطة، إعداد settings.json، والتبديل باستخدام /model."
+ogDescription: "دليل لتهيئة نماذج GPT-5.6 Sol / GPT-5.5 / GPT-5.4 في Claude Code عبر واجهة LMU AI API: يدعم التعيين الكامل للنموذج الافتراضي، وكذلك إعداد settings.json مبسّط مع التبديل اليدوي باستخدام /model gpt-5.6-sol."
+keywords:
+  - Claude Code GPT
+  - Claude Code GPT-5.5
+  - Claude Code settings.json
+  - Claude Code نماذج OpenAI
+  - gpt-5.6-sol
+  - LMU AI API GPT
+  - ANTHROPIC_DEFAULT_OPUS_MODEL
+  - ANTHROPIC_AUTH_TOKEN
+alternateNames:
+  - استخدام نماذج GPT في Claude Code
+  - تهيئة gpt-5.6-sol في Claude Code
+  - ربط Claude Code بخطة LMU AI GPT
+faq:
+  - q: عند استخدام نماذج GPT في Claude Code، هل يجب أن يتضمن Base URL المسار ‎/v1‎؟
+    a: "لا. يتصل Claude Code بواجهة LMU AI API باستخدام بروتوكول Anthropic، لذا يجب أن يكون ANTHROPIC_BASE_URL هو https://api.lmuai.com؛ وضبطه على https://api.lmuai.com/v1 سيؤدي إلى خطأ."
+  - q: هل يمكنني ببساطة ضبط model في settings.json على gpt-5.6-sol؟
+    a: "نوصي بأحد نهجين بدلاً من ذلك: أولاً، استخدم الإعداد الكامل، مع تعيين ANTHROPIC_DEFAULT_OPUS_MODEL على gpt-5.6-sol والإبقاء على \"model\": \"opus\"؛ ثانياً، استخدم الإعداد المبسّط وشغّل /model gpt-5.6-sol بعد التشغيل. كلا النهجين يناسبان أسلوب تهيئة مستوى النموذج في Claude Code بشكل أفضل ويجعلان التبديل والتراجع أوضح."
+  - q: كيف أستكشف الأخطاء وأصلحها إذا كانت نماذج GPT لا تعمل بعد التهيئة؟
+    a: "تحقق من أربعة أشياء بالترتيب: هل مفتاح API هو مفتاح تم إنشاؤه في وحدة تحكم LMU AI؛ هل ANTHROPIC_BASE_URL هو https://api.lmuai.com؛ هل اشتركت في خطة GPT، أو، في نظام الدفع حسب الاستخدام، اخترت مجموعة GPT؛ وهل اسم النموذج مكتوب بشكل صحيح (مثل gpt-5.6-sol)."
+---
+
+يمكن لـ Claude Code استدعاء نماذج GPT عبر واجهة LMU AI API، على سبيل المثال `gpt-5.6-sol` و`gpt-5.6-terra` و`gpt-5.5`.
+
+<Callout type="warn" title="المتطلبات المسبقة">
+
+يجب أن تستوفي أحد الشروط التالية:
+
+- أن تكون قد اشتركت في **خطة GPT**
+- أن تستخدم فوترة الدفع حسب الاستخدام وأن تكون قد اخترت **مجموعة GPT** في وحدة تحكم LMU AI
+
+إذا كانت خطتك أو مجموعتك الحالية لا تتضمن نماذج GPT، فقد تظل تحصل على خطأ عدم وجود صلاحية أو عدم توفر النموذج حتى بعد التهيئة.
+
+</Callout>
+
+---
+
+## موقع ملف الإعداد
+
+ملف إعداد Claude Code هو `settings.json`.
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+~/.claude/settings.json
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+C:\Users\YourUsername\.claude\settings.json
+```
+
+</Tab>
+</Tabs>
+
+---
+
+## الخيار 1 — الإعداد الكامل (موصى به)
+
+يقوم الإعداد الكامل بتعيين نماذج Claude Code الداخلية الافتراضية Opus / Sonnet / Haiku إلى نماذج GPT. بمجرد التهيئة، فإن تشغيل Claude Code يستخدم نموذج GPT المقابل افتراضياً.
+
+افتح `settings.json` في محرر نصوص وأضف ما يلي (استبدل المفتاح بمفتاح LMU AI API الخاص بك):
+
+```json
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "sk-your-lmu-ai-api-key",
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL": "gpt-5.4",
+    "ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME": "gpt-5.4",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL": "gpt-5.6-sol",
+    "ANTHROPIC_DEFAULT_OPUS_MODEL_NAME": "gpt-5.6-sol",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL": "gpt-5.5",
+    "ANTHROPIC_DEFAULT_SONNET_MODEL_NAME": "gpt-5.5"
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "model": "opus"
+}
+```
+
+**مرجع الحقول:**
+
+| الحقل | الوصف |
+|------|------|
+| `ANTHROPIC_AUTH_TOKEN` | مفتاح LMU AI API — أدخل مفتاح `sk-` الخاص بك |
+| `ANTHROPIC_BASE_URL` | عنوان LMU AI API؛ بالنسبة لـ Claude Code، استخدم `https://api.lmuai.com`، بدون `/v1` |
+| `ANTHROPIC_DEFAULT_OPUS_MODEL` / `ANTHROPIC_DEFAULT_OPUS_MODEL_NAME` | يعيّن نموذج Opus الافتراضي في Claude Code إلى `gpt-5.6-sol` |
+| `ANTHROPIC_DEFAULT_SONNET_MODEL` / `ANTHROPIC_DEFAULT_SONNET_MODEL_NAME` | يعيّن نموذج Sonnet الافتراضي إلى `gpt-5.5` |
+| `ANTHROPIC_DEFAULT_HAIKU_MODEL` / `ANTHROPIC_DEFAULT_HAIKU_MODEL_NAME` | يعيّن نموذج Haiku الافتراضي إلى `gpt-5.4` |
+| `model` | مستوى النموذج المحدد عند تشغيل Claude Code؛ هنا هو `opus`، والذي يُعيَّن إلى `gpt-5.6-sol` أعلاه |
+
+<Callout type="info" title="تعيين النموذج">
+
+مع الإعداد الكامل أعلاه:
+
+- اختيار `opus` في Claude Code ← يستدعي فعلياً `gpt-5.6-sol`
+- اختيار `sonnet` في Claude Code ← يستدعي فعلياً `gpt-5.5`
+- اختيار `haiku` في Claude Code ← يستدعي فعلياً `gpt-5.4`
+
+</Callout>
+
+---
+
+## الخيار 2 — الإعداد المبسّط
+
+إذا كنت تريد فقط تهيئة المفتاح وBase URL أولاً، فيمكنك استخدام الإعداد المبسّط:
+
+```json
+{
+  "env": {
+    "ANTHROPIC_AUTH_TOKEN": "sk-your-lmu-ai-api-key",
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com"
+  },
+  "skipDangerousModePermissionPrompt": true,
+  "model": "opus"
+}
+```
+
+الإعداد المبسّط لا يعيّن `opus` إلى `gpt-5.6-sol` مسبقاً. بعد تشغيل Claude Code، شغّل هذا يدوياً في Claude Code:
+
+```bash
+/model gpt-5.6-sol
+```
+
+عندئذٍ تتحول الجلسة الحالية إلى `gpt-5.6-sol`.
+
+<Callout type="info" title="متى تستخدم الإعداد المبسّط؟">
+
+إذا كنت تبدّل كثيراً بين نماذج GPT مختلفة، فاستخدم الإعداد المبسّط وحدّد نموذجاً باستخدام `/model <model-name>` بعد كل تشغيل، مثل `/model gpt-5.6-sol`.
+
+إذا كنت تريد أن يكون `gpt-5.6-sol` هو الافتراضي في كل تشغيل، فاستخدم الإعداد الكامل أعلاه.
+
+</Callout>
+
+---
+
+## المشكلات الشائعة
+
+### هل يجب أن يتضمن Base URL المسار `/v1`؟
+
+يتصل Claude Code بواجهة LMU AI API باستخدام بروتوكول Anthropic، لذا استخدم:
+
+```text
+https://api.lmuai.com
+```
+
+لا تستخدم `https://api.lmuai.com/v1`.
+
+### هل يمكنني ببساطة ضبط `model` على `gpt-5.6-sol`؟
+
+نوصي بأحد نهجين بدلاً من ذلك:
+
+- استخدم الإعداد الكامل، مع تعيين `ANTHROPIC_DEFAULT_OPUS_MODEL` على `gpt-5.6-sol` والإبقاء على `"model": "opus"`
+- استخدم الإعداد المبسّط وشغّل `/model gpt-5.6-sol` بعد التشغيل
+
+كلا النهجين يناسبان أسلوب تهيئة مستوى النموذج في Claude Code بشكل أفضل، ويجعلان التبديل والتراجع أوضح.
+
+### ماذا لو استمر عدم عمله بعد التهيئة؟
+
+تحقق مما يلي:
+
+1. هل مفتاح API هو مفتاح تم إنشاؤه في وحدة تحكم LMU AI
+2. هل `ANTHROPIC_BASE_URL` هو `https://api.lmuai.com`
+3. هل اشتركت في خطة GPT، أو، في نظام الدفع حسب الاستخدام، اخترت مجموعة GPT
+4. هل اسم النموذج مكتوب بشكل صحيح، مثل `gpt-5.6-sol`
+
+لرؤية النماذج المدعومة حالياً، تحقق من [معرض النماذج](/ar/docs/guide/models).

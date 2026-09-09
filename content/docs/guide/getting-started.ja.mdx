@@ -1,0 +1,118 @@
+---
+title: はじめに
+description: "3ステップで LMU AI API を使い始めましょう：アカウントを作成し、サブスクリプションまたはチャージを行い、API キーを作成して、Claude Code、Codex CLI、Cursor に接続します。"
+ogDescription: LMU AI を3ステップで — 登録、サブスクリプションまたはチャージ、API キーの作成を行い、数分以内に Claude / GPT / Gemini を Claude Code、Codex CLI、Cursor で利用できます。
+keywords:
+  - LMU AI 登録
+  - Claude API キー
+  - Claude Code セットアップ
+  - Codex CLI セットアップ
+  - Cursor Claude セットアップ
+  - AI API クイックスタート
+faq:
+  - q: LMU AI の API キーはどうやって取得しますか？
+    a: LMU AI アカウントを登録 → サブスクリプションまたはチャージ → コンソールの「API Keys」ページで新しいキーを作成し、それを Claude Code / Codex CLI / Cursor などのツールに貼り付けます。
+  - q: 先にサブスクリプションとチャージのどちらをすべきですか？
+    a: サブスクリプションは毎月固定のクォータを提供し、安定した日常的な開発に適しています。チャージは従量課金で、複数のモデルにわたって柔軟に使えます。どちらもコンソールの「チャージ / サブスクリプション」ページで選択できます。
+  - q: LMU AI のサポートにはどうやって連絡しますか？
+    a: LMU AI は2つの QQ グループを運営しています。プリセールスグループ 1042851564 は、プラン、モデル、セットアップに関する質問のために誰でも参加できます。アフターセールスグループ 1044817922 は、承認に支払い注文番号が必要です — 購入後すぐに参加してください。
+---
+
+
+プランのアドバイスや見積もりについては、**プリセールスグループ**に参加してください。購入後は、まず**アフターセールスグループ**に参加して直接サポートを受けてください。
+
+<div className="grid gap-6 sm:grid-cols-2">
+
+<div>
+
+**プリセールス QQ グループ：1042851564** — プラン、モデル、セットアップに関する質問；誰でも参加可能
+
+<div style={{ maxWidth: 220 }}>
+
+![LMU AI プリセールス QQ グループ QR 1042851564](/images/tools/qq-qrimg/presales-qq-group-qr.png)
+
+</div>
+
+</div>
+
+<div>
+
+**アフターセールス QQ グループ：1044817922** — 承認には**支払い注文番号**が必要です
+
+<div style={{ maxWidth: 220 }}>
+
+![LMU AI アフターセールス QQ グループ QR 1044817922](/images/tools/qq-qrimg/customer-service-qr.png)
+
+</div>
+
+</div>
+
+</div>
+
+---
+
+## ステップ 1 — アカウントを作成する
+
+サインアップページにアクセスします：[https://api.lmuai.com/register?ref=vJaWWr4T](https://api.lmuai.com/register?ref=vJaWWr4T)
+
+メールアドレスとパスワードを入力して登録を完了します。
+
+## ステップ 2 — サブスクリプションまたはチャージ
+
+ログイン後、左メニューの「**チャージ / サブスクリプション**」をクリックします：
+
+- **サブスクリプション**：プランを選んで毎月固定のクォータを取得します
+- **チャージ**：必要に応じて残高を追加し、任意のモデルを柔軟に利用します
+
+支払いが完了すればすぐに使い始められます。
+
+## ステップ 3 — API キーを作成する [#create-key]
+
+1. 左メニューの「**API Keys**」をクリックします
+2. 「キーを作成」をクリックし、任意の名前を付けます
+3. 作成後、**API キーを保存してください**（`sk-` で始まる値）
+
+## ステップ 4 — ツールを設定する
+
+**API ベース URL：**
+
+ツールのプロトコルに合ったベース URL を選択してください：
+
+**Anthropic プロトコル**（Claude Code、Cherry Studio、Trae、Claude / 中国語モデルを使う Kilo Code など）：
+
+```
+https://api.lmuai.com
+```
+
+**OpenAI プロトコル**（Codex CLI、Codex App、GPT を使う VS Code / Cursor、OpenAI モデルを使う Kilo Code など）：
+
+```
+https://api.lmuai.com/v1
+```
+
+<Callout type="warn" title="違い（最もよくある間違い）">
+
+- **Anthropic プロトコル**には `/v1` サフィックスが**ありません**
+- **OpenAI プロトコル**には `/v1` サフィックスが**必須です**
+
+間違ったプロトコルを使うと 401 / 404 エラーが発生します。プロトコルの詳細、SDK / curl の例、Claude Max グループの制限については、**[API プロトコル →](/ja/docs/guide/api-protocols)** を参照してください。
+
+</Callout>
+
+以下の各ツール設定で必要になるため、この3つを手元に用意しておいてください：
+- **API キー**：コンソールで作成した `sk-` キー（両方のプロトコルで共通）
+- **Anthropic ベース URL**：`https://api.lmuai.com`
+- **OpenAI ベース URL**：`https://api.lmuai.com/v1`
+
+---
+
+## 次のステップ
+
+お使いのツールに合わせたセットアップガイドを選んでください：
+
+| ツール | ガイド |
+|------|------|
+| CC Switch（ワンクリックインポート、推奨） | [CC Switch ガイド](/ja/docs/tools/cc-switch) |
+| Claude Code | [Claude Code ガイド](/ja/docs/tools/claude-code) |
+| Codex CLI（Mac / Linux） | [Mac / Linux ガイド](/ja/docs/tools/codex-cli-mac) |
+| Cursor | [Cursor ガイド](/ja/docs/tools/cursor) |

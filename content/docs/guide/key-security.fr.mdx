@@ -1,0 +1,133 @@
+---
+title: Sécurité des clés
+description: "Guide de liste blanche / liste noire d'IP pour les clés API de LMU AI : restreignez quelles IP peuvent appeler votre clé afin d'empêcher qu'une clé divulguée soit détournée ; prend en charge les IP individuelles et les plages CIDR."
+ogDescription: "Sécurité des clés LMU AI : configurez des listes blanches et noires d'IP pour vos clés API Claude / GPT / modèles chinois, avec prise en charge des IP individuelles, des plages CIDR et de l'IPv6, afin qu'une clé divulguée ne puisse pas être utilisée par d'autres pour épuiser votre quota — comprend un dépannage et les bonnes pratiques en production."
+keywords:
+  - sécurité des clés API
+  - liste blanche d'IP pour clé API
+  - empêcher l'abus de clé API
+  - que faire si une clé API Claude fuit
+  - configuration de liste blanche CIDR
+  - liste blanche IPv6
+  - 403 ACCESS_DENIED
+  - sécurité de clé Claude Code
+  - restriction d'IP pour clé LMU AI
+  - protection des clés API IA
+alternateNames:
+  - configuration de liste blanche d'IP pour clé API Claude
+  - guide de sécurité des clés LMU AI
+  - paramètres de protection contre l'abus de clé API
+  - comment limiter les pertes après une fuite de clé
+  - tutoriel de protection des clés Claude Code
+faq:
+  - q: Puis-je utiliser la liste blanche et la liste noire d'IP en même temps ?
+    a: Oui. Lorsque les deux sont configurées, la liste noire s'applique en premier — même si une IP figure sur la liste blanche, elle est quand même rejetée si elle correspond à la liste noire.
+  - q: Pourquoi ne puis-je pas me connecter lorsque je mets une IP privée (LAN) sur la liste blanche ?
+    a: "Les serveurs de LMU AI ne peuvent pas voir les IP privées (telles que 192.168.x.x ou 10.x.x.x) ; ils ne voient que votre **IP de sortie publique**. Utilisez `curl https://ifconfig.me` pour trouver votre véritable IP de sortie, puis saisissez-la."
+  - q: Mon IP domestique change — comment utiliser la liste blanche ?
+    a: "Si vous avez une IP publique dynamique, vous pouvez saisir la plage CIDR attribuée par votre FAI (telle que `123.45.0.0/16`) pour élargir la plage ; si vous ne parvenez pas à déterminer la plage, nous recommandons de ne pas activer la liste blanche et d'utiliser plutôt d'autres protections (limitation de débit, quota total, liste blanche de modèles)."
+  - q: Que dois-je faire si ma clé API LMU AI fuit ?
+    a: "Réinitialisez ou supprimez immédiatement la clé dans la console ; si une liste blanche d'IP est déjà configurée, la clé divulguée ne pourra pas être utilisée depuis des IP inconnues, ce qui réduit considérablement vos pertes. Nous recommandons également de tracer la source de la fuite (commits de dépôts publics, journaux, historique de discussion, captures d'écran, etc.) et d'activer immédiatement une liste blanche d'IP sur la nouvelle clé."
+  - q: Combien d'IP une clé peut-elle avoir ? L'IPv6 est-il pris en charge ?
+    a: "Une règle par ligne ; vous pouvez mélanger IP individuelles et plages CIDR, et il n'y a pas de limite stricte au nombre d'entrées. IPv4 et IPv6 sont tous deux pris en charge (exemple IPv6 : `2001:db8::/32`). Si vous avez à la fois une sortie v4 et v6, saisissez les deux."
+  - q: Comment configurer la liste blanche pour les appels provenant d'un serveur de production ?
+    a: "Saisissez l'**IP publique** du serveur (et non son IP privée). Si vous utilisez un équilibreur de charge ou disposez de plusieurs IP de sortie, ajoutez à la liste blanche toutes les IP de sortie possibles ou leurs plages CIDR ; pour le développement local, utilisez une clé distincte sans liste blanche afin d'éviter toute interférence."
+  - q: La liste blanche d'IP, la limitation de débit et le quota total entrent-ils en conflit ?
+    a: "Non, et nous recommandons de les combiner. La liste blanche d'IP limite « qui peut l'utiliser », la limitation de débit limite « à quelle vitesse » et le quota total limite « combien ». Configurez les trois sur une clé de production pour une défense en profondeur — même si la liste blanche est contournée, la limitation de débit et le quota fournissent toujours un filet de sécurité."
+  - q: Pourquoi mon appel est-il rejeté avec 403 ACCESS_DENIED ?
+    a: "Il est fort probable que l'IP ne corresponde pas à la liste blanche. Utilisez `curl https://ifconfig.me` pour vérifier votre véritable IP de sortie, comparez-la à la liste blanche de la clé, et ajoutez l'IP actuelle ou effacez temporairement la liste blanche pour tester ; si elle est toujours rejetée, vérifiez si elle correspond à la liste noire, si la clé est désactivée et si le quota est épuisé."
+---
+
+Si une clé fuit, d'autres personnes peuvent l'utiliser pour consommer votre quota. Une **liste blanche d'IP** est la protection la plus directe — seules les IP en lesquelles vous avez confiance sont autorisées à utiliser la clé.
+
+## Où la configurer
+
+Allez dans **console → Clés API → Modifier (ou Créer)** et repérez les deux champs, **Liste blanche d'IP** et **Liste noire d'IP**.
+
+Une règle par ligne, dans l'un des deux formats :
+
+| Format | Exemple | Description |
+|------|------|------|
+| IP individuelle | `203.0.113.10` | Correspond exactement à une seule IP |
+| Plage CIDR | `203.0.113.0/24` | Correspond à toute une plage d'IP (`/24` = 256 IP) |
+
+IPv4 et IPv6 sont tous deux pris en charge (exemple IPv6 : `2001:db8::/32`).
+
+## Comment cela s'applique
+
+- **Liste blanche vide** → aucune restriction de source ; n'importe quelle IP peut utiliser la clé
+- **Liste blanche non vide** → seules les IP figurant sur la liste peuvent l'utiliser ; toutes les autres sont rejetées
+- **Liste noire** → les IP correspondantes sont rejetées, **avec priorité sur la liste blanche**
+- Vous pouvez utiliser les deux à la fois (la liste noire est vérifiée en premier, puis la liste blanche)
+
+En cas de rejet, l'API renvoie `403 ACCESS_DENIED`.
+
+## Trouver votre véritable IP de sortie (important !)
+
+**C'est l'erreur la plus facile à commettre** : l'IP que vous configurez sur la clé doit être l'**IP de sortie publique** que voient les serveurs de LMU AI, et non l'adresse privée affichée par `ipconfig` / `ifconfig` sur votre ordinateur.
+
+```bash
+# Command line
+curl https://ifconfig.me
+# or
+curl https://ip.sb
+```
+
+Ou ouvrez [ip.sb](https://ip.sb) / [ifconfig.me](https://ifconfig.me) dans votre navigateur.
+
+<Callout type="warn">
+  Votre IP de sortie change lorsque vous activez un VPN ou un proxy d'entreprise, ou lorsque votre appareil mobile bascule de réseau Wi-Fi. Confirmez-la avec la commande ci-dessus avant de configurer la liste blanche.
+</Callout>
+
+## Scénarios courants
+
+**Scénario 1 : Une IP de bureau fixe**
+```
+Whitelist:
+203.0.113.10
+```
+
+**Scénario 2 : Travailler à la fois depuis chez soi et au bureau**
+```
+Whitelist:
+203.0.113.10      # Company egress
+198.51.100.20     # Home broadband
+```
+
+**Scénario 3 : Exécution sur votre propre serveur cloud**
+```
+Whitelist:
+<your cloud server's public IP>
+```
+N'autorisez que votre serveur à appeler l'API, et utilisez une clé distincte (sans liste blanche) pour le développement local.
+
+**Scénario 4 : Vous voulez simplement bloquer temporairement une IP suspecte**
+```
+Blacklist:
+1.2.3.4
+```
+Tout le reste fonctionne comme d'habitude, sans impact sur l'utilisation normale.
+
+## Dépannage
+
+**Q : Mon appel renvoie 403 ACCESS_DENIED — s'agit-il d'une restriction d'IP ?**
+
+C'est fort probable. Vérifiez dans l'ordre :
+
+1. Utilisez `curl https://ifconfig.me` pour confirmer votre véritable IP de sortie actuelle
+2. Comparez-la à la liste blanche de la clé pour voir si elle correspond
+3. Si elle ne correspond pas, ajoutez l'IP actuelle à la liste blanche, ou effacez temporairement la liste blanche pour tester
+4. Si elle est toujours rejetée, vérifiez si elle figure sur la liste noire, si la clé est désactivée et si le quota est épuisé
+
+**Q : J'ai mis une IP sur la liste blanche mais je suis quand même rejeté ?**
+
+- Avez-vous saisi une **IP privée** (`192.168.x.x` / `10.x.x.x` / `172.16-31.x.x`) ? Remplacez-la par votre IP de sortie publique.
+- Avez-vous saisi une adresse IPv6 mais vous vous connectez en IPv4 (ou inversement) ? Saisissez les deux.
+- Avez-vous saisi un CIDR au format incorrect (tel que `1.2.3.4/33`) ? Les règles invalides sont ignorées silencieusement.
+
+## Bonnes pratiques recommandées
+
+- Pour les **clés de production**, nous recommandons vivement de configurer une liste blanche d'IP afin de minimiser la surface d'attaque
+- Pour les **clés de développement / débogage**, vous pouvez vous passer de la liste blanche, mais vous devez définir un **plafond de quota total** comme filet de sécurité
+- Si vous êtes particulièrement inquiet des fuites, combinez-la avec la [**limitation de débit**, le **quota total** et la **liste blanche de modèles**](/fr/docs/guide/how-to-use-token) pour une défense en couches
+- Dès que vous soupçonnez qu'une clé a fuité, **réinitialisez-la ou supprimez-la** immédiatement dans la console

@@ -1,0 +1,182 @@
+---
+title: WorkBuddy
+description: WorkBuddy를 Custom OpenAI 호환 모델로 LMU AI 릴레이에 연결하세요 — Base URL과 sk- 키를 설정하면 Claude, GPT, 중국 모델을 호출할 수 있습니다.
+ogDescription: WorkBuddy(Tencent CodeBuddy와 동일 계열)를 Custom(OpenAI 호환) 모델로 LMU AI에 연결하세요 — Base URL https://api.lmuai.com/v1 과 sk- 키를 설정하면 UI 또는 models.json 파일을 통해 Claude Sonnet 5 / GPT-5.6 / DeepSeek / GLM 등을 해외 직결로 호출할 수 있습니다.
+keywords:
+  - WorkBuddy API 설정
+  - WorkBuddy 커스텀 모델
+  - WorkBuddy를 LMU AI에 연결
+  - WorkBuddy OpenAI 호환
+  - WorkBuddy Base URL
+  - WorkBuddy models.json
+  - Tencent WorkBuddy 릴레이
+  - CodeBuddy 커스텀 모델
+  - WorkBuddy 401 404 문제 해결
+alternateNames:
+  - WorkBuddy를 LMU AI에 연결
+  - WorkBuddy에서 LMU AI 릴레이 설정하기
+  - Tencent WorkBuddy 커스텀 모델 가이드
+faq:
+  - q: WorkBuddy 엔드포인트에 /v1 을 포함해야 하나요?
+    a: UI의 Custom 모델에서 Endpoint / Base URL을 입력할 때는 https://api.lmuai.com/v1 에서 멈추세요(/v1 포함, /chat/completions 없이). WorkBuddy가 /chat/completions 를 자동으로 덧붙입니다. models.json 에서 url 을 직접 설정할 때는 전체 경로 https://api.lmuai.com/v1/chat/completions 를 적으세요. 둘 다 동일한 엔드포인트를 가리킵니다 — /chat/completions 를 엔드포인트에 두 번 적지 마세요. 경로가 중복되면 404 가 반환됩니다.
+  - q: WorkBuddy에서 Claude 나 중국 모델을 사용할 수 있나요?
+    a: 네. WorkBuddy의 커스텀 모델은 OpenAI 호환 프로토콜(/v1/chat/completions)을 사용하고 LMU AI 백엔드가 프로토콜 변환을 수행하므로, 키의 그룹에 해당 업스트림이 있다면 claude-sonnet-5, deepseek-v4-pro, glm-5.2 같은 모델 ID가 모두 작동합니다. 실제로 사용 가능한 모델은 그룹에 따라 다릅니다.
+  - q: Claude Max 그룹 키가 실패하는 이유는 무엇인가요?
+    a: Claude Max 그룹은 Anthropic 프로토콜만 지원하며 https://api.lmuai.com/v1 같은 OpenAI 프로토콜 주소와 함께 사용할 수 없으므로 WorkBuddy의 커스텀 모델에서 사용할 수 없습니다. 대신 종량제 또는 표준 구독 그룹 키를 사용하세요.
+  - q: models.json 변경 사항이 적용되지 않나요?
+    a: models.json 을 편집한 후에는 WorkBuddy를 완전히 종료했다가 다시 시작해야 합니다. 파일을 BOM 없는 UTF-8 로 저장하세요. BOM 이 있으면 로드에 실패할 수 있습니다. UI 를 통해 추가한 모델의 경우, 저장 후 모델 선택기에서 다시 선택하기만 하면 됩니다.
+---
+
+WorkBuddy는 Tencent의 AI 코딩 어시스턴트입니다(CodeBuddy와 동일 계열). **Custom(OpenAI 호환) 모델**을 통해 모든 OpenAI 호환 API에 연결할 수 있으므로, LMU AI 릴레이를 가리키게 하여 단일 `sk-` 키로 Claude, GPT, 중국 모델을 호출할 수 있습니다.
+
+---
+
+## 시작하기 전에
+
+- `sk-` 로 시작하는 LMU AI API 키: [LMU AI 콘솔](https://api.lmuai.com)에서 등록하고 생성하세요.
+- `/v1` 을 **포함한** LMU AI OpenAI 호환 주소(Base URL)를 확인하세요:
+
+  ```
+  https://api.lmuai.com/v1
+  ```
+
+- 사용하려는 모델의 업스트림이 키의 그룹에 있는지 확인하세요(사용 가능한 모델은 그룹에 따라 다릅니다).
+
+<Callout type="warn" title="Claude Max 그룹 키를 사용하지 마세요">
+
+Claude Max 그룹은 Anthropic 프로토콜만 지원하며 `https://api.lmuai.com/v1` 같은 OpenAI 프로토콜 주소에 **입력할 수 없으므로**, WorkBuddy의 커스텀 모델과 함께 작동하지 않습니다. 대신 **종량제** 또는 **표준 구독** 그룹 키를 사용하세요.
+
+</Callout>
+
+---
+
+## 방법 1: UI 에서 커스텀 모델 추가하기 (권장)
+
+1. WorkBuddy를 열고 모델 설정으로 이동합니다: **Settings → Model** 을 통하거나, 채팅 상자에서 모델 선택기를 열고 맨 아래로 스크롤하여 **Configure custom models** 를 선택합니다.
+2. **Add Model** 을 클릭하고 제공자 / 유형을 **Custom** 으로 설정합니다.
+3. 다음 세 필드를 입력합니다:
+
+   | 필드 | 값 |
+   |------|------|
+   | Endpoint / Base URL | `https://api.lmuai.com/v1` |
+   | API Key | 콘솔에서 생성한 `sk-` 키 |
+   | Model Name | LMU AI 모델 ID, 예: `gpt-5.6-sol` 또는 `claude-sonnet-5` |
+
+4. (선택) 모델의 기능에 따라 Tool Call, Image input 등을 토글합니다.
+5. 저장하고 모델 선택기로 돌아가 방금 추가한 모델을 선택한 후 채팅을 시작합니다.
+
+![WorkBuddy "Add Model" 대화상자 입력 완료: 제공자는 Custom, 엔드포인트는 `https://api.lmuai.com/v1` 에서 멈춤](/images/tools/workbuddy/workbuddy-add-model.png)
+
+<Callout type="info" title="/chat/completions 를 엔드포인트에 두 번 적지 마세요">
+
+WorkBuddy는 엔드포인트에 `/chat/completions` 를 자동으로 덧붙입니다. 따라서 엔드포인트를 `https://api.lmuai.com/v1` 에서 멈추고 `/chat/completions` 를 추가하지 마세요 — 그렇지 않으면 `…/v1/chat/completions/chat/completions` 가 되어 404 가 반환됩니다.
+
+</Callout>
+
+---
+
+## 방법 2: models.json 편집하기 (정확하고 버전 관리 가능)
+
+WorkBuddy / CodeBuddy는 커스텀 모델을 설정 파일에도 저장하는데, 이는 대량 또는 팀 전체 설정에 적합합니다.
+
+설정 파일은 홈 디렉터리의 `.codebuddy` 폴더에 있습니다(일부 버전은 `.workbuddy` 를 사용합니다 — 실제로 기기에 존재하는 것을 사용하세요):
+
+- **Windows (사용자 수준)**: `C:\Users\<your-username>\.codebuddy\models.json`
+- **macOS / Linux (사용자 수준)**: `~/.codebuddy/models.json`
+- **프로젝트 수준**: `<your-project-dir>\.codebuddy\models.json`
+
+처음 사용할 때는 설치하고 로그인한 후 아무 프로젝트나 한 번 열어 설정 디렉터리가 생성되도록 하세요. 예시(`apiKey` 를 본인의 `sk-` 키로 교체하세요):
+
+```json
+{
+  "models": [
+    {
+      "id": "gpt-5.6-sol",
+      "name": "LMU AI GPT-5.6 Sol",
+      "vendor": "LMU AI",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "apiKey": "sk-your-key",
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 8192,
+      "supportsToolCall": true,
+      "supportsImages": false
+    },
+    {
+      "id": "claude-sonnet-5",
+      "name": "LMU AI Claude Sonnet 5",
+      "vendor": "LMU AI",
+      "url": "https://api.lmuai.com/v1/chat/completions",
+      "apiKey": "sk-your-key",
+      "maxInputTokens": 128000,
+      "maxOutputTokens": 8192,
+      "supportsToolCall": true,
+      "supportsImages": false
+    }
+  ],
+  "availableModels": ["gpt-5.6-sol", "claude-sonnet-5"]
+}
+```
+
+참고:
+
+- 여기서 `url` 은 전체 경로 `https://api.lmuai.com/v1/chat/completions` 여야 합니다(방법 1 과 달리 `/chat/completions` 를 포함합니다).
+- `maxInputTokens`, `maxOutputTokens`, `supportsToolCall`, `supportsImages` 는 **클라이언트 측 선언 값**입니다 — 선택한 모델의 실제 기능에 맞게 조정하세요.
+- 파일을 **BOM 없는 UTF-8** 로 저장하세요. BOM 이 있으면 로드에 실패할 수 있습니다.
+- 키를 환경 변수로 설정하고 참조할 수도 있습니다. 예: `"apiKey": "${LMU_API_KEY}"` (Windows 에서는 `setx LMU_API_KEY "sk-..."`, macOS / Linux 에서는 `export LMU_API_KEY=sk-...`).
+- 편집 후 WorkBuddy를 **완전히 종료했다가 다시 시작**한 다음 선택기에서 모델을 선택하세요.
+
+---
+
+## 사용 가능한 모델
+
+일반적인 모델 ID(실제로 사용 가능한 것은 그룹에 따라 다릅니다. 전체 목록은 [Models](../guide/models) 참조):
+
+- **GPT**: `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`
+- **Claude**: `claude-opus-5`, `claude-sonnet-5`, `claude-haiku-4-5`
+- **중국 모델**: `deepseek-v4-pro`, `qwen3.8-max-preview`, `glm-5.2`, `kimi-k3`
+
+WorkBuddy는 OpenAI 호환 프로토콜을 사용하고 LMU AI 백엔드가 프로토콜 변환을 자동으로 수행하므로, 그룹에 해당 업스트림이 있다면 Claude / 중국 모델 ID 도 작동합니다.
+
+---
+
+## FAQ
+
+### 401 / 403 오류
+
+다음 순서로 확인하세요:
+
+1. API Key 가 LMU AI 콘솔에서 생성한 `sk-` 키인지(공식 OpenAI / Anthropic 키가 아님).
+2. 엔드포인트가 올바른지: `https://api.lmuai.com/v1` (`/v1` 포함).
+3. 호출하려는 모델이 키의 그룹에 포함되어 있는지.
+
+### 404 / Not Found
+
+보통 엔드포인트에 `/chat/completions` 가 두 번 적혀 있거나 `/v1` 이 누락된 경우입니다:
+
+- 방법 1 (UI): 엔드포인트를 `https://api.lmuai.com/v1` 에서 멈추세요. WorkBuddy가 `/chat/completions` 를 덧붙입니다.
+- 방법 2 (models.json): `url` 을 전체 경로 `https://api.lmuai.com/v1/chat/completions` 로 설정하세요.
+
+### "Model unavailable" / "No available accounts"
+
+그룹 범위를 벗어난 모델을 호출했습니다(예: Claude Max 그룹으로 GPT 호출). 콘솔의 "Available models" 에서 현재 그룹이 호출할 수 있는 모델을 확인하거나 그룹을 전환하세요. [API 프로토콜](../guide/api-protocols)을 참조하세요.
+
+### 변경 사항이 적용되지 않음
+
+`models.json` 을 편집한 후 WorkBuddy를 **완전히 종료했다가 다시 시작**하세요. 파일을 **BOM 없는 UTF-8** 로 저장하세요. UI 를 통해 추가한 모델의 경우, 저장 후 모델 선택기에서 다시 선택하기만 하면 됩니다.
+
+---
+
+## 참고 사항
+
+<CN>
+- 엔드포인트에는 LMU AI 릴레이 주소만 입력하세요. 공식 OpenAI / Anthropic 주소를 입력하지 마세요.
+- 동일한 `sk-` 키를 다른 도구와 동시에 사용할 수 있습니다. WorkBuddy는 OpenAI 호환 프로토콜을 사용합니다.
+- LMU AI API 도메인은 중국에서 프록시 없이 직접 연결됩니다.
+</CN>
+<Intl>
+- 엔드포인트에는 LMU AI 릴레이 주소만 입력하세요. 공식 OpenAI / Anthropic 주소를 입력하지 마세요.
+- 동일한 `sk-` 키를 다른 도구와 동시에 사용할 수 있습니다. WorkBuddy는 OpenAI 호환 프로토콜을 사용합니다.
+- LMU AI 해외 API 도메인은 해외에서 프록시 없이 직접 연결됩니다.
+</Intl>
+
+자세한 내용은 [API 프로토콜](../guide/api-protocols) 및 [FAQ](../guide/faq)를 참조하세요.

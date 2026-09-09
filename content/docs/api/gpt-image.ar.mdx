@@ -1,0 +1,293 @@
+---
+title: GPT Image API
+description: "استدعِ gpt-image-2 عبر واجهة LMU AI المتوافقة مع OpenAI Images للتحويل من نص إلى صورة وتحرير الصور والمعلمات وحفظ Base64 والبحث عن النموذج وإصلاح الأخطاء."
+ogDescription: "دليل تكامل LMU AI GPT Image API: POST /v1/images/generations للتحويل من نص إلى صورة، وPOST /v1/images/edits لتحرير الصور، باستخدام gpt-image-2 وتحليل نتائج الصور بصيغة Base64."
+keywords:
+  - GPT Image API
+  - gpt-image-2 API
+  - OpenAI Images API
+  - images generations
+  - images edits
+  - تحرير صور GPT
+  - توليد صور LMU AI GPT
+alternateNames:
+  - واجهة توليد صور GPT
+  - واجهة متوافقة مع OpenAI Images
+faq:
+  - q: أي نقطة نهاية يستخدمها توليد صور GPT؟
+    a: "يستخدم التحويل من نص إلى صورة POST /v1/images/generations، ويستخدم تحرير الصور POST /v1/images/edits. اضبط base_url في OpenAI SDK على https://api.lmuai.com/v1."
+  - q: أي نموذج صور GPT موصى به حاليًا؟
+    a: "استخدم GET /v1/models للاستعلام عن مفتاح API الحالي؛ تدعم مجموعة صور GPT الحالية gpt-image-2، ونوصي بتحديد model صراحةً عند الاستدعاء."
+  - q: هل تُعاد نتائج صور GPT كعنوان URL أم Base64؟
+    a: "عادةً ما يُعيد gpt-image-2 صورة بصيغة Base64 في data[].b64_json. ينبغي على العملاء أيضًا التحقق من data[].url لضمان التوافق عبر القنوات المختلفة."
+  - q: هل يمكن لـ GPT استدعاء /v1/images/batches؟
+    a: "ليس حاليًا. تدعم /v1/images/batches مهام Gemini المجمّعة فقط في الوقت الحالي."
+---
+
+توفّر LMU AI واجهة متوافقة مع OpenAI Images من أجل **التحويل من نص إلى صورة** و**تحرير الصور / التحويل من صورة إلى صورة** باستخدام `gpt-image-2`.
+
+<Callout type="info" title="Base URL">
+
+OpenAI SDK:
+
+```text
+https://api.lmuai.com/v1
+```
+
+عند كتابة طلبات HTTP يدويًا، استخدم نقاط النهاية الكاملة:
+
+```text
+POST https://api.lmuai.com/v1/images/generations
+POST https://api.lmuai.com/v1/images/edits
+```
+
+</Callout>
+
+## 1. نظرة عامة على الواجهة
+
+| الطريقة | المسار | Content-Type | الوصف |
+|---|---|---|---|
+| `GET` | `/v1/models` | — | استعلام عن النماذج المتاحة لمفتاح API الحالي |
+| `POST` | `/v1/images/generations` | `application/json` | تحويل نص إلى صورة عبر GPT، استجابة متزامنة |
+| `POST` | `/v1/images/edits` | `multipart/form-data` | تحرير الصور / التحويل من صورة إلى صورة عبر GPT، استجابة متزامنة |
+
+<Callout type="warn" title="لا توجد بعد واجهة دفعية متعددة العناصر لـ GPT">
+
+تدعم `/v1/images/batches` حاليًا Gemini فقط ولا يمكنها قبول `gpt-image-2`. لتوليد صور GPT متعددة، اجعل العميل يرسل الطلبات واحدًا تلو الآخر وأدِر التزامن ومعدل الطلبات في الدقيقة (RPM) بنفسك.
+
+كما أن بيئة الإنتاج حاليًا لا تفعّل أي نقطة نهاية لمهام الصور غير المتزامنة، لذا اعتمد على الواجهتين المتزامنتين الموجودتين في هذه الصفحة.
+
+</Callout>
+
+## 2. المصادقة
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+لا تضع مفتاح API الخاص بك في شيفرة الواجهة الأمامية للمتصفح، أو المستودعات العامة، أو سلاسل استعلام URL، أو السجلات. نوصي بالاستدعاء من خادمك الخاص.
+
+## 3. الاستعلام عن النماذج
+
+```bash
+curl https://api.lmuai.com/v1/models \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+ابحث عن نموذج الصور في `data[].id` ضمن الاستجابة، على سبيل المثال:
+
+```json
+{
+  "object": "list",
+  "data": [
+    {"id": "gpt-image-2", "object": "model"}
+  ]
+}
+```
+
+تُحدَّد قائمة النماذج بحسب المجموعة التي ينتمي إليها مفتاح API الخاص بك. قد تُعيد مفاتيح API المختلفة على الموقع نفسه نماذج مختلفة.
+
+## 4. التحويل من نص إلى صورة
+
+### `POST /v1/images/generations`
+
+```bash
+curl https://api.lmuai.com/v1/images/generations \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-image-2",
+    "prompt": "A red ceramic mug, centered on a light-gray studio background, soft side lighting, no text",
+    "n": 1,
+    "size": "1024x1024",
+    "quality": "low",
+    "output_format": "png"
+  }'
+```
+
+### Python SDK
+
+```python
+from openai import OpenAI
+import base64
+
+client = OpenAI(
+    api_key="YOUR_API_KEY",
+    base_url="https://api.lmuai.com/v1",
+)
+
+result = client.images.generate(
+    model="gpt-image-2",
+    prompt="A red ceramic mug, light-gray studio background, soft side lighting, no text",
+    size="1024x1024",
+    quality="low",
+)
+
+item = result.data[0]
+
+if item.b64_json:
+    with open("gpt-output.png", "wb") as f:
+        f.write(base64.b64decode(item.b64_json))
+elif item.url:
+    print(item.url)
+else:
+    raise RuntimeError("No valid image in the response")
+```
+
+### JavaScript
+
+```javascript
+import OpenAI from "openai";
+import fs from "node:fs";
+
+const client = new OpenAI({
+  apiKey: process.env.LMU_API_KEY,
+  baseURL: "https://api.lmuai.com/v1",
+});
+
+const result = await client.images.generate({
+  model: "gpt-image-2",
+  prompt: "A red ceramic mug, light-gray studio background, soft side lighting, no text",
+  size: "1024x1024",
+  quality: "low",
+  output_format: "png",
+});
+
+const item = result.data?.[0];
+if (item?.b64_json) {
+  fs.writeFileSync("gpt-output.png", Buffer.from(item.b64_json, "base64"));
+} else if (item?.url) {
+  console.log(item.url);
+} else {
+  throw new Error("No valid image in the response");
+}
+```
+
+## 5. معلمات التحويل من نص إلى صورة
+
+| الحقل | النوع | مطلوب | الوصف |
+|---|---:|---:|---|
+| `model` | string | موصى به | حاليًا `gpt-image-2` |
+| `prompt` | string | نعم | وصف الصورة |
+| `n` | integer | لا | عدد الصور؛ يُحدَّد النطاق المتاح بحسب النموذج والقناة العلوية |
+| `size` | string | لا | الحجم المطلوب، مثل `1024x1024`؛ الأبعاد الفعلية بالبكسل تتبع الصورة المُعادة |
+| `quality` | string | لا | مستوى الجودة، مثل `low`، `medium`، `high`؛ حسب قدرات النموذج |
+| `background` | string | لا | إعداد الخلفية، مثل خلفية شفافة؛ حسب قدرات النموذج |
+| `output_format` | string | لا | `png`، `jpeg`، `webp`، إلخ؛ حسب قدرات النموذج |
+| `output_compression` | integer | لا | جودة الضغط لصيغ مثل JPEG / WebP |
+| `response_format` | string | لا | معلمة توافق تنسيق الاستجابة؛ ينبغي على العملاء التحقق من كل من `b64_json` و`url` |
+| `moderation` | string | لا | معلمة مراجعة المحتوى؛ حسب قدرات النموذج |
+| `stream` | boolean | لا | مفتاح تبديل لاستجابات الصور المتدفقة؛ في الاستدعاءات العادية من جانب الخادم نوصي بعدم التدفق |
+| `partial_images` | integer | لا | عدد الصور الجزئية في سيناريوهات التدفق؛ حسب قدرات النموذج |
+
+<Callout type="warn" title="size ليس ضمانًا للاقتصاص">
+
+قد تُعيّن الحسابات العلوية المختلفة وخلفيات الصور `size` أو تُطبّعها وفق قدراتها. حتى لو طلبت `1024x1024`، قد تختلف بكسلات الصورة الفعلية. عندما تحتاج نسبة أو حجم بكسل ثابتًا، اقرأ أبعاد ملف الإخراج واقتص أو غيّر الحجم من جانبك.
+
+</Callout>
+
+## 6. تحرير الصور / التحويل من صورة إلى صورة
+
+### `POST /v1/images/edits`
+
+يستخدم تحرير الصور عبر GPT `multipart/form-data`:
+
+```bash
+curl https://api.lmuai.com/v1/images/edits \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -F "model=gpt-image-2" \
+  -F "prompt=Keep the mug's shape, composition, and lighting; change the mug from red to green; no text" \
+  -F "image=@./input.png" \
+  -F "size=1024x1024" \
+  -F "quality=low" \
+  -F "output_format=png"
+```
+
+Python SDK:
+
+```python
+from openai import OpenAI
+import base64
+
+client = OpenAI(
+    api_key="YOUR_API_KEY",
+    base_url="https://api.lmuai.com/v1",
+)
+
+with open("input.png", "rb") as image_file:
+    result = client.images.edit(
+        model="gpt-image-2",
+        image=image_file,
+        prompt="Keep the subject and composition; change the background to a neon street on a rainy night",
+        size="1024x1024",
+        quality="low",
+    )
+
+item = result.data[0]
+if item.b64_json:
+    with open("gpt-edited.png", "wb") as f:
+        f.write(base64.b64decode(item.b64_json))
+```
+
+إذا كان النموذج والقناة يدعمان التحرير بالقناع، يمكنك إضافة:
+
+```bash
+-F "mask=@./mask.png"
+```
+
+تقبل نقطة نهاية التحرير أيضًا معلمات مثل `input_fidelity` و`background` و`output_format` و`output_compression`؛ ويعتمد التأثير الفعلي على قدرات النموذج.
+
+## 7. تنسيق الاستجابة
+
+استجابة صورة GPT نموذجية:
+
+```json
+{
+  "created": 1760000000,
+  "data": [
+    {
+      "b64_json": "iVBORw0KGgoAAA..."
+    }
+  ],
+  "background": "opaque",
+  "output_format": "png",
+  "quality": "low",
+  "size": "1024x1024",
+  "model": "gpt-image-2",
+  "usage": {
+    "input_tokens": 48,
+    "output_tokens": 186,
+    "total_tokens": 234
+  }
+}
+```
+
+ينبغي على العملاء إجراء ثلاثة مستويات من التحقق:
+
+1. ما إذا كان رمز حالة HTTP هو `2xx`؛
+2. ما إذا كان `data` مصفوفة غير فارغة؛
+3. ما إذا كان يوجد `b64_json` أو `url` غير فارغ في `data[]`.
+
+عندما تحصل على HTTP 200 دون حقل صورة صالح، عامله كفشل على مستوى العمل.
+
+## 8. الأخطاء الشائعة
+
+| HTTP | السبب الشائع | الإجراء الموصى به |
+|---:|---|---|
+| `400` | جسم طلب أو صيغة صورة أو معلمة أو نموذج غير صحيح | تحقّق من JSON / multipart وأسماء الحقول ومعرّف النموذج |
+| `401` | مفتاح API غير صالح | تحقّق من ترويسة Bearer ولا تضع مسافات حول المفتاح |
+| `403` | المجموعة التي ينتمي إليها مفتاح API لا تملك تفعيل توليد الصور | تواصل مع المسؤول للتحقق من صلاحيات الصور للمجموعة |
+| `404` | مسار خاطئ، أو أن واجهة الصور غير مدعومة للمجموعة الحالية | تأكّد من أنك تستخدم `/v1/images/generations` أو `/v1/images/edits` |
+| `429` | قيود التزامن أو RPM أو حصة القناة العلوية | استخدم التراجع الأسّي وقلّل التزامن وRPM |
+| `5xx` | القناة العلوية أو مُرحّل API غير متاح مؤقتًا | سجّل معرّف الطلب وأعد المحاولة عددًا محدودًا من المرات |
+
+عند استكشاف الأخطاء، احفظ معرّف الطلب من ترويسات الاستجابة وقدّمه للمسؤول؛ ولا ترسل مفتاح API كاملاً.
+
+## 9. الاختلافات عن واجهات الصور الأخرى
+
+| الحاجة | المستند الموصى به |
+|---|---|
+| التحويل من نص إلى صورة ومن صورة إلى صورة أصلي في Gemini، بدقة 1K / 2K / 4K | [Gemini Image API](/ar/docs/api/gemini-image) |
+| التحويل من نص إلى صورة والتحرير في GPT | هذه الصفحة |
+| التحويل من نص إلى صورة والتحرير في Grok | [Grok Image API](/ar/docs/api/grok-image) |
+| إرسال عدة موجّهات Gemini دفعة واحدة | [Gemini Batch Image API](/ar/docs/api/gemini-image-batch) |

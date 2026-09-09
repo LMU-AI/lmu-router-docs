@@ -1,0 +1,136 @@
+---
+title: Chatbox للأجهزة المحمولة
+description: "اربط Chatbox للأجهزة المحمولة (iOS / Android) بـ LMU AI: افتح Model Provider من ☰ واضبط الـ API Host لكلا البروتوكولين — اتصال مباشر من الخارج."
+ogDescription: اربط Chatbox للأجهزة المحمولة (iOS / Android) بـ LMU AI — افتح Model Provider من قائمة ☰ في الزاوية العلوية اليسرى، واستدعِ Claude / DeepSeek / Qwen / GLM عبر البروتوكول المتوافق مع Anthropic أو سلسلة GPT عبر بروتوكول OpenAI Responses؛ اضبط الـ API Host على `https://api.lmuai.com` (بدون /v1)، وفعّل "Improve Network Compatibility" لتقليل مشكلات الاتصال على شبكات الجوال، مع اتصال مباشر من الخارج.
+keywords:
+  - إعداد Chatbox للأجهزة المحمولة
+  - إعداد API في Chatbox للأجهزة المحمولة
+  - ضبط LMU AI في Chatbox iOS
+  - ضبط LMU AI في Chatbox Android
+  - API Host في Chatbox للأجهزة المحمولة
+  - Chatbox Improve Network Compatibility
+  - Chatbox للأجهزة المحمولة OpenAI Responses
+  - claude-sonnet-5
+  - gpt-5.6-sol
+  - اتصال Chatbox المحمول المباشر من الخارج
+alternateNames:
+  - ربط Chatbox للأجهزة المحمولة بـ LMU AI
+  - دليل إعداد Chatbox iOS / Android
+  - ضبط Claude API في Chatbox للأجهزة المحمولة
+  - اتصال Chatbox المحمول المباشر بـ Claude
+faq:
+  - q: أين أفتح إعدادات API في Chatbox للأجهزة المحمولة؟
+    a: افتح Chatbox → اضغط على أيقونة القائمة ☰ في الزاوية العلوية اليسرى لفتح الشريط الجانبي → Settings → Model Provider → Add في الأسفل. على الجوال تُسمّى الحقول API Host و API Path، وهي تقابل نسخة سطح المكتب واحدًا لواحد.
+  - q: هل يحتاج الـ API Host في Chatbox للأجهزة المحمولة إلى /v1؟
+    a: لا. أدخل دائمًا الـ API Host حتى النطاق فقط، `https://api.lmuai.com`؛ يضيف Chatbox الجزء /v1 تلقائيًا — يصبح بروتوكول Anthropic هو /v1/messages ويصبح بروتوكول OpenAI Responses هو /v1/responses. بعد أن تملأه، يظهر العنوان الكامل المجمّع مباشرةً أسفل الحقول، فما عليك سوى التحقق منه.
+  - q: هل ينبغي أن أفعّل "Improve Network Compatibility" في Chatbox للأجهزة المحمولة؟
+    a: نوصي بتفعيله. يوجد قرب أسفل شاشة الإعداد ويقلّل مشكلات الاتصال على شبكات الجوال؛ إذا لم يسرِ الإعداد بعد التبديل بين Wi-Fi وبيانات الجوال، أعد تشغيل Chatbox مرة واحدة.
+  - q: هل أحتاج إلى VPN لربط Chatbox للأجهزة المحمولة بـ LMU AI؟
+    a: لا. نطاق API الخاص بـ LMU AI وهو api.lmuai.com يتصل مباشرة من الخارج، ويعمل Chatbox للأجهزة المحمولة دون أي وكيل (بروكسي).
+---
+
+يشترك Chatbox للأجهزة المحمولة (iOS / Android) مع نسخة سطح المكتب في نفس منطق الإعداد — يختلف فقط نقطة الدخول وأسماء الحقول قليلًا. يشرح هذا الدليل الأمر شاشةً شاشة للأجهزة المحمولة؛ أما لسطح المكتب فراجع [Chatbox — جميع المنصات](./chatbox).
+
+<Callout type="info" title="شبه مطابق لسطح المكتب">
+
+- **نقطة دخول مختلفة**: على الجوال تفتح Settings من **قائمة ☰ في الزاوية العلوية اليسرى**؛ على سطح المكتب تكون Settings في الزاوية السفلية اليسرى.
+- **نفس الحقول**: على الجوال تُسمّى **API Host** و **API Path**، مطابقةً لنسخة سطح المكتب تمامًا — فقط اتبع الخطوات أدناه.
+
+</Callout>
+
+---
+
+## التنزيل والتثبيت
+
+- **الموقع الرسمي**: [https://chatboxai.app](https://chatboxai.app)
+- ثبّته من App Store (iOS) أو من متجر التطبيقات / ملف APK الرسمي (Android) — لا حاجة لحساب لاستخدام وضع أحضر مفتاحك الخاص (BYOK).
+
+---
+
+## فتح نقطة دخول الإعداد
+
+افتح Chatbox → اضغط على **أيقونة القائمة ☰ في الزاوية العلوية اليسرى** لفتح الشريط الجانبي → اضغط **Settings** → انتقل إلى **Model Provider** → اضغط **Add** في الأسفل.
+
+بمجرد وصولك إلى شاشة الإعداد، املأها باتباع الطريقة 1 / الطريقة 2 أدناه.
+
+---
+
+## البروتوكولان
+
+يدعم LMU AI بروتوكولي اتصال؛ اختر واحدًا بناءً على نوع النموذج:
+
+| البروتوكول | النماذج | API Host | API Path |
+|------|----------|----------|----------|
+| **Claude API (Anthropic Compatible)** | نماذج Claude، النماذج الصينية (DeepSeek، Qwen، GLM، Kimi، إلخ) | `https://api.lmuai.com` | القيمة الافتراضية مناسبة |
+| **OpenAI Responses API Compatible** | نماذج OpenAI (GPT-5.6 / GPT-5.5، إلخ) | `https://api.lmuai.com` | `/responses` |
+
+<Callout type="info" title="الـ API Host لا يتضمن /v1 أبدًا">
+
+يضيف Chatbox المسار تلقائيًا، لذا **أدخل دائمًا الـ API Host حتى النطاق فقط — لا تُضمّن `/v1`**. بعد أن تملأه، يظهر العنوان الكامل المجمّع مباشرةً أسفل الحقول — على سبيل المثال، يصبح بروتوكول OpenAI Responses هو `https://api.lmuai.com/v1/responses`. **إذا لم يكن النطاق هو `api.lmuai.com`، فإن الـ API Host خاطئ.**
+
+</Callout>
+
+---
+
+## الطريقة 1: بروتوكول Anthropic (Claude والنماذج الصينية)
+
+1. **API Mode**: اختر **`Claude API (Anthropic Compatible)`**
+2. **Name**: أي اسم تريده (مثل `LMU AI`)
+3. **API Host**: أدخل `https://api.lmuai.com` (**بدون** `/v1`)
+4. **API Key**: أدخل مفتاح `sk-` المُولَّد في لوحة التحكم
+5. **إضافة النماذج**: قد لا تتضمن القائمة المُعدّة مسبقًا على الجوال أحدث النماذج، لذا في قسم Model اضغط New / Add Model وأدخل معرّف النموذج، على سبيل المثال:
+
+   - `claude-opus-5`
+   - `claude-sonnet-5`
+   - `claude-haiku-4-5`
+   - `deepseek-v4-pro`
+   - `qwen3.8-max-preview`
+   - `glm-5.2`
+   - `kimi-k3`
+
+   للاطلاع على القائمة الكاملة للنماذج المتاحة، راجع [معرض النماذج](/ar/docs/guide/models).
+
+---
+
+## الطريقة 2: بروتوكول OpenAI (نماذج GPT)
+
+<Callout type="warn" title="المتطلبات">
+
+يجب أن تستوفي أحد هذه الشروط:
+
+- أن تكون قد اشتركت في **خطة GPT**
+- أن تستخدم الفوترة بنظام الدفع حسب الاستخدام وقد اخترت **مجموعة GPT** في لوحة تحكم LMU AI
+
+</Callout>
+
+1. **API Mode**: اختر **`OpenAI Responses API Compatible`** (وليس `OpenAI API Compatible`)
+2. **Name**: أي اسم تريده (مثل `LMUAI-GPT`)
+3. **API Host**: أدخل `https://api.lmuai.com`
+4. **API Path**: أدخل `/responses`
+5. **API Key**: أدخل مفتاح `sk-` المُولَّد في لوحة التحكم
+6. **إضافة النماذج**: في قسم Model اضغط New وأدخل معرّف النموذج، مثل `gpt-5.6-sol`، `gpt-5.6-terra`، `gpt-5.5`، `gpt-5.4`.
+
+يجمع Chatbox بين الـ API Host و `/v1` و API Path في العنوان الكامل `https://api.lmuai.com/v1/responses`، ويظهر مباشرةً أسفل الحقول.
+
+---
+
+## مثال عملي وتفاصيل خاصة بالأجهزة المحمولة
+
+فيما يلي شاشة إعداد مكتملة على الجوال (بروتوكول OpenAI Responses؛ العنوان الكامل `https://api.lmuai.com/v1/responses` مجمّع بالفعل أسفل الحقول):
+
+![شاشة إعداد Chatbox للأجهزة المحمولة مكتملة](/images/tools/chatbox-phone/chatbox-phone-config.jpg)
+
+<Callout type="info" title="تفصيلان خاصان بالأجهزة المحمولة">
+
+- **"Improve Network Compatibility"**: فعّل هذا المفتاح قرب أسفل الشاشة؛ فهو يقلّل مشكلات الاتصال على شبكات الجوال.
+- **تحقّق من العنوان الكامل المجمّع أسفل الحقول**: بمجرد ملئه، يعرض Chatbox عنوان الطلب النهائي مباشرةً (في لقطة الشاشة أعلاه ينتج `https://api.lmuai.com/v1/responses`). إذا لم يكن النطاق هو `api.lmuai.com`، فإن **API Host** خاطئ.
+
+</Callout>
+
+---
+
+## استكشاف الأخطاء وإصلاحها
+
+- **التغييرات لا تسري**: بعد الحفظ، أعد تشغيل Chatbox مرة واحدة أو أعد اختيار النموذج في شاشة الدردشة؛ على الجوال قد تحتاج أحيانًا إلى إعادة التشغيل بعد التبديل بين Wi-Fi وبيانات الجوال.
+- **أخطاء 401 / 403**: تحقّق بالترتيب مما إذا كان مفتاح API هو مفتاح `sk-` من لوحة تحكم LMU AI، وما إذا كان الـ API Host صحيحًا (بدون `/v1`)، وما إذا كان API Mode و API Path صحيحين لبروتوكول OpenAI، وما إذا كانت خطتك / مجموعة الفوترة الحالية تتضمن النموذج الذي تستدعيه.
+- لمزيد من التفاصيل حول البروتوكولات ومعرّفات النماذج والمشكلات الشائعة، راجع صفحة [Chatbox — جميع المنصات](./chatbox) المشتركة بين سطح المكتب والجوال.

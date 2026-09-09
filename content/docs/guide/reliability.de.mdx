@@ -1,0 +1,128 @@
+---
+title: Zuverlässigkeitsarchitektur
+description: "LMU AI KI-Zuverlässigkeitsarchitektur: Multi-Source-Routing, Health-Probes und dreistufiges automatisches Failover; 99,5 % Verfügbarkeitsziel bei Standard und Enterprise."
+ogDescription: "Ein stabiler, zuverlässiger Claude-API-Relay: LMU AI nutzt Multi-Source-Routing, dreistufiges Failover (offiziell / Upstream / Fallback) und Health-Probing, um einen hochverfügbaren, latenzarmen Claude / GPT / Gemini API-Relay-Dienst bereitzustellen."
+keywords:
+  - stabiler Claude API-Relay
+  - Claude API Hochverfügbarkeit
+  - Claude API Failover
+  - was tun, wenn die Claude API instabil ist
+  - AI API-Relay SLA
+  - Multi-Source-Routing
+  - Claude-Relay in China
+  - Zuverlässigkeit von Großmodell-API-Relays
+  - zuverlässiger AI API-Relay
+  - stabiler Claude Code Relay
+alternateNames:
+  - Überblick über die Zuverlässigkeit des Claude API-Relays
+  - LMU AI Zuverlässigkeitsarchitektur
+  - Hochverfügbarer Relay für Claude / GPT / Gemini
+faq:
+  - q: Ist der Claude API-Relay von LMU AI stabil?
+    a: LMU AI nutzt eine dreistufige Failover-Architektur (offizieller Kanal → Upstream-Kanal → Fallback-Kanal) und führt kontinuierlich Health-Probes für jeden Upstream durch; ungesunde Kanäle werden automatisch abgewertet oder entfernt, Single-Point-Failures bleiben für Endnutzer transparent, und dadurch bleibt die Claude / GPT / Gemini API hochverfügbar und latenzarm.
+  - q: Warum ist die direkte Verbindung zur offiziellen Claude API instabil?
+    a: Die direkte Verbindung zur offiziellen API bringt oft regionale Ratenbegrenzung, Konto-Risikokontrollen, Kompatibilitätsprobleme bei Versionswechseln, Spitzen bei der First-Token-Latenz und mehr mit sich. Wenn ein Relay nur ein einfacher Proxy ist, werden diese Probleme unverändert weitergereicht. LMU AI konzipiert sein System unter der Prämisse „Upstreams sind instabil" und maskiert das Jitter durch Multi-Source-Pooling, automatische Wiederholungen und gestuftes Routing.
+  - q: Wie unterscheidet sich der LMU AI-Relay von einer gewöhnlichen Mirror-Site?
+    a: Eine gewöhnliche Mirror-Site ist normalerweise ein einzelner Upstream plus ein transparenter Proxy; LMU AI verbindet mehrere unabhängige Kanäle hinter demselben Modell und wählt dynamisch einen Upstream basierend auf deiner Tarifstufe, dem Modell, der Gesundheit und der Last aus, während es eine öffentliche Statusseite, automatische Fehlerwiederholungen, Streaming-Passthrough und Abrechnungskonsistenz bereitstellt.
+---
+
+Wir behandeln „Stabilität" als das wichtigste Feature des Produkts. Diese Seite erklärt, wie wir das erreichen und was passiert, wenn etwas schiefgeht.
+
+## Warum ist Zuverlässigkeit so schwierig?
+
+Entwickler, die sich direkt mit der offiziellen API verbinden, stoßen auf Dinge wie:
+
+- Regionale Ratenbegrenzung / Nichtverfügbarkeit
+- Ein einzelner Zahlungskanal oder ein Konto wird gesperrt
+- Kompatibilitätsprobleme bei Modellversionswechseln
+- Warteschlangen zu Spitzenzeiten und Spitzen bei der First-Token-Latenz
+
+Wenn ein Relay-Dienst nur ein einfacher Proxy ist, werden diese Probleme **unverändert an die Nutzer weitergereicht** oder sogar verschlimmert. Unser Ansatz besteht darin, das System unter der Prämisse „Upstreams sind instabil" zu konzipieren, anstatt dies als Ausnahme zu behandeln.
+
+## Unsere Multi-Source-Routing-Architektur
+
+Für jeden API-Aufruf wird die Anfrage entlang des folgenden Pfades verarbeitet:
+
+<Mermaid chart={`flowchart TD
+    U([User request]) --> E[Edge gateway<br/>Auth / rate limiting / parameter validation]
+    E --> R[Routing decision layer<br/>Select upstream by plan tier / model / health / load]
+
+    R -->|First priority| O1[Official channel A primary]
+    R -->|First priority| O2[Official channel B backup]
+    R -.->|When official is unavailable| P1[Upstream channel A]
+    R -.->|When official is unavailable| P2[Upstream channel B]
+    R -.->|When the first two tiers are unavailable| F1[Fallback channel A]
+    R -.->|When the first two tiers are unavailable| F2[Fallback channel B]
+
+    O1 --> A[Response aggregation layer<br/>Error retries / streaming passthrough / billing]
+    O2 --> A
+    P1 --> A
+    P2 --> A
+    F1 --> A
+    F2 --> A
+    A --> Ret([Return to user])
+`} />
+
+**Kernmechanismen:**
+
+- **Multi-Upstream-Pool**: Mehrere unabhängige Kanäle sitzen hinter demselben Modell und vermeiden Single-Points-of-Failure
+- **Health-Probing**: Wir überwachen kontinuierlich die Erfolgsrate, First-Token-Latenz und Rate-Limit-Rate jedes Upstreams, und **ungesunde Kanäle werden automatisch abgewertet oder entfernt**
+- **Automatisches Failover**: Wenn der primäre Kanal 5xx / Ratenbegrenzung / Timeouts zurückgibt, wechselt die Anfrage innerhalb von Millisekunden zu einem Backup-Kanal, **normalerweise ohne Auswirkung auf deiner Seite**
+- **Stream-Interruption-Reconnect**: Wenn eine Streaming-Antwort mittendrin abbricht, versuchen wir, sie bei Protokollen, die dies unterstützen, wieder aufzunehmen
+
+## Servicelevel (SLA)
+
+Unsere externen Zusagen basieren auf „dem, was wir tatsächlich liefern können" — wir machen keine leeren Versprechen.
+
+| Stufe | Verfügbarkeitsziel | Monatsbericht | Geschäftsvertrag |
+|------|-----------|---------|---------|
+| Economy | Best-Effort | — | Nicht zutreffend |
+| Standard | 99,5 % | — | Nicht zutreffend |
+| Enterprise | 99,5 % | Bereitgestellt | Höheres SLA und Entschädigungsbedingungen verfügbar |
+
+> Die Economy-Stufe ist für einzelne Entwickler gedacht, die das beste Preis-Leistungs-Verhältnis wollen und gelegentliche Schwankungen tolerieren können; wenn dein Geschäft harte Zuverlässigkeitsanforderungen hat, wähle die Enterprise-Stufe oder kontaktiere unser Vertriebsteam für einen individuellen Plan.
+
+Wie die Verfügbarkeit gemessen wird:
+- Wir zählen nur die Erfolgsrate der Anfragen „auf der LMU AI-Seite", **ausgenommen nutzerseitige Netzwerkprobleme, Parameterfehler und Inhaltsablehnungen durch das Upstream-Modell selbst**
+- Ein einzelner Ausfall von weniger als 60 Sekunden wird nicht gezählt
+- Der Monatsbericht enthält Erfolgsraten und P95-Latenz aufgeschlüsselt nach Modell und nach Zeitraum
+
+## Was während eines Vorfalls passiert
+
+**Kurzes Jitter (< 5 Minuten)**
+- Die Routing-Schicht wechselt Upstreams automatisch, ohne Ankündigung
+- Die [Statusseite](https://api.lmuai.com/monitor) protokolliert das Ereignis
+
+**Ausfall eines einzelnen Upstreams (< 1 Stunde)**
+- Die Routing-Schicht schließt den Wechsel ab; wenn es für einige Nutzer/Modelle sichtbar ist, posten wir es auf der Statusseite
+- Standard- und Enterprise-Nutzer werden per E-Mail benachrichtigt
+
+**Regionale oder gleichzeitige Multi-Upstream-Auswirkung**
+- Das Ereignis wird auf der Statusseite angeheftet mit regelmäßigen Aktualisierungen
+- Enterprise-Nutzer erhalten Fortschrittsupdates per E-Mail in Echtzeit
+- Ein Postmortem wird innerhalb von 48 Stunden nach Ende des Ereignisses veröffentlicht
+
+## Was wir nicht tun
+
+Um Nutzer nicht in die Irre zu führen, versprechen wir derzeit **nicht** Folgendes:
+
+- **Nahtloser Wechsel ohne Latenz**: Failover führt zusätzliche Latenz von Millisekunden bis Sekunden ein, sodass es niemals völlig nahtlos sein wird
+- **Cross-Model-Kompatibilitätsentschädigung**: Wenn ein Upstream-Modell selbst eingestellt wird (zum Beispiel wenn eine Modellversion vom Anbieter eingestellt wird), kündigen wir dies an, anstatt stillschweigend zu einem anderen Modell zu wechseln
+- **Unbegrenzte Wiederholungen**: Fehlgeschlagene Anfragen werden gemäß der Richtlinie eine begrenzte Anzahl von Malen wiederholt, sodass du nicht für unerwartete wiederholte Aufrufe bezahlst
+
+## FAQ
+
+<Callout type="info" title="Warum treten bei mir gelegentlich immer noch Fehler auf?">
+
+Kein System ist zu 100 % verfügbar. Unser Ziel ist es, die Gesamtverfügbarkeit über 99,5 % zu halten und bei Fehlern schnell wiederherzustellen. Wenn bei dir dauerhafte Fehler auftreten (zum Beispiel dieselbe Art von Anfrage schlägt innerhalb von 5 Minuten mehrmals fehl), kontaktiere bitte den Support mit deiner Request-ID, und wir untersuchen es vorrangig.
+
+</Callout>
+
+<Callout type="info" title="Wie beantrage ich die Enterprise-Stufe?">
+
+Siehe die Seite [Enterprise-Pläne](/de/docs/enterprise) oder kontaktiere den Vertrieb direkt:
+
+- E-Mail: business@lmuai.com
+- WeChat / Telefon: 18599001010
+
+</Callout>

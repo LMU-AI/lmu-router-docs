@@ -1,0 +1,119 @@
+---
+title: Import en un clic avec CC Switch
+description: Utilisez l'outil de bureau CC Switch pour importer votre config d'API LMU AI dans Claude Code en un clic, en évitant l'édition manuelle de settings.json.
+ogDescription: CC Switch + LMU AI — changez de backend Claude Code en un clic, évitez d'éditer settings.json à la main, et basculez entre plusieurs comptes et fournisseurs à tout moment.
+keywords:
+  - CC Switch
+  - basculement en un clic Claude Code
+  - comptes multiples Claude Code
+  - basculement de config Claude Code
+  - outil de basculement d'API Claude
+  - import de paramètres Claude Code
+alternateNames:
+  - Connecter CC Switch à LMU AI
+faq:
+  - q: "Le bouton « Import to CCS » ne fait rien — que faire maintenant ?"
+    a: "Le système n'a pas enregistré le schéma d'URL de CC Switch. Vérifiez d'abord que vous avez bien installé CC Switch complètement (et non une version portable décompressée lancée directement), puis lancez CC Switch une fois, quittez-le complètement, et cliquez de nouveau sur « Import to CCS ». Si cela échoue toujours sous Windows, cherchez une option « enregistrer le protocole / associer les liens » dans les paramètres de CC Switch."
+  - q: Mon navigateur a bloqué le saut de protocole — que dois-je faire ?
+    a: "Certains navigateurs bloquent les protocoles inconnus par défaut. Dans la boîte de dialogue, choisissez « toujours autoriser le domaine de la doc / console à ouvrir des liens de ce type »."
+  - q: Comment ajouter manuellement la config LMU AI dans CC Switch ?
+    a: "CC Switch prend en charge l'ajout manuel d'un fournisseur personnalisé : n'importe quel nom (par ex. « LMU AI »), Base URL https://api.lmuai.com, et la clé sk- générée dans la console. Enregistrez-la et définissez-la comme élément actif sur l'écran principal."
+  - q: CC Switch ou l'édition manuelle de settings.json ?
+    a: "Les deux ont le même effet. CC Switch peut stocker les clés de plusieurs groupes / plans et basculer d'un clic, ce qui convient aux utilisateurs multi-plans ; si vous utilisez principalement la ligne de commande et que cela ne vous dérange pas d'éditer un fichier de configuration, configurer settings.json à la main convient tout à fait aussi."
+---
+
+
+**CC Switch** est un outil de bureau open source et multiplateforme pour gérer et basculer en un clic les configs de fournisseurs d'API entre les outils de codage IA comme Claude Code, Codex, OpenCode et Gemini CLI.
+
+Combiné au bouton « **Import to CCS** » de la console LMU AI, il connecte Claude Code à l'API en un seul clic, **sans avoir à créer ni éditer `settings.json` à la main**.
+
+---
+
+## Étape 1 — Installer CC Switch
+
+Téléchargez le programme d'installation pour votre plateforme depuis la page Releases du dépôt officiel :
+
+- **GitHub Releases** : [https://github.com/farion1231/cc-switch/releases](https://github.com/farion1231/cc-switch/releases)
+
+Windows / macOS / Linux sont pris en charge. Après l'installation, lancez CC Switch au moins une fois afin que le système enregistre son schéma d'URL personnalisé.
+
+<Callout type="info">
+
+Après le premier lancement, gardez CC Switch en cours d'exécution (ou laissez-le en arrière-plan) pour que le clic sur « Import to CCS » puisse l'invoquer correctement.
+
+</Callout>
+
+---
+
+## Étape 2 — Créer une clé d'API dans la console LMU AI
+
+Voir [Prise en main - Créer une clé d'API](/fr/docs/guide/getting-started#create-key) :
+
+1. Ouvrez « **API Keys** » dans le menu de gauche
+2. Cliquez sur « **Create key** » et donnez-lui un nom quelconque
+3. Choisissez le **groupe** correspondant au plan que vous avez activé, et terminez la création
+
+---
+
+## Étape 3 — Importer dans CC Switch en un clic
+
+Dans la liste des clés d'API, trouvez la clé que vous venez de créer et cliquez sur le bouton « **Import to CCS** » dans la colonne « **Actions** » à droite de sa ligne :
+
+![Emplacement du bouton « Import to CCS » dans la liste des clés d'API de la console LMU AI](/images/tools/cc-switch/ccs.avif)
+
+
+- Le navigateur affiche une invite demandant « Autoriser ce site à ouvrir CC Switch ? » — cliquez sur « **Autoriser / Ouvrir** »
+- CC Switch détecte et remplit automatiquement le `Base URL` de LMU AI et votre clé d'API
+- Définissez cette config comme élément actif dans CC Switch
+
+<Callout type="info" title="L'invite de la première fois">
+
+Les différents navigateurs (Chrome / Edge / Safari) formulent la confirmation légèrement différemment, mais tous demandent s'il faut lancer l'application externe CC Switch. Cochez « se souvenir de mon choix » pour ne plus être interrogé.
+
+</Callout>
+
+---
+
+## Étape 4 — La rendre effective dans Claude Code
+
+CC Switch écrit la config sélectionnée dans le `settings.json` de Claude Code (ou injecte des variables d'environnement au lancement), donc :
+
+- Si Claude Code est **déjà ouvert**, redémarrez-le une fois pour que la nouvelle config prenne effet
+- Ensuite, exécutez simplement `claude` — pas besoin d'éditer un fichier de configuration à la main
+
+Vérifiez que le Base URL est `https://api.lmuai.com` avec la commande `/status`.
+
+---
+
+## Problèmes courants
+
+### Le bouton « Import to CCS » ne fait rien
+
+**Cause :** le système n'a pas enregistré le schéma d'URL de CC Switch.
+
+**Solution :**
+1. Vérifiez que vous avez bien installé CC Switch complètement (et non une version portable décompressée lancée directement)
+2. Lancez CC Switch une fois, quittez-le complètement, puis cliquez de nouveau sur « Import to CCS »
+3. Si cela échoue toujours sous Windows, cherchez une option « enregistrer le protocole / associer les liens » dans les paramètres de CC Switch
+
+### Le navigateur a bloqué le saut de protocole
+
+Certains navigateurs bloquent les protocoles inconnus par défaut. Dans la boîte de dialogue, choisissez « **toujours autoriser** le domaine de la doc / console à ouvrir des liens de ce type ».
+
+### Vous voulez ajouter la config manuellement
+
+CC Switch prend aussi en charge l'ajout manuel d'un fournisseur personnalisé :
+
+- **Nom** : n'importe lequel (par ex. `LMU AI`)
+- **Base URL** : `https://api.lmuai.com`
+- **API Key** : la clé `sk-` générée dans la console
+
+Enregistrez-la et définissez-la comme élément actif sur l'écran principal.
+
+---
+
+## Recommandations
+
+- CC Switch peut stocker les clés de plusieurs groupes / plans et basculer d'un clic, ce qui le rend **meilleur que l'édition de `settings.json` pour les utilisateurs multi-plans**
+- En mode résident dans la barre d'état, il consomme très peu, donc le configurer pour démarrer au boot est recommandé
+- Si vous utilisez principalement la ligne de commande et que cela ne vous dérange pas d'éditer un fichier de configuration, continuez à configurer à la main selon le [guide Claude Code](/fr/docs/tools/claude-code) — les deux ont le même effet

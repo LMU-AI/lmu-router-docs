@@ -1,0 +1,203 @@
+---
+title: إضافة Claude Code (VS Code / Cursor / Trae / Antigravity)
+description: "نزّل VS Code، وثبّت إضافة Claude Code، واربطها بواجهة LMU AI API — شرح كامل يتشارك ملف settings.json واحد مع الـ CLI."
+ogDescription: "ثبّت إضافة Claude Code على VS Code / Cursor / Trae / Antigravity + واجهة LMU AI API: استخدم Claude 4 دون وكيل، مع مشاركة settings.json مع الـ CLI."
+keywords:
+  - إضافة Claude Code لـ VS Code
+  - Claude Code Cursor
+  - Claude Code Trae
+  - Claude Code Antigravity
+  - إضافة Claude لـ VS Code
+  - ربط Cursor بـ Claude
+  - ربط Trae بـ Claude
+  - مُرحّل Claude IDE
+  - Anthropic VS Code
+  - تنزيل VS Code
+  - دليل تثبيت VS Code
+alternateNames:
+  - ربط Claude Code VS Code / Cursor / Trae بـ LMU AI
+faq:
+  - q: ماذا أفعل إذا كان تنزيل VS Code من الموقع الرسمي بطيئًا؟
+    a: "عادةً ما يكون السبب أن المتصفح يسحب المثبّت بحجم 100–200 ميغابايت عبر مسار واحد. نسخ الروابط المباشرة الرسمية إلى أداة تنزيل تدعم التعدد الخيطي عادةً ما يكون أسرع بكثير — على سبيل المثال، مثبّت المستخدم لنظام Windows https://update.code.visualstudio.com/latest/win32-x64-user/stable وبناء Universal لنظام macOS https://update.code.visualstudio.com/latest/darwin-universal/stable. هذه الروابط المباشرة لا تحتوي على رقم إصدار وتشير دائمًا إلى أحدث إصدار مستقر."
+  - q: هل تحتاج إضافة Claude Code إلى إعداد مفتاح API الخاص بها بشكل منفصل؟
+    a: "لا. تقرأ الإضافة ~/.claude/settings.json، تمامًا مثل Claude Code CLI — فهي تعيد استخدام المفتاح وعنوان Base URL اللذين أعددتهما في الـ CLI تلقائيًا. كما تتشارك VS Code وCursor وTrae وAntigravity جميعها هذا الإعداد نفسه، لذا يسري أي تغيير على كل مكان."
+  - q: كيف أعالج خطأ 401 / Unauthorized في الإضافة؟
+    a: "بالطريقة نفسها المتبعة في الـ CLI — عادةً ما يكون السبب متغيرات البيئة في الصدفة ANTHROPIC_BASE_URL / ANTHROPIC_API_KEY التي تتجاوز الإعداد في settings.json. أزل تلك المتغيرات من ملف إعداد الصدفة وأعد تشغيل المحرر."
+  - q: ماذا أفعل إذا لم أجد إضافة Claude Code في Cursor / Trae / Antigravity؟
+    a: "تستخدم بعض المحررات المشتقة من VS Code متجر إضافات خاصًا (مثل Open VSX)؛ عندما لا تجدها، ثبّتها دون اتصال بدلًا من ذلك: نزّل أولًا حزمة .vsix من صفحة سوق إضافات VS Code الرسمية، ثم اختر Install from VSIX من قائمة '…' في أعلى يمين لوحة الإضافات في المحرر."
+  - q: كيف أبدّل إلى نموذج صيني في الإضافة؟
+    a: "أضف \"model\": \"qwen3.8-max-preview\" إلى ~/.claude/settings.json، وسيستخدم الـ CLI وجميع محررات عائلة VS Code هذا النموذج تلقائيًا. راجع معرض النماذج للاطلاع على قائمة النماذج المتاحة."
+  - q: هل ينبغي أن أختار إضافة Claude Code أم الـ CLI؟
+    a: "لا يتفوق أحدهما وظيفيًا على الآخر — اختر حسب تفضيلك: إذا كنت تحب البرمجة داخل المحرر، فاستخدم الإضافة، حيث يبقى كل سياقك داخل المحرر؛ وإذا كنت بحاجة إلى العمل عبر محررات متعددة أو كتابة نصوص برمجية أو تشغيل مهام مجمّعة، فاستخدم الـ CLI الأكثر مرونة. كلاهما يقرأ الإعداد نفسه ويمكن استخدامهما في آن واحد."
+---
+
+إضافة VS Code الرسمية **Claude Code for VS Code** تتيح لك استخدام Claude Code مباشرة في الشريط الجانبي للمحرر، دون التبديل إلى الطرفية. وهي **تتشارك ملف إعداد واحد** مع Claude Code CLI، لذا فإن المفتاح / Base URL اللذين أعددتهما في الـ CLI يعملان مباشرةً في الإضافة — دون الحاجة إلى إعدادهما من جديد.
+
+<Callout type="info" title="يعمل أيضًا مع Cursor / Trae / Antigravity ومحررات أخرى">
+
+أي محرر مبني على نواة VS Code (**Cursor وTrae وAntigravity**، إلخ) يمكنه **البحث في متجر الإضافات المدمج فيه عن إضافة `Claude Code for VS Code` نفسها** لتثبيتها وإعدادها — والخطوات مطابقة تمامًا لخطوات VS Code.
+
+جميع لقطات الشاشة والأوامر في هذه الصفحة تستخدم VS Code كمثال؛ ويمكن لمستخدمي Cursor / Trae / Antigravity اتباعها كما هي.
+
+</Callout>
+
+---
+
+## تنزيل وتثبيت VS Code
+
+<Callout type="info" title="أتستخدم Cursor / Trae / Antigravity؟">
+
+هذه محررات مستقلة — نزّل المثبّت المناسب من الموقع الرسمي لكل منها (وليس VS Code)، وبمجرد التثبيت انتقل مباشرةً إلى القسم التالي، [تثبيت الإضافة](#install-the-extension) — فسوق الإضافات وخطوات التثبيت مطابقة لـ VS Code.
+
+</Callout>
+
+اذهب إلى [code.visualstudio.com](https://code.visualstudio.com/) وانقر على زر **Download**؛ سيكتشف الموقع نظام تشغيلك تلقائيًا. يمكنك أيضًا استخدام الروابط المباشرة الرسمية أدناه (بلا رقم إصدار، وتشير دائمًا إلى أحدث إصدار مستقر، دون الحاجة إلى زيارة الموقع أولًا):
+
+<Tabs items={['Windows', 'macOS', 'Linux']}>
+<Tab value="Windows">
+
+**التنزيل**: [مثبّت المستخدم لـ Windows (x64)](https://update.code.visualstudio.com/latest/win32-x64-user/stable) — لا يحتاج صلاحيات مسؤول، ويثبّت في دليل المستخدم الحالي، وهو التوصية الرسمية. لأجهزة ARM، استخدم [بناء ARM64](https://update.code.visualstudio.com/latest/win32-arm64-user/stable).
+
+**التثبيت**:
+
+1. انقر نقرًا مزدوجًا على `VSCodeUserSetup-*.exe` الذي نزّلته
+2. انقر "Next" عبر الخطوات، وعند "Select Additional Tasks"، **حدّد**:
+   - "Add to PATH" (محدّد افتراضيًا، أبقِه) — يتيح للطرفية استخدام أمر `code`
+   - "Register Code as an editor for supported file types"
+   - "Add 'Open with Code' action to the Windows Explorer context menu" (اختياري، ومريح)
+3. شغّل VS Code عند الانتهاء
+
+</Tab>
+<Tab value="macOS">
+
+**التنزيل**: [بناء macOS Universal](https://update.code.visualstudio.com/latest/darwin-universal/stable) — حزمة واحدة تدعم شرائح Apple Silicon وIntel معًا.
+
+**التثبيت**:
+
+1. ستحصل على `VSCode-darwin-universal.zip`؛ انقر نقرًا مزدوجًا لفك ضغطه
+2. اسحب **Visual Studio Code.app** المستخرَج إلى مجلد **Applications** في Finder
+3. افتح VS Code من Launchpad
+4. (موصى به) اضغط `Cmd+Shift+P` لفتح لوحة الأوامر وشغّل **Shell Command: Install 'code' command in PATH**؛ بعدها يمكنك فتح الدليل الحالي في الطرفية بـ `code .`
+
+</Tab>
+<Tab value="Linux">
+
+اختر حسب التوزيعة:
+
+- **Debian / Ubuntu**: نزّل [حزمة .deb](https://update.code.visualstudio.com/latest/linux-deb-x64/stable)، ثم `sudo apt install ./code_*.deb`
+- **RHEL / Fedora / openSUSE**: نزّل [حزمة .rpm](https://update.code.visualstudio.com/latest/linux-rpm-x64/stable)، ثم `sudo rpm -i code-*.rpm` (أو `sudo dnf install code-*.rpm`)
+
+يضيف تثبيت `.deb` / `.rpm` أمر `code` إلى PATH تلقائيًا، ويربطه بتحديثات البرمجيات في النظام. وبمجرد التثبيت، شغّل `code` في الطرفية أو أطلقه من قائمة التطبيقات.
+
+</Tab>
+</Tabs>
+
+<Callout type="info" title="الموقع الرسمي أو التنزيل بطيء؟">
+
+يبلغ حجم المثبّت 100–200 ميغابايت، وقد تكون تنزيلات المتصفح أحادية المسار بطيئة أحيانًا في الصين. نسخ **الروابط المباشرة الرسمية** أعلاه إلى أداة تنزيل تدعم التعدد الخيطي عادةً ما يكون أسرع بكثير — فهذه الروابط المباشرة لا تحتوي على رقم إصدار وتشير دائمًا إلى أحدث إصدار مستقر.
+
+</Callout>
+
+---
+
+## تثبيت الإضافة
+
+1. افتح VS Code (أو Cursor / Trae / Antigravity) واذهب إلى لوحة الإضافات (الاختصار `Cmd+Shift+X` / `Ctrl+Shift+X`)
+2. ابحث عن **`Claude Code for VS Code`**، وتأكد أنها إصدار Anthropic الرسمي
+3. انقر **Install**؛ وبمجرد التثبيت، تظهر أيقونة Claude في الشريط الجانبي
+
+<Callout type="warn" title="ملاحظة لمستخدمي Cursor / Trae / Antigravity">
+
+تستخدم بعض المحررات المشتقة من VS Code متجر إضافات خاصًا (مثل Open VSX). إذا لم تجد `Claude Code for VS Code`:
+
+1. اذهب إلى صفحة سوق إضافات VS Code الرسمية ونزّل حزمة `.vsix`
+2. من قائمة `…` في أعلى يمين لوحة الإضافات في المحرر، اختر **Install from VSIX**
+
+</Callout>
+
+---
+
+## إعداد واجهة LMU AI API
+
+<Callout type="info" title="إذا كنت قد أعددت Claude Code CLI مسبقًا، يمكنك تخطي هذا القسم">
+
+تقرأ الإضافة `~/.claude/settings.json`، تمامًا مثل الـ CLI. **المفتاح وعنوان Base URL اللذان أعددتهما في [إعداد Claude Code CLI](/ar/docs/tools/claude-code) تعيد الإضافة استخدامهما تلقائيًا — دون خطوات إضافية.**
+
+وهذا يعني أيضًا أن **VS Code وCursor وTrae وAntigravity جميعها تتشارك الإعداد نفسه** — غيّره مرة واحدة في أي محرر، ويسري على المحررات الأخرى وعلى الـ CLI.
+
+</Callout>
+
+إذا كانت هذه أول مرة تعدّه فيها، أنشئ ملف الإعداد كما يلي:
+
+<Tabs items={['Mac/Linux', 'Windows']}>
+<Tab value="Mac/Linux">
+
+```bash
+mkdir -p ~/.claude && touch ~/.claude/settings.json
+```
+
+</Tab>
+<Tab value="Windows">
+
+```powershell
+mkdir "$env:USERPROFILE\.claude" -Force
+New-Item "$env:USERPROFILE\.claude\settings.json" -Force
+```
+
+</Tab>
+</Tabs>
+
+أضف ما يلي (استبدل المفتاح بمفتاحك):
+
+```json
+{
+  "env": {
+    "ANTHROPIC_BASE_URL": "https://api.lmuai.com",
+    "ANTHROPIC_AUTH_TOKEN": "sk-your-lmu-ai-api-key",
+    "API_TIMEOUT_MS": "3000000",
+    "CLAUDE_CODE_ATTRIBUTION_HEADER": "0"
+  }
+}
+```
+
+للتفاصيل (بما في ذلك إعدادات النموذج الصيني الافتراضية، وضبط `effortLevel`، والمزيد)، راجع [إعداد Claude Code CLI](/ar/docs/tools/claude-code)؛ **جميع خيارات الإعداد تنطبق**.
+
+---
+
+## إطلاق الإضافة
+
+1. في المحرر، اضغط `Cmd+Shift+P` / `Ctrl+Shift+P` لفتح لوحة الأوامر
+2. اكتب **`Claude Code: Open`**، أو انقر ببساطة على أيقونة Claude في الشريط الجانبي
+3. في لوحة المحادثة التي تُفتح، يمكنك التحدث إلى Claude Code، وتوليد الكود، والسماح له بتحرير الملفات تلقائيًا
+
+<Callout type="info" title="إعداد واحد، قابل للاستخدام في كل مكان">
+
+- شغّل `claude` في الطرفية ← استخدم Claude Code CLI
+- انقر على أيقونة Claude في الشريط الجانبي لـ **VS Code / Cursor / Trae / Antigravity** ← استخدم الإضافة
+
+**كلاهما يقرأ `~/.claude/settings.json` نفسه**، لذا فإن المفتاح وBase URL والنموذج وإعدادات المهلة جميعها تسري في كل مكان عند تغييرها في مكان واحد.
+
+</Callout>
+
+---
+
+## المشكلات الشائعة
+
+### 401 / Unauthorized في الإضافة
+
+بالطريقة نفسها المتبعة في الـ CLI — عادةً ما يكون السبب متغيرات البيئة في الصدفة `ANTHROPIC_BASE_URL` / `ANTHROPIC_API_KEY` التي تتجاوز `settings.json`. راجع [إعداد Claude Code CLI ← المشكلات الشائعة](/ar/docs/tools/claude-code#common-issues) لمعالجة المشكلة.
+
+### استخدام نموذج صيني / تبديل النموذج الافتراضي
+
+أضف `"model": "qwen3.8-max-preview"` إلى `settings.json`، وسيستخدم الـ CLI وجميع محررات عائلة VS Code هذا النموذج تلقائيًا. راجع [معرض النماذج](/ar/docs/guide/models) للاطلاع على قائمة النماذج المتاحة.
+
+### لا يمكن العثور على الإضافة في Cursor / Trae / Antigravity
+
+اتبع "ملاحظة لمستخدمي Cursor / Trae / Antigravity" السابقة وثبّتها دون اتصال عبر VSIX.
+
+### الإضافة أم الـ CLI — أيهما أختار؟
+
+- تفضّل البرمجة داخل المحرر ← استخدم الإضافة، حيث يبقى كل سياقك داخل المحرر
+- تعمل عبر محررات متعددة، أو تكتب نصوصًا برمجية، أو تشغّل مهام مجمّعة ← استخدم الـ CLI الأكثر مرونة
+
+**لا يتفوق أحدهما وظيفيًا على الآخر** — اختر ما يناسبك.

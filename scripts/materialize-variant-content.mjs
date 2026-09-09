@@ -148,11 +148,16 @@ const stripCnBlocks = (s) => s.replace(/<CN>[\s\S]*?<\/CN>/g, '');
 
 function renameFor(name) {
   // 目录内的文件名（不含路径）。返回 null 表示跳过该文件。
+  // 语言角色对调只发生在 cn(裸)↔en 之间；新语种 *.{lang}.mdx / meta.{lang}.json 原样
+  // 透传（/ja/docs 等 URL 两站通用，无需改名）。透传规则必须排在「裸 .mdx→.cn.mdx」
+  // 之前，否则 X.ja.mdx 会被裸 .mdx 规则误改名成 X.ja.cn.mdx。
   if (name === '.DS_Store') return null;
   if (name.endsWith('.en.mdx')) return name.slice(0, -'.en.mdx'.length) + '.mdx';
-  if (name.endsWith('.mdx')) return name.slice(0, -'.mdx'.length) + '.cn.mdx';
   if (name === 'meta.en.json') return 'meta.json';
   if (name === 'meta.json') return 'meta.cn.json';
+  if (/^meta\.[a-z]{2}\.json$/.test(name)) return name; // 新语种导航 meta 透传
+  if (/\.[a-z]{2}\.mdx$/.test(name)) return name; // 新语种页透传（须先于裸 .mdx 规则）
+  if (name.endsWith('.mdx')) return name.slice(0, -'.mdx'.length) + '.cn.mdx';
   return name; // 其他资源原样
 }
 
@@ -178,6 +183,7 @@ function transform(content, role) {
   //    - 中文文件（对调后带 .cn）：](/docs… → ](/cn/docs…
   //    只认 markdown 链接标记 ](/，不会碰代码块里的普通路径；相对链接（./faq）两边通用不用动。
   //    内容里两类前缀各自纯净（en 文件 0 个 ](/docs、cn 文件 0 个 ](/en，已核），无互串风险。
+  //    新语种（role='passthrough'）：/ja/docs 等前缀两站通用，此步跳过、链接原样。
   if (role === 'en') out = out.split('](/en/docs').join('](/docs');
   else if (role === 'cn') out = out.split('](/docs').join('](/cn/docs');
   return out;
@@ -207,8 +213,13 @@ for (const src of walk(SRC)) {
   const base = rel.split('/').pop();
   const newName = renameFor(base);
   if (newName === null) continue;
-  // 语言角色：原 *.en.* → 对调后是默认语言（en）；其余 mdx/meta → 中文（cn）。
-  const role = /\.en\.(mdx|json)$/.test(base) ? 'en' : 'cn';
+  // 语言角色：原 *.en.* → 对调后是默认语言（en）；新语种 *.{lang}.* → 透传（端点改写
+  // 照做，但 /ja/docs 链接前缀两站通用、不重写）；其余裸 mdx/meta → 中文（cn）。
+  const role = /\.en\.(mdx|json)$/.test(base)
+    ? 'en'
+    : /\.[a-z]{2}\.(mdx|json)$/.test(base)
+      ? 'passthrough'
+      : 'cn';
   const dest = join(OUT, join(dirname(rel), newName));
   mkdirSync(dirname(dest), { recursive: true });
   if (/\.(mdx|json)$/.test(newName)) {
@@ -244,7 +255,7 @@ for (const p of walk(OUT)) {
   if (!/\.(mdx|json)$/.test(bn)) continue;
   const body = readFileSync(p, 'utf8');
   if (body.includes('docs/guide/compliance')) danglers.push(`${p}: 残留链接`);
-  if (/^meta(\.cn)?\.json$/.test(bn) && body.includes('"compliance"')) danglers.push(`${p}: 残留导航项`);
+  if (/^meta(\.[a-z]{2})?\.json$/.test(bn) && body.includes('"compliance"')) danglers.push(`${p}: 残留导航项`);
 }
 if (danglers.length > 0) {
   console.error('✗ .ai 物化产物残留 compliance 引用（交叉引用措辞可能已改，请更新 COMPLIANCE_LINKS）：');

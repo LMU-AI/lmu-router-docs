@@ -40,7 +40,7 @@ const config = {
         headers: [{ key: 'Link', value: AGENT_LINK_HEADER }],
       },
       {
-        source: '/:lang(cn|en)?/docs',
+        source: '/:lang(cn|en|ja|ko|es|pt|de|fr|ru|ar)?/docs',
         headers: [{ key: 'Link', value: AGENT_LINK_HEADER }],
       },
     ];

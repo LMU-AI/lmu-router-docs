@@ -1,0 +1,148 @@
+---
+title: Codex App (데스크톱)
+description: Codex App 데스크톱 클라이언트에서 LMU AI API 베이스 URL과 키를 설정하세요 — Windows와 Mac 모두에서 작동합니다.
+ogDescription: "Codex App 데스크톱 클라이언트를 LMU AI에 연결하세요: 베이스 URL과 API 키를 입력하면 프록시 없이 Windows와 Mac에서 OpenAI Codex / GPT를 사용할 수 있습니다."
+keywords:
+  - Codex App
+  - Codex 데스크톱 클라이언트
+  - 중국에서 Codex 사용하기
+  - OpenAI Codex 릴레이
+  - Codex Windows
+  - Codex Mac
+  - GPT 데스크톱 클라이언트
+alternateNames:
+  - Codex App을 LMU AI에 연결하기
+---
+
+
+Codex CLI를 설치하고 싶지 않고 그냥 **Codex App 데스크톱 클라이언트**만 사용하고 싶다면, 이 방법을 따르세요.
+
+<Callout type="warn" title="참고">
+
+- 이전에 본인 계정으로 로그인한 적이 있다면, 먼저 Codex App에서 **현재 계정을 로그아웃**한 뒤 다시 설정하세요.
+- API를 전환한 후에는 채팅 기록이 사라집니다(계정 유형의 채팅 기록은 로컬이 아니라 GPT 계정 공간에 저장됩니다).
+- **API 로그인으로 전환한 이후의 모든 채팅 기록은 로컬에 저장되며 사라지지 않습니다!**
+
+</Callout>
+
+---
+
+## 1단계 — 설정 파일 생성
+
+설정 파일 위치:
+- **Mac/Linux**: 홈 디렉터리(`~`)의 `.codex` 폴더
+- **Windows**: `C:\users\your-username\.codex\`
+
+폴더가 이미 존재한다면, 오래된 설정으로 인한 간섭을 피하기 위해 그 안의 `auth.json`과 `config.toml`을 삭제하고 다시 만드는 것이 가장 좋습니다.
+
+**터미널 명령으로 폴더 생성:**
+
+```bash
+# Mac/Linux
+rm -rf ~/.codex && mkdir ~/.codex
+```
+
+`.codex` 폴더 안에 두 개의 파일을 생성하세요:
+
+### auth.json
+
+API 키를 보관합니다:
+
+```json
+{
+  "OPENAI_API_KEY": "your sk- key generated in the console"
+}
+```
+
+### config.toml
+
+서비스 제공자를 설정합니다:
+
+```toml
+model = "gpt-5.4"
+model_reasoning_effort = "xhigh"
+disable_response_storage = true
+sandbox_mode = "danger-full-access"
+windows_wsl_setup_acknowledged = true
+approval_policy = "never"
+file_opener = "vscode"
+model_provider = "codex"
+web_search = "cached"
+suppress_unstable_features_warning = true
+
+[history]
+persistence = "save-all"
+
+[tui]
+notifications = true
+
+[shell_environment_policy]
+inherit = "all"
+ignore_default_excludes = false
+
+[sandbox_workspace_write]
+network_access = true
+
+[features]
+plan_tool = true
+apply_patch_freeform = true
+view_image_tool = true
+unified_exec = false
+streamable_shell = false
+rmcp_client = true
+elevated_windows_sandbox = true
+
+[profiles.auto-max]
+approval_policy = "never"
+sandbox_mode = "workspace-write"
+
+[profiles.review]
+approval_policy = "on-request"
+sandbox_mode = "workspace-write"
+
+[notice]
+hide_gpt5_1_migration_prompt = true
+
+[model_providers.codex]
+name = "codex"
+base_url = "https://api.lmuai.com"
+wire_api = "responses"
+requires_openai_auth = true
+```
+
+<Callout type="info">
+
+보통 홈 디렉터리의 `.codex` 폴더 안에 있습니다. 그곳에서 `.codex` 폴더를 찾을 수 없다면, 폴더와 함께 `config.toml`, `auth.json`을 수동으로 만들 수 있습니다.
+
+설정 파일 내용은 [Codex CLI Mac/Linux 설정 가이드](/ko/docs/tools/codex-cli-mac)와 동일합니다 — 그 가이드를 따라 터미널에서 만들면 되고, Codex App을 재시작하면 마찬가지로 적용됩니다.
+
+</Callout>
+
+---
+
+## 2단계 — Codex App 다시 열기
+
+설정 파일을 저장한 후 Codex App을 다시 열면 자동으로 로그인되어 바로 사용할 수 있습니다.
+
+---
+
+## 1M 컨텍스트 활성화하기 (선택)
+
+`gpt-5.4`는 1M 토큰 장문 컨텍스트를 지원하지만 기본적으로 꺼져 있습니다. 위 `config.toml`의 **최상위 레벨**(어떤 `[section]`보다 앞)에 두 줄을 추가한 후 Codex App을 재시작하세요:
+
+```toml
+model_context_window = 1000000
+model_auto_compact_token_limit = 900000
+```
+
+필드 의미, 확인 방법, 주의 사항은 [Codex에서 1M 컨텍스트 활성화하기](/ko/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional)를 참고하세요.
+
+---
+
+## 자주 발생하는 오류
+
+**오류 401, 잘못된 키:**
+
+원인: 요청이 여전히 우리 API 릴레이가 아니라 OpenAI 공식 엔드포인트로 전송되고 있거나, 설정 파일을 다시 불러오도록 도구를 재시작하지 않았습니다.
+
+해결: 가이드를 다시 따라 `config.toml`과 `auth.json` 파일을 생성하거나 교체한 뒤, 앱을 다시 여세요.

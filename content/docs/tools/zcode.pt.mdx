@@ -1,0 +1,133 @@
+---
+title: ZCode
+description: Adicione um provedor personalizado no editor ZCode para se conectar à API de IA da LMU — uma única entrada contém tanto os endpoints Anthropic quanto OpenAI, dando a você acesso a Claude, GPT e modelos chineses.
+ogDescription: Conecte o editor ZCode à LMU AI — vá em Configurações → Provedores de Modelo → Adicionar provedor, insira os endpoints Anthropic / OpenAI e sua chave sk-, então adicione os IDs de modelo manualmente para usar Claude Opus 5, GPT-5.6, GLM, Qwen, DeepSeek e muito mais.
+keywords:
+  - ZCode
+  - configuração do ZCode
+  - API de terceiros no ZCode
+  - relay do ZCode
+  - provedor personalizado do ZCode
+  - Conectar ZCode ao Claude
+  - modelos chineses no ZCode
+  - adicionar modelo no ZCode
+  - Ambiente de Desenvolvimento Agêntico
+alternateNames:
+  - Conectar ZCode à LMU AI
+  - Como configurar uma API de terceiros no ZCode
+  - Configuração de provedor personalizado no ZCode
+faq:
+  - q: Como conecto o ZCode à LMU AI?
+    a: 'Abra **Configurações → Provedores de Modelo**, clique em "Adicionar provedor" na parte inferior da lista de provedores à esquerda, dê a ele qualquer nome (por exemplo, `LMU AI`), defina o endpoint Anthropic como `https://api.lmuai.com` e o endpoint OpenAI como `https://api.lmuai.com/v1`, insira a chave `sk-` gerada no console da LMU AI, salve, clique em "Adicionar modelo" para inserir um ID de modelo manualmente (por exemplo, `claude-opus-5`) e ative a chave de habilitação.'
+  - q: Os endpoints precisam do sufixo `/v1`?
+    a: Os dois protocolos são diferentes. O **endpoint Anthropic** recebe `https://api.lmuai.com` (**sem** `/v1` — o cliente adiciona `/v1/messages` por conta própria), enquanto o **endpoint OpenAI** recebe `https://api.lmuai.com/v1` (**com** `/v1`). Isso corresponde aos exemplos oficiais para provedores de terceiros, onde as entradas no estilo Anthropic usam o host puro e as entradas no estilo OpenAI descem até `/v1`.
+  - q: Os modelos da LMU AI não aparecem no seletor de modelos
+    a: 'Provedores personalizados não buscam uma lista de modelos automaticamente. Depois de salvar o provedor, clique em "**Adicionar modelo**" e insira o ID do modelo manualmente (por exemplo, `claude-opus-5`, `glm-5.2`), então ative a chave de habilitação. Ele ficará selecionável no seletor de modelos na caixa de chat.'
+  - q: Posso alterar a janela de contexto dos modelos de um provedor personalizado?
+    a: Sim. Em **Configurações → Provedores de Modelo**, abra um modelo e expanda "**Avançado**" para definir a janela de contexto e o máximo de tokens de saída para aquele modelo individual. Os modelos Claude de linha principal da LMU AI suportam uma janela de contexto de 1M — use um ID de modelo com o sufixo `[1M]` (por exemplo, `claude-opus-5[1M]`) para habilitá-la.
+  - q: Por que os níveis de esforço de raciocínio são diferentes do endpoint oficial?
+    a: Este é um comportamento documentado do ZCode — uma implantação de terceiros de um modelo com o mesmo nome pode aceitar níveis de esforço diferentes dos do endpoint oficial, e os modelos personalizados normalmente oferecem apenas um par liga/desliga ou nenhum nível, dependendo da configuração do modelo. A funcionalidade não é afetada; apenas use normalmente.
+  - q: A configuração de proxy HTTP do ZCode afeta as requisições à LMU AI?
+    a: Sim. O proxy HTTP nas configurações do ZCode não é um proxy global, mas as requisições de modelo estão entre o tráfego que passa por ele. Se um proxy estiver impedindo você de se conectar, desligue-o e tente novamente — e observe que as variáveis de ambiente `HTTP_PROXY` / `HTTPS_PROXY` também se aplicam, e o ZCode precisa ser reiniciado após alterá-las.
+---
+
+O ZCode é um aplicativo desktop de Ambiente de Desenvolvimento Agêntico (ADE) construído para tarefas de longo prazo. Ele suporta provedores personalizados para qualquer serviço de modelo que fale o protocolo Anthropic ou OpenAI — esta página cobre a conexão com a LMU AI.
+
+---
+
+## Instale o ZCode
+
+Baixe e instale a versão para o seu sistema operacional a partir do site oficial:
+
+- Website: [https://zcode.z.ai](https://zcode.z.ai)
+
+---
+
+## Adicione a LMU AI como provedor
+
+Abra **Configurações → Provedores de Modelo** e clique em "**Adicionar provedor**" na **parte inferior** da lista de provedores à esquerda, então preencha:
+
+| Campo | Valor |
+|------|------|
+| **Nome** | qualquer coisa que você quiser, por exemplo, `LMU AI` |
+| **Endpoint Anthropic** | `https://api.lmuai.com` |
+| **Endpoint OpenAI** | `https://api.lmuai.com/v1` |
+| **Chave de API** | a chave `sk-` gerada no console da LMU AI |
+
+<Callout type="warn" title="Os dois endpoints têm formas /v1 diferentes">
+
+- **Endpoint Anthropic**: `https://api.lmuai.com` — **sem** `/v1`; o cliente adiciona `/v1/messages` por conta própria
+- **Endpoint OpenAI**: `https://api.lmuai.com/v1` — **deve** incluir `/v1`
+
+Confundi-los produz um 401 ou 404. Ambos os endereços podem coexistir na mesma entrada de provedor — o ZCode usa o protocolo que corresponder ao modelo que você escolher.
+
+</Callout>
+
+---
+
+## Adicione modelos
+
+Provedores personalizados **não buscam uma lista de modelos automaticamente**, então adicione-os manualmente:
+
+1. Salve a configuração do provedor
+2. Clique em "**Adicionar modelo**"
+3. Insira o ID do modelo manualmente, por exemplo, `claude-opus-5`
+4. Ative a **chave de habilitação**
+
+Repita para cada modelo que você quiser. IDs de modelo comuns:
+
+| ID do modelo | Notas |
+|------|------|
+| `claude-opus-5` | Claude Opus 5 (carro-chefe, recomendado) |
+| `claude-sonnet-5` | Claude Sonnet 5 (equilibrado) |
+| `claude-haiku-4-5` | Claude Haiku 4.5 (rápido) |
+| `gpt-5.6-sol` | GPT-5.6 Sol |
+| `glm-5.2` | GLM-5.2 |
+| `qwen3.8-max-preview` | Qwen 3.8 Max Preview |
+| `deepseek-v4-pro` | DeepSeek V4 Pro |
+| `kimi-k3` | Kimi K3 |
+
+Não tem certeza de qual modelo inserir? Acesse a [Galeria de Modelos](/pt/docs/guide/models) para ver todos os IDs de modelo disponíveis e copiá-los com um clique.
+
+---
+
+## Habilite a janela de contexto de 1M
+
+Modelos de linha principal como `claude-opus-5` e `claude-sonnet-5` suportam uma janela de contexto de 1M tokens — adicione o sufixo `[1M]` ao ID do modelo para habilitá-la:
+
+```
+claude-opus-5[1M]
+```
+
+Insira o ID completo com o sufixo usando os passos "Adicionar modelo" acima.
+
+<Callout type="info" title="A janela de contexto pode ser ajustada por modelo">
+
+Em **Configurações → Provedores de Modelo**, abra um modelo e expanda "**Avançado**" para definir a **janela de contexto** e o **máximo de tokens de saída** para aquele modelo individual. Ambos são editáveis para os modelos de um provedor personalizado.
+
+Deixar o máximo de tokens de saída vazio é recomendado (ele então segue o próprio limite do modelo). Observe que o espaço de saída compartilha o mesmo contexto do histórico da sua conversa, então quanto mais alto você o definir, menos histórico pode ser mantido e mais cedo a compactação automática entra em ação.
+
+</Callout>
+
+---
+
+## Verifique a configuração
+
+**Reinicie o ZCode** após configurar, selecione seu modelo recém-adicionado no seletor de modelos da caixa de chat e envie uma instrução simples para testar. Uma resposta normal significa que está tudo pronto.
+
+<Callout type="info" title="Não consegue conectar? Verifique o proxy primeiro">
+
+O proxy HTTP nas configurações do ZCode não é um proxy global, mas as **requisições de modelo passam por ele**. Se um proxy estiver quebrando a conexão, desligue-o e tente novamente. As variáveis de ambiente `HTTP_PROXY` / `HTTPS_PROXY` também se aplicam, e o ZCode precisa ser reiniciado depois que você as alterar.
+
+</Callout>
+
+---
+
+## Notas
+
+- A LMU AI é um provedor de terceiros / personalizado, então crie-a com "**Adicionar provedor**" na parte inferior da lista — não modifique as entradas de fornecedores integrados
+- O **endpoint Anthropic** recebe `https://api.lmuai.com` (sem `/v1`); o **endpoint OpenAI** recebe `https://api.lmuai.com/v1` (com `/v1`)
+- Para a Chave de API, insira a chave `sk-` gerada no console da LMU AI
+- Provedores personalizados exigem adicionar cada modelo manualmente e ativar sua chave de habilitação antes que ele apareça no seletor
+- Uma implantação de terceiros de um modelo com o mesmo nome pode oferecer **níveis de esforço de raciocínio** diferentes dos do endpoint oficial; modelos personalizados normalmente expõem apenas um par liga/desliga, ou nenhum
+- Se você encontrar erros relacionados a imagens com um modelo personalizado, confirme que o próprio modelo aceita entrada de imagem e declare sua capacidade de imagem na configuração do modelo

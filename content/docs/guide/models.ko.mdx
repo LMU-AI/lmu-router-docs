@@ -1,0 +1,200 @@
+---
+title: 모델 갤러리
+description: "LMU AI API에서 사용할 수 있는 전체 모델 목록(중국 LLM / Claude / OpenAI). 모델 이름을 클릭하면 해당 ID가 복사되며, 이를 도구 설정에 붙여넣으세요."
+ogDescription: LMU AI가 지원하는 모든 모델 — Claude Opus 5 / Sonnet 5, GPT-5.6 시리즈, 그리고 DeepSeek, Kimi, GLM, Qwen, MiniMax, MiMo 같은 중국 LLM까지 — 모두 하나의 API 키로 호출할 수 있습니다.
+keywords:
+  - LMU AI 모델 목록
+  - claude-opus-5
+  - claude-sonnet-5
+  - gpt-5.6-sol
+  - deepseek-v4-pro
+  - glm-5.2
+  - kimi-k3
+  - qwen3.8-max-preview
+  - MiniMax-M2.7
+  - 중국 LLM API 모델 ID
+  - Claude API 모델 이름
+  - AI 릴레이 모델 목록
+alternateNames:
+  - LMU AI 모델 목록
+  - Claude / GPT / 중국 LLM 모델 ID 목록
+  - AI API 릴레이에서 사용 가능한 모델
+faq:
+  - q: LMU AI는 어떤 모델을 지원하나요?
+    a: "Claude 전체 라인업(claude-opus-5, claude-fable-5, claude-sonnet-5, claude-haiku-4-5 등), OpenAI GPT-5.6 시리즈(gpt-5.6-sol / terra / luna), 그리고 Qwen, DeepSeek, MiniMax, Zhipu GLM, Moonshot Kimi, Xiaomi MiMo 같은 중국 LLM에 더해 GPT / Gemini / Grok 이미지 모델까지 지원합니다. 하나의 API 키로 이 모두를 호출할 수 있습니다."
+  - q: 모델 ID는 어디서 찾고 어떻게 사용하나요?
+    a: "이 페이지에서 아무 모델 카드나 클릭하면 해당 모델 ID가 복사되며, 대량 복사용으로는 하단의 일반 텍스트 목록을 사용하세요. 그런 다음 도구 설정에 붙여넣으세요: Claude Code의 settings.json에 있는 model 필드, Codex CLI의 ~/.codex/config.toml에 있는 model, 또는 Cursor나 Chatbox 같은 GUI 도구의 model 입력란입니다."
+  - q: 현재 플래그십 모델은 무엇인가요?
+    a: "Claude 쪽에서는 claude-opus-5(플래그십)와 claude-sonnet-5(밸런스형), OpenAI 쪽에서는 gpt-5.6-sol, 중국 LLM 중에서는 qwen3.8-max-preview, deepseek-v4-pro, glm-5.2, kimi-k3입니다. 새로 출시된 모델은 카드에 New로 표시됩니다."
+  - q: 왜 내 계정으로 특정 모델을 호출할 수 없나요?
+    a: "실제 사용 가능한 범위는 LMU AI 콘솔의 사용 가능한 모델 페이지에 표시되는 것을 따르며, 플랜과 결제 그룹에 따라 다릅니다. 예를 들어 GPT 시리즈는 GPT 구독이 필요하거나, 종량제 결제에서 GPT 그룹을 선택해야 합니다."
+---
+
+아래는 LMU AI API가 현재 지원하는 모든 모델 이름입니다. **아무 카드나 클릭하면 해당 모델 ID가 복사되며**, 이를 곧바로 `settings.json`, `config.toml`, 또는 도구의 모델 선택기에 붙여넣으세요.
+
+<Callout type="info" title="모델 이름 사용 방법">
+
+복사한 모델 ID를 도구 설정에 붙여넣으세요:
+
+- **Claude Code** → `settings.json`의 `"model"` 필드
+- **Codex CLI** → `~/.codex/config.toml`의 `model = "..."`
+- **Cherry Studio / VS Code 확장** → 모델 드롭다운에 붙여넣기
+
+</Callout>
+
+---
+
+## 사용 사례별 모델 선택
+
+어떤 모델을 사용해야 할지 모르겠다면, 아래 표에서 찾은 뒤 해당 섹션에서 모델 ID를 복사하세요.
+
+| 사용 사례 | 추천 모델 | 이유 |
+|---|---|---|
+| 복잡한 리팩터링, 대규모 크로스 파일 변경 | `claude-opus-5` | Claude의 플래그십 등급으로, 코드와 긴 텍스트에 탁월하며 Claude Code의 기본값 |
+| 일상적인 코딩, 버그 수정 | `claude-sonnet-5` · `claude-sonnet-4-6` | 밸런스형 등급으로, 성능과 속도 사이의 균형을 이루어 매일 자주 쓰기에 이상적 |
+| 빈번한 경량 작업(자동완성, 포매팅, 대량의 소소한 편집) | `claude-haiku-4-5` · `deepseek-v4-flash` · `qwen3.6-flash` | 고속 등급으로, 여러 번 호출되는 단순한 단일 작업에 적합 |
+| Codex CLI / Codex App 툴체인 | `gpt-5.6-sol` · `gpt-5.4` | OpenAI 쪽 최신 플래그십이며 Codex CLI 설정 템플릿의 기본값 |
+| 중국어 글쓰기, 문서 작성, 대화 | `qwen3.8-max-preview` · `glm-5.2` · `kimi-k3` | 뛰어난 중국어 이해력을 더 저렴한 가격에 제공하는 중국 LLM |
+| 중국어 맥락에서의 코딩 | `qwen3.6-plus` · `deepseek-v4-pro` | 코드 지향 중국어 모델로, 계정 잔액으로 바로 호출 가능 |
+| 멀티모달(이미지 + 텍스트 혼합 입력) | `mimo-v2-omni` | 여기서 멀티모달로 표시된 유일한 대화형 모델. 순수 이미지 생성은 아래 이미지 API를 참고하세요 |
+
+<Callout type="warn" title="선택 전에 두 가지를 확인하세요">
+
+- **모델 사용 가능 여부는 그룹에 따라 다릅니다**: 실제로 호출할 수 있는 모델은 콘솔의 **사용 가능한 모델** 페이지에 표시되는 것을 따릅니다. 예를 들어 GPT 시리즈는 GPT 구독이 필요하거나, 종량제 결제에서 GPT 그룹을 선택해야 합니다. **이는 어떤 프로토콜로 호출하는지와는 무관합니다.**
+- **Base URL은 프로토콜과 일치해야 합니다**: 프로토콜은 클라이언트와 SDK에 의해 결정됩니다 — Anthropic 프로토콜 Base URL은 `/v1`을 **포함하지 않으며**, OpenAI 프로토콜은 **반드시** `/v1`을 포함해야 하고, Gemini 네이티브는 `/v1beta/models/...`를 사용합니다. 잘못하면 곧바로 404가 발생합니다. [API 프로토콜](/ko/docs/guide/api-protocols)을 참고하세요.
+
+</Callout>
+
+---
+
+## 중국 모델
+
+뛰어난 중국어 이해력을 더 저렴한 가격에 제공하여 일상적인 코딩, 문서 작성, 대화에 이상적입니다. Claude나 GPT와 마찬가지로 **중국 모델도 모두 계정 잔액으로 호출할 수 있습니다**.
+
+> **프로토콜**: 기본적으로 **Anthropic 프로토콜** · Base URL `https://api.lmuai.com` (`/v1` **없이**). [API 프로토콜 →](/ko/docs/guide/api-protocols)을 참고하세요.
+
+### Alibaba · Qwen
+
+<ModelGrid>
+  <ModelCard name="qwen3.8-max-preview" description="Qwen 3.8 Max Preview" badge="New" />
+  <ModelCard name="qwen3.7-max" description="Qwen 3.7 Max — 플래그십" />
+  <ModelCard name="qwen3.6-plus" description="Qwen 3.6 Plus" />
+  <ModelCard name="qwen3.6-flash" description="Qwen 3.6 Flash — 고속" />
+  <ModelCard name="qwen3.5-plus" description="Qwen 3.5 Plus" />
+  <ModelCard name="qwen3-max-2026-01-23" description="Qwen 3 Max 플래그십" />
+</ModelGrid>
+
+### DeepSeek
+
+<ModelGrid>
+  <ModelCard name="deepseek-v4-pro" description="DeepSeek V4 Pro" badge="New" />
+  <ModelCard name="deepseek-v4-flash" description="DeepSeek V4 Flash — 고속" badge="New" />
+  <ModelCard name="deepseek-v3.2" description="DeepSeek V3.2" />
+</ModelGrid>
+
+### MiniMax
+
+<ModelGrid>
+  <ModelCard name="MiniMax-M2.7" description="MiniMax M2.7" badge="New" />
+  <ModelCard name="MiniMax-M2.7-highspeed" description="MiniMax M2.7 고속" badge="New" />
+  <ModelCard name="MiniMax-M2.5" description="MiniMax M2.5" />
+  <ModelCard name="MiniMax-M2.5-highspeed" description="MiniMax M2.5 고속" />
+</ModelGrid>
+
+### Zhipu · GLM
+
+<ModelGrid>
+  <ModelCard name="glm-5.2" description="Zhipu GLM-5.2" badge="New" />
+  <ModelCard name="glm-5.1" description="Zhipu GLM-5.1" />
+  <ModelCard name="glm-5" description="Zhipu GLM-5" />
+</ModelGrid>
+
+### Moonshot · Kimi
+
+<ModelGrid>
+  <ModelCard name="kimi-k3" description="Kimi K3" badge="New" />
+  <ModelCard name="kimi-k2.6" description="Kimi K2.6" />
+  <ModelCard name="kimi-k2.5" description="Kimi K2.5" />
+</ModelGrid>
+
+### Xiaomi · MiMo
+
+<ModelGrid>
+  <ModelCard name="mimo-v2.5-pro" description="Xiaomi MiMo V2.5 Pro" badge="New" />
+  <ModelCard name="mimo-v2.5" description="Xiaomi MiMo V2.5" badge="New" />
+  <ModelCard name="mimo-v2-pro" description="Xiaomi MiMo V2 Pro" />
+  <ModelCard name="mimo-v2-omni" description="Xiaomi MiMo V2 Omni — 멀티모달" />
+</ModelGrid>
+
+---
+
+## Claude 모델
+
+Anthropic의 공식 모델로, 코드와 긴 텍스트에 탁월하며 Claude Code의 기본값입니다.
+
+> **프로토콜**: **Anthropic 프로토콜**을 권장 · Base URL `https://api.lmuai.com` (`/v1` 없이). OpenAI 프로토콜도 작동하며, 백엔드가 프로토콜을 변환합니다.
+
+<ModelGrid>
+  <ModelCard name="claude-opus-5" description="Claude Opus 5 — 플래그십" badge="New" />
+  <ModelCard name="claude-fable-5" description="Claude Fable 5" badge="New" />
+  <ModelCard name="claude-opus-4-8" description="Claude Opus 4.8" />
+  <ModelCard name="claude-opus-4-7" description="Claude Opus 4.7" />
+  <ModelCard name="claude-opus-4-6" description="Claude Opus 4.6" />
+  <ModelCard name="claude-opus-4-5" description="Claude Opus 4.5" />
+  <ModelCard name="claude-sonnet-5" description="Claude Sonnet 5 — 밸런스형" badge="New" />
+  <ModelCard name="claude-sonnet-4-6" description="Claude Sonnet 4.6 — 밸런스형" />
+  <ModelCard name="claude-sonnet-4-5" description="Claude Sonnet 4.5 — 밸런스형" />
+  <ModelCard name="claude-haiku-4-5" description="Claude Haiku 4.5 — 고속" />
+</ModelGrid>
+
+---
+
+## OpenAI 모델
+
+OpenAI GPT-5 시리즈로, Codex CLI, Codex App, 그리고 OpenAI 프로토콜을 지원하는 모든 도구에 적합합니다.
+
+> **프로토콜**: **OpenAI 프로토콜** · Base URL `https://api.lmuai.com/v1` (**반드시** `/v1` 포함).
+
+<ModelGrid>
+  <ModelCard name="gpt-5.6-sol" description="GPT-5.6 Sol" badge="New" />
+  <ModelCard name="gpt-5.6-terra" description="GPT-5.6 Terra" badge="New" />
+  <ModelCard name="gpt-5.6-luna" description="GPT-5.6 Luna" badge="New" />
+  <ModelCard name="gpt-5.5" description="GPT-5.5" />
+  <ModelCard name="gpt-5.4" description="GPT-5.4" />
+  <ModelCard name="gpt-5.2" description="GPT-5.2" />
+</ModelGrid>
+
+---
+
+## 전체 모델 ID (일반 텍스트)
+
+<Callout type="info" title="사이트 내 검색 및 대량 복사용">
+
+**Claude 시리즈**: `claude-opus-5`, `claude-fable-5`, `claude-opus-4-8`, `claude-opus-4-7`, `claude-opus-4-6`, `claude-opus-4-5`, `claude-sonnet-5`, `claude-sonnet-4-6`, `claude-sonnet-4-5`, `claude-haiku-4-5`
+
+**OpenAI 시리즈**: `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.6-luna`, `gpt-5.5`, `gpt-5.4`, `gpt-5.2`
+
+**Qwen**: `qwen3.8-max-preview`, `qwen3.7-max`, `qwen3.6-plus`, `qwen3.6-flash`, `qwen3.5-plus`, `qwen3-max-2026-01-23`
+
+**DeepSeek**: `deepseek-v4-pro`, `deepseek-v4-flash`, `deepseek-v3.2`
+
+**MiniMax**: `MiniMax-M2.7`, `MiniMax-M2.7-highspeed`, `MiniMax-M2.5`, `MiniMax-M2.5-highspeed`
+
+**Zhipu GLM**: `glm-5.2`, `glm-5.1`, `glm-5`
+
+**Moonshot Kimi**: `kimi-k3`, `kimi-k2.6`, `kimi-k2.5`
+
+**Xiaomi MiMo**: `mimo-v2.5-pro`, `mimo-v2.5`, `mimo-v2-pro`, `mimo-v2-omni`
+
+이미지 모델은 [GPT Image](/ko/docs/api/gpt-image), [Gemini Image](/ko/docs/api/gemini-image), [Grok Image](/ko/docs/api/grok-image)를 참고하세요.
+
+</Callout>
+
+---
+
+<Callout type="warn" title="참고">
+
+- 실제 사용 가능한 모델은 LMU AI 콘솔의 **사용 가능한 모델** 페이지에 표시되는 것을 따르며, 범위는 플랜에 따라 다를 수 있습니다.
+- 모델 선택에 대한 질문이 있으면 [FAQ](/ko/docs/guide/faq)를 참고하세요.
+
+</Callout>

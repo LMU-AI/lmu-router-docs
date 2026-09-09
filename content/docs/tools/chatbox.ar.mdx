@@ -1,0 +1,229 @@
+---
+title: Chatbox
+description: اربط Chatbox على كل منصة (Windows / macOS / Linux / iOS / Android / Web) بواجهة LMU AI API — بروتوكول مزدوج، واتصال مباشر من الخارج.
+ogDescription: اربط Chatbox بـ LMU AI — عميل محادثة ذكاء اصطناعي لسطح المكتب والجوال متعدد المنصات يستدعي أحدث النماذج (Claude Opus 5 / Sonnet 5، GPT-5.6، DeepSeek، Qwen، GLM، والمزيد) عبر بروتوكول Anthropic أو OpenAI Responses المتوافق، مع مشاركة مفتاح واحد بين البروتوكولين، واتصال مباشر من الخارج، وإخراج متدفق.
+keywords:
+  - إعداد واجهة Chatbox API
+  - إضافة نموذج في Chatbox
+  - كيفية تعبئة Chatbox API Host
+  - بروتوكول Chatbox OpenAI Responses
+  - إعداد واجهة API لـ Chatbox على الجوال
+  - اتصال Chatbox المباشر من الخارج
+  - claude-opus-5
+  - claude-sonnet-5
+  - gpt-5.6-sol
+  - النماذج الصينية في Chatbox
+  - استكشاف أخطاء Chatbox 401 / 403
+  - مفتاح واحد لكلا البروتوكولين في Chatbox
+alternateNames:
+  - ربط Chatbox بـ LMU AI
+  - إعداد Claude API في Chatbox
+  - دليل إعداد Chatbox على كل المنصات
+  - اتصال Chatbox المباشر بـ Claude في الصين
+  - إعداد واجهة API لـ Chatbox على الجوال
+faq:
+  - q: هل يحتاج Chatbox API Host إلى /v1؟
+    a: لا. أدخل دائمًا في حقل Chatbox API Host النطاق فقط، `https://api.lmuai.com`؛ يضيف Chatbox `/v1` تلقائيًا — يصبح بروتوكول Anthropic `/v1/messages` ويصبح بروتوكول OpenAI Responses `/v1/responses`. إذا أضفت `/v1` إضافيًا في الـ Host، فستحصل على مسار 404 معطوب مثل `/v1/v1/...`.
+  - q: بالنسبة لبروتوكول OpenAI، لماذا نختار Responses بدلاً من OpenAI API Compatible العادي؟
+    a: يستخدم OpenAI API Compatible في Chatbox نقطة النهاية الأقدم `/chat/completions`؛ بينما يستخدم بروتوكول OpenAI في LMU AI واجهة Responses الأحدث (`/v1/responses`)، لذا عليك اختيار **OpenAI Responses API Compatible** وتعيين API Path إلى `/responses`.
+  - q: ماذا لو لم يكن Claude Opus 5 أو GPT-5.6 موجودًا في قائمة نماذج Chatbox؟
+    a: تتحدث قائمة النماذج المُعدّة مسبقًا في Chatbox بتأخير، لذا يجب إضافة النماذج الجديدة يدويًا عبر Add Model في إعدادات المزود — فقط أدخل معرّف النموذج المقابل (مثل `claude-opus-5`، `claude-sonnet-5`، `gpt-5.6-sol`). لجميع النماذج المتاحة، راجع معرض النماذج.
+  - q: تغييرات إعداداتي لا تُطبَّق؟
+    a: بعد الحفظ، نوصي بإعادة تشغيل عميل Chatbox مرة واحدة، أو إعادة اختيار النموذج في شاشة المحادثة. على الجوال، قد تحتاج أحيانًا إلى إعادة التشغيل بعد تبديل الشبكات.
+  - q: كيف أستكشف أخطاء 401 / 403؟
+    a: "تحقق بالترتيب: (1) هل مفتاح API هو مفتاح `sk-` الذي أُنشئ في وحدة تحكم LMU AI (وليس مفتاح Anthropic / OpenAI رسميًا)؟ (2) هل الـ API Host صحيح (يستخدم كلا البروتوكولين `https://api.lmuai.com`، ولا أحدهما مع `/v1`)؟ (3) بالنسبة لبروتوكول OpenAI، تحقق أيضًا من أن API Mode هو `OpenAI Responses API Compatible` وأن API Path هو `/responses`. (4) هل تتضمن خطتك / مجموعة الفوترة الحالية النموذج الذي تستدعيه؟"
+  - q: هل يمكنني استخدام مفتاح واحد لكل من Claude و GPT في Chatbox؟
+    a: نعم. يدعم مفتاح LMU AI API كلا البروتوكولين Anthropic و OpenAI؛ الـ API Host هو `https://api.lmuai.com` لكليهما، وفقط API Mode و API Path يختلفان. أضف مزودَين واستخدم المفتاح نفسه لكليهما — تمر نماذج Claude / النماذج الصينية عبر بروتوكول Anthropic، وتمر سلسلة GPT عبر بروتوكول OpenAI Responses.
+  - q: كيف أعدّ LMU AI في Chatbox على الجوال (iOS / Android)؟
+    a: "افتح Chatbox → قائمة ☰ في أعلى اليسار → Settings → Model Provider → Add. من هناك تكون الحقول مماثلة تمامًا لما هي عليه على سطح المكتب: بالنسبة لبروتوكول Anthropic، عيّن API Host إلى `https://api.lmuai.com` والمفتاح إلى مفتاح `sk-` من وحدة التحكم، ويمكنك استخدام Claude / DeepSeek / Qwen / GLM وغيرها من النماذج مباشرة على هاتفك."
+  - q: هل أحتاج إلى VPN لربط Chatbox بـ LMU AI؟
+    a: لا. يتصل نطاق LMU AI API وهو `api.lmuai.com` مباشرة من الخارج، ويعمل كل من إصدار سطح المكتب والجوال من Chatbox دون أي بروكسي.
+---
+
+Chatbox هو عميل محادثة ذكاء اصطناعي متعدد النماذج يغطي كل منصة — Windows / macOS / Linux / iOS / Android / Web.
+
+<Callout type="info" title="على الجوال (iOS / Android)؟ ابدأ من هنا">
+
+الإعداد خطوة بخطوة لـ Chatbox على الجوال — بما في ذلك لقطة شاشة للإعداد ومفتاح "Improve Network Compatibility" — موجود في صفحته الخاصة: **[Chatbox Mobile](./chatbox-mobile)**. تنطبق بقية هذه الصفحة على كل من سطح المكتب والجوال.
+
+</Callout>
+
+---
+
+## التنزيل والتثبيت
+
+- **الموقع الرسمي**: [https://chatboxai.app](https://chatboxai.app)
+- نزّل وثبّت الإصدار المناسب لمنصتك — لا حاجة إلى حساب لاستخدام وضع BYOK (أحضر مفتاحك الخاص)
+
+---
+
+## البروتوكولان
+
+يدعم LMU AI بروتوكولَي اتصال؛ اختر واحدًا بناءً على نوع النموذج:
+
+| البروتوكول | النماذج | API Host | API Path |
+|------|----------|----------|----------|
+| **Claude API (Anthropic Compatible)** | نماذج Claude، النماذج الصينية (DeepSeek، Qwen، GLM، Kimi، إلخ) | `https://api.lmuai.com` | الافتراضي جيد |
+| **OpenAI Responses API Compatible** | نماذج OpenAI (GPT-5.6 / GPT-5.5، إلخ) | `https://api.lmuai.com` | `/responses` |
+
+<Callout type="info" title="الـ API Host لا يتضمن /v1 أبدًا">
+
+يضيف Chatbox المسار تلقائيًا عند إرسال طلب، لذا **أدخل دائمًا الـ API Host حتى النطاق فقط — لا تضمّن `/v1`**. على سبيل المثال، ينتهي بروتوكول OpenAI Responses إلى `https://api.lmuai.com/v1/responses`.
+
+</Callout>
+
+---
+
+## فتح نقطة إضافة المزود
+
+يُهيّأ كلا البروتوكولين من نقطة الدخول نفسها:
+
+<Tabs items={['Desktop', 'Mobile']}>
+<Tab value="Desktop">
+
+افتح Chatbox → **Settings في أسفل اليسار** → انتقل إلى Model Provider → انقر Add في الأسفل.
+
+![إضافة مزود في Chatbox لسطح المكتب](/images/tools/chatbox-max/chatbox-max.png)
+
+</Tab>
+<Tab value="Mobile">
+
+افتح Chatbox → اضغط على **أيقونة القائمة ☰ في أعلى اليسار** لفتح الشريط الجانبي → اضغط Settings → انتقل إلى Model Provider → اضغط Add في الأسفل.
+
+بمجرد وصولك إلى شاشة الإعداد، تتطابق الحقول واحدًا لواحد مع إصدار سطح المكتب (على الجوال تُسمّى **API Host** و **API Path**)؛ املأها متبعًا الطريقة 1 / الطريقة 2 أدناه.
+
+<Callout type="info" title="للجوال دليله الخاص خطوة بخطوة">
+
+تدفق الجوال — مع **لقطة شاشة للإعداد**، ومفتاح **"Improve Network Compatibility"**، و**التحقق من العنوان المُجمّع** — مكتوب كصفحة مستقلة: **[Chatbox Mobile](./chatbox-mobile)**.
+
+</Callout>
+
+</Tab>
+</Tabs>
+
+---
+
+## الطريقة 1: بروتوكول Anthropic (Claude والنماذج الصينية)
+
+### الخطوة 1 — إنشاء مزود
+
+بعد فتح نافذة المزود الجديد من نقطة الدخول أعلاه:
+
+1. **API Mode**: اختر **`Claude API (Anthropic Compatible)`**
+2. **Name**: أي اسم تريده (مثل `LMU AI`)
+
+### الخطوة 2 — إدخال تفاصيل API
+
+- **API Host**: أدخل عنوان LMU AI API (**بدون** `/v1`)
+
+  ```
+  https://api.lmuai.com
+  ```
+
+- **API Key**: أدخل مفتاح `sk-` الذي أُنشئ في وحدة التحكم
+
+### الخطوة 3 — إضافة النماذج
+
+قد لا تتضمن قائمة Chatbox الافتراضية أحدث النماذج، لذا عليك إضافتها يدويًا. في صفحة إعدادات المزود، ابحث عن قسم Model → انقر New / Add Model وأدخل معرّف النموذج، على سبيل المثال:
+
+- `claude-opus-5`
+- `claude-sonnet-5`
+- `claude-haiku-4-5`
+- `deepseek-v4-pro`
+- `qwen3.8-max-preview`
+- `glm-5.2`
+- `kimi-k3`
+
+للحصول على القائمة الكاملة للنماذج المتاحة، راجع [معرض النماذج](/ar/docs/guide/models).
+
+---
+
+## الطريقة 2: بروتوكول OpenAI (نماذج GPT)
+
+<Callout type="warn" title="المتطلبات">
+
+عليك تلبية أحد هذين الشرطين:
+
+- أن تكون مشتركًا في **خطة GPT**
+- أن تستخدم الفوترة حسب الاستخدام وقد اخترت **مجموعة GPT** في وحدة تحكم LMU AI
+
+</Callout>
+
+### الخطوة 1 — إنشاء مزود
+
+بعد فتح نافذة المزود الجديد من نقطة الدخول أعلاه:
+
+1. **API Mode**: اختر **`OpenAI Responses API Compatible`** (وليس `OpenAI API Compatible`)
+2. **Name**: أي اسم تريده (مثل `LMUAI-GPT`)
+
+### الخطوة 2 — إدخال تفاصيل API
+
+| الحقل | القيمة |
+|------|------|
+| API Key | مفتاح `sk-` الذي أُنشئ في وحدة التحكم |
+| API Host | `https://api.lmuai.com` |
+| API Path | `/responses` |
+
+يجمع Chatbox تلقائيًا الـ Host و `/v1` والـ Path في عنوان الطلب الكامل `https://api.lmuai.com/v1/responses`، ويُعرض العنوان الكامل المُجمّع مباشرة أسفل الحقول.
+
+بمجرد ملئها كما هو أعلاه، تبدو الشاشة هكذا:
+
+![مثال على إعداد مزود GPT في Chatbox لسطح المكتب](/images/tools/chatbox-max/chatbox-mac-gpt.png)
+
+### الخطوة 3 — إضافة النماذج
+
+في قسم Model، انقر New وأدخل معرّف النموذج:
+
+- `gpt-5.6-sol`
+- `gpt-5.6-terra`
+- `gpt-5.6-luna`
+- `gpt-5.5`
+- `gpt-5.4`
+- `gpt-5.2`
+
+---
+
+## الاستخدام
+
+بالعودة إلى الشاشة الرئيسية، انقر على محدد النموذج في الأعلى، وبدّل إلى المزود والنموذج اللذين أضفتهما للتو، وابدأ المحادثة.
+
+<Callout type="info" title="مفتاح واحد يعمل مع كلا البروتوكولين">
+
+يدعم مفتاح LMU AI API كلا البروتوكولين Anthropic و OpenAI. الـ API Host هو `https://api.lmuai.com` لكليهما — وفقط API Mode و API Path يختلفان. إذا كنت تريد استخدام Claude / النماذج الصينية بالإضافة إلى GPT، فما عليك سوى إضافة مزود لكل منهما كما هو موضح أعلاه؛ ويمكنك استخدام المفتاح نفسه لكليهما.
+
+</Callout>
+
+---
+
+## المشكلات الشائعة
+
+### هل يحتاج الـ API Host إلى `/v1`؟
+
+**لا.** أدخل دائمًا في حقل Chatbox API Host النطاق فقط: `https://api.lmuai.com`.
+
+يضيف Chatbox `/v1` بنفسه:
+
+- بروتوكول Anthropic: يصبح `https://api.lmuai.com/v1/messages`
+- بروتوكول OpenAI Responses: عيّن الـ Path إلى `/responses`، فيصبح `https://api.lmuai.com/v1/responses`
+
+إذا أضفت `/v1` إضافيًا في الـ Host، فستحصل على مسار 404 معطوب مثل `…/v1/v1/...`.
+
+### لماذا نختار OpenAI Responses بدلاً من OpenAI API Compatible العادي؟
+
+يستخدم OpenAI API Compatible في Chatbox نقطة النهاية الأقدم `/chat/completions`؛ بينما يستخدم بروتوكول OpenAI في LMU AI واجهة **Responses** الأحدث (`/v1/responses`)، لذا يجب أن تختار هنا **OpenAI Responses API Compatible** وتعيّن API Path إلى `/responses`.
+
+### قائمة نماذج Chatbox لا تحتوي على Claude Opus 5 / GPT-5.6؟
+
+تتحدث قائمة النماذج المُعدّة مسبقًا في Chatbox بتأخير، لذا يجب إضافة النماذج الجديدة يدويًا عبر Add Model في إعدادات المزود — فقط أدخل معرّف النموذج المقابل. للنماذج المتاحة، راجع [معرض النماذج](/ar/docs/guide/models).
+
+### التغييرات لا تُطبَّق؟
+
+بعد الحفظ، نوصي بـ **إعادة تشغيل عميل Chatbox مرة واحدة**، أو إعادة اختيار النموذج في شاشة المحادثة.
+
+### أخطاء 401 / 403؟
+
+تحقق بالترتيب:
+
+1. هل مفتاح API هو مفتاح `sk-` الذي أُنشئ في وحدة تحكم LMU AI (وليس مفتاح Anthropic / OpenAI رسميًا)؟
+2. هل الـ API Host خاطئ (يستخدم كلا البروتوكولين `https://api.lmuai.com`، **ولا أحدهما مع** `/v1`؛ بالنسبة لبروتوكول OpenAI، تحقق أيضًا من أن API Mode هو `OpenAI Responses API Compatible` وأن API Path هو `/responses`)؟
+3. هل تتضمن خطتك / مجموعة الفوترة الحالية النموذج الذي تستدعيه؟

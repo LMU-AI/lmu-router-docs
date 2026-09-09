@@ -1,0 +1,10 @@
+{
+  "title": "LMU AI ドキュメント",
+  "root": true,
+  "pages": [
+    "guide",
+    "tools",
+    "api",
+    "enterprise"
+  ]
+}

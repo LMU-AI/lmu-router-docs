@@ -1,0 +1,47 @@
+---
+title: Comment utiliser les tokens
+description: "Gestion des tokens LMU AI : tokens personnels vs tokens de canal, consultation de l'utilisation dans la console, définition d'un quota total et d'une liste blanche de modèles, réinitialisation du quota et révocation des tokens."
+ogDescription: "Guide de gestion des tokens LMU AI : distinguer les tokens personnels des tokens de canal, consulter le nombre d'appels et la consommation de tokens par jour / mois dans la console, définir un quota total, des requêtes par minute et une liste blanche de modèles lors de la création d'un token, réinitialiser le quota et révoquer un token à tout moment."
+keywords:
+  - utilisation des tokens LMU AI
+  - limites de quota des clés API
+  - liste blanche de modèles des clés API
+  - statistiques d'utilisation des tokens
+  - token personnel vs token de canal
+  - révocation des clés API
+  - limite de requêtes par minute
+alternateNames:
+  - gestion des tokens LMU AI
+  - Consulter le quota et l'utilisation des clés API
+  - Liste blanche et révocation des tokens
+---
+
+
+## Types de tokens
+
+| Type | Description |
+|------|------|
+| Token personnel | Lié à votre compte, utilise votre quota |
+| Token de canal | Attribué par un administrateur, avec une gestion de quota indépendante |
+
+## Consulter l'utilisation
+
+Rendez-vous dans **console → Statistiques d'utilisation** pour consulter :
+
+- Le nombre d'appels par jour / mois
+- La consommation de tokens
+- La répartition des coûts
+- La part d'utilisation par modèle
+
+## Limites de quota
+
+Lors de la création d'un token, vous pouvez définir les limites suivantes :
+
+- **Quota total** : le quota maximal que ce token peut consommer (laisser vide pour aucune limite)
+- **Requêtes par minute** : protection par limitation du débit
+- **Liste blanche de modèles** : restreindre ce token à l'appel des seuls modèles spécifiés
+
+## Réinitialiser et révoquer
+
+- **Réinitialiser le quota** : vous pouvez réinitialiser manuellement le quota utilisé sur la page de gestion des tokens
+- **Révoquer un token** : la suppression d'un token prend effet immédiatement ; les requêtes déjà envoyées ne sont pas affectées

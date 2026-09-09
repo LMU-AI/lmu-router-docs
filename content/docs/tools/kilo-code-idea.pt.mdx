@@ -1,0 +1,88 @@
+---
+title: IDEA Kilo Code
+description: Conecte-se à API de IA da LMU com o plugin Kilo Code no IntelliJ IDEA — o Claude usa o protocolo Anthropic, o GPT usa o protocolo Responses.
+ogDescription: Instale o plugin Kilo Code no IntelliJ IDEA / PyCharm / GoLand + LMU AI — use Claude, GPT e grandes modelos chineses em toda a suíte JetBrains sem proxy.
+keywords:
+  - IDEA Kilo Code
+  - plugin Kilo Code
+  - plugin de IA para IntelliJ IDEA
+  - JetBrains Claude
+  - PyCharm Claude
+  - GoLand Claude
+  - configuração do Kilo Code
+  - Conectar IDEA ao Claude
+  - relay JetBrains
+alternateNames:
+  - Conectar IntelliJ IDEA / JetBrains à LMU AI
+---
+
+## Instale o plugin
+
+1. Abra o IntelliJ IDEA e vá em **Settings → Plugins → Marketplace**
+2. Pesquise por **Kilo Code** e clique em Install assim que encontrar o plugin
+3. Reinicie o IDEA após a conclusão da instalação
+
+---
+
+## Configure o plugin
+
+Abra o painel de configurações do Kilo Code e escolha a opção correspondente ao tipo de modelo que deseja usar:
+
+<Tabs items={['Modelos chineses / Claude (Anthropic)', 'Modelos OpenAI (OpenAI Compatible)']}>
+<Tab value="Chinese models / Claude (Anthropic)">
+
+Funciona para todos os modelos Claude e chineses, como `claude-opus-5`, `claude-sonnet-5`, `qwen3.8-max-preview`, `deepseek-v4-pro`, `glm-5.2` e `kimi-k3`.
+
+| Campo | Valor |
+|------|------|
+| **API Provider** | `Anthropic` |
+| **Anthropic API Key** | a chave `sk-` gerada no console da LMU AI |
+| **Use custom base URL** | ✅ marcada |
+| **Base URL** | `https://api.lmuai.com` |
+| **Model** | os modelos mais recentes, como `claude-opus-5`, `qwen3.7-max`, etc. |
+
+![Kilo Code com o provedor Anthropic selecionado, Use custom base URL marcada e definida como https://api.lmuai.com, e o modelo definido como claude-opus-4-6](/images/tools/Kilo/kilo.png)
+
+<Callout type="info">
+
+Você deve marcar **Use custom base URL**, caso contrário o plugin fará a requisição ao endpoint oficial da Anthropic em vez do relay da LMU AI.
+
+</Callout>
+
+</Tab>
+<Tab value="OpenAI models (OpenAI Compatible)">
+
+Funciona para todos os modelos OpenAI, como `gpt-5.6-sol`, `gpt-5.6-terra`, `gpt-5.5` e `gpt-5.4`.
+
+| Campo | Valor |
+|------|------|
+| **API Provider** | `OpenAI Compatible (Responses)` |
+| **Base URL** | `https://api.lmuai.com/v1` |
+| **API Key** | a chave `sk-` gerada no console da LMU AI |
+| **Model** | ex.: `gpt-5.5` |
+
+![Kilo Code com o provedor OpenAI Compatible (Responses) selecionado, Base URL definida como https://api.lmuai.com/v1, e o modelo definido como gpt-5.5](/images/tools/Kilo/kilo-openai.png)
+
+<Callout type="warn">
+
+A Base URL para modelos OpenAI **deve terminar em `/v1`**, diferentemente do protocolo Anthropic (sem `/v1`) — não confunda os dois.
+
+</Callout>
+
+</Tab>
+</Tabs>
+
+---
+
+## Referência de nomes de modelos
+
+Não sabe qual modelo inserir? Acesse a [Galeria de Modelos](/pt/docs/guide/models) para ver todos os IDs de modelo disponíveis e copiá-los com um clique.
+
+---
+
+## Notas
+
+- Ao usar **Claude / modelos chineses** → escolha o protocolo `Anthropic`, com a Base URL `https://api.lmuai.com` (sem `/v1`)
+- Ao usar **modelos OpenAI** → escolha o protocolo `OpenAI Compatible (Responses)`, com a Base URL `https://api.lmuai.com/v1` (com `/v1`)
+- Para a API Key, insira a chave `sk-` gerada no console da LMU AI em qualquer um dos protocolos
+- Após a configuração, clique em **Save** no canto superior direito para salvar as configurações e começar a usar

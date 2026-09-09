@@ -1,0 +1,264 @@
+---
+title: Protocolos de API
+description: LMU AI admite tres protocolos de entrada — Anthropic, compatible con OpenAI y Gemini nativo. Una tabla para elegir la Base URL y el endpoint correctos y evitar errores.
+ogDescription: Referencia de protocolos de API de LMU AI — el protocolo Anthropic, el protocolo compatible con OpenAI y el protocolo nativo v1beta de Gemini comparten tu clave de API de LMU AI; elige el endpoint correcto para tu cliente y modelo.
+keywords:
+  - Base URL de LMU AI
+  - api.lmuai.com
+  - protocolo Anthropic
+  - protocolo OpenAI
+  - protocolo nativo de Gemini v1beta
+  - Base URL de Claude Code
+  - Base URL de Codex CLI
+  - base_url del SDK de Anthropic
+  - base_url del SDK de OpenAI
+  - enrutamiento de protocolos del relay
+alternateNames:
+  - Guía de protocolos de LMU AI
+  - Base URL del relay de Claude / GPT
+  - Referencia de endpoints de LMU AI
+faq:
+  - q: ¿Qué protocolos admite LMU AI?
+    a: Tres protocolos de entrada — Anthropic, compatible con OpenAI y Gemini nativo v1beta. Los tres comparten tu clave de API de LMU AI, pero el grupo de la clave debe admitir el modelo y la plataforma que solicitas.
+  - q: ¿Cuál es la diferencia entre las URL del protocolo Anthropic y OpenAI?
+    a: El SDK de Anthropic espera un base_url sin /v1, así que usa https://api.lmuai.com; el SDK de OpenAI espera un base_url con /v1, así que usa https://api.lmuai.com/v1. Invertirlas causa errores 401 / 404.
+  - q: ¿Por qué el grupo Claude Max solo admite el protocolo Anthropic?
+    a: El grupo Claude Max es solo para Claude Code, y Claude Code habla el protocolo Anthropic, por lo que este grupo no admite endpoints del protocolo OpenAI. Otros grupos aceptan ambos protocolos, y el backend despacha al upstream correcto según el campo de plataforma del grupo.
+---
+
+
+LMU AI admite tres protocolos de entrada: **Anthropic, compatible con OpenAI y Gemini nativo v1beta**. Cada endpoint usa tu clave de API `sk-` de LMU AI, y los modelos que realmente puedes llamar están determinados por el grupo de la clave.
+
+<Callout type="info" title="Dos cosas que hay que tener claras primero">
+
+- **"Qué protocolo"** lo decide el cliente, el SDK y el caso de uso. El SDK de Anthropic usa `/v1/messages`, el SDK de OpenAI usa `/v1/chat/completions` o `/v1/responses`, y las llamadas de imagen nativas de Gemini usan `/v1beta/models/{model}:generateContent`.
+- **"Qué modelos puedes llamar"** lo decide el **grupo** de tu clave de API (la cuenta upstream detrás de tu suscripción / plan de recarga), lo cual es **una dimensión separada del protocolo de entrada**.
+
+En otras palabras: el protocolo incorrecto da un 401 / 404 directo; el protocolo correcto con un modelo fuera del rango de tu grupo devuelve un error de modelo no disponible.
+
+</Callout>
+
+<Callout type="warn" title="El error más común proviene del protocolo incorrecto">
+
+- La Base URL del **protocolo Anthropic** **no** incluye el sufijo `/v1`
+- La Base URL del SDK del **protocolo OpenAI** normalmente **sí** incluye el sufijo `/v1`
+- El **protocolo nativo de Gemini** usa `https://api.lmuai.com` como host y llama la ruta completa `/v1beta/...`
+
+Equivocarse causa 400 / 401 / 404. Antes de configurar una herramienta o escribir código, confirma qué protocolo espera el cliente.
+
+</Callout>
+
+---
+
+## Elige tu protocolo de un vistazo
+
+| Protocolo | Base URL | Herramientas típicas |
+|------|----------|----------|
+| **Protocolo Anthropic** | `https://api.lmuai.com` | Claude Code (CLI / escritorio / extensión de VS Code), el SDK oficial `anthropic`, Cherry Studio, Kilo Code con modelos Claude / chinos, cualquier cliente compatible con Anthropic |
+| **Compatible con OpenAI** | `https://api.lmuai.com/v1` | Codex CLI, Codex App, Cursor / Cline / Roo Code / OpenCode, el SDK oficial `openai`, extensiones de VS Code con GPT, cualquier cliente compatible con OpenAI |
+| **Gemini nativo v1beta** | `https://api.lmuai.com` | SDK / clientes HTTP nativos de Gemini, texto a imagen e imagen a imagen de Gemini, lista de modelos y `generateContent` |
+
+Los tres protocolos usan la clave de LMU AI que comienza con `sk-`:
+
+- Protocolo Anthropic: `Authorization: Bearer <YOUR_API_KEY>` o `x-api-key: <YOUR_API_KEY>`
+- Compatible con OpenAI: `Authorization: Bearer <YOUR_API_KEY>`
+- Gemini nativo: `x-goog-api-key: <YOUR_API_KEY>` recomendado, Bearer también aceptado
+
+---
+
+## Protocolo Anthropic
+
+**Base URL:** `https://api.lmuai.com` (**sin** `/v1`)
+
+**Endpoints:**
+
+- `POST /v1/messages` — conversación de mensajes
+- `POST /v1/messages/count_tokens` — conteo de tokens
+- `GET /v1/models` — lista de modelos disponibles
+
+**Ejemplo con el SDK de Python:**
+
+```python
+from anthropic import Anthropic
+
+client = Anthropic(
+    base_url="https://api.lmuai.com",
+    api_key="sk-xxxxxxxx",
+)
+
+resp = client.messages.create(
+    model="claude-sonnet-5",
+    max_tokens=1024,
+    messages=[{"role": "user", "content": "Hello"}],
+)
+print(resp.content[0].text)
+```
+
+**Ejemplo con curl:**
+
+```bash
+curl -X POST https://api.lmuai.com/v1/messages \
+  -H "Authorization: Bearer sk-xxxxxxxx" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "claude-sonnet-5",
+    "max_tokens": 1024,
+    "messages": [{"role":"user","content":"Hello"}]
+  }'
+```
+
+<Callout type="info" title="¿Por qué el base_url del SDK va sin /v1 pero el de curl con /v1?">
+
+La convención del `base_url` del SDK oficial de Anthropic es omitir `/v1`; el SDK añade internamente rutas como `/v1/messages`. Cuando escribes curl a mano, escribes la ruta completa `/v1/messages`. Ambos apuntan al mismo endpoint.
+
+</Callout>
+
+---
+
+## Protocolo OpenAI
+
+**Base URL:** `https://api.lmuai.com/v1` (**con** `/v1`)
+
+**Endpoints:**
+
+- `POST /chat/completions` — API estándar de Chat Completions
+- `POST /responses` — API Responses de OpenAI (incluidas las subrutas `/responses/{id}`)
+- `POST /images/generations`, `POST /images/edits` — generación / edición de imágenes
+
+**Ejemplo con el SDK de Python:**
+
+```python
+from openai import OpenAI
+
+client = OpenAI(
+    base_url="https://api.lmuai.com/v1",
+    api_key="sk-xxxxxxxx",
+)
+
+resp = client.chat.completions.create(
+    model="gpt-5.6-sol",
+    messages=[{"role": "user", "content": "Hello"}],
+)
+print(resp.choices[0].message.content)
+```
+
+**Ejemplo con curl:**
+
+```bash
+curl -X POST https://api.lmuai.com/v1/chat/completions \
+  -H "Authorization: Bearer sk-xxxxxxxx" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "gpt-5.6-sol",
+    "messages": [{"role":"user","content":"Hello"}]
+  }'
+```
+
+---
+
+## Protocolo nativo de Gemini
+
+**Base URL:** `https://api.lmuai.com`
+
+**Endpoints principales:**
+
+- `GET /v1beta/models` — listar modelos nativos de Gemini
+- `GET /v1beta/models/{model}` — consultar un modelo específico
+- `POST /v1beta/models/{model}:generateContent` — generación de texto, texto a imagen e imagen a imagen
+- `POST /v1beta/models/{model}:streamGenerateContent?alt=sse` — generación en streaming
+
+**Autenticación:**
+
+```http
+x-goog-api-key: YOUR_API_KEY
+```
+
+Ejemplo mínimo de texto a imagen:
+
+```bash
+curl --request POST \
+  'https://api.lmuai.com/v1beta/models/gemini-3.1-flash-image:generateContent' \
+  -H 'x-goog-api-key: YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "contents": [{
+      "role": "user",
+      "parts": [{"text": "an orange cat wearing an astronaut helmet"}]
+    }],
+    "generationConfig": {
+      "responseModalities": ["TEXT", "IMAGE"],
+      "imageConfig": {"aspectRatio": "1:1", "imageSize": "1K"}
+    }
+  }'
+```
+
+<Callout type="info" title="El endpoint de imagen de Gemini no es /v1/chat/completions">
+
+Los modelos de imagen de Gemini usan el `generateContent` nativo. Para los detalles completos de texto a imagen, imagen a imagen, 1K / 2K / 4K y análisis de Base64, consulta la [API de imagen de Gemini](/es/docs/api/gemini-image).
+
+Para los modelos de imagen de GPT, consulta la [API de imagen de GPT](/es/docs/api/gpt-image), y para los modelos de imagen de Grok, consulta la [API de imagen de Grok](/es/docs/api/grok-image). Para trabajos grandes offline de Gemini, consulta la [API de imagen por lotes de Gemini](/es/docs/api/gemini-image-batch).
+
+</Callout>
+
+---
+
+## El protocolo y los modelos disponibles son dos cosas diferentes [#protocol-vs-models]
+
+Los modelos que tu clave puede llamar están **decididos por completo por la cuenta upstream montada en su grupo**, independientemente del protocolo con el que llames:
+
+| El upstream de tu grupo | Los modelos que realmente puedes llamar |
+|------|------|
+| Solo cuenta de OpenAI | Solo la serie GPT |
+| Solo cuenta de Claude | Solo la serie Claude (aunque llames con el protocolo OpenAI, el backend traduce el protocolo, pero el rango de modelos no cambia) |
+| Solo upstream de modelos chinos (p. ej. GLM / Kimi) | Solo los modelos chinos correspondientes |
+| Enrutamiento de modelos configurado en el backend (grupo multi-upstream) | Enrutado por nombre de modelo a diferentes upstreams, puede abarcar varias marcas — el rango exacto depende de la configuración del grupo |
+
+Por lo tanto:
+
+- Elegir el protocolo Anthropic, compatible con OpenAI o Gemini nativo determina el formato de la solicitud de entrada; el rango real de modelos sigue estando decidido por el grupo de la clave de API.
+- Para ver qué modelos puede llamar tu clave actual, revisa la lista de modelos del grupo en la página de detalle de **Claves de API** o en la página de **Modelos disponibles** de la consola.
+
+---
+
+## Sobre el grupo Claude Max
+
+<Callout type="warn" title="El grupo Claude Max solo admite el protocolo Anthropic">
+
+**El grupo Claude Max es solo para Claude Code**, por lo que solo puede usar el **protocolo Anthropic** (`https://api.lmuai.com`).
+
+Si estás usando una clave de un grupo de plan Claude Max:
+
+- ✅ Funciona en Claude Code (CLI / escritorio / extensión de VS Code)
+- ❌ **No** se puede usar con Codex CLI, Cursor, Cherry Studio ni ninguna herramienta que use el protocolo OpenAI
+- ❌ **No** se puede ingresar como `https://api.lmuai.com/v1`
+
+Para usar una herramienta con protocolo OpenAI, cambia a una clave de un grupo de pago por uso / suscripción regular (los modelos disponibles exactos siguen dependiendo del grupo del plan que compraste).
+
+</Callout>
+
+---
+
+## Solución de problemas [#troubleshooting]
+
+| Síntoma | Causa habitual | Qué hacer |
+|------|----------|------|
+| `401 Unauthorized` | La Base URL usa el protocolo incorrecto / error tipográfico en la clave / IDE no reiniciado | Verifica que la Base URL coincida con el protocolo de la herramienta; reinicia el IDE para recargar la configuración |
+| `404 Not Found` | URL del protocolo OpenAI sin `/v1`, URL de Anthropic incluyendo `/v1` por error, o ruta de Gemini que no usa `/v1beta/models/...` | Vuelve a revisar la Base URL y el endpoint completo contra la tabla de arriba |
+| Modelo no disponible / `No available accounts` | Se llamó un modelo fuera del rango de tu grupo (p. ej. llamar a GPT con un grupo Claude Max) | Confirma los modelos que tu grupo realmente incluye en la página de **Modelos disponibles**, o cambia a un grupo que incluya el modelo objetivo |
+| `429 Too Many Requests` | Cuota diaria agotada | Consulta las [Preguntas frecuentes](/es/docs/guide/faq#issue-2) |
+
+Para más solución de problemas, consulta las [Preguntas frecuentes](/es/docs/guide/faq).
+
+---
+
+## Próximos pasos
+
+Una vez que tengas el protocolo y la Base URL correctos, elige la herramienta que quieras:
+
+- [CC Switch (importación con un clic, recomendado para usuarios de Claude Code)](/es/docs/tools/cc-switch)
+- [Claude Code CLI](/es/docs/tools/claude-code) · [Escritorio](/es/docs/tools/claude-code-desktop) · [Extensión de VS Code](/es/docs/tools/claude-code-vscode)
+- [Codex CLI · Windows](/es/docs/tools/codex-cli-windows) · [Mac/Linux](/es/docs/tools/codex-cli-mac) · [Servidor](/es/docs/tools/codex-cli-server)
+- [Codex App de escritorio](/es/docs/tools/codex-app) · [Extensión de VS Code / Cursor / Trae](/es/docs/tools/vscode-plugin)
+- [OpenCode](/es/docs/tools/opencode) · [Cherry Studio](/es/docs/tools/cherry) · [IDEA Kilo Code](/es/docs/tools/kilo-code-idea) · [Hermes Agent](/es/docs/tools/hermes)
+- [API de imagen de Gemini](/es/docs/api/gemini-image) · [API de imagen de GPT](/es/docs/api/gpt-image) · [API de imagen de Grok](/es/docs/api/grok-image) · [API de imagen por lotes de Gemini](/es/docs/api/gemini-image-batch)
