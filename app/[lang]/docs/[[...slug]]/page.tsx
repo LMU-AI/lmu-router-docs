@@ -133,7 +133,11 @@ export default async function Page({
               Tabs,
               Tab,
               Callout,
-              ModelCard,
+              // ModelCard 是 'use client'，SSR 拿不到服务端 locale —— 在此按页把 lang 注入，
+              // 让复制按钮/aria-label 首屏就出对应语种（详见 components/model-card.tsx）。
+              ModelCard: (props: { name: string; description?: string; badge?: string }) => (
+                <ModelCard {...props} locale={lang} />
+              ),
               ModelGrid,
               Mermaid,
             }}

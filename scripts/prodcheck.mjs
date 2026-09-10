@@ -26,15 +26,11 @@ const VARIANT = args.includes('--variant')
     ? 'ai'
     : 'com';
 const IS_AI = VARIANT === 'ai';
-const OTHER_PREFIX = IS_AI ? '/cn/' : '/en/'; // 非默认语言的路径前缀（带尾斜杠，供 startsWith）
-const OTHER_SEG = IS_AI ? '/cn' : '/en'; // 同上（不带尾斜杠，供拼接）
+const OTHER_SEG = IS_AI ? '/cn' : '/en'; // 非默认语言的路径前缀（不带尾斜杠，供拼接）
 const DEFAULT_LANG = IS_AI ? 'en' : 'cn'; // 默认语言码（裸路径对应），供 /md/{lang}/... 直链
 const DEFAULT_HTML_LANG = IS_AI ? 'en' : 'zh-CN';
 const OTHER_HTML_LANG = IS_AI ? 'zh-CN' : 'en';
 const API_HOST = IS_AI ? 'api.lmuai.ai' : 'api.lmuai.com';
-// 「最后更新」标记：默认语言在裸路径。
-const DEFAULT_UPDATED_MARK = IS_AI ? 'Last updated' : '最后更新';
-const OTHER_UPDATED_MARK = IS_AI ? '最后更新' : 'Last updated';
 // 页面是否英文页（description 长度阈值等按此分流）。
 const isEnPath = (p) => (IS_AI ? !p.startsWith('/cn/') : p.startsWith('/en/'));
 
@@ -46,6 +42,13 @@ const ALL_LANGS = Object.keys(HTML_LANG);
 const ROOT_LANG = IS_AI ? 'en' : 'cn'; // 裸路径承载的语言码
 // CJK 表意/音节文字描述天然紧凑，其余（拉丁/西里尔/阿拉伯）更长 —— description 长度按此分档。
 const CJK_LANGS = new Set(['cn', 'ja', 'ko']);
+// 「最后更新」文案按语种（镜像 lib/i18n-ui.ts 的 lastUpdate 与 components/last-updated.tsx 的 LABELS）。
+// 用不含分隔符的裸标签做子串匹配；扩语言时这三处同步。
+const UPDATED_MARK = {
+  cn: '最后更新', en: 'Last updated', ja: '最終更新', ko: '마지막 업데이트',
+  es: 'Última actualización', pt: 'Última atualização', de: 'Zuletzt aktualisiert',
+  fr: 'Dernière mise à jour', ru: 'Последнее обновление', ar: 'آخر تحديث',
+};
 // 路径 → 语言码：首段是「已注册且非裸」语言则取之，否则为裸语言。
 const langOf = (p) => {
   const seg = (p.match(/^\/([a-z]{2})(?:\/|$)/) || [])[1];
@@ -624,7 +627,7 @@ async function main() {
   // 告警）；页面以 text/html 提供，HTML 解析器把它与 datetime 视作同一个。
   const dateOf = (html) => (html?.match(/<time datetime="([^"]+)"/i) ?? [])[1] ?? null;
   const pagesWithDate = [...pageBodies.entries()].filter(
-    ([loc, h]) => h.includes(new URL(loc).pathname.startsWith(OTHER_PREFIX) ? OTHER_UPDATED_MARK : DEFAULT_UPDATED_MARK));
+    ([loc, h]) => h.includes(UPDATED_MARK[langOf(new URL(loc).pathname)]));
 
   check('next', '每个文档页都有「最后更新」', pagesWithDate.length === pageBodies.size,
     `${pagesWithDate.length}/${pageBodies.size} 页`);
