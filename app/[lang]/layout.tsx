@@ -16,7 +16,7 @@ import {
   siteName,
 } from '@/lib/site';
 import { DIR, HTML_LANG, OG_LOCALE, i18n, localePrefix } from '@/lib/i18n';
-import { GA_MEASUREMENT_ID } from '@/lib/variant';
+import { CLARITY_PROJECT_ID, GA_MEASUREMENT_ID } from '@/lib/variant';
 import { provider } from '@/lib/i18n-ui';
 import '../global.css';
 
@@ -195,6 +195,18 @@ export default async function Layout({
             gtag('config', '${GA_MEASUREMENT_ID}');
           `}
         </Script>
+        {CLARITY_PROJECT_ID && (
+          // Microsoft Clarity —— 仅国际站（.ai）注入；.com 下 CLARITY_PROJECT_ID 为 null 不渲染。
+          <Script id="microsoft-clarity" strategy="afterInteractive">
+            {`
+              (function(c,l,a,r,i,t,y){
+                  c[a]=c[a]||function(){(c[a].q=c[a].q||[]).push(arguments)};
+                  t=l.createElement(r);t.async=1;t.src="https://www.clarity.ms/tag/"+i;
+                  y=l.getElementsByTagName(r)[0];y.parentNode.insertBefore(t,y);
+              })(window, document, "clarity", "script", "${CLARITY_PROJECT_ID}");
+            `}
+          </Script>
+        )}
         <RootProvider i18n={provider(lang)}>{children}</RootProvider>
       </body>
     </html>

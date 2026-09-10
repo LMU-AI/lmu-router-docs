@@ -42,3 +42,8 @@ export const DEFAULT_LANGUAGE: 'cn' | 'en' = IS_AI ? 'en' : 'cn';
 // 报表。SITE_GA_ID 仅留作构建期兜底覆盖，正常发布不传。
 export const GA_MEASUREMENT_ID =
   process.env.SITE_GA_ID ?? (IS_AI ? 'G-QNRSEGSX5D' : 'G-3YQJ477Z5W');
+
+// Microsoft Clarity（热图 / 会话回放，用于用户行为分析与 SEO 优化）——仅国际站挂：
+// clarity.ms 属境外服务、国内站行为分析走 GA 即可。com 分支必须为 null，让 layout
+// 不渲染该脚本 → .com 构建产物与旧版逐字节一致（发布闸门 diff 的就是它）。
+export const CLARITY_PROJECT_ID: string | null = IS_AI ? 'yg0ybh49o9' : null;
