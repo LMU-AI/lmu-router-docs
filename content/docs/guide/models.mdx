@@ -1,31 +1,32 @@
 ---
 title: 模型广场
-description: 灵眸 API 全部可用模型清单（国产大模型 / Claude / OpenAI 系列），点击模型名一键复制，方便配置工具时直接粘贴使用。
-ogDescription: 灵眸 AI 支持的全部模型清单：Claude Opus 5 / Sonnet 5、GPT-5.6 系列，以及 DeepSeek、Kimi、GLM、Qwen、MiniMax、MiMo 等国产大模型，统一一个 API key 即可调用。
+description: 灵眸 API 全部可用模型清单（国产大模型 / Claude / OpenAI / Gemini / Grok 系列），点击模型名一键复制，方便配置工具时直接粘贴使用。
+ogDescription: 灵眸 AI 支持的全部模型清单：Claude Opus 5 / Sonnet 5、GPT-6 Astra 与 GPT-5.6 系列、Google Gemini、xAI Grok，以及 DeepSeek、Kimi、GLM、Qwen、MiniMax、MiMo 等国产大模型，统一一个 API key 即可调用。
 keywords:
   - 灵眸模型列表
   - claude-opus-5
-  - claude-sonnet-5
+  - claude-fable-5-1
+  - gpt-6-astra
   - gpt-5.6-sol
+  - gemini-3.1-pro-preview
+  - grok-4.6
   - deepseek-v4-pro
-  - glm-5.2
-  - kimi-k3
-  - qwen3.8-max-preview
-  - MiniMax-M2.7
+  - glm-5.3
+  - qwen3.8-max
   - 国产大模型 API 模型 ID
-  - Claude API 模型名称
+  - Claude / GPT / Gemini / Grok API 模型名称
   - AI 中转站模型清单
 alternateNames:
   - 灵眸 AI 模型列表
-  - Claude / GPT / 国产大模型模型 ID 清单
+  - Claude / GPT / Gemini / Grok / 国产大模型模型 ID 清单
   - AI API 中转可用模型一览
 faq:
   - q: 灵眸 AI 支持哪些模型？
-    a: "Claude 全系（claude-opus-5、claude-fable-5、claude-sonnet-5、claude-haiku-4-5 等）、OpenAI GPT-5.6 系列（gpt-5.6-sol / terra / luna），以及通义千问、DeepSeek、MiniMax、智谱 GLM、月之暗面 Kimi、小米 MiMo 等国产大模型，另有 GPT / Gemini / Grok 生图模型。同一把 API Key 即可全部调用。"
+    a: "Claude 全系（claude-opus-5、claude-sonnet-5、claude-haiku-4-5、claude-fable-5-1 等）、OpenAI GPT-6 Astra 与 GPT-5.6 系列（gpt-5.6-sol / luna / terra）、Google Gemini（gemini-3.1-pro-preview、gemini-3.8-flash 等）、xAI Grok（grok-4.6 等），以及通义千问、DeepSeek、MiniMax、智谱 GLM、月之暗面 Kimi、小米 MiMo 等国产大模型，另有 GPT / Gemini / Grok 生图模型。同一把 API Key 即可全部调用。"
   - q: 模型 ID 在哪里查、怎么填？
     a: "本页每张模型卡片点击即可一键复制模型 ID，页面底部还有纯文本速查清单便于批量复制。复制后填入对应工具的配置项：Claude Code 填 settings.json 的 model 字段，Codex CLI 填 ~/.codex/config.toml 的 model，Cursor / Chatbox 等 GUI 工具直接粘贴到模型输入框。"
   - q: 当前最新的旗舰模型是哪些？
-    a: "Claude 侧是 claude-opus-5（旗舰）与 claude-sonnet-5（平衡），OpenAI 侧是 gpt-5.6-sol；国产大模型侧分别是 qwen3.8-max-preview、deepseek-v4-pro、glm-5.2、kimi-k3。新上线的模型在卡片上会标注「新」。"
+    a: "Claude 侧是 claude-opus-5（旗舰）与 claude-sonnet-5（平衡），OpenAI 侧是 gpt-6-astra 与 gpt-5.6-sol，Google 侧是 gemini-3.1-pro-preview，xAI 侧是 grok-4.6；国产大模型侧分别是 qwen3.8-max、deepseek-v4-pro、glm-5.3、kimi-k3、MiniMax-M3。新上线的模型在卡片上会标注「新」。"
   - q: 为什么我的账号调不了某个模型？
     a: "实际可用范围以灵眸后台「可用模型」页面为准，不同套餐与计费分组的可调用模型存在差异。例如 GPT 系列需要订阅 GPT 套餐，或在按量计费下选择 GPT 分组。"
 ---
@@ -50,13 +51,13 @@ faq:
 
 | 场景 | 推荐模型 | 为什么 |
 |---|---|---|
-| 复杂重构、跨文件大改 | `claude-opus-5` | Claude 旗舰档，代码与长文本能力出众，是 Claude Code 的默认选择 |
-| 日常编码、改 bug | `claude-sonnet-5` · `claude-sonnet-4-6` | 平衡档，能力与响应速度之间的折中，适合高频日常使用 |
-| 高频轻量任务（补全、格式化、批量小改） | `claude-haiku-4-5` · `deepseek-v4-flash` · `qwen3.6-flash` | 高速档，单次任务简单、调用次数多的场景 |
-| Codex CLI / Codex App 工具链 | `gpt-5.6-sol` · `gpt-5.4` | OpenAI 协议侧的最新旗舰与 Codex CLI 配置模板的默认模型 |
-| 中文写作、文档撰写、对话 | `qwen3.8-max-preview` · `glm-5.2` · `kimi-k3` | 国产模型中文理解优秀、价格更低 |
-| 中文场景下的编码 | `qwen3.6-plus` · `deepseek-v4-pro` | 面向代码的国产模型，可用账户「余额」直接调用 |
-| 多模态（图文混合输入） | `mimo-v2-omni` | 本页唯一标注多模态的对话模型；纯生图需求见下方生图接口 |
+| 复杂重构、跨文件大改 | `claude-opus-5` · `gpt-6-astra` | 各家旗舰档，代码与长文本能力出众，是 Claude Code / Codex 的默认首选 |
+| 日常编码、改 bug | `claude-sonnet-5` · `glm-5.3` | 平衡档，能力与响应速度之间的折中，适合高频日常使用 |
+| 高频轻量任务（补全、格式化、批量小改） | `claude-haiku-4-5` · `deepseek-v4-flash` · `qwen3.8-flash` | 高速档，单次任务简单、调用次数多的场景 |
+| Codex CLI / Codex App 工具链 | `gpt-5.6-sol` · `gpt-5.5` | OpenAI 协议侧的旗舰与 Codex CLI 配置模板的默认模型 |
+| 中文写作、文档撰写、对话 | `qwen3.8-max` · `glm-5.3` · `kimi-k3` | 国产模型中文理解优秀、价格更低 |
+| 中文场景下的编码 | `qwen3.7-plus` · `deepseek-v4-pro` | 面向代码的国产模型，可用账户「余额」直接调用 |
+| 多模态（图文混合输入） | `gemini-3.1-pro-preview` · `claude-fable-5-1` · `gpt-6-astra` | 原生多模态模型，支持图文混合输入；纯生图需求见下方生图接口 |
 
 <Callout type="warn" title="选型前先确认两件事">
 
@@ -76,27 +77,27 @@ faq:
 ### 阿里 · 通义千问
 
 <ModelGrid>
-  <ModelCard name="qwen3.8-max-preview" description="通义千问 3.8 Max Preview" badge="新" />
-  <ModelCard name="qwen3.7-max" description="通义千问 3.7 Max — 旗舰" />
+  <ModelCard name="qwen3.8-max" description="通义千问 3.8 Max — 旗舰" badge="新" />
+  <ModelCard name="qwen3.8-flash" description="通义千问 3.8 Flash — 高速" badge="新" />
+  <ModelCard name="qwen3.7-plus" description="通义千问 3.7 Plus" />
+  <ModelCard name="qwen3.7-max" description="通义千问 3.7 Max" />
   <ModelCard name="qwen3.6-plus" description="通义千问 3.6 Plus" />
-  <ModelCard name="qwen3.6-flash" description="通义千问 3.6 Flash — 高速" />
-  <ModelCard name="qwen3.5-plus" description="通义千问 3.5 Plus" />
-  <ModelCard name="qwen3-max-2026-01-23" description="通义千问 3 Max 旗舰版" />
 </ModelGrid>
 
 ### DeepSeek
 
 <ModelGrid>
-  <ModelCard name="deepseek-v4-pro" description="DeepSeek V4 Pro" badge="新" />
-  <ModelCard name="deepseek-v4-flash" description="DeepSeek V4 Flash — 高速" badge="新" />
+  <ModelCard name="deepseek-v4-pro" description="DeepSeek V4 Pro — 旗舰" />
+  <ModelCard name="deepseek-v4-flash" description="DeepSeek V4 Flash — 高速" />
   <ModelCard name="deepseek-v3.2" description="DeepSeek V3.2" />
 </ModelGrid>
 
 ### MiniMax
 
 <ModelGrid>
-  <ModelCard name="MiniMax-M2.7" description="MiniMax M2.7" badge="新" />
-  <ModelCard name="MiniMax-M2.7-highspeed" description="MiniMax M2.7 高速版" badge="新" />
+  <ModelCard name="MiniMax-M3" description="MiniMax M3" badge="新" />
+  <ModelCard name="MiniMax-M2.7" description="MiniMax M2.7" />
+  <ModelCard name="MiniMax-M2.7-highspeed" description="MiniMax M2.7 高速版" />
   <ModelCard name="MiniMax-M2.5" description="MiniMax M2.5" />
   <ModelCard name="MiniMax-M2.5-highspeed" description="MiniMax M2.5 高速版" />
 </ModelGrid>
@@ -104,7 +105,9 @@ faq:
 ### 智谱 · GLM
 
 <ModelGrid>
-  <ModelCard name="glm-5.2" description="智谱 GLM-5.2" badge="新" />
+  <ModelCard name="glm-5.3" description="智谱 GLM-5.3 — 旗舰" badge="新" />
+  <ModelCard name="glm-5.3-flash" description="智谱 GLM-5.3 Flash — 高速" badge="新" />
+  <ModelCard name="glm-5.2" description="智谱 GLM-5.2" />
   <ModelCard name="glm-5.1" description="智谱 GLM-5.1" />
   <ModelCard name="glm-5" description="智谱 GLM-5" />
 </ModelGrid>
@@ -112,7 +115,8 @@ faq:
 ### 月之暗面 · Kimi
 
 <ModelGrid>
-  <ModelCard name="kimi-k3" description="Kimi K3" badge="新" />
+  <ModelCard name="kimi-k3" description="Kimi K3 — 旗舰" />
+  <ModelCard name="kimi-k2.7-code" description="Kimi K2.7 Code — 编码" badge="新" />
   <ModelCard name="kimi-k2.6" description="Kimi K2.6" />
   <ModelCard name="kimi-k2.5" description="Kimi K2.5" />
 </ModelGrid>
@@ -120,10 +124,8 @@ faq:
 ### 小米 · MiMo
 
 <ModelGrid>
-  <ModelCard name="mimo-v2.5-pro" description="小米 MiMo V2.5 Pro" badge="新" />
-  <ModelCard name="mimo-v2.5" description="小米 MiMo V2.5" badge="新" />
-  <ModelCard name="mimo-v2-pro" description="小米 MiMo V2 Pro" />
-  <ModelCard name="mimo-v2-omni" description="小米 MiMo V2 Omni — 多模态" />
+  <ModelCard name="mimo-v2.5-pro" description="小米 MiMo V2.5 Pro — 旗舰" />
+  <ModelCard name="mimo-v2.5" description="小米 MiMo V2.5" />
 </ModelGrid>
 
 ---
@@ -135,33 +137,59 @@ Anthropic 官方模型，代码与长文本能力出众，是 Claude Code 的默
 > **接入协议**：推荐 **Anthropic 协议** · Base URL `https://api.lmuai.com`（不带 `/v1`）。OpenAI 协议也可调用，后端会做协议转换。
 
 <ModelGrid>
-  <ModelCard name="claude-opus-5" description="Claude Opus 5 — 旗舰" badge="新" />
-  <ModelCard name="claude-fable-5" description="Claude Fable 5" badge="新" />
-  <ModelCard name="claude-opus-4-8" description="Claude Opus 4.8" />
-  <ModelCard name="claude-opus-4-7" description="Claude Opus 4.7" />
-  <ModelCard name="claude-opus-4-6" description="Claude Opus 4.6" />
-  <ModelCard name="claude-opus-4-5" description="Claude Opus 4.5" />
-  <ModelCard name="claude-sonnet-5" description="Claude Sonnet 5 — 平衡" badge="新" />
-  <ModelCard name="claude-sonnet-4-6" description="Claude Sonnet 4.6 — 平衡" />
-  <ModelCard name="claude-sonnet-4-5" description="Claude Sonnet 4.5 — 平衡" />
+  <ModelCard name="claude-opus-5" description="Claude Opus 5 — 旗舰" />
+  <ModelCard name="claude-sonnet-5" description="Claude Sonnet 5 — 平衡" />
   <ModelCard name="claude-haiku-4-5" description="Claude Haiku 4.5 — 高速" />
+  <ModelCard name="claude-fable-5-1" description="Claude Fable 5.1 — 多模态" badge="新" />
+  <ModelCard name="claude-opus-4-8" description="Claude Opus 4.8" />
 </ModelGrid>
 
 ---
 
 ## OpenAI 模型
 
-OpenAI GPT-5 系列，适用于 Codex CLI、Codex App 与各类支持 OpenAI 协议的工具。
+OpenAI GPT 系列，适用于 Codex CLI、Codex App 与各类支持 OpenAI 协议的工具。
 
 > **接入协议**：**OpenAI 协议** · Base URL `https://api.lmuai.com/v1`（**必须带** `/v1`）。
 
 <ModelGrid>
-  <ModelCard name="gpt-5.6-sol" description="GPT-5.6 Sol" badge="新" />
-  <ModelCard name="gpt-5.6-terra" description="GPT-5.6 Terra" badge="新" />
-  <ModelCard name="gpt-5.6-luna" description="GPT-5.6 Luna" badge="新" />
+  <ModelCard name="gpt-6-astra" description="GPT-6 Astra — 旗舰" badge="新" />
+  <ModelCard name="gpt-5.6-sol" description="GPT-5.6 Sol — 旗舰" />
+  <ModelCard name="gpt-5.6-luna" description="GPT-5.6 Luna" />
+  <ModelCard name="gpt-5.6-terra" description="GPT-5.6 Terra" />
   <ModelCard name="gpt-5.5" description="GPT-5.5" />
-  <ModelCard name="gpt-5.4" description="GPT-5.4" />
-  <ModelCard name="gpt-5.2" description="GPT-5.2" />
+</ModelGrid>
+
+---
+
+## Google · Gemini 模型
+
+Google Gemini 系列，原生多模态、超长上下文（百万级 token），适合图文混合输入与长文档处理。
+
+> **接入协议**：可用 **OpenAI 协议**（Base URL `https://api.lmuai.com/v1`，**带** `/v1`）或 **Gemini 原生协议**（`/v1beta/models/...`）调用。详见 [接入协议 →](./api-protocols)
+
+<ModelGrid>
+  <ModelCard name="gemini-3.1-pro-preview" description="Gemini 3.1 Pro Preview — 旗舰" badge="新" />
+  <ModelCard name="gemini-3.8-flash" description="Gemini 3.8 Flash — 高速" badge="新" />
+  <ModelCard name="gemini-3.7-flash" description="Gemini 3.7 Flash — 高速" />
+  <ModelCard name="gemini-3.6-flash" description="Gemini 3.6 Flash — 高速" />
+  <ModelCard name="gemini-3.5-flash-lite" description="Gemini 3.5 Flash Lite — 轻量" />
+</ModelGrid>
+
+---
+
+## xAI · Grok 模型
+
+xAI Grok 系列，强推理与多模态能力，支持超长上下文。
+
+> **接入协议**：**OpenAI 协议** · Base URL `https://api.lmuai.com/v1`（**必须带** `/v1`）。
+
+<ModelGrid>
+  <ModelCard name="grok-4.6" description="Grok 4.6 — 旗舰" badge="新" />
+  <ModelCard name="grok-4.5" description="Grok 4.5" />
+  <ModelCard name="grok-4.3" description="Grok 4.3" />
+  <ModelCard name="grok-4.20-reasoning" description="Grok 4.20 Reasoning — 推理" />
+  <ModelCard name="grok-code-fast-1" description="Grok Code Fast 1 — 编码 / 高速" />
 </ModelGrid>
 
 ---
@@ -170,21 +198,25 @@ OpenAI GPT-5 系列，适用于 Codex CLI、Codex App 与各类支持 OpenAI 协
 
 <Callout type="info" title="用于站内搜索与批量复制">
 
-**Claude 系列**：`claude-opus-5`、`claude-fable-5`、`claude-opus-4-8`、`claude-opus-4-7`、`claude-opus-4-6`、`claude-opus-4-5`、`claude-sonnet-5`、`claude-sonnet-4-6`、`claude-sonnet-4-5`、`claude-haiku-4-5`
+**Claude 系列**：`claude-opus-5`、`claude-sonnet-5`、`claude-haiku-4-5`、`claude-fable-5-1`、`claude-opus-4-8`
 
-**OpenAI 系列**：`gpt-5.6-sol`、`gpt-5.6-terra`、`gpt-5.6-luna`、`gpt-5.5`、`gpt-5.4`、`gpt-5.2`
+**OpenAI 系列**：`gpt-6-astra`、`gpt-5.6-sol`、`gpt-5.6-luna`、`gpt-5.6-terra`、`gpt-5.5`
 
-**通义千问**：`qwen3.8-max-preview`、`qwen3.7-max`、`qwen3.6-plus`、`qwen3.6-flash`、`qwen3.5-plus`、`qwen3-max-2026-01-23`
+**Google Gemini**：`gemini-3.1-pro-preview`、`gemini-3.8-flash`、`gemini-3.7-flash`、`gemini-3.6-flash`、`gemini-3.5-flash-lite`
+
+**xAI Grok**：`grok-4.6`、`grok-4.5`、`grok-4.3`、`grok-4.20-reasoning`、`grok-code-fast-1`
+
+**通义千问**：`qwen3.8-max`、`qwen3.8-flash`、`qwen3.7-plus`、`qwen3.7-max`、`qwen3.6-plus`
 
 **DeepSeek**：`deepseek-v4-pro`、`deepseek-v4-flash`、`deepseek-v3.2`
 
-**MiniMax**：`MiniMax-M2.7`、`MiniMax-M2.7-highspeed`、`MiniMax-M2.5`、`MiniMax-M2.5-highspeed`
+**MiniMax**：`MiniMax-M3`、`MiniMax-M2.7`、`MiniMax-M2.7-highspeed`、`MiniMax-M2.5`、`MiniMax-M2.5-highspeed`
 
-**智谱 GLM**：`glm-5.2`、`glm-5.1`、`glm-5`
+**智谱 GLM**：`glm-5.3`、`glm-5.3-flash`、`glm-5.2`、`glm-5.1`、`glm-5`
 
-**月之暗面 Kimi**：`kimi-k3`、`kimi-k2.6`、`kimi-k2.5`
+**月之暗面 Kimi**：`kimi-k3`、`kimi-k2.7-code`、`kimi-k2.6`、`kimi-k2.5`
 
-**小米 MiMo**：`mimo-v2.5-pro`、`mimo-v2.5`、`mimo-v2-pro`、`mimo-v2-omni`
+**小米 MiMo**：`mimo-v2.5-pro`、`mimo-v2.5`
 
 生图模型见 [GPT 生图](../api/gpt-image)、[Gemini 生图](../api/gemini-image)、[Grok 生图](../api/grok-image)。
 
