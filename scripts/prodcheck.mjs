@@ -74,8 +74,8 @@ const check = (since, name, cond, detail) => record(since, name, !!cond, detail)
 // --- HTTP 帮助函数 ---------------------------------------------------------
 const cache = new Map();
 
-async function get(path, { ua, method = 'GET', redirect = 'manual', accept } = {}) {
-  const key = `${method} ${path} ${ua ?? ''} ${redirect} ${accept ?? ''}`;
+async function get(path, { ua, method = 'GET', redirect = 'manual', accept, acceptLanguage, cookie } = {}) {
+  const key = `${method} ${path} ${ua ?? ''} ${redirect} ${accept ?? ''} ${acceptLanguage ?? ''} ${cookie ?? ''}`;
   if (cache.has(key)) return cache.get(key);
   const url = path.startsWith('http') ? path : BASE + path;
   const t0 = Date.now();
@@ -87,6 +87,8 @@ async function get(path, { ua, method = 'GET', redirect = 'manual', accept } = {
       headers: {
         'accept-encoding': 'gzip, br',
         ...(accept ? { accept } : {}),
+        ...(acceptLanguage ? { 'accept-language': acceptLanguage } : {}),
+        ...(cookie ? { cookie } : {}),
         ...(ua ? { 'user-agent': ua } : { 'user-agent': 'prodcheck/1.0' }),
       },
       signal: AbortSignal.timeout(30000),
@@ -178,6 +180,61 @@ async function main() {
     dead.join('; ') || `0 处 4xx/5xx`);
   check('next', 'sitemap 中无跳转 URL', redirecting.length === 0,
     redirecting.join('; ') || '0 处 3xx');
+
+  // --- 1b. 语言自动协商（Accept-Language，proxy.ts 运行时）---------------------
+  // v0.1.48 起：裸路径按访客 Accept-Language 选最佳语种。SEO 安全——爬虫豁免、cookie
+  // sticky、307 + Vary。这批断言按 proxy 运行时行为验，先入 next 档（当前 live 尚无此
+  // 逻辑），部署 v0.1.48 后转 live 基线。裸路径用 /docs（/ 另有 308 语义，不混入）。
+  // 护栏：ALL 现有断言走默认 UA(prodcheck/1.0，非爬虫) 且不带 Accept-Language → 匹配
+  // 默认语种 → 不跳 → 200/308 全绿不回归。
+  group('1b. 语言自动协商（Accept-Language）');
+  const BROWSER_UA =
+    'Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0 Safari/537.36';
+  const GOOGLEBOT_UA = 'Mozilla/5.0 (compatible; Googlebot/2.1; +http://www.google.com/bot.html)';
+  // 本变体「站点默认语种」与「另一站根语种」：.com 默认 cn、另一根语 en；.ai 反之。
+  const selfRootTag = IS_AI ? 'en-US,en;q=0.9' : 'zh-CN,zh;q=0.9';
+  const otherRootTag = IS_AI ? 'zh-CN,zh;q=0.9' : 'en-US,en;q=0.9';
+  const otherRootLang = IS_AI ? 'cn' : 'en';
+
+  // ja / ko 在两变体下都是非默认语种 ⇒ 两用例并列即证明主子标签精确匹配（ja→ja、ko→ko 不串）。
+  const jaNeg = await get('/docs', { ua: BROWSER_UA, acceptLanguage: 'ja,en;q=0.8' });
+  check('next', 'Accept-Language: ja → 307 /ja/docs',
+    jaNeg.status === 307 && jaNeg.headers.location?.endsWith('/ja/docs'),
+    `status=${jaNeg.status} location=${jaNeg.headers.location}`);
+  check('next', 'ja 协商响应带 Vary: Accept-Language',
+    /accept-language/i.test(jaNeg.headers.vary ?? ''), `vary=${jaNeg.headers.vary}`);
+
+  const koNeg = await get('/docs', { ua: BROWSER_UA, acceptLanguage: 'ko,en;q=0.8' });
+  check('next', 'Accept-Language: ko → 307 /ko/docs（证 ja≠ko 精确）',
+    koNeg.status === 307 && koNeg.headers.location?.endsWith('/ko/docs'),
+    `status=${koNeg.status} location=${koNeg.headers.location}`);
+
+  // 用户核心诉求：英文系统访客在 .com（中文默认）不应先看到中文，应跳到自己的语种。
+  const otherNeg = await get('/docs', { ua: BROWSER_UA, acceptLanguage: otherRootTag });
+  check('next', `Accept-Language: ${otherRootTag.split(',')[0]} → 307 /${otherRootLang}/docs`,
+    otherNeg.status === 307 && otherNeg.headers.location?.endsWith(`/${otherRootLang}/docs`),
+    `status=${otherNeg.status} location=${otherNeg.headers.location}`);
+
+  // 匹配本站默认语种 → 不跳（规范无前缀页，百度/Google 收录不受影响）。
+  const selfNeg = await get('/docs', { ua: BROWSER_UA, acceptLanguage: selfRootTag });
+  check('next', `Accept-Language: ${selfRootTag.split(',')[0]}（= 站点默认）→ 200 不跳`,
+    selfNeg.status === 200, `status=${selfNeg.status} location=${selfNeg.headers.location ?? ''}`);
+
+  // 爬虫豁免：Googlebot 即便带 Accept-Language: ja 也不跳，看规范默认页（无 cloaking、保收录）。
+  const botNeg = await get('/docs', { ua: GOOGLEBOT_UA, acceptLanguage: 'ja,en;q=0.8' });
+  check('next', 'Googlebot + Accept-Language: ja → 200（爬虫豁免不跳）',
+    botNeg.status === 200, `status=${botNeg.status} location=${botNeg.headers.location ?? ''}`);
+
+  // 无 Accept-Language（curl / Node fetch / 部署自检）→ 匹配默认 → 不跳（回归护栏）。
+  const noAL = await get('/docs', { ua: BROWSER_UA });
+  check('next', '无 Accept-Language → 200（默认规范页，不跳）',
+    noAL.status === 200, `status=${noAL.status} location=${noAL.headers.location ?? ''}`);
+
+  // cookie 记忆：NEXT_LOCALE=ja 即便无 Accept-Language 也按记住的语种跳（sticky 可覆盖协商）。
+  const ckNeg = await get('/docs', { ua: BROWSER_UA, cookie: 'NEXT_LOCALE=ja' });
+  check('next', 'Cookie NEXT_LOCALE=ja → 307 /ja/docs（记忆驱动）',
+    ckNeg.status === 307 && ckNeg.headers.location?.endsWith('/ja/docs'),
+    `status=${ckNeg.status} location=${ckNeg.headers.location}`);
 
   group('2. 静态资源与图标');
   for (const [p, since] of [['/favicon.ico', 'next'], ['/icon.svg', 'next'],
@@ -454,7 +511,7 @@ async function main() {
   // --- 6. 每页 SEO 元数据 --------------------------------------------------
   group('6. 每页 SEO 元数据');
 
-  const issues = { canonical: [], title: [], desc: [], h1: [], og: [], lang: [], descLen: [] };
+  const issues = { canonical: [], title: [], desc: [], h1: [], og: [], ogImage: [], twImage: [], lang: [], descLen: [] };
   for (const [loc, html] of pageBodies) {
     const p = new URL(loc).pathname;
     const c = canonical(html);
@@ -482,6 +539,10 @@ async function main() {
     if (h1s.length !== 1) issues.h1.push(`${p}: ${h1s.length} 个`);
 
     if (!meta(html, 'og:title') || !meta(html, 'og:description')) issues.og.push(p);
+    // 卡片图护栏：card 是 summary_large_image，og:image（Next 文件式 opengraph-image
+    // 自动注入）与 twitter:image（须在 metadata.twitter.images 显式声明）都得在。
+    if (!meta(html, 'og:image')) issues.ogImage.push(p);
+    if (!meta(html, 'twitter:image')) issues.twImage.push(p);
     const wantLang = HTML_LANG[langOf(p)];
     if (!new RegExp(`<html[^>]+lang="${wantLang}"`).test(html)) issues.lang.push(`${p}: 期望 ${wantLang}`);
   }
@@ -493,6 +554,8 @@ async function main() {
     `${issues.descLen.length} 页越界: ` + issues.descLen.slice(0, 8).join('; '));
   check('next', '每页恰好 1 个 <h1>', issues.h1.length === 0, issues.h1.slice(0, 6).join('; '));
   check('live', '每页有 og:title / og:description', issues.og.length === 0, issues.og.slice(0, 6).join('; '));
+  check('next', '每页有 og:image', issues.ogImage.length === 0, issues.ogImage.slice(0, 6).join('; '));
+  check('next', '每页有 twitter:image', issues.twImage.length === 0, issues.twImage.slice(0, 6).join('; '));
   check('live', `每页 <html lang> 与语言匹配（${ALL_LANGS.length} 语，裸=${HTML_LANG[ROOT_LANG]}）`, issues.lang.length === 0, issues.lang.slice(0, 6).join('; '));
 
   const docsHome = byPathAll.get('/docs') ?? (await get('/docs')).body;

@@ -106,11 +106,25 @@ export default async function Page({
       : null;
 
   const isModels = (slug?.join('/') ?? '') === 'guide/models';
+  // ItemList 名称按语种（条目本身是语言无关的模型 ID/厂商）。cn/en 字面量逐字不变，
+  // 补 8 语忠实翻译；未列出的语种回退英文。
+  const MODEL_LIST_NAME: Record<string, string> = {
+    cn: '灵眸 AI 可用模型清单',
+    en: 'LMU AI available models',
+    ja: 'LMU AI 利用可能なモデル一覧',
+    ko: 'LMU AI 사용 가능한 모델 목록',
+    es: 'Modelos disponibles de LMU AI',
+    pt: 'Modelos disponíveis da LMU AI',
+    de: 'Verfügbare Modelle von LMU AI',
+    fr: 'Modèles disponibles de LMU AI',
+    ru: 'Доступные модели LMU AI',
+    ar: 'قائمة النماذج المتاحة في LMU AI',
+  };
   const itemListJsonLd = isModels
     ? {
         '@context': 'https://schema.org',
         '@type': 'ItemList',
-        name: lang === 'cn' ? '灵眸 AI 可用模型清单' : 'LMU AI available models',
+        name: MODEL_LIST_NAME[lang] ?? MODEL_LIST_NAME.en,
         numberOfItems: PLAZA_MODELS.length,
         itemListElement: PLAZA_MODELS.map((m, i) => ({
           '@type': 'ListItem',
@@ -218,11 +232,16 @@ export async function generateMetadata({
       url: canonicalPath,
       title: page.data.title,
       description: ogDescription,
+      // 显式 og:image：文件式 opengraph-image 不会自动注入到 [lang] 页（实测缺失），
+      // 指向全站唯一 OG 图 /opengraph-image（metadataBase 解析为绝对 URL）。
+      images: ['/opengraph-image'],
     },
     twitter: {
       card: 'summary_large_image',
       title: page.data.title,
       description: ogDescription,
+      // twitter:image 同样须显式声明。
+      images: ['/opengraph-image'],
     },
   };
 }

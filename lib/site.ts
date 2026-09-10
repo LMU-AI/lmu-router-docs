@@ -171,6 +171,26 @@ export function productFeatures(locale: string): string[] {
   return PRODUCT_FEATURES_I18N[locale] ?? PRODUCT_FEATURES_EN;
 }
 
+// SoftwareApplication.applicationSubCategory：产品所属细分类别（「大模型 API 中转服务」）。
+// 语言无关的实体描述，逐语忠实翻译（措辞对齐上面的 productDescription），不新增事实。
+// cn/en 字面量与此前 layout.tsx 内联值逐字一致。
+const APPLICATION_SUBCATEGORY_CN = '大模型 API 中转服务';
+const APPLICATION_SUBCATEGORY_EN = 'Large-model API relay';
+const APPLICATION_SUBCATEGORY_I18N: Record<string, string> = {
+  ja: '大規模モデル API 中継サービス',
+  ko: '대규모 모델 API 중계 서비스',
+  es: 'Servicio de relay de API de grandes modelos',
+  pt: 'Serviço de relay de API de grandes modelos',
+  de: 'Relay-Dienst für Large-Model-APIs',
+  fr: "Service de relais d'API de grands modèles",
+  ru: 'Релей API больших моделей',
+  ar: 'خدمة تحويل لواجهات النماذج الكبيرة البرمجية',
+};
+export function applicationSubCategory(locale: string): string {
+  if (locale === 'cn') return APPLICATION_SUBCATEGORY_CN;
+  return APPLICATION_SUBCATEGORY_I18N[locale] ?? APPLICATION_SUBCATEGORY_EN;
+}
+
 export const SITE_KEYWORDS = [
   '灵眸',
   '灵眸 API',

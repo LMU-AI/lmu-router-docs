@@ -8,6 +8,7 @@ import {
   SITE_KEYWORDS,
   SITE_URL,
   THEME_COLOR,
+  applicationSubCategory,
   productDescription,
   productFeatures,
   productName,
@@ -81,11 +82,18 @@ export async function generateMetadata({
       url: `${prefix}/docs`,
       title: name,
       description,
+      // 显式声明 og:image。文件式 app/opengraph-image.tsx 只生成 /opengraph-image 路由
+      // （真实 PNG），并不会自动把 og:image meta 注入 [lang] 页（app/ 根段下无页面承载该约定），
+      // 实测裸 /docs 与各语种页都缺 og:image —— 故两处 metadata 都显式指这张全站唯一 OG 图
+      // （非 per-lang；metadataBase 解析为绝对 URL）。
+      images: ['/opengraph-image'],
     },
     twitter: {
       card: 'summary_large_image',
       title: name,
       description,
+      // twitter:image 同样须显式（文件式 opengraph-image 更不填 twitter:image*）。
+      images: ['/opengraph-image'],
     },
     robots: {
       index: true,
@@ -143,10 +151,11 @@ export default async function Layout({
     '@context': 'https://schema.org',
     '@type': 'SoftwareApplication',
     name: productName(lang),
-    alternateName: lang === 'en' ? ['灵眸 AI', 'Lingmou AI'] : ['LMU AI', 'Lingmou AI'],
+    // 别名 = 「另一种写法的品牌名」：主名是中文站『灵眸 AI』、其余语种『LMU AI』
+    // （见 productName），故别名互补——cn 补英文品牌、非 cn 一律补中文品牌『灵眸 AI』+ 罗马音。
+    alternateName: lang === 'cn' ? ['LMU AI', 'Lingmou AI'] : ['灵眸 AI', 'Lingmou AI'],
     applicationCategory: 'DeveloperApplication',
-    applicationSubCategory:
-      lang === 'cn' ? '大模型 API 中转服务' : 'Large-model API relay',
+    applicationSubCategory: applicationSubCategory(lang),
     operatingSystem: 'Web',
     url: API_BASE_URL,
     description: productDescription(lang),
