@@ -21,6 +21,22 @@ const FORMATTER = new Intl.DateTimeFormat('zh-CN', {
   day: '2-digit',
 });
 
+// 「最后更新：」文案按语种取（镜像 lib/i18n-ui.ts 的 lastUpdate + 分隔符）。这是自绘的
+// 服务端组件、不走 Fumadocs 的 I18nProvider，故单独维护一份；扩语言时与 i18n-ui.ts 同步，
+// prodcheck 7c 的 UPDATED_MARK 也用同一组标签断言。未知语种回退英文（不再漏中文）。
+const LABELS: Record<string, string> = {
+  cn: '最后更新：',
+  en: 'Last updated: ',
+  ja: '最終更新：',
+  ko: '마지막 업데이트: ',
+  es: 'Última actualización: ',
+  pt: 'Última atualização: ',
+  de: 'Zuletzt aktualisiert: ',
+  fr: 'Dernière mise à jour : ',
+  ru: 'Последнее обновление: ',
+  ar: 'آخر تحديث: ',
+};
+
 export function LastUpdated({ date, locale = 'cn' }: { date: Date; locale?: string }) {
   // zh-CN 的 format 产出 2026/08/04，统一换成 ISO 风格的短横线。
   const display = FORMATTER.format(date).replace(/\//g, '-');
@@ -29,7 +45,7 @@ export function LastUpdated({ date, locale = 'cn' }: { date: Date; locale?: stri
 
   return (
     <p className="not-prose mt-8 border-t border-fd-border pt-4 text-sm text-fd-muted-foreground">
-      {locale === 'en' ? 'Last updated: ' : '最后更新：'}
+      {LABELS[locale] ?? LABELS.en}
       {/*
         用 JSX 规范的 dateTime（驼峰）。React 19 的 server 渲染并不会把它降成小写，
         产出的就是 `<time dateTime="...">`——这没问题：页面以 text/html 提供，HTML5

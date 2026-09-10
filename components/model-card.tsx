@@ -2,16 +2,35 @@
 
 import { useState, type ReactNode } from 'react';
 
+// 复制按钮文案 / aria-label 按语种取。本组件是 'use client'，SSR 时读不到服务端 locale，
+// 故 locale 由 MDX 注册处（app/[lang]/docs/[[...slug]]/page.tsx）按页注入 —— 这样首屏 HTML
+// 就是对应语种（不再对所有语种、连英文页都漏中文「复制」）。未知语种回退英文。
+const COPY_LABELS: Record<string, { copy: string; copied: string; aria: (n: string) => string }> = {
+  cn: { copy: '复制', copied: '已复制', aria: (n) => `复制模型名称 ${n}` },
+  en: { copy: 'Copy', copied: 'Copied', aria: (n) => `Copy model name ${n}` },
+  ja: { copy: 'コピー', copied: 'コピー済み', aria: (n) => `モデル名「${n}」をコピー` },
+  ko: { copy: '복사', copied: '복사됨', aria: (n) => `모델 이름 ${n} 복사` },
+  es: { copy: 'Copiar', copied: 'Copiado', aria: (n) => `Copiar el nombre del modelo ${n}` },
+  pt: { copy: 'Copiar', copied: 'Copiado', aria: (n) => `Copiar o nome do modelo ${n}` },
+  de: { copy: 'Kopieren', copied: 'Kopiert', aria: (n) => `Modellnamen ${n} kopieren` },
+  fr: { copy: 'Copier', copied: 'Copié', aria: (n) => `Copier le nom du modèle ${n}` },
+  ru: { copy: 'Копировать', copied: 'Скопировано', aria: (n) => `Скопировать имя модели ${n}` },
+  ar: { copy: 'نسخ', copied: 'تم النسخ', aria: (n) => `نسخ اسم النموذج ${n}` },
+};
+
 export function ModelCard({
   name,
   description,
   badge,
+  locale = 'cn',
 }: {
   name: string;
   description?: string;
   badge?: string;
+  locale?: string;
 }) {
   const [copied, setCopied] = useState(false);
+  const t = COPY_LABELS[locale] ?? COPY_LABELS.en;
 
   async function handleCopy() {
     try {
@@ -39,7 +58,7 @@ export function ModelCard({
     <button
       type="button"
       onClick={handleCopy}
-      aria-label={`复制模型名称 ${name}`}
+      aria-label={t.aria(name)}
       className="group relative flex w-full items-center justify-between gap-3 rounded-xl border border-fd-border bg-fd-card px-3.5 py-3 text-left transition-all hover:border-fd-primary hover:bg-fd-primary/5 focus:outline-none focus-visible:ring-2 focus-visible:ring-fd-primary"
     >
       <div className="flex min-w-0 flex-1 flex-col">
@@ -67,7 +86,7 @@ export function ModelCard({
             : 'bg-fd-muted text-fd-muted-foreground group-hover:bg-fd-primary group-hover:text-fd-primary-foreground')
         }
       >
-        {copied ? '已复制' : '复制'}
+        {copied ? t.copied : t.copy}
       </span>
     </button>
   );
