@@ -783,7 +783,8 @@ async function main() {
   // --- 7d. 统计归属 --------------------------------------------------------
   // 2026-09 起两站分 GA 媒体资源：.com=G-3YQJ477Z5W、.ai=G-QNRSEGSX5D。
   // 挂错/混用会把海外流量灌进国内报表且无任何报错。layout 全局注入，验一页即可。
-  group('7d. 统计归属（GA 分站）');
+  // Microsoft Clarity（热图/会话回放）仅国际站挂，国内站必须不出现（境外服务）。
+  group('7d. 统计归属（GA 分站 + Clarity）');
   {
     const GA_SELF = IS_AI ? 'G-QNRSEGSX5D' : 'G-3YQJ477Z5W';
     const GA_OTHER = IS_AI ? 'G-3YQJ477Z5W' : 'G-QNRSEGSX5D';
@@ -792,6 +793,14 @@ async function main() {
       docsHtml.includes(GA_SELF) ? '已挂本站 ID' : '页面上找不到本站 GA ID');
     check('next', '未混入另一站的 GA ID', !docsHtml.includes(GA_OTHER),
       docsHtml.includes(GA_OTHER) ? `混入了 ${GA_OTHER}` : '干净');
+    // Clarity：.ai 应注入项目 ID（本轮新增，落 next）；.com 恒不得出现 clarity.ms（live 不变量）。
+    const CLARITY_ID = 'yg0ybh49o9';
+    if (IS_AI)
+      check('next', `Clarity 分析已注入本站（${CLARITY_ID}）`, docsHtml.includes(CLARITY_ID),
+        docsHtml.includes(CLARITY_ID) ? '已挂 Clarity' : '页面上找不到 Clarity 脚本');
+    else
+      check('live', 'Clarity 未泄漏到国内站', !docsHtml.includes('clarity.ms'),
+        docsHtml.includes('clarity.ms') ? 'com 不应出现 clarity.ms' : '干净');
   }
 
   // --- 8. 站内链接与锚点 ---------------------------------------------------
