@@ -1,0 +1,225 @@
+---
+title: Codex App image generation (api-image skill)
+description: Install the community api-image skill in Codex App so it reuses your ~/.codex provider config to call the LMU AI image API — generate, edit and inpaint images in plain language.
+ogDescription: "Codex App image generation guide: install the api-image skill, which reads auth.json and config.toml from ~/.codex and calls LMU AI's OpenAI Images-compatible endpoints (default gpt-image-2) from a single sentence, with reference images, masks and batch output."
+keywords:
+  - Codex App image generation
+  - api-image
+  - Codex skill
+  - Codex image generation
+  - gpt-image-2
+  - Codex image editing
+  - Codex inpainting
+  - Codex skills directory
+alternateNames:
+  - Codex App image generation skill
+  - api-image skill setup
+faq:
+  - q: What is api-image, and how is it different from Codex's built-in image generation?
+    a: "It's a community-maintained third-party Codex skill (MIT licensed) that restores image generation for the Codex App in API mode — the built-in imagegen doesn't work when you sign in with an API key, so api-image instead calls the OpenAI-compatible image endpoint you configure yourself. Once it points at LMU AI, it reads the same provider config under ~/.codex."
+  - q: Do I have to fill in a base URL and API key separately after installing it?
+    a: No. The skill has no config file of its own — at runtime it reads `OPENAI_API_KEY` from `~/.codex/auth.json` and the `base_url` of the provider named by `model_provider` in `~/.codex/config.toml`. So once those two files are set up per the Codex App guide on this site, image generation works with no further configuration. To switch endpoints or keys temporarily, just say so in the conversation — it only affects that one call.
+  - q: "Image generation fails with ModuleNotFoundError: No module named 'tomllib' — what now?"
+    a: "It means the `python3` running the script is older than 3.11 (macOS ships 3.9 by default). Upgrade to 3.11 or later, or tell Codex in the conversation to run the api-image script with a newer interpreter."
+  - q: It says OPENAI_API_KEY is missing in .../auth.json
+    a: That means `~/.codex/auth.json` doesn't exist, or it has no `sk-` key in it. Fix it per the Codex App guide — or, if you don't store your key in `auth.json`, tell Codex in the conversation to read it from an environment variable with `--api-key-env` instead.
+  - q: Where do generated images get saved?
+    a: By default they're written to Codex's current working directory with names like `provider-image-20260918-153512.png`. You can also name an output path in the conversation to save them somewhere specific in your project.
+  - q: Can I control size, quality and how many images are produced?
+    a: 'Yes. The defaults are `2048x1152`, `quality` high, one image — just ask in plain language (for example "size 1024x1024, quality low, two images"). Note that `--size` is not a hard guarantee: the upstream may normalize the actual pixel dimensions.'
+---
+
+[api-image](https://github.com/yc-duan/api-image) is a community-maintained Codex skill that restores image generation for the **Codex App in API mode**: the built-in imagegen isn't available when you sign in with an API key, so it calls the OpenAI-compatible image endpoint you configure yourself, and mirrors the web version's flow — the main model understands the request, searches or analyzes reference images when needed, then calls the image model.
+
+Once it points at LMU AI it reads the config already in your Codex directory, with **no extra base URL or key setup**.
+
+<Callout type="warn" title="This is a third-party community skill, not an official LMU AI component">
+
+- It runs as a Python script on your machine, **reads the key from `~/.codex/auth.json`**, and sends your prompt (plus any reference images) to the configured provider. Make sure you're comfortable with that before installing
+- It requires **Python 3.11 or later**: the script parses `config.toml` with `tomllib`, and an older Python fails immediately with `ModuleNotFoundError: No module named 'tomllib'`
+- The repository is MIT licensed, and the author describes it as a cleaned-up personal skill — compatibility varies between providers, so treat real error messages as the source of truth
+
+</Callout>
+
+---
+
+## Prerequisites
+
+### 1. Codex App is already connected to LMU AI
+
+Follow [Codex App (Desktop)](./codex-app) to create `~/.codex/config.toml` and `~/.codex/auth.json` — in other words, Codex App can already hold a normal conversation.
+
+api-image stores no credentials of its own; at runtime it reads exactly those two files:
+
+| What it reads | Where from | Value from this site's guide |
+|------|------|------|
+| API key | `OPENAI_API_KEY` in `~/.codex/auth.json` | the `sk-` key generated in the LMU AI console |
+| Current provider | `model_provider` in `~/.codex/config.toml` | `codex` |
+| Endpoint | `[model_providers.<provider>].base_url` | `https://api.lmuai.com` |
+
+It then calls `<base_url>/images/generations` (text to image) and `<base_url>/images/edits` (image to image / inpainting).
+
+### 2. Python 3.11+
+
+```bash
+python3 --version
+# needs to print 3.11 or later; older versions fail with "No module named 'tomllib'"
+```
+
+Install or upgrade it with Homebrew on macOS:
+
+```bash
+brew install python@3.12
+```
+
+On Windows, download a 3.11+ installer from [python.org](https://www.python.org/downloads/), or run:
+
+```powershell
+winget install Python.Python.3.12
+```
+
+<Callout type="warn" title="Watch out when several Pythons are installed">
+
+Codex runs the script with whichever interpreter it finds. If `python3 --version` still points at an old 3.9, you'll hit the `tomllib` error above — after upgrading, confirm `python3` (or `python3.12`) really is 3.11+. If you do have several installed side by side, name the interpreter in the conversation, e.g. "run the api-image script with python3.12".
+
+</Callout>
+
+---
+
+## Step 1 — Install the skill
+
+Clone the repository into Codex's skills directory (default `~/.codex/skills/`):
+
+<Tabs items={['macOS / Linux', 'Windows PowerShell']}>
+<Tab value="macOS / Linux">
+
+```bash
+git clone https://github.com/yc-duan/api-image.git ~/.codex/skills/api-image
+```
+
+</Tab>
+<Tab value="Windows PowerShell">
+
+```powershell
+git clone https://github.com/yc-duan/api-image.git "$env:USERPROFILE\.codex\skills\api-image"
+```
+
+If you've set a `CODEX_HOME` environment variable, use `"$env:CODEX_HOME\skills\api-image"` instead.
+
+</Tab>
+</Tabs>
+
+Then **restart the Codex App** (or have it reload skills).
+
+---
+
+## Step 2 — Generate images in the conversation
+
+No commands needed afterwards — just ask in plain language, exactly as you normally would:
+
+<Tabs items={['Text to image', 'Reference image / image to image', 'Inpainting', 'Research first, then draw']}>
+<Tab value="Text to image">
+
+```text
+Use api-image to generate a 2048x1152 cinematic photo: a rainy Tokyo street at night, neon reflections, realistic photography style.
+```
+
+</Tab>
+<Tab value="Reference image / image to image">
+
+```text
+Using this image's composition and pose as a reference, generate a warm cinematic illustration — keep the subject's pose, but don't copy the original.
+```
+
+</Tab>
+<Tab value="Inpainting">
+
+```text
+Change the red cup in this image to green, keeping the original shape, composition and lighting, with no text added.
+```
+
+</Tab>
+<Tab value="Research first, then draw">
+
+```text
+Look up the structure and terrain around the Huajiang Canyon Bridge first, then generate an aerial view that keeps the real bridge shape and canyon environment.
+```
+
+</Tab>
+</Tabs>
+
+The defaults are `2048x1152`, `quality` high and the `gpt-image-2` model. Ask for anything else directly:
+
+```text
+Use api-image to generate a 1024x1024 flat illustration, quality low, two images, saved to ./public/cover.png
+```
+
+<Callout type="info" title="Generated files land in the current working directory">
+
+Without an output path, images are written to Codex's current working directory with names like `provider-image-20260918-153512.png`. When you ask for several images, the filenames gain `-v1`, `-v2` and so on. Don't commit them by accident — name an explicit path if you want them somewhere fixed.
+
+</Callout>
+
+---
+
+## Common options
+
+Codex passes these when it calls the skill, so you only need to describe what you want in plain language; knowing what's available helps you phrase it precisely:
+
+| Option | Notes |
+|------|------|
+| `--model` | Defaults to `gpt-image-2` |
+| `--size` | Defaults to `2048x1152`; also `1024x1024`, `1024x1536`, `3840x2160`, `auto` and more — both edges must be multiples of 16, the long edge at most 3840, and the aspect ratio no wider than 3:1 |
+| `--quality` | `low` / `medium` / `high` (default) / `auto` |
+| `--n` | Images per prompt, 1–10 |
+| `--output-format` | `png` (default) / `jpeg` / `webp` |
+| `--image` / `--mask` | Reference images and masks, up to 16; supplying a reference image switches to the edit endpoint automatically |
+| `--base-url` | Overrides the endpoint for that one call only, e.g. `https://api.lmuai.com/v1` |
+| `--api-key-env` | Reads the key from a named environment variable (safer than `--api-key`) |
+| `--codex-home` | Points at a specific Codex directory, `~/.codex` by default |
+
+<Callout type="info" title="base_url and LMU AI's full endpoint">
+
+LMU AI documents its OpenAI-compatible base URL *with* `/v1` (the full endpoint is `https://api.lmuai.com/v1/images/generations`), while the `config.toml` in the Codex guide uses the bare hostname — this skill concatenates them as-is and does not add `/v1` itself. LMU AI accepts both forms, so **if you followed this site's guide there's nothing to change**; if you prefer to spell out the documented endpoint, just add a sentence in the conversation and it passes `--base-url` for that call:
+
+```text
+Use api-image to generate ..., with base_url https://api.lmuai.com/v1
+```
+
+</Callout>
+
+---
+
+## Supported models
+
+| Model ID | Notes |
+|------|------|
+| `gpt-image-2` | The skill's default model, covering text to image, image to image and inpainting |
+
+`--model` has no allow-list — other image model IDs are sent as given, and whether they work is up to LMU AI (check "Available models" for your group). For `gpt-image-2`'s capabilities and limits, see the [GPT image API](/en/docs/api/gpt-image): it doesn't support transparent backgrounds, and `input_fidelity` should not be sent.
+
+---
+
+## Common errors
+
+| Error text | Cause | Fix |
+|------|------|------|
+| `ModuleNotFoundError: No module named 'tomllib'` | The Python running the script is older than 3.11 | Upgrade to 3.11+, or name a newer interpreter |
+| `OPENAI_API_KEY is missing in .../auth.json` | `auth.json` is absent or has no key | Set it up per the [Codex App guide](./codex-app), or pass a key with `--api-key-env` |
+| `Missing required file: .../config.toml` | There's no `config.toml` in the Codex directory | Same as above — get Codex App talking first |
+| `model_not_found` (HTTP 404) | Your key's group doesn't expose that image model | Check the group's model list in the console |
+| HTTP 403 | Image generation isn't enabled for the group | Contact the administrator or switch groups |
+| HTTP 401 | Invalid key | Check that the `sk-` key in `auth.json` is complete |
+
+For more image-endpoint error mapping, see the [GPT image API](/en/docs/api/gpt-image).
+
+---
+
+## Notes
+
+- This is a **third-party community skill** (MIT licensed, repository [yc-duan/api-image](https://github.com/yc-duan/api-image)), not an official LMU AI component; it makes requests as you and reads your local `~/.codex/auth.json`
+- It needs **Python 3.11+**; macOS ships Python 3.9 as `python3`, which fails immediately with `No module named 'tomllib'`
+- Never paste your key into a chat, a repository or a screenshot; to switch keys temporarily, read one from an environment variable with `--api-key-env` rather than `--api-key`, which leaves the plaintext in your shell history and process list
+- Output defaults to the **current working directory** — don't commit it to your repository by accident
+- `--size` is not a hard guarantee: the upstream may normalize dimensions (a request for `1024x1024` produced a 1370×1148 image in our test), so read the real output size and crop if you need exact pixels
+- Image-to-image uploads your reference images to the upstream service — mind copyright and privacy

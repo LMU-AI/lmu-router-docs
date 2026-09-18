@@ -1,0 +1,225 @@
+---
+title: Codex App の画像生成（api-image スキル）
+description: コミュニティ製の api-image スキルを Codex App にインストールすると、~/.codex のプロバイダー設定を再利用して LMU AI の画像 API を呼び出せます。自然言語で画像の生成・編集・インペイントが可能です。
+ogDescription: "Codex App 画像生成ガイド: api-image スキルをインストールすると、~/.codex の auth.json と config.toml を読み取り、LMU AI の OpenAI Images 互換エンドポイント（デフォルトは gpt-image-2）を一文で呼び出せます。参照画像・マスク・バッチ出力に対応。"
+keywords:
+  - Codex App 画像生成
+  - api-image
+  - Codex スキル
+  - Codex 画像生成
+  - gpt-image-2
+  - Codex 画像編集
+  - Codex インペイント
+  - Codex スキルディレクトリ
+alternateNames:
+  - Codex App 画像生成スキル
+  - api-image スキルのセットアップ
+faq:
+  - q: api-image とは何ですか。Codex 組み込みの画像生成とはどう違いますか。
+    a: "コミュニティが保守するサードパーティの Codex スキル（MIT ライセンス）で、API モードの Codex App で画像生成を復活させます。API キーでサインインすると組み込みの imagegen は動作しないため、代わりに api-image が自分で設定した OpenAI 互換の画像エンドポイントを呼び出します。LMU AI を向けるように設定すると、~/.codex 配下の同じプロバイダー設定を読み取ります。"
+  - q: インストール後、base URL と API キーを別途入力する必要がありますか。
+    a: いいえ。このスキルは独自の設定ファイルを持ちません。実行時に `~/.codex/auth.json` の `OPENAI_API_KEY` と、`~/.codex/config.toml` の `model_provider` が指すプロバイダーの `base_url` を読み取ります。したがって本サイトの Codex App ガイドに従ってこの 2 つのファイルを設定済みであれば、追加の設定なしで画像生成が動作します。エンドポイントやキーを一時的に切り替えたい場合は、会話の中でそう伝えるだけでよく、その 1 回の呼び出しにのみ影響します。
+  - q: "画像生成が ModuleNotFoundError: No module named 'tomllib' で失敗します。どうすればよいですか。"
+    a: "スクリプトを実行している `python3` が 3.11 より古い（macOS はデフォルトで 3.9 を搭載）ことを意味します。3.11 以降にアップグレードするか、より新しいインタープリターで api-image スクリプトを実行するよう会話の中で Codex に伝えてください。"
+  - q: .../auth.json に OPENAI_API_KEY がないと表示されます
+    a: これは `~/.codex/auth.json` が存在しないか、`sk-` キーが入っていないことを意味します。Codex App ガイドに従って修正してください。あるいは、`auth.json` にキーを保存していない場合は、代わりに `--api-key-env` で環境変数から読み取るよう会話の中で Codex に伝えてください。
+  - q: 生成された画像はどこに保存されますか。
+    a: デフォルトでは Codex の現在の作業ディレクトリに `provider-image-20260918-153512.png` のような名前で書き出されます。会話の中で出力パスを指定して、プロジェクト内の特定の場所に保存することもできます。
+  - q: サイズ・品質・生成枚数を制御できますか。
+    a: 'はい。デフォルトは `2048x1152`、`quality` は high、1 枚です。自然言語で頼むだけです（例:「サイズ 1024x1024、品質 low、2 枚」）。なお `--size` は確約ではありません。上流が実際のピクセル寸法を正規化することがあります。'
+---
+
+[api-image](https://github.com/yc-duan/api-image) は、**API モードの Codex App** で画像生成を復活させるコミュニティ保守の Codex スキルです。API キーでサインインすると組み込みの imagegen は使えないため、自分で設定した OpenAI 互換の画像エンドポイントを呼び出し、Web 版のフローを再現します。メインモデルがリクエストを理解し、必要に応じて参照画像を検索・分析したうえで、画像モデルを呼び出します。
+
+LMU AI を向けるように設定すれば、Codex ディレクトリにある既存の設定を読み取り、**追加の base URL やキーの設定は不要**です。
+
+<Callout type="warn" title="これはサードパーティ製のコミュニティスキルであり、LMU AI の公式コンポーネントではありません">
+
+- あなたのマシン上で Python スクリプトとして実行され、**`~/.codex/auth.json` からキーを読み取り**、プロンプト（および参照画像があればそれも）を設定済みのプロバイダーに送信します。インストール前に、この動作に問題がないことを確認してください
+- **Python 3.11 以降**が必要です。スクリプトは `tomllib` で `config.toml` を解析するため、古い Python では `ModuleNotFoundError: No module named 'tomllib'` で即座に失敗します
+- リポジトリは MIT ライセンスで、作者はこれを整理した個人用スキルと説明しています。プロバイダーによって互換性が異なるため、実際のエラーメッセージを判断の拠り所としてください
+
+</Callout>
+
+---
+
+## 前提条件
+
+### 1. Codex App が既に LMU AI に接続済みであること
+
+[Codex App（デスクトップ）](./codex-app) に従って `~/.codex/config.toml` と `~/.codex/auth.json` を作成してください。つまり、Codex App で既に通常の会話ができる状態にします。
+
+api-image は独自の認証情報を保存しません。実行時にちょうどこの 2 つのファイルを読み取ります。
+
+| 読み取る内容 | 読み取り元 | 本サイトのガイドでの値 |
+|------|------|------|
+| API キー | `~/.codex/auth.json` の `OPENAI_API_KEY` | LMU AI コンソールで生成した `sk-` キー |
+| 現在のプロバイダー | `~/.codex/config.toml` の `model_provider` | `codex` |
+| エンドポイント | `[model_providers.<provider>].base_url` | `https://api.lmuai.com` |
+
+その後、`<base_url>/images/generations`（テキストから画像）と `<base_url>/images/edits`（画像から画像／インペイント）を呼び出します。
+
+### 2. Python 3.11+
+
+```bash
+python3 --version
+# needs to print 3.11 or later; older versions fail with "No module named 'tomllib'"
+```
+
+macOS では Homebrew でインストールまたはアップグレードします。
+
+```bash
+brew install python@3.12
+```
+
+Windows では [python.org](https://www.python.org/downloads/) から 3.11+ のインストーラーをダウンロードするか、次を実行します。
+
+```powershell
+winget install Python.Python.3.12
+```
+
+<Callout type="warn" title="複数の Python がインストールされている場合の注意">
+
+Codex は見つけたインタープリターでスクリプトを実行します。`python3 --version` が依然として古い 3.9 を指している場合、上記の `tomllib` エラーが発生します。アップグレード後は、`python3`（または `python3.12`）が本当に 3.11+ になっているか確認してください。複数を並行してインストールしている場合は、会話の中でインタープリターを指定してください（例:「python3.12 で api-image スクリプトを実行して」）。
+
+</Callout>
+
+---
+
+## ステップ 1 — スキルをインストールする
+
+リポジトリを Codex のスキルディレクトリ（デフォルトは `~/.codex/skills/`）にクローンします。
+
+<Tabs items={['macOS / Linux', 'Windows PowerShell']}>
+<Tab value="macOS / Linux">
+
+```bash
+git clone https://github.com/yc-duan/api-image.git ~/.codex/skills/api-image
+```
+
+</Tab>
+<Tab value="Windows PowerShell">
+
+```powershell
+git clone https://github.com/yc-duan/api-image.git "$env:USERPROFILE\.codex\skills\api-image"
+```
+
+`CODEX_HOME` 環境変数を設定している場合は、代わりに `"$env:CODEX_HOME\skills\api-image"` を使ってください。
+
+</Tab>
+</Tabs>
+
+その後、**Codex App を再起動**してください（またはスキルを再読み込みさせてください）。
+
+---
+
+## ステップ 2 — 会話の中で画像を生成する
+
+以降はコマンド不要です。いつも通り、自然言語で頼むだけです。
+
+<Tabs items={['テキストから画像', '参照画像／画像から画像', 'インペイント', 'まず調査してから描く']}>
+<Tab value="テキストから画像">
+
+```text
+Use api-image to generate a 2048x1152 cinematic photo: a rainy Tokyo street at night, neon reflections, realistic photography style.
+```
+
+</Tab>
+<Tab value="参照画像／画像から画像">
+
+```text
+Using this image's composition and pose as a reference, generate a warm cinematic illustration — keep the subject's pose, but don't copy the original.
+```
+
+</Tab>
+<Tab value="インペイント">
+
+```text
+Change the red cup in this image to green, keeping the original shape, composition and lighting, with no text added.
+```
+
+</Tab>
+<Tab value="まず調査してから描く">
+
+```text
+Look up the structure and terrain around the Huajiang Canyon Bridge first, then generate an aerial view that keeps the real bridge shape and canyon environment.
+```
+
+</Tab>
+</Tabs>
+
+デフォルトは `2048x1152`、`quality` は high、モデルは `gpt-image-2` です。それ以外を望むなら直接頼んでください。
+
+```text
+Use api-image to generate a 1024x1024 flat illustration, quality low, two images, saved to ./public/cover.png
+```
+
+<Callout type="info" title="生成ファイルは現在の作業ディレクトリに置かれます">
+
+出力パスを指定しない場合、画像は Codex の現在の作業ディレクトリに `provider-image-20260918-153512.png` のような名前で書き出されます。複数枚を頼むと、ファイル名に `-v1`、`-v2` などが付きます。誤ってコミットしないよう、固定の場所に置きたい場合は明示的なパスを指定してください。
+
+</Callout>
+
+---
+
+## よく使うオプション
+
+Codex がスキルを呼び出す際にこれらを渡すため、あなたは自然言語で望むものを説明するだけで済みます。利用可能な項目を知っておくと、より正確に言い表せます。
+
+| オプション | 説明 |
+|------|------|
+| `--model` | デフォルトは `gpt-image-2` |
+| `--size` | デフォルトは `2048x1152`。ほかに `1024x1024`、`1024x1536`、`3840x2160`、`auto` など。両辺は 16 の倍数で、長辺は最大 3840、アスペクト比は 3:1 より横長にできません |
+| `--quality` | `low` / `medium` / `high`（デフォルト）/ `auto` |
+| `--n` | プロンプトごとの画像枚数、1〜10 |
+| `--output-format` | `png`（デフォルト）/ `jpeg` / `webp` |
+| `--image` / `--mask` | 参照画像とマスク、最大 16 枚。参照画像を渡すと自動的に編集エンドポイントに切り替わります |
+| `--base-url` | その 1 回の呼び出しのみエンドポイントを上書き（例: `https://api.lmuai.com/v1`） |
+| `--api-key-env` | 指定した環境変数からキーを読み取る（`--api-key` より安全） |
+| `--codex-home` | 特定の Codex ディレクトリを指定、デフォルトは `~/.codex` |
+
+<Callout type="info" title="base_url と LMU AI の完全なエンドポイント">
+
+LMU AI は OpenAI 互換の base URL を `/v1` 付きで記載しています（完全なエンドポイントは `https://api.lmuai.com/v1/images/generations`）が、Codex ガイドの `config.toml` ではホスト名のみを使っています。このスキルはそれらをそのまま連結し、`/v1` を自ら追加しません。LMU AI は両方の形式を受け付けるため、**本サイトのガイドに従っていれば変更は不要です**。記載されているエンドポイントを明示的に書きたい場合は、会話の中で一文加えるだけで、その呼び出しに `--base-url` を渡します。
+
+```text
+Use api-image to generate ..., with base_url https://api.lmuai.com/v1
+```
+
+</Callout>
+
+---
+
+## 対応モデル
+
+| モデル ID | 説明 |
+|------|------|
+| `gpt-image-2` | このスキルのデフォルトモデル。テキストから画像、画像から画像、インペイントをカバー |
+
+`--model` には許可リストがありません。ほかの画像モデル ID はそのまま送信され、動作するかどうかは LMU AI 次第です（利用中のグループの「利用可能なモデル」を確認してください）。`gpt-image-2` の機能と制限については [GPT image API](/ja/docs/api/gpt-image) を参照してください。透明背景には対応しておらず、`input_fidelity` は送信すべきではありません。
+
+---
+
+## よくあるエラー
+
+| エラー文言 | 原因 | 対処 |
+|------|------|------|
+| `ModuleNotFoundError: No module named 'tomllib'` | スクリプトを実行している Python が 3.11 より古い | 3.11+ にアップグレードするか、より新しいインタープリターを指定 |
+| `OPENAI_API_KEY is missing in .../auth.json` | `auth.json` が存在しないか、キーがない | [Codex App ガイド](./codex-app) に従って設定するか、`--api-key-env` でキーを渡す |
+| `Missing required file: .../config.toml` | Codex ディレクトリに `config.toml` がない | 上記と同様。まず Codex App が会話できる状態にする |
+| `model_not_found`（HTTP 404） | キーのグループがその画像モデルを公開していない | コンソールでグループのモデルリストを確認 |
+| HTTP 403 | グループで画像生成が有効になっていない | 管理者に連絡するか、グループを切り替える |
+| HTTP 401 | キーが無効 | `auth.json` の `sk-` キーが完全か確認 |
+
+画像エンドポイントのエラーマッピングの詳細は [GPT image API](/ja/docs/api/gpt-image) を参照してください。
+
+---
+
+## 注意事項
+
+- これは **サードパーティ製のコミュニティスキル**（MIT ライセンス、リポジトリ [yc-duan/api-image](https://github.com/yc-duan/api-image)）であり、LMU AI の公式コンポーネントではありません。あなたとしてリクエストを行い、ローカルの `~/.codex/auth.json` を読み取ります
+- **Python 3.11+** が必要です。macOS は Python 3.9 を `python3` として搭載しており、`No module named 'tomllib'` で即座に失敗します
+- キーをチャット、リポジトリ、スクリーンショットに貼り付けないでください。キーを一時的に切り替えるには、`--api-key`（シェル履歴やプロセス一覧に平文が残る）ではなく、`--api-key-env` で環境変数から読み取ってください
+- 出力はデフォルトで **現在の作業ディレクトリ** です。誤ってリポジトリにコミットしないでください
+- `--size` は確約ではありません。上流が寸法を正規化することがあります（当方のテストでは `1024x1024` のリクエストで 1370×1148 の画像が生成されました）。正確なピクセルが必要な場合は、実際の出力サイズを確認してトリミングしてください
+- 画像から画像は参照画像を上流サービスにアップロードします。著作権とプライバシーに注意してください
