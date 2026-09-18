@@ -25,7 +25,8 @@
 // --all   全量提交，首次冷启动用（每站约 400 条，协议上限 10000）。
 // --endpoint 省略时用全局端点，一次投递即分发给全部参与引擎。
 //
-// 退出码：0 成功（含「无变更、未发送」）/ 1 失败 / 2 意外抛出
+// 退出码：0 成功（含「无变更、未发送」与「首次 key 异步验证中」两种正常态）
+//         / 1 失败 / 2 意外抛出
 
 import { execFileSync } from 'node:child_process';
 
@@ -183,6 +184,20 @@ async function main() {
     'IndexNow 提交',
   );
 
+  // 失败时 body 是 { errorCode, message }；解出 errorCode 用于分流与打印。
+  let errorCode = '';
+  try { errorCode = JSON.parse(res.body)?.errorCode ?? ''; } catch { /* 非 JSON body */ }
+
+  // 首次给一把新 key 提交时，IndexNow 会**异步**验证 key 文件，验证跑完前对提交返回
+  // 403 SiteVerificationNotCompleted —— 提交其实已收到、key 文件也没问题（本脚本开头
+  // 已 200 取到并校验过格式），只是验证还没完成。这是冷启动的正常态，不是失败：过一阵
+  // （几分钟到一天）重跑同一条命令即可，验证完成后自然转 200。实测两站首推都走这条。
+  if (res.status === 403 && errorCode === 'SiteVerificationNotCompleted') {
+    console.log(`\n${WARN} HTTP 403 · ${errorCode} —— key 正在异步验证，${selected.length} 条提交已收到。`);
+    console.log(`${D}key 文件已确认在线；隔几分钟到一天后重跑本命令即可（验证完成后转 200）。${X}`);
+    process.exit(0);
+  }
+
   const MEANING = {
     200: '成功，已接受',
     202: '已收到，key 待验证 —— 首次提交的正常返回，不是错误',
@@ -199,7 +214,7 @@ async function main() {
     process.exit(0);
   }
 
-  console.error(`\n${NO} HTTP ${res.status} —— ${note}`);
+  console.error(`\n${NO} HTTP ${res.status}${errorCode ? ` · ${errorCode}` : ''} —— ${note}`);
   if (res.body) console.error(`${D}${res.body.slice(0, 500)}${X}`);
   process.exit(1);
 }
