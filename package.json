@@ -10,7 +10,8 @@
     "check:i18n": "node scripts/check-i18n-parity.mjs",
     "translate": "node scripts/translate-content.mjs",
     "postinstall": "patch-package",
-    "prodcheck": "node scripts/prodcheck.mjs"
+    "prodcheck": "node scripts/prodcheck.mjs",
+    "indexnow": "node scripts/indexnow.mjs"
   },
   "dependencies": {
     "@orama/tokenizers": "^3.1.18",

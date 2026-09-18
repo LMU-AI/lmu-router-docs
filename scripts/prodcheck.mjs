@@ -286,6 +286,17 @@ async function main() {
     (IS_AI ? !llms.body.includes('api.lmuai.com') : true),
     IS_AI && llms.body.includes('api.lmuai.com') ? '仍含 api.lmuai.com' : '');
 
+  // IndexNow 的域名归属校验文件（v0.1.52 起）：搜索引擎收到推送后来取这里，取不到或
+  // 内容对不上，整批推送就是 403/422。只断格式不断具体 key —— key 的事实源在
+  // lib/variant.ts，抄进这里会变成第三份、轮换时必然漏改。
+  const inKey = await get('/indexnow-key.txt');
+  check('next', '/indexnow-key.txt 200', inKey.status === 200, `status=${inKey.status}`);
+  check('next', 'indexnow-key 是 text/plain',
+    /text\/plain/.test(inKey.headers['content-type'] ?? ''), inKey.headers['content-type']);
+  check('next', 'indexnow-key 格式合法（8–128 位 hex）',
+    /^[0-9a-f]{8,128}$/.test(inKey.body.trim()),
+    inKey.body.trim().slice(0, 12) + (inKey.body.trim().length > 12 ? '…' : ''));
+
   const llmsFull = await get('/llms-full.txt');
   check('live', '/llms-full.txt 200', llmsFull.status === 200, `status=${llmsFull.status}`);
   check('next', 'llms-full.txt 不含 payment 内容',
