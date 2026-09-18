@@ -11,6 +11,7 @@
     "codex-cli-windows",
     "codex-cli-server",
     "codex-app",
+    "codex-api-image",
     "---第三方工具与客户端---",
     "cc-switch",
     "opencode",

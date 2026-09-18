@@ -11,6 +11,7 @@
     "codex-cli-windows",
     "codex-cli-server",
     "codex-app",
+    "codex-api-image",
     "---Herramientas y clientes de terceros---",
     "cc-switch",
     "opencode",
