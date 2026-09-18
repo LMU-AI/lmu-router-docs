@@ -185,6 +185,23 @@ node scripts/prodcheck.mjs --base https://docs.lmuai.ai  --variant ai
 - `.com`：live 唯一已知红 = **HSTS**（要在 Caddy 加，不在本仓库）。除它以外任何红都要查清。
 - `.ai`：若 Cloudflare 仍开着 AI 爬虫拦截，会有几条红（GPTBot/ClaudeBot 403 + robots 被 CF 覆写）——**这是代码外问题，需在 CF 面板关**（见 §7）。关掉后应满绿。
 
+### 步 5.1 — IndexNow 即时收录推送（prodcheck 绿之后再跑）
+
+内容一变就主动通知 Bing/Yandex/Naver/Seznam/Yep（**Google 与百度不参与**，两者仍靠 sitemap/站长平台）。
+脚本先 GET 线上 `/indexnow-key.txt` 验 key 已上线，再读线上 sitemap 按 `lastmod` 筛。**务必在两台机都
+`docker compose pull` 完、prodcheck 绿之后跑**——否则会在旧内容还在线时就通知搜索引擎来抓。
+
+```bash
+# 缺省只推「本次发版改动的页」（截止时间 = 上一个 tag 的提交时间）；两站各一次
+node scripts/indexnow.mjs --base https://docs.lmuai.com
+node scripts/indexnow.mjs --base https://docs.lmuai.ai
+```
+
+- **预期 HTTP 200 或 202**——`202 = 已收到、key 待验证，首次提交的正常返回，不是错误`。
+- 无页面变更 → 打印「无变更、未发送」并退出 0，正常。
+- 冷启动 / 首次全站提交才加 `--all`（每站约 400 条）；`--dry-run` 只打印不发送。
+- 403/422 多半是 key 文件没上线或内容对不上 → 回头看 `/indexnow-key.txt` 是否 200（prodcheck 已断言）。
+
 ---
 
 ## 4. 判定「本次是否真的换了版本」

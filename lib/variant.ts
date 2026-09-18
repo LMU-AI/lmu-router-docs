@@ -47,3 +47,17 @@ export const GA_MEASUREMENT_ID =
 // clarity.ms 属境外服务、国内站行为分析走 GA 即可。com 分支必须为 null，让 layout
 // 不渲染该脚本 → .com 构建产物与旧版逐字节一致（发布闸门 diff 的就是它）。
 export const CLARITY_PROJECT_ID: string | null = IS_AI ? 'yg0ybh49o9' : null;
+
+// —— IndexNow（Bing / Yandex / Naver / Seznam / Yep 的即时收录推送）——
+// 内容一变就 POST 变更 URL，不必干等爬虫回访。协议要求域名下能取到一个「内容 == key」
+// 的文本文件；IndexNow 把每个 host 当独立 host，故两站各一把。
+//
+// 这不是凭据，可以进 git：它整个设计就是公开挂在 /indexnow-key.txt 上供搜索引擎读取，
+// 性质等同 DNS TXT 验证记录 —— 不授予任何权限，泄漏无损失。轮换就换这里的字面量。
+//
+// 路由目录名是字面量、无法随 SITE_VARIANT 变，所以不用官方默认的「根目录 /<key>.txt」，
+// 改用规范里的 keyLocation 方式：固定路径 /indexnow-key.txt + 提交时带 keyLocation。
+// 推送脚本见 scripts/indexnow.mjs（它直接 GET 该文件取 key，故此处是唯一事实源）。
+export const INDEXNOW_KEY = IS_AI
+  ? '249a6253e66d7b655f7dbe1055f73869'
+  : '52795a19e7825bd2e9eab11e04c0f2b6';
