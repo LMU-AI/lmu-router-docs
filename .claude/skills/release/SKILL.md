@@ -197,10 +197,12 @@ node scripts/indexnow.mjs --base https://docs.lmuai.com
 node scripts/indexnow.mjs --base https://docs.lmuai.ai
 ```
 
-- **预期 HTTP 200 或 202**——`202 = 已收到、key 待验证，首次提交的正常返回，不是错误`。
+- **预期 HTTP 200 / 202 / 或首推的 403 `SiteVerificationNotCompleted`**：
+  - `200` 成功；`202` = 已收到、key 待验证（首次的正常返回）。
+  - **首次给一把新 key 推送**几乎必是 `403 SiteVerificationNotCompleted` —— key 在**异步**验证中、提交已收到，**不是失败**（脚本已当正常态 exit 0）。隔几分钟到一天重跑同一条命令即转 200。实测 v0.1.52 两站首推都走这条。
 - 无页面变更 → 打印「无变更、未发送」并退出 0，正常。
 - 冷启动 / 首次全站提交才加 `--all`（每站约 400 条）；`--dry-run` 只打印不发送。
-- 403/422 多半是 key 文件没上线或内容对不上 → 回头看 `/indexnow-key.txt` 是否 200（prodcheck 已断言）。
+- 其它 `403`/`422`（key 无效、内容对不上）才是真失败 → 回头看 `/indexnow-key.txt` 是否 200 且内容正确（prodcheck 已断言）。
 
 ---
 
