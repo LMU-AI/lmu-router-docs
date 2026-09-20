@@ -1,7 +1,7 @@
 ---
 title: Codex App 生图（api-image Skill）
-description: 给 Codex App 装上社区 Skill api-image，复用 ~/.codex 里的 provider 配置调用灵眸生图接口，用自然语言完成文生图、图生图与局部编辑。
-ogDescription: Codex App 生图教程：安装 api-image Skill，它读取 ~/.codex 的 auth.json 与 config.toml，在对话框里一句话调用灵眸的 OpenAI Images 兼容接口（默认 gpt-image-2），支持参考图、遮罩与批量出图。
+description: 给 Codex App 装上社区 Skill api-image，API 模式下就能出图：接灵眸零配置，对话里说一句话完成文生图、图生图与局部编辑。
+ogDescription: Codex App 生图最简教程：对 Codex 说一句「安装 https://github.com/yc-duan/api-image 这个 skill」，接上灵眸后无需任何额外配置，直接用自然语言调用 gpt-image-2 做图。
 keywords:
   - Codex App 生图
   - api-image
@@ -10,216 +10,63 @@ keywords:
   - gpt-image-2
   - Codex 图生图
   - Codex 局部编辑
-  - Codex skills 目录
 alternateNames:
   - Codex App 生图 Skill
-  - api-image Skill 安装与配置
+  - api-image 安装
 faq:
-  - q: api-image 是什么？和 Codex 内置的生图有什么区别？
-    a: "它是社区维护的第三方 Codex Skill（MIT 协议），用来在 API 模式下给 Codex App 补上生图能力——以 API 方式登录时，Codex 内置的 imagegen 用不了，api-image 改为调用你自己配置的 OpenAI 兼容图片接口。接上灵眸后，它读的就是 ~/.codex 里那套 provider 配置。"
-  - q: 装好之后还要单独填 base URL 和 API Key 吗？
-    a: 不用。这个 Skill 没有自己的配置文件，运行时从 `~/.codex/auth.json` 读 `OPENAI_API_KEY`、从 `~/.codex/config.toml` 读 `model_provider` 对应 Provider 的 `base_url`，所以按本站 Codex App 教程配好那两个文件就能直接出图，不用再改任何配置。想临时换地址或换密钥，在对话里说一句即可，只影响本次调用。
-  - q: "生图时报 ModuleNotFoundError: No module named 'tomllib' 怎么办？"
-    a: "说明运行脚本的 `python3` 低于 3.11（macOS 自带的一般是 3.9）。升级到 3.11 或更高版本，或在对话里明确让 Codex 用高版本解释器运行 api-image 的脚本。"
-  - q: 报 OPENAI_API_KEY is missing in .../auth.json 怎么办？
-    a: 说明 `~/.codex/auth.json` 不存在，或里面没填 `sk-` 开头的密钥。按 Codex App 教程补齐即可；如果你没把密钥存在 `auth.json` 里，也可以在对话里说明改用 `--api-key-env` 从环境变量读取。
+  - q: api-image 是什么？
+    a: "社区维护的第三方 Codex Skill（MIT 协议）：API 模式下的 Codex App 没有内置 imagegen，装上它就能出图，走你自己配置的 OpenAI 兼容图片接口（灵眸的 gpt-image-2）。"
+  - q: 怎么安装？
+    a: 打开 Codex App 直接说「安装 https://github.com/yc-duan/api-image 这个 skill，我要用 OpenAI image 2 标准 API 做图，参考使用说明 https://github.com/yc-duan/api-image」，Codex 会自己装好，重开 Codex App 生效。也可以手动把仓库 clone 到 `~/.codex/skills/api-image`。
+  - q: 需要单独填 base URL 和 API Key 吗？
+    a: 不用。它运行时读 `~/.codex/auth.json` 的 `OPENAI_API_KEY` 和 `config.toml` 里 Provider 的 `base_url`，就是你在 Codex App 接灵眸时已经配好的那套，装完即用。
+  - q: 生图报 model_not_found 或 403 怎么办？
+    a: 说明你的密钥所属分组没有开放 `gpt-image-2`。去后台「可用模型」确认分组范围，或换一个支持图片生成的分组。
   - q: 生成的图片保存在哪里？
-    a: 默认写到 Codex 的当前工作目录，文件名形如 `provider-image-20260918-153512.png`。也可以直接在对话里指定输出路径，让它存到项目里的具体位置。
-  - q: 能控制尺寸、画质和张数吗？
-    a: 能。默认 `2048x1152`、`quality` 为 `high`、一次 1 张，直接用自然语言改就行（例如「尺寸 1024x1024、画质 low、出 2 张」）。注意 `--size` 不是硬保证，上游可能把实际像素归一化。
+    a: 默认写到 Codex 的当前工作目录，文件名形如 `provider-image-20260920-153000.png`；在对话里指定路径即可存到别处。
 ---
 
-[api-image](https://github.com/yc-duan/api-image) 是一个社区维护的 Codex Skill，用来给 **API 模式下的 Codex App** 补上生图能力：Codex 内置的 imagegen 在 API 登录时不可用，它改为调用你自己配置的 OpenAI 兼容图片接口，并尽量复刻网页版生图的流程——主模型先理解需求、必要时查资料或分析参考图、整理提示词，最后调用图片模型出图。
+[api-image](https://github.com/yc-duan/api-image) 是个社区 Skill（MIT 协议）：API 模式下的 Codex App 没有内置 imagegen，装上它就能出图，走你自己配置的 OpenAI 兼容图片接口。接灵眸**零配置**——它直接复用你 `~/.codex` 里已有的密钥和接口地址，对话里说一句话就能出图。
 
-接上灵眸后，它读的就是你 Codex 目录里那套配置，**不需要额外的 base URL 或密钥设置**。
+<Callout type="warn" title="第三方社区 Skill">
 
-<Callout type="warn" title="这是第三方社区 Skill，不是灵眸官方组件">
-
-- 它会在你本机以 Python 脚本运行，**读取 `~/.codex/auth.json` 里的密钥**，并携带提示词（以及你提供的参考图）向配置的 provider 发请求。安装前请自行确认可以接受
-- 需要 **Python 3.11 或更高版本**：脚本用 `tomllib` 解析 `config.toml`，老版本 Python 会直接报 `ModuleNotFoundError: No module named 'tomllib'`
-- 仓库为 MIT 协议，作者也说明这是「个人自用 Skill 的整理版」，不同 provider 兼容程度可能不同，遇到参数问题以实际报错为准
+它会在你本机运行、读取 `~/.codex/auth.json` 里的密钥，并把提示词与参考图发给 provider，装之前请自行确认可以接受。作者也说明不同 provider 兼容程度不同，遇到参数问题以实际报错为准。
 
 </Callout>
 
 ---
 
-## 前提条件
+## 安装：对 Codex 说一句话
 
-### 1. Codex App 已经接入灵眸
+打开 Codex App，直接说：
 
-按 [Codex App 桌面版](./codex-app) 的教程创建好 `~/.codex/config.toml` 与 `~/.codex/auth.json`，也就是能在 Codex App 里正常对话。
+> 安装 https://github.com/yc-duan/api-image 这个 skill，我要用 OpenAI image 2 标准 API 做图，参考使用说明 https://github.com/yc-duan/api-image
 
-api-image 不保存任何凭据，它运行时读的正是这两个文件：
+Codex 会自己把仓库装进 `~/.codex/skills/api-image`（Windows 是 `%USERPROFILE%\.codex\skills\api-image`），装完**重开 Codex App** 生效。
 
-| 它要读的东西 | 来自哪里 | 本站教程里的值 |
-|------|------|------|
-| API Key | `~/.codex/auth.json` 的 `OPENAI_API_KEY` | 灵眸后台生成的 `sk-` 开头密钥 |
-| 当前 Provider | `~/.codex/config.toml` 的 `model_provider` | `codex` |
-| 接口地址 | `[model_providers.<provider>].base_url` | `https://api.lmuai.com` |
-
-随后它请求 `<base_url>/images/generations`（文生图）与 `<base_url>/images/edits`（图生图 / 局部编辑）。
-
-### 2. Python 3.11+
-
-```bash
-python3 --version
-# 需要打印 3.11 或更高版本；旧版本会报 "No module named 'tomllib'"
-```
-
-macOS 用 Homebrew 安装或升级：
-
-```bash
-brew install python@3.12
-```
-
-Windows 到 [python.org](https://www.python.org/downloads/) 下载 3.11+ 安装包，或：
-
-```powershell
-winget install Python.Python.3.12
-```
-
-<Callout type="warn" title="系统里装了多个 Python 时要注意">
-
-Codex 执行脚本时用的是它拿到的解释器。如果 `python3 --version` 仍指向 3.9 这类旧版本，会出现上面那个 `tomllib` 报错——升级后确认 `python3`（或 `python3.12`）已经是 3.11+；实在有多套 Python 并存，可以在对话里直接点名解释器，例如「用 python3.12 运行 api-image 的脚本」。
-
-</Callout>
-
----
-
-## 第一步：安装 Skill
-
-把仓库克隆到 Codex 的 skills 目录（默认 `~/.codex/skills/`）：
-
-<Tabs items={['macOS / Linux', 'Windows PowerShell']}>
-<Tab value="macOS / Linux">
+想手动装也行：
 
 ```bash
 git clone https://github.com/yc-duan/api-image.git ~/.codex/skills/api-image
 ```
 
-</Tab>
-<Tab value="Windows PowerShell">
-
-```powershell
-git clone https://github.com/yc-duan/api-image.git "$env:USERPROFILE\.codex\skills\api-image"
-```
-
-如果你设置过 `CODEX_HOME` 环境变量，改用 `"$env:CODEX_HOME\skills\api-image"`。
-
-</Tab>
-</Tabs>
-
-装好后**重启 Codex App**（或让它重新加载 Skills）。
-
 ---
 
-## 第二步：在对话框里出图
+## 用法：还是说一句话
 
-装好后不需要敲任何命令，像平时一样用自然语言提要求即可：
-
-<Tabs items={['文生图', '参考图 / 图生图', '局部编辑', '先查资料再生图']}>
-<Tab value="文生图">
-
-```text
-用 api-image 生成一张 2048x1152 的电影感照片：雨夜东京街头，霓虹反光，真实摄影风格。
-```
-
-</Tab>
-<Tab value="参考图 / 图生图">
-
-```text
-参考这张图的构图和人物姿势，生成一张暖色电影感插画，保持主体姿态，但不要照抄原图。
-```
-
-</Tab>
-<Tab value="局部编辑">
-
-```text
-把这张图里的红杯子改成绿色，保留原来的形状、构图和光线，不要加文字。
-```
-
-</Tab>
-<Tab value="先查资料再生图">
-
-```text
-先查一下花江峡谷大桥的结构和地形参考，再生成一张高空俯视图，尽量保持真实桥型和峡谷环境。
-```
-
-</Tab>
-</Tabs>
-
-默认输出 `2048x1152`、`quality` 为 `high`、模型为 `gpt-image-2`，需要别的参数直接说出来就行：
-
-```text
-用 api-image 生成一张 1024x1024 的扁平插画，画质 low，出 2 张，保存到 ./public/cover.png
-```
-
-<Callout type="info" title="生成的文件默认落在当前工作目录">
-
-不给输出路径时，文件写到 Codex 的当前工作目录，命名形如 `provider-image-20260918-153512.png`。一次生成多张时会在文件名上加 `-v1`、`-v2` 之类的序号。别把它误提交进仓库——需要固定位置就在对话里指定路径。
-
-</Callout>
-
----
-
-## 常用参数
-
-这些参数由 Codex 调用 Skill 时传入，你只要用自然语言描述需求即可；知道有哪些能力，指令能写得更准：
-
-| 参数 | 说明 |
+| 你想要 | 就这样说 |
 |------|------|
-| `--model` | 默认 `gpt-image-2` |
-| `--size` | 默认 `2048x1152`，也可用 `1024x1024`、`1024x1536`、`3840x2160`、`auto` 等；宽高需为 16 的倍数，长边不超过 3840，长宽比不超过 3:1 |
-| `--quality` | `low` / `medium` / `high`（默认） / `auto` |
-| `--n` | 每个提示词生成张数，1–10 |
-| `--output-format` | `png`（默认） / `jpeg` / `webp` |
-| `--image` / `--mask` | 参考图与遮罩图，最多 16 张；带参考图时自动走图片编辑端点 |
-| `--base-url` | 只对本次调用临时覆盖接口地址，例如 `https://api.lmuai.com/v1` |
-| `--api-key-env` | 从指定环境变量读取密钥（比 `--api-key` 更安全） |
-| `--codex-home` | 显式指定 Codex 目录，默认 `~/.codex` |
+| 文生图 | 用 api-image 生成一张 2048x1152 的电影感照片：雨夜东京街头，霓虹反光，真实摄影风格 |
+| 图生图 | 参考这张图的构图和人物姿势，生成一张暖色插画，保持主体姿态，不要照抄原图 |
+| 局部编辑 | 把这张图里的红杯子改成绿色，保留原来的形状、构图和光线 |
+| 指定参数 | 用 api-image 生成一张 1024x1024 的扁平插画，画质 low，出 2 张，保存到 ./public/cover.png |
 
-<Callout type="info" title="base_url 与灵眸的完整端点">
-
-灵眸文档里 OpenAI 兼容协议的 base URL 是带 `/v1` 的（完整端点 `https://api.lmuai.com/v1/images/generations`），而 Codex 教程里的 `config.toml` 写的是不带 `/v1` 的主机名——这个 Skill 会直接拼接，不自动补 `/v1`。两种写法灵眸都能接住，所以**按本站教程配好的用户无需改动配置**；想严格按文档的完整端点书写时，在对话里加一句即可，它会用 `--base-url` 覆盖本次调用：
-
-```text
-用 api-image 生成一张…，base_url 用 https://api.lmuai.com/v1
-```
-
-</Callout>
+默认就是 `gpt-image-2`、`2048x1152`、画质 high、一次 1 张；尺寸、画质、张数、输出路径都直接在对话里改。生成结果默认落在当前工作目录（`provider-image-<时间戳>.png`）。
 
 ---
 
-## 支持的模型
+## 注意
 
-| 模型 ID | 说明 |
-|------|------|
-| `gpt-image-2` | Skill 的默认模型，支持文生图、图生图与局部编辑 |
-
-`--model` 不做模型白名单，传其它图片模型 ID 也会照发，能否成功由灵眸这边决定（以你分组后台的「可用模型」为准）。`gpt-image-2` 的能力与限制见 [GPT 生图 API](/docs/api/gpt-image)：不支持透明背景，也不应传 `input_fidelity`。
-
----
-
-## 常见报错
-
-| 报错原文 | 原因 | 处理 |
-|------|------|------|
-| `ModuleNotFoundError: No module named 'tomllib'` | 运行脚本的 Python 低于 3.11 | 升级到 3.11+，或指定高版本解释器 |
-| `OPENAI_API_KEY is missing in .../auth.json` | `auth.json` 不存在或没填密钥 | 按 [Codex App 教程](./codex-app) 补齐，或用 `--api-key-env` 临时传 |
-| `Missing required file: .../config.toml` | Codex 目录里没有 `config.toml` | 同上，先让 Codex App 能正常对话 |
-| `model_not_found`（HTTP 404） | 密钥所属分组没有开放该图片模型 | 在后台「可用模型」确认分组范围 |
-| HTTP 403 | 分组未开启图片生成 | 联系管理员或改用支持图片的分组 |
-| HTTP 401 | 密钥无效 | 检查 `auth.json` 里的 `sk-` 密钥是否完整 |
-
-更多图片接口层面的报错对照见 [GPT 生图 API](/docs/api/gpt-image)。
-
----
-
-## 注意事项
-
-- 这是**第三方社区 Skill**（MIT 协议，仓库 [yc-duan/api-image](https://github.com/yc-duan/api-image)），不是灵眸官方组件；它以你的身份请求 provider，并会读取本机 `~/.codex/auth.json`
-- 运行环境需要 **Python 3.11+**；macOS 自带的 `python3` 通常是 3.9，会直接报 `No module named 'tomllib'`
-- 密钥不要粘进聊天、仓库或截图；需要临时换 Key 时用 `--api-key-env` 从环境变量读取，避免 `--api-key` 把明文留在命令行历史与进程列表里
-- 生成结果默认写入**当前工作目录**，注意别把它提交到仓库
-- `--size` 不是硬保证：上游可能对尺寸做归一化（实测请求 `1024x1024` 拿到的图是 1370×1148），需要固定像素时读取输出文件实际尺寸再裁切
-- 图生图会把参考图上传到上游服务，注意版权与隐私
+- **接灵眸无需改任何配置**：Skill 读的就是你接灵眸时配好的 `auth.json`（密钥）与 `config.toml`（接口地址），对应完整端点 `https://api.lmuai.com/v1/images/generations` 与 `/v1/images/edits`
+- 报 `model_not_found` / 403：你的分组没开图片模型，去后台「可用模型」确认或换分组
+- `gpt-image-2` 不支持透明背景；请求的尺寸上游可能归一化，以实际输出为准
