@@ -1,7 +1,7 @@
 ---
 title: Codex App 이미지 생성 (api-image 스킬)
-description: Codex App에 커뮤니티 api-image 스킬을 설치하여 API 모드에서 이미지 생성을 복원하세요 — LMU AI에서는 추가 설정이 전혀 필요 없으며, 일반 언어로 텍스트-이미지, 이미지-이미지 및 인페인팅을 요청하기만 하면 됩니다.
-ogDescription: "가장 간단한 Codex App 이미지 생성 가이드: Codex에 https://github.com/yc-duan/api-image에서 스킬을 설치하도록 지시하고 OpenAI 이미지 2 표준 API로 이미지를 생성하세요 — LMU AI에서는 추가 설정이 필요하지 않습니다."
+description: Codex App에 커뮤니티 api-image 스킬을 설치해 API 모드에서 이미지 생성을 되살리세요 — LMU AI에서는 auth.json만 유지하면 되고, 평범한 말로 요청해 텍스트-이미지, 이미지-이미지, 인페인팅을 할 수 있습니다.
+ogDescription: "가장 간단한 Codex App 이미지 생성 가이드: Codex에게 https://github.com/yc-duan/api-image 의 스킬을 설치하라고 말하고 OpenAI image 2 표준 API로 이미지를 생성하세요 — LMU AI에서는 auth.json만 그대로 두면 됩니다."
 keywords:
   - Codex App 이미지 생성
   - api-image
@@ -15,36 +15,50 @@ alternateNames:
   - api-image 설치
 faq:
   - q: api-image란 무엇인가요?
-    a: "커뮤니티에서 유지 관리하는 서드파티 Codex 스킬(MIT 라이선스)입니다. API 모드의 Codex App에는 기본 이미지 생성 기능이 없지만, 이 스킬을 설치하면 직접 구성한 OpenAI 호환 이미지 엔드포인트를 통해 이미지를 생성할 수 있습니다 — LMU AI의 gpt-image-2를 사용합니다."
+    a: "커뮤니티가 관리하는 서드파티 Codex 스킬(MIT 라이선스)입니다. API 모드의 Codex App에는 내장 imagegen이 없는데, 이 스킬을 설치하면 직접 설정한 OpenAI 호환 이미지 엔드포인트 — LMU AI의 gpt-image-2 — 를 통해 이미지를 생성할 수 있습니다."
   - q: 어떻게 설치하나요?
-    a: "Codex App을 열고 다음과 같이 말하기만 하세요: https://github.com/yc-duan/api-image에서 스킬을 설치해 줘 — OpenAI 이미지 2 표준 API로 이미지를 생성하고 싶어. 사용 지침은 https://github.com/yc-duan/api-image에서 확인해 줘. Codex가 직접 설치하며, 이후 Codex App을 다시 시작하세요. 저장소를 직접 `~/.codex/skills/api-image`에 클론할 수도 있습니다."
-  - q: base URL과 API 키를 별도로 입력해야 하나요?
-    a: 아니요. 실행 시 `~/.codex/auth.json`에서 `OPENAI_API_KEY`를, `config.toml`에서 제공자의 `base_url`을 읽습니다 — Codex App을 LMU AI에 연결할 때 이미 설정한 것과 정확히 같은 구성입니다. 설치하고 사용하기만 하면 됩니다.
-  - q: 이미지 생성이 model_not_found 또는 403 오류와 함께 실패합니다
-    a: 키가 속한 그룹에서 `gpt-image-2`를 제공하지 않는 것입니다. 콘솔의 "사용 가능한 모델"에서 그룹의 모델 목록을 확인하거나 이미지 생성을 활성화한 그룹으로 전환하세요.
+    a: "Codex App을 열고 이렇게만 말하세요: https://github.com/yc-duan/api-image 의 스킬을 설치해 줘 — OpenAI image 2 표준 API로 이미지를 생성하고 싶어, 사용법은 https://github.com/yc-duan/api-image 를 참고해. Codex가 알아서 설치하며, 끝난 뒤 Codex App을 재시작하세요. 저장소를 `~/.codex/skills/api-image` 로 직접 클론해도 됩니다."
+  - q: base URL과 API 키를 따로 입력해야 하나요?
+    a: 따로 입력하지 않습니다. 실행 시 `~/.codex/auth.json` 에서 `OPENAI_API_KEY` 를, `config.toml` 에서 공급자의 `base_url` 을 읽습니다. 갱신된 가이드는 이제 Codex의 키를 `config.toml` 의 요청 헤더에 넣지만, 이 스킬은 `auth.json` 만 읽으므로 동일한 `sk-` 키를 담은 `auth.json` 을 유지하세요.
+  - q: 이미지 생성이 model_not_found 또는 403으로 실패합니다
+    a: 사용 중인 키의 그룹이 `gpt-image-2` 를 제공하지 않습니다. 콘솔의 "사용 가능한 모델"에서 해당 그룹의 모델 목록을 확인하거나, 이미지 생성이 활성화된 그룹으로 전환하세요.
   - q: 생성된 이미지는 어디에 저장되나요?
-    a: 기본적으로 Codex의 현재 작업 디렉터리에 `provider-image-20260920-153000.png`와 같은 이름으로 저장됩니다. 다른 위치에 저장하려면 대화에서 경로를 지정하세요.
+    a: 기본적으로 Codex의 현재 작업 디렉터리에 `provider-image-20260920-153000.png` 같은 이름으로 저장됩니다. 다른 곳에 저장하려면 대화에서 경로를 지정하세요.
 ---
 
-[api-image](https://github.com/yc-duan/api-image)는 커뮤니티 스킬(MIT 라이선스)입니다. API 모드의 Codex App에는 기본 이미지 생성 기능이 없지만, 이 스킬을 설치하면 직접 구성한 OpenAI 호환 이미지 엔드포인트를 통해 이미지를 생성할 수 있습니다. LMU AI에서는 **추가 설정이 전혀 필요하지 않습니다** — 이미 `~/.codex`에 있는 키와 엔드포인트를 재사용하며, 대화에서 한 문장만 입력하면 됩니다.
+[api-image](https://github.com/yc-duan/api-image) 는 커뮤니티 스킬(MIT 라이선스)입니다. API 모드의 Codex App에는 내장 imagegen이 없는데, 이 스킬을 설치하면 직접 설정한 OpenAI 호환 이미지 엔드포인트를 통해 이미지를 생성할 수 있습니다. `~/.codex` 에 있는 키와 엔드포인트를 그대로 재사용하므로, 대화에서 한 문장이면 충분합니다.
 
 <Callout type="warn" title="서드파티 커뮤니티 스킬">
 
-이 스킬은 사용자의 컴퓨터에서 실행되고 `~/.codex/auth.json`에서 키를 읽으며 프롬프트와 참조 이미지를 제공자에게 전송합니다 — 설치하기 전에 이 점을 감수할 수 있는지 확인하세요. 작성자도 제공자마다 호환성이 다르다고 안내하고 있으므로, 실제 오류 메시지를 가장 신뢰할 수 있는 기준으로 삼으세요.
+이 스킬은 사용자의 컴퓨터에서 실행되며, `~/.codex/auth.json` 에서 키를 읽고, 프롬프트와 참조 이미지를 공급자에게 전송합니다 — 설치 전에 이 점을 감안하시기 바랍니다. 작성자도 공급자마다 호환성이 다르다고 언급하고 있으니, 실제 오류 메시지를 기준으로 판단하세요.
 
 </Callout>
 
 ---
 
-## 설치: Codex에 한 문장만 입력
+## 준비: auth.json 유지하기
 
-Codex App을 열고 다음과 같이 말하기만 하세요:
+이 스킬은 `~/.codex/auth.json` (Windows에서는 `%USERPROFILE%\.codex\auth.json`)에서 키를 읽습니다. 갱신된 [Codex App 가이드](/ko/docs/tools/codex-app)는 이제 키를 `config.toml` 의 요청 헤더에 넣고 `auth.json` 이 더 이상 필요하지 않지만, 이 스킬을 쓰려면 동일한 키를 담은 `auth.json` 을 하나 유지해야 합니다:
 
-> https://github.com/yc-duan/api-image에서 스킬을 설치해 줘 — OpenAI 이미지 2 표준 API로 이미지를 생성하고 싶어. 사용 지침은 https://github.com/yc-duan/api-image에서 확인해 줘
+```json
+{
+  "OPENAI_API_KEY": "your sk- key generated in the console"
+}
+```
 
-Codex가 저장소를 직접 `~/.codex/skills/api-image`에 저장합니다(Windows에서는 `%USERPROFILE%\.codex\skills\api-image`). 이후 **Codex App을 다시 시작하세요**.
+이전 가이드대로 이미 `auth.json` 을 만들어 두었다면 그대로 두면 됩니다.
 
-수동 설치도 가능합니다:
+---
+
+## 설치: Codex에게 한 문장
+
+Codex App을 열고 이렇게만 말하세요:
+
+> https://github.com/yc-duan/api-image 의 스킬을 설치해 줘 — OpenAI image 2 표준 API로 이미지를 생성하고 싶어. 사용법은 https://github.com/yc-duan/api-image 를 참고해
+
+Codex가 저장소를 `~/.codex/skills/api-image` (Windows에서는 `%USERPROFILE%\.codex\skills\api-image`)에 알아서 넣어 줍니다. 그 다음 **Codex App을 재시작**하세요.
+
+직접 설치해도 됩니다:
 
 ```bash
 git clone https://github.com/yc-duan/api-image.git ~/.codex/skills/api-image
@@ -52,21 +66,21 @@ git clone https://github.com/yc-duan/api-image.git ~/.codex/skills/api-image
 
 ---
 
-## 사용: 여전히 한 문장만 입력
+## 사용: 역시 한 문장
 
 | 원하는 작업 | 이렇게 말하세요 |
 |------|------|
-| 텍스트를 이미지로 변환 | api-image를 사용해 2048x1152 시네마틱 사진을 생성해 줘: 밤의 비 내리는 도쿄 거리, 네온사인 반사, 사실적인 사진 스타일 |
-| 이미지를 이미지로 변환 | 이 이미지의 구도와 포즈를 참조하여 따뜻한 일러스트를 생성해 줘 — 피사체의 포즈는 유지하되 원본을 그대로 복사하지 마 |
-| 인페인팅 | 이 이미지의 빨간 컵을 초록색으로 바꿔 줘. 원래 형태, 구도와 조명은 유지해 |
-| 옵션 명시 | api-image를 사용해 1024x1024 플랫 일러스트를 생성해 줘. 품질은 낮게, 이미지 두 장, `./public/cover.png`에 저장해 줘 |
+| 텍스트 → 이미지 | api-image로 2048x1152 시네마틱 사진을 생성해 줘: 비 내리는 밤의 도쿄 거리, 네온 반사, 실사 사진 스타일 |
+| 이미지 → 이미지 | 이 이미지의 구도와 포즈를 참고해서 따뜻한 느낌의 일러스트를 생성해 줘 — 피사체의 포즈는 유지하고 원본을 그대로 베끼지는 말아 줘 |
+| 인페인팅 | 이 이미지의 빨간 컵을 초록색으로 바꿔 줘. 원래 형태, 구도, 조명은 유지해 줘 |
+| 옵션 명시 | api-image로 1024x1024 플랫 일러스트를 생성해 줘. quality low, 2장, ./public/cover.png 에 저장 |
 
-기본값은 `gpt-image-2`, `2048x1152`, 높은 품질, 이미지 한 장입니다. 크기, 품질, 수량 및 출력 경로는 모두 대화에서 바로 변경할 수 있습니다. 출력은 기본적으로 현재 작업 디렉터리에 저장됩니다(`provider-image-<timestamp>.png`).
+기본값은 `gpt-image-2`, `2048x1152`, quality high, 1장입니다. 크기, 품질, 장수, 출력 경로는 모두 대화에서 바로 바꿀 수 있습니다. 출력물은 기본적으로 현재 작업 디렉터리에 저장됩니다(`provider-image-<timestamp>.png`).
 
 ---
 
-## 참고
+## 참고 사항
 
-- **LMU AI에서는 구성할 것이 없습니다**: 이 스킬은 LMU AI에 연결할 때 이미 설정한 `auth.json`(키)과 `config.toml`(엔드포인트)을 읽으며, 전체 엔드포인트는 `https://api.lmuai.com/v1/images/generations` 및 `/v1/images/edits`에 해당합니다.
-- `model_not_found` / 403: 키가 속한 그룹에 이미지 모델이 포함되어 있지 않습니다 — 콘솔에서 "사용 가능한 모델"을 확인하거나 그룹을 전환하세요.
-- `gpt-image-2`는 투명한 배경을 지원하지 않습니다. 또한 업스트림에서 요청한 크기를 정규화할 수 있으므로 실제 출력 결과를 기준으로 판단하세요.
+- **LMU AI에서는 `auth.json` 만 유지하면 됩니다**: 스킬은 `auth.json` (키)과 `config.toml` (엔드포인트)을 읽으며, 이는 전체 엔드포인트 `https://api.lmuai.com/v1/images/generations` 및 `/v1/images/edits` 에 해당합니다
+- `model_not_found` / 403: 사용 중인 키의 그룹에 이미지 모델이 포함되어 있지 않습니다 — 콘솔의 "사용 가능한 모델"을 확인하거나 그룹을 전환하세요
+- `gpt-image-2` 는 투명 배경을 지원하지 않으며, 업스트림이 요청한 크기를 정규화할 수 있으므로 실제 출력물을 기준으로 판단하세요

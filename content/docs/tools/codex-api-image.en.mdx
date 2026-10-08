@@ -1,7 +1,7 @@
 ---
 title: Codex App image generation (api-image skill)
-description: Install the community api-image skill in Codex App to restore image generation in API mode — zero extra config with LMU AI, just ask in plain language for text-to-image, image-to-image and inpainting.
-ogDescription: "Simplest Codex App image generation guide: tell Codex to install the skill at https://github.com/yc-duan/api-image and generate images with the OpenAI image 2 standard API — with LMU AI it needs no extra config."
+description: Install the community api-image skill in Codex App to restore image generation in API mode — with LMU AI just keep auth.json, then ask in plain language for text-to-image, image-to-image and inpainting.
+ogDescription: "Simplest Codex App image generation guide: tell Codex to install the skill at https://github.com/yc-duan/api-image and generate images with the OpenAI image 2 standard API — with LMU AI just keep auth.json in place."
 keywords:
   - Codex App image generation
   - api-image
@@ -19,20 +19,34 @@ faq:
   - q: How do I install it?
     a: "Open the Codex App and just say: install the skill at https://github.com/yc-duan/api-image — I want to generate images with the OpenAI image 2 standard API, see the usage instructions at https://github.com/yc-duan/api-image. Codex installs it itself; restart the Codex App afterwards. You can also clone the repo to `~/.codex/skills/api-image` manually."
   - q: Do I have to fill in a base URL and API key separately?
-    a: No. At runtime it reads `OPENAI_API_KEY` from `~/.codex/auth.json` and the provider's `base_url` from `config.toml` — exactly the config you already set up when connecting Codex App to LMU AI. Install and use.
+    a: Not separately. At runtime it reads `OPENAI_API_KEY` from `~/.codex/auth.json` and the provider's `base_url` from `config.toml`. The updated guide now puts Codex's key in a request header in `config.toml`, but this skill only reads `auth.json`, so keep an `auth.json` holding the same `sk-` key.
   - q: Image generation fails with model_not_found or 403
     a: Your key's group doesn't expose `gpt-image-2`. Check the group's model list under "Available models" in the console, or switch to a group with image generation enabled.
   - q: Where do generated images get saved?
     a: By default to Codex's current working directory, with names like `provider-image-20260920-153000.png`; name a path in the conversation to save them elsewhere.
 ---
 
-[api-image](https://github.com/yc-duan/api-image) is a community skill (MIT licensed): the Codex App in API mode has no built-in imagegen, and once this skill is installed it can generate images through the OpenAI-compatible image endpoint you configure yourself. With LMU AI it's **zero extra config** — it reuses the key and endpoint already in your `~/.codex`, and one sentence in the conversation is enough.
+[api-image](https://github.com/yc-duan/api-image) is a community skill (MIT licensed): the Codex App in API mode has no built-in imagegen, and once this skill is installed it can generate images through the OpenAI-compatible image endpoint you configure yourself. It reuses the key and endpoint in your `~/.codex`, and one sentence in the conversation is enough.
 
 <Callout type="warn" title="Third-party community skill">
 
 It runs on your machine, reads the key from `~/.codex/auth.json`, and sends your prompt and reference images to the provider — make sure you're comfortable with that before installing. The author also notes compatibility varies between providers, so treat real error messages as the source of truth.
 
 </Callout>
+
+---
+
+## Prep: keep auth.json
+
+This skill reads the key from `~/.codex/auth.json` (on Windows, `%USERPROFILE%\.codex\auth.json`). The updated [Codex App guide](/en/docs/tools/codex-app) now puts the key in a request header in `config.toml` and no longer needs `auth.json`, but to use this skill you need to keep one, holding the same key:
+
+```json
+{
+  "OPENAI_API_KEY": "your sk- key generated in the console"
+}
+```
+
+If you already created `auth.json` with the old guide, just leave it as is.
 
 ---
 
@@ -67,6 +81,6 @@ The defaults are `gpt-image-2`, `2048x1152`, quality high, one image; size, qual
 
 ## Notes
 
-- **Nothing to configure for LMU AI**: the skill reads the `auth.json` (key) and `config.toml` (endpoint) you already set up when connecting to LMU AI, corresponding to the full endpoints `https://api.lmuai.com/v1/images/generations` and `/v1/images/edits`
+- **For LMU AI, just keep `auth.json`**: the skill reads `auth.json` (key) and `config.toml` (endpoint), corresponding to the full endpoints `https://api.lmuai.com/v1/images/generations` and `/v1/images/edits`
 - `model_not_found` / 403: your key's group doesn't include the image model — check "Available models" in the console or switch groups
 - `gpt-image-2` doesn't support transparent backgrounds; the upstream may normalize requested sizes, so trust the actual output

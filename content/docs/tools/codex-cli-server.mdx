@@ -1,6 +1,6 @@
 ---
 title: Codex CLI（服务器）
-description: WSL2 / SSH 远程服务器部署 Codex CLI 接入灵眸 API：volta 装 Node 20，一条命令写入 config.toml 与 auth.json。
+description: WSL2 / SSH 远程服务器部署 Codex CLI 接入灵眸 API：volta 装 Node 20，一条命令写入 config.toml。
 ogDescription: 远程服务器 / WSL2 / SSH 环境部署 Codex CLI 接入灵眸 AI：适合 DevOps、远程开发、团队共享算力的场景。
 keywords:
   - Codex CLI 服务器
@@ -49,7 +49,7 @@ volta install @openai/codex
 
 ### 第4步：创建配置文件
 
-在服务器终端直接执行以下命令，一次性写入 `~/.codex/config.toml` 与 `~/.codex/auth.json`（**注意把 auth.json 中的密钥替换为后台生成的 `sk-` 开头密钥**）：
+在服务器终端直接执行以下命令，一次性写入 `~/.codex/config.toml`（**注意把最后一行的「这里填入后台生成的sk-开头的密钥」替换为你的 `sk-` 密钥，`Bearer` 后面保留一个空格**）：
 
 ```bash
 mkdir -p ~/.codex
@@ -103,17 +103,13 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
-EOF
 
-cat > ~/.codex/auth.json <<'EOF'
-{
-  "OPENAI_API_KEY": "这里填入后台生成的sk-开头的密钥"
-}
+[model_providers.codex.http_headers]
+Authorization = "Bearer 这里填入后台生成的sk-开头的密钥"
 EOF
 ```
 
-配置内容与 [Codex CLI（Mac/Linux）教程](./codex-cli-mac) 完全一致，也可以用 `vim` / `nano` 手动创建这两个文件。
+配置内容与 [Codex CLI（Mac/Linux）教程](./codex-cli-mac) 完全一致，也可以用 `vim` / `nano` 手动创建。新版 Codex 不再需要 `~/.codex/auth.json`，旧的留着不影响。
 
 ### 第5步：启动 Codex CLI
 

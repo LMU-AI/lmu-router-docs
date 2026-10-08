@@ -1,7 +1,7 @@
 ---
 title: Codex App (Desktop)
-description: Konfiguriere die Basis-URL und den Schlüssel der LMU AI API im Codex-App-Desktop-Client – funktioniert sowohl unter Windows als auch auf dem Mac.
-ogDescription: "Verbinde den Codex-App-Desktop-Client mit LMU AI: Trage die Basis-URL und den API-Schlüssel ein, um OpenAI Codex / GPT unter Windows und Mac ohne Proxy zu nutzen."
+description: Konfigurieren Sie die Basis-URL und den Schlüssel der LMU AI API im Desktop-Client Codex App — funktioniert sowohl unter Windows als auch unter Mac.
+ogDescription: "Verbinden Sie den Desktop-Client Codex App mit LMU AI: Basis-URL und API-Schlüssel eintragen und OpenAI Codex / GPT unter Windows und Mac ohne Proxy nutzen."
 keywords:
   - Codex App
   - Codex Desktop-Client
@@ -11,52 +11,42 @@ keywords:
   - Codex Mac
   - GPT Desktop-Client
 alternateNames:
-  - Codex App mit LMU AI verbinden
+  - Die Codex App mit LMU AI verbinden
 ---
 
 
-Wenn du die Codex CLI nicht installieren möchtest und einfach nur den **Codex-App-Desktop-Client** verwenden willst, folge dieser Methode.
+Wenn Sie die Codex CLI nicht installieren möchten und einfach nur den **Desktop-Client Codex App** nutzen wollen, folgen Sie dieser Methode.
 
 <Callout type="warn" title="Hinweis">
 
-- Wenn du dich zuvor mit deinem eigenen Konto angemeldet hast, **melde dich zuerst vom aktuellen Konto ab** in der Codex App und konfiguriere dann neu.
-- Nachdem du die API gewechselt hast, ist dein Chatverlauf verschwunden (der Chatverlauf vom Kontotyp wird im Bereich deines GPT-Kontos gespeichert, nicht lokal).
-- **Nachdem du auf die API-Anmeldung umgestellt hast, wird der gesamte Chatverlauf ab dann lokal gespeichert und geht nicht verloren!**
+- Wenn Sie sich zuvor mit Ihrem eigenen Konto angemeldet haben, **melden Sie sich zuerst vom aktuellen Konto ab** in der Codex App und konfigurieren Sie dann neu.
+- Nach dem Wechsel der API ist Ihr Chatverlauf verschwunden (der Chatverlauf vom Kontotyp wird im Bereich Ihres GPT-Kontos gespeichert, nicht lokal).
+- **Nach dem Wechsel zur API-Anmeldung wird der gesamte Chatverlauf von da an lokal gespeichert und geht nicht verloren!**
 
 </Callout>
 
 ---
 
-## Schritt 1 — Erstelle die Konfigurationsdateien
+## Schritt 1 — Konfigurationsdateien erstellen
 
 Speicherort der Konfigurationsdatei:
-- **Mac/Linux**: der Ordner `.codex` in deinem Home-Verzeichnis (`~`)
-- **Windows**: `C:\users\dein-benutzername\.codex\`
+- **Mac/Linux**: der Ordner `.codex` in Ihrem Home-Verzeichnis (`~`)
+- **Windows**: `C:\users\your-username\.codex\`
 
-Wenn der Ordner bereits existiert, ist es am besten, die darin enthaltenen `auth.json` und `config.toml` zu löschen und neu zu erstellen, um Störungen durch alte Konfigurationen zu vermeiden.
+Wenn der Ordner bereits existiert, ist es am besten, die darin enthaltene `config.toml` zu löschen (sowie eine eventuell aus der alten Anleitung übrig gebliebene `auth.json`) und sie neu zu erstellen, um Störungen durch alte Konfiguration zu vermeiden.
 
-**Erstelle den Ordner mit einem Terminal-Befehl:**
+**Den Ordner mit einem Terminal-Befehl erstellen:**
 
 ```bash
 # Mac/Linux
 rm -rf ~/.codex && mkdir ~/.codex
 ```
 
-Erstelle zwei Dateien im Ordner `.codex`:
-
-### auth.json
-
-Enthält deinen API-Schlüssel:
-
-```json
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
-```
+Erstellen Sie `config.toml` im Ordner `.codex`.
 
 ### config.toml
 
-Konfiguriere den Dienstanbieter:
+Konfigurieren Sie den Dienstanbieter; der API-Schlüssel kommt in einen Request-Header ganz am Ende der Datei:
 
 ```toml
 model = "gpt-5.4"
@@ -107,35 +97,39 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
+
+[model_providers.codex.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 ```
+
+Ersetzen Sie die letzte Zeile durch Ihren `sk-`-Schlüssel und behalten Sie ein Leerzeichen zwischen `Bearer` und dem Schlüssel. Platzieren Sie den Abschnitt `[model_providers.codex.http_headers]` ganz am Ende der Datei, ohne weitere Einstellungen danach.
 
 <Callout type="info">
 
-Er befindet sich normalerweise im Ordner `.codex` in deinem Home-Verzeichnis. Wenn du den Ordner `.codex` dort nicht finden kannst, kannst du den Ordner manuell erstellen, zusammen mit `config.toml` und `auth.json`.
+Normalerweise befindet er sich im Ordner `.codex` in Ihrem Home-Verzeichnis. Wenn Sie den Ordner `.codex` dort nicht finden, können Sie den Ordner manuell erstellen und darin dann `config.toml` anlegen.
 
-Die Inhalte der Konfigurationsdatei sind identisch mit der [Codex CLI Einrichtungsanleitung für Mac/Linux](/de/docs/tools/codex-cli-mac) — du kannst dieser Anleitung folgen, um sie im Terminal zu erstellen, und sie werden nach einem Neustart der Codex App genauso wirksam.
+Die Inhalte der Konfigurationsdatei sind identisch mit der [Einrichtungsanleitung für Codex CLI Mac/Linux](/de/docs/tools/codex-cli-mac) — Sie können dieser Anleitung folgen, um sie im Terminal zu erstellen, und sie werden nach einem Neustart der Codex App genauso wirksam.
 
 </Callout>
 
 ---
 
-## Schritt 2 — Öffne die Codex App erneut
+## Schritt 2 — Die Codex App erneut öffnen
 
-Nachdem du die Konfigurationsdateien gespeichert hast, öffne die Codex App erneut, und sie meldet sich automatisch an und ist einsatzbereit.
+Öffnen Sie nach dem Speichern der Konfigurationsdateien die Codex App erneut; sie meldet sich automatisch an und ist einsatzbereit.
 
 ---
 
 ## Den 1M-Kontext aktivieren (optional)
 
-`gpt-5.4` unterstützt einen langen Kontext von 1M Token, ist aber standardmäßig deaktiviert. Füge oben in der obigen `config.toml` auf der **obersten Ebene** (vor allen `[section]`-Abschnitten) zwei Zeilen hinzu und starte dann die Codex App neu:
+`gpt-5.4` unterstützt einen langen Kontext von 1M Token, ist aber standardmäßig deaktiviert. Fügen Sie zwei Zeilen auf der **obersten Ebene** der oben genannten `config.toml` hinzu (vor allen `[section]`-Abschnitten) und starten Sie dann die Codex App neu:
 
 ```toml
 model_context_window = 1000000
 model_auto_compact_token_limit = 900000
 ```
 
-Für die Bedeutung der Felder, wie du sie überprüfst, und Hinweise siehe [Den 1M-Kontext in Codex aktivieren](/de/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional).
+Bedeutungen der Felder, Vorgehen zur Überprüfung und Einschränkungen finden Sie unter [Den 1M-Kontext in Codex aktivieren](/de/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional).
 
 ---
 
@@ -143,6 +137,12 @@ Für die Bedeutung der Felder, wie du sie überprüfst, und Hinweise siehe [Den 
 
 **Fehler 401, falscher Schlüssel:**
 
-Ursache: Die Anfrage geht immer noch an den offiziellen Endpunkt von OpenAI statt an unser API-Relay, oder du hast das Tool nicht neu gestartet, um die Konfigurationsdatei neu zu laden.
+Ursache: Die Anfrage geht noch an den offiziellen Endpunkt von OpenAI und nicht an unser API-Relay, oder Sie haben das Tool nicht neu gestartet, um die Konfigurationsdatei neu zu laden.
 
-Lösung: Folge der Anleitung erneut, um die Dateien `config.toml` und `auth.json` zu erstellen oder zu ersetzen, und öffne dann die App erneut.
+Lösung: Folgen Sie der Anleitung erneut, um `config.toml` zu erstellen oder zu ersetzen, und öffnen Sie dann die App erneut.
+
+**Fehler 401 API_KEY_REQUIRED:**
+
+Ursache: Neuere Codex-Versionen lesen den Schlüssel möglicherweise nicht mehr aus `auth.json`, sodass die Anfrage keinen Schlüssel mitführt.
+
+Lösung: Fügen Sie den Abschnitt `[model_providers.codex.http_headers]` wie oben gezeigt am Ende von `config.toml` hinzu; siehe [FAQ · Issue 10](/de/docs/guide/faq#issue-10).

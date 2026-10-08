@@ -1,7 +1,7 @@
 ---
 title: Codex 拡張機能（VS Code / Cursor / Trae）
-description: VS Code、Cursor、Trae などのエディターで Codex 拡張機能を使い、OpenAI 互換インターフェース経由で Claude / Codex を利用して LMU AI API に接続します。
-ogDescription: VS Code / Cursor / Trae に Codex 拡張機能をインストール + LMU AI — OpenAI 互換インターフェース経由で Claude、GPT、Codex、中国系モデルを同時に利用できます。
+description: Codex 拡張機能を使って VS Code、Cursor、Trae などのエディタから LMU AI API に接続し、OpenAI 互換インターフェース経由で Claude / Codex を利用します。
+ogDescription: VS Code / Cursor / Trae に Codex 拡張機能をインストール + LMU AI — OpenAI 互換インターフェースで Claude、GPT、Codex、中国国内モデルを同時に利用できます。
 keywords:
   - Codex VS Code 拡張機能
   - Codex Cursor 拡張機能
@@ -15,11 +15,11 @@ alternateNames:
 ---
 
 
-<Callout type="info" title="Trae エディターを使う場合">
+<Callout type="info" title="Trae エディタを使う場合">
 
-**Claude や中国系モデル（GLM / Qwen など）** を使いたい場合、Trae にはよりシンプルなネイティブ方式（拡張機能不要、GUI で数クリックするだけ）があります — [Trae ネイティブモデル設定](/ja/docs/tools/trae) を参照してください。
+**Claude または中国国内モデル（GLM / Qwen など）** を使いたい場合、Trae にはよりシンプルなネイティブ設定方法があります（拡張機能不要、GUI で数クリックするだけ） — [Trae ネイティブモデル設定](/ja/docs/tools/trae) を参照してください。
 
-このページの Codex 拡張機能方式は、**GPT / Codex** シリーズを使いたいユーザー向けです。
+このページの Codex 拡張機能による方法は、**GPT / Codex** シリーズを使いたいユーザーに向いています。
 
 </Callout>
 
@@ -27,15 +27,15 @@ alternateNames:
 
 ## よくあるエラー
 
-**エラー: 設定後、キーが正しくないという 401 が表示される**
+**エラー：設定後に 401 が返り、キーが正しくないと表示される**
 
-原因: リクエストがまだ私たちの API リレーではなく OpenAI 公式バックエンドに送信されている、または設定ファイルを再読み込みするためにツールを再起動していない。
+原因：リクエストが当社の API 中継ではなく、依然として OpenAI 公式のバックエンドに送られている、またはツールを再起動して設定ファイルを再読み込みしていない。
 
-対処法: ガイドに従って `config.toml` と `auth.json` の 2 つのファイルを **作成または置き換え** し、その後 IDE ツールを再起動してください。
+対処：ガイドに従って `config.toml` を **作成または置き換え** し、その後 IDE ツールを再起動してください。
 
 <Callout type="info" title="エラーが発生したとき">
 
-エラーメッセージをスクリーンショットして翻訳すれば、何が原因でエラーになったのか自分で判断できます！
+エラーメッセージをスクリーンショットして翻訳すれば、原因を自分で判断できます！
 
 </Callout>
 
@@ -45,17 +45,17 @@ alternateNames:
 
 ### ステップ 1 — 設定ファイルを作成 / 上書きする
 
-設定ファイルの場所:
-- **Mac/Linux**: `~/.codex/` ディレクトリ
-- **Windows**: `C:\users\YourUsername\.codex\` ディレクトリ
+設定ファイルの場所：
+- **Mac/Linux**：`~/.codex/` ディレクトリ
+- **Windows**：`C:\users\YourUsername\.codex\` ディレクトリ
 
 <Callout type="warn" title="Windows での注意">
 
-以前に公式アカウントまたは別のプラットフォームでサインインしていた場合は、まずサインアウトしてから設定してください！
+以前に公式アカウントや他のプラットフォームでサインインしていた場合は、先にサインアウトしてから設定してください！
 
 </Callout>
 
-`.codex` フォルダーがない場合は、ターミナルコマンドで作成してください:
+`.codex` フォルダがない場合は、ターミナルコマンドで作成します：
 
 ```bash
 # Mac/Linux
@@ -68,9 +68,9 @@ rm -rf C:\users\YourUsername\.codex
 mkdir C:\users\YourUsername\.codex
 ```
 
-### ステップ 2 — config.toml を記述する
+### ステップ 2 — config.toml を書く
 
-`.codex` ディレクトリに、`config.toml` を作成または上書きします:
+`.codex` ディレクトリ内に `config.toml` を作成または上書きします：
 
 ```toml
 model_provider = "OpenAI"
@@ -87,18 +87,12 @@ model_auto_compact_token_limit = 900000
 name = "OpenAI"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
+
+[model_providers.OpenAI.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 ```
 
-### ステップ 3 — auth.json を記述する
-
-`.codex` ディレクトリに、`auth.json` を作成または上書きします:
-
-```json
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
-```
+最後の行をご自身の `sk-` キーに置き換え、`Bearer` とキーの間にはスペースを 1 つ入れ、`http_headers` セクションはファイルの末尾に配置してください。新しいバージョンの Codex では `auth.json` は不要です。古いものが残っていても問題ありません。
 
 設定が完了したら、VS Code、Cursor、または Trae を開くと、内部の Codex 拡張機能が自動的にサインインします。
 
@@ -108,16 +102,16 @@ requires_openai_auth = true
 
 ### 拡張機能をインストールする
 
-1. VS Code を開き、まず任意のプロジェクトフォルダーをワークスペースとして開きます（**そうしないと、プロジェクトフォルダーを開くよう促すポップアップが表示されます！**）
+1. VS Code を開き、まず任意のプロジェクトフォルダをワークスペースとして開きます（**開かないと、プロジェクトフォルダを開くよう促すポップアップが表示されます！**）
 2. 左側の拡張機能パネル（Extensions アイコン）をクリックします
-3. **Codex** を検索し、OpenAI 公式の拡張機能「Codex – OpenAI's coding agent」を見つけて、Install をクリックします
-4. インストール後、左側のサイドバーに Codex エントリーが表示されます（表示されない場合は、インターフェース右上を確認してください）
+3. **Codex** を検索し、OpenAI 公式の拡張機能「Codex – OpenAI's coding agent」を見つけて、インストールをクリックします
+4. インストール後、左サイドバーに Codex の項目が表示されます（表示されない場合は、画面右上を確認してください）
 
-### 古いアカウントをサインアウトする
+### 以前のアカウントからサインアウトする
 
 <Callout type="warn" title="重要">
 
-以前に公式アカウントまたは別のプラットフォームでサインインしていた場合は、まずサインアウトしてから設定してください！
+以前に公式アカウントや他のプラットフォームでサインインしていた場合は、先にサインアウトしてから設定してください！
 
 </Callout>
 
@@ -126,18 +120,18 @@ requires_openai_auth = true
 
 ### 設定を完了する
 
-`config.toml` と `auth.json` を設定した後、Codex 拡張機能を再度開き、**Continue** をクリックしてサインインフローを完了します。
+`config.toml` を設定したら、Codex 拡張機能を再度開き、**Continue** をクリックしてサインインフローを完了します。
 
 <Callout type="info" title="モデル表示について">
 
-GPT-5.3 モデルはドロップダウンに表示されません。「Custom」にマウスオーバーすると、現在使用中のモデルが確認できます。
+GPT-5.3 モデルはドロップダウンに表示されません。「Custom」にカーソルを合わせると、現在使用中のモデルを確認できます。
 
-コンソールの「使用記録」で、実際にリクエストされたモデルを確認することもできます。
+また、コンソールの「使用記録」で実際にリクエストされたモデルを確認できます。
 
 </Callout>
 
 ---
 
-## Claude または中国系モデルを使いたい？
+## Claude や中国国内モデルを使いたい場合
 
-Trae のみを使い、目標が **Claude / GLM / Qwen** などのモデルである場合、Codex 拡張機能は不要です — [Trae ネイティブモデル設定](/ja/docs/tools/trae)（Anthropic プロトコル、GUI でいくつかのフィールドを入力するだけ）のほうがシンプルです。
+Trae のみを使用し、目的が **Claude / GLM / Qwen** などのモデルであれば、Codex 拡張機能は不要です。[Trae ネイティブモデル設定](/ja/docs/tools/trae)（Anthropic プロトコル、GUI でいくつかの項目を入力するだけ）のほうがシンプルです。

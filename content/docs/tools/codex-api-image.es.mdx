@@ -1,48 +1,62 @@
 ---
 title: Generación de imágenes en Codex App (skill api-image)
-description: Instala el skill comunitario api-image en Codex App para recuperar la generación de imágenes en modo API — sin configuración adicional con LMU AI, solo pide en lenguaje natural generación de texto a imagen, de imagen a imagen y relleno.
-ogDescription: "La guía más sencilla para generar imágenes en Codex App: dile a Codex que instale el skill en https://github.com/yc-duan/api-image y genera imágenes con la API estándar de imágenes 2 de OpenAI — con LMU AI no requiere configuración adicional."
+description: Instala la skill comunitaria api-image en Codex App para recuperar la generación de imágenes en modo API — con LMU AI basta con conservar auth.json y luego pedir en lenguaje natural texto a imagen, imagen a imagen e inpainting.
+ogDescription: "La guía más simple de generación de imágenes en Codex App: pídele a Codex que instale la skill en https://github.com/yc-duan/api-image y genera imágenes con la API estándar de OpenAI image 2 — con LMU AI solo mantén auth.json en su lugar."
 keywords:
-  - generación de imágenes en Codex App
+  - generación de imágenes Codex App
   - api-image
   - skill de Codex
-  - generación de imágenes de Codex
+  - generación de imágenes Codex
   - gpt-image-2
-  - edición de imágenes en Codex
-  - relleno en Codex
+  - edición de imágenes Codex
+  - inpainting Codex
 alternateNames:
-  - skill de generación de imágenes de Codex App
+  - skill de generación de imágenes para Codex App
   - instalación de api-image
 faq:
   - q: ¿Qué es api-image?
-    a: "Un skill de Codex de terceros mantenido por la comunidad (con licencia MIT): Codex App en modo API no tiene generación de imágenes integrada y, con este skill instalado, puede generar imágenes mediante el endpoint de imágenes compatible con OpenAI que configures — el gpt-image-2 de LMU AI."
-  - q: ¿Cómo lo instalo?
-    a: "Abre Codex App y solo di: instala el skill en https://github.com/yc-duan/api-image — quiero generar imágenes con la API estándar de imágenes 2 de OpenAI; consulta las instrucciones de uso en https://github.com/yc-duan/api-image. Codex lo instala por sí mismo; después reinicia Codex App. También puedes clonar manualmente el repositorio en `~/.codex/skills/api-image`."
-  - q: ¿Tengo que completar por separado una URL base y una clave de API?
-    a: No. En tiempo de ejecución, lee `OPENAI_API_KEY` de `~/.codex/auth.json` y el `base_url` del proveedor desde `config.toml` — exactamente la configuración que ya estableciste al conectar Codex App con LMU AI. Instálalo y úsalo.
+    a: "Una skill de Codex de terceros mantenida por la comunidad (con licencia MIT): la Codex App en modo API no trae imagegen integrado, y con esta skill instalada puede generar imágenes a través del endpoint de imágenes compatible con OpenAI que configures — el gpt-image-2 de LMU AI."
+  - q: ¿Cómo la instalo?
+    a: "Abre la Codex App y simplemente di: instala la skill en https://github.com/yc-duan/api-image — quiero generar imágenes con la API estándar de OpenAI image 2, consulta las instrucciones de uso en https://github.com/yc-duan/api-image. Codex la instala por sí solo; reinicia la Codex App después. También puedes clonar el repositorio en `~/.codex/skills/api-image` manualmente."
+  - q: ¿Tengo que indicar por separado una base URL y una API key?
+    a: No por separado. En tiempo de ejecución lee `OPENAI_API_KEY` desde `~/.codex/auth.json` y la `base_url` del proveedor desde `config.toml`. La guía actualizada ahora coloca la key de Codex en un encabezado de solicitud en `config.toml`, pero esta skill solo lee `auth.json`, así que conserva un `auth.json` con la misma key `sk-`.
   - q: La generación de imágenes falla con model_not_found o 403
-    a: El grupo de tu clave no expone `gpt-image-2`. Consulta la lista de modelos del grupo en "Available models" en la consola o cambia a un grupo con la generación de imágenes habilitada.
+    a: El grupo de tu key no expone `gpt-image-2`. Revisa la lista de modelos del grupo en "Modelos disponibles" dentro de la consola, o cambia a un grupo con la generación de imágenes habilitada.
   - q: ¿Dónde se guardan las imágenes generadas?
-    a: De forma predeterminada, en el directorio de trabajo actual de Codex, con nombres como `provider-image-20260920-153000.png`; indica una ruta en la conversación para guardarlas en otro lugar.
+    a: Por defecto en el directorio de trabajo actual de Codex, con nombres como `provider-image-20260920-153000.png`; indica una ruta en la conversación para guardarlas en otro lugar.
 ---
 
-[api-image](https://github.com/yc-duan/api-image) es un skill comunitario (con licencia MIT): Codex App en modo API no tiene generación de imágenes integrada y, una vez instalado este skill, puede generar imágenes mediante el endpoint de imágenes compatible con OpenAI que configures tú mismo. Con LMU AI es **cero configuración adicional**: reutiliza la clave y el endpoint que ya están en tu `~/.codex`, y basta con una frase en la conversación.
+[api-image](https://github.com/yc-duan/api-image) es una skill comunitaria (con licencia MIT): la Codex App en modo API no trae imagegen integrado, y una vez instalada esta skill puede generar imágenes a través del endpoint de imágenes compatible con OpenAI que tú mismo configures. Reutiliza la key y el endpoint que tienes en tu `~/.codex`, y basta con una frase en la conversación.
 
-<Callout type="warn" title="Skill comunitario de terceros">
+<Callout type="warn" title="Skill comunitaria de terceros">
 
-Se ejecuta en tu máquina, lee la clave de `~/.codex/auth.json` y envía tu solicitud e imágenes de referencia al proveedor; asegúrate de estar de acuerdo con esto antes de instalarlo. El autor también señala que la compatibilidad varía entre proveedores, así que considera los mensajes de error reales como la fuente de verdad.
+Se ejecuta en tu máquina, lee la key desde `~/.codex/auth.json` y envía tu prompt y tus imágenes de referencia al proveedor — asegúrate de estar de acuerdo con eso antes de instalarla. El autor también señala que la compatibilidad varía entre proveedores, así que toma los mensajes de error reales como la fuente de verdad.
 
 </Callout>
 
 ---
 
-## Instalar: una sola frase para Codex
+## Preparación: conserva auth.json
 
-Abre Codex App y solo di:
+Esta skill lee la key desde `~/.codex/auth.json` (en Windows, `%USERPROFILE%\.codex\auth.json`). La [guía de Codex App](/es/docs/tools/codex-app) actualizada ahora coloca la key en un encabezado de solicitud en `config.toml` y ya no necesita `auth.json`, pero para usar esta skill necesitas conservar uno, con la misma key:
 
-> Instala el skill en https://github.com/yc-duan/api-image — quiero generar imágenes con la API estándar de imágenes 2 de OpenAI; consulta las instrucciones de uso en https://github.com/yc-duan/api-image
+```json
+{
+  "OPENAI_API_KEY": "your sk- key generated in the console"
+}
+```
 
-Codex coloca el repositorio en `~/.codex/skills/api-image` por sí mismo (`%USERPROFILE%\.codex\skills\api-image` en Windows); **reinicia Codex App** después.
+Si ya creaste `auth.json` con la guía anterior, simplemente déjalo como está.
+
+---
+
+## Instalación: una frase para Codex
+
+Abre la Codex App y simplemente di:
+
+> Instala la skill en https://github.com/yc-duan/api-image — quiero generar imágenes con la API estándar de OpenAI image 2; consulta las instrucciones de uso en https://github.com/yc-duan/api-image
+
+Codex coloca el repositorio por sí solo en `~/.codex/skills/api-image` (`%USERPROFILE%\.codex\skills\api-image` en Windows); después **reinicia la Codex App**.
 
 La instalación manual también funciona:
 
@@ -52,21 +66,21 @@ git clone https://github.com/yc-duan/api-image.git ~/.codex/skills/api-image
 
 ---
 
-## Usar: sigue siendo una sola frase
+## Uso: también una frase
 
 | Lo que quieres | Di esto |
 |------|------|
-| De texto a imagen | Usa api-image para generar una foto cinematográfica de 2048x1152: una calle lluviosa de Tokio de noche, reflejos de neón, estilo de fotografía realista |
-| De imagen a imagen | Usa la composición y la pose de esta imagen como referencia para generar una ilustración cálida; conserva la pose del sujeto, no copies el original |
-| Relleno | Cambia la taza roja de esta imagen a verde, conservando la forma, composición e iluminación originales |
-| Opciones explícitas | Usa api-image para generar una ilustración plana de 1024x1024, calidad baja, dos imágenes, guardadas en ./public/cover.png |
+| Texto a imagen | Usa api-image para generar una foto cinematográfica de 2048x1152: una calle de Tokio de noche bajo la lluvia, reflejos de neón, estilo de fotografía realista |
+| Imagen a imagen | Tomando la composición y la pose de esta imagen como referencia, genera una ilustración cálida — mantén la pose del sujeto, no copies el original |
+| Inpainting | Cambia la taza roja de esta imagen a verde, conservando la forma, la composición y la iluminación originales |
+| Opciones explícitas | Usa api-image para generar una ilustración plana de 1024x1024, calidad low, dos imágenes, guardadas en ./public/cover.png |
 
-Los valores predeterminados son `gpt-image-2`, `2048x1152`, calidad alta y una imagen; el tamaño, la calidad, la cantidad y la ruta de salida se pueden cambiar directamente en la conversación. De forma predeterminada, el resultado se guarda en el directorio de trabajo actual (`provider-image-<timestamp>.png`).
+Los valores por defecto son `gpt-image-2`, `2048x1152`, calidad high y una imagen; el tamaño, la calidad, la cantidad y la ruta de salida se pueden cambiar directamente en la conversación. La salida queda por defecto en el directorio de trabajo actual (`provider-image-<timestamp>.png`).
 
 ---
 
 ## Notas
 
-- **No hay nada que configurar para LMU AI**: el skill lee el `auth.json` (clave) y el `config.toml` (endpoint) que ya configuraste al conectar Codex App con LMU AI, correspondientes a los endpoints completos `https://api.lmuai.com/v1/images/generations` y `/v1/images/edits`
-- `model_not_found` / 403: el grupo de tu clave no incluye el modelo de imágenes; consulta "Available models" en la consola o cambia de grupo
-- `gpt-image-2` no admite fondos transparentes; el servicio ascendente puede normalizar los tamaños solicitados, así que confía en el resultado real
+- **Para LMU AI, basta con conservar `auth.json`**: la skill lee `auth.json` (key) y `config.toml` (endpoint), que corresponden a los endpoints completos `https://api.lmuai.com/v1/images/generations` y `/v1/images/edits`
+- `model_not_found` / 403: el grupo de tu key no incluye el modelo de imágenes — revisa "Modelos disponibles" en la consola o cambia de grupo
+- `gpt-image-2` no admite fondos transparentes; el upstream puede normalizar los tamaños solicitados, así que confía en la salida real

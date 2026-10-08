@@ -1,48 +1,62 @@
 ---
 title: Geração de imagens no Codex App (skill api-image)
-description: Instale a skill comunitária api-image no Codex App para restaurar a geração de imagens no modo API — nenhuma configuração extra com o LMU AI, basta pedir em linguagem natural geração de texto para imagem, imagem para imagem e inpainting.
-ogDescription: "Guia mais simples para geração de imagens no Codex App: diga ao Codex para instalar a skill em https://github.com/yc-duan/api-image e gerar imagens com a API padrão de imagens 2 da OpenAI — com o LMU AI, não é necessária nenhuma configuração extra."
+description: Instale a skill comunitária api-image no Codex App para recuperar a geração de imagens no modo API — com a LMU AI basta manter o auth.json e depois pedir em linguagem natural texto para imagem, imagem para imagem e inpainting.
+ogDescription: "Guia mais simples de geração de imagens no Codex App: peça ao Codex para instalar a skill em https://github.com/yc-duan/api-image e gere imagens com a API padrão OpenAI image 2 — com a LMU AI basta manter o auth.json no lugar."
 keywords:
-  - geração de imagens no Codex App
+  - geração de imagens Codex App
   - api-image
   - skill do Codex
-  - geração de imagens no Codex
+  - geração de imagens Codex
   - gpt-image-2
-  - edição de imagens no Codex
-  - inpainting no Codex
+  - edição de imagens Codex
+  - inpainting Codex
 alternateNames:
   - skill de geração de imagens do Codex App
   - instalação do api-image
 faq:
   - q: O que é o api-image?
-    a: "Uma skill de terceiros mantida pela comunidade e licenciada pelo MIT: o Codex App no modo API não tem um recurso integrado de geração de imagens e, com essa skill instalada, pode gerar imagens por meio do endpoint de imagens compatível com a OpenAI que você configurar — o gpt-image-2 do LMU AI."
-  - q: Como faço para instalar?
-    a: "Abra o Codex App e diga: instale a skill em https://github.com/yc-duan/api-image — quero gerar imagens com a API padrão de imagens 2 da OpenAI; consulte as instruções de uso em https://github.com/yc-duan/api-image. O Codex faz a instalação sozinho; reinicie o Codex App depois. Você também pode clonar o repositório manualmente para `~/.codex/skills/api-image`."
-  - q: Preciso preencher uma URL base e uma chave de API separadamente?
-    a: Não. Em tempo de execução, ele lê `OPENAI_API_KEY` de `~/.codex/auth.json` e o `base_url` do provedor em `config.toml` — exatamente a configuração que você já definiu ao conectar o Codex App ao LMU AI. Instale e use.
+    a: "Uma skill de terceiros mantida pela comunidade para o Codex (licença MIT): o Codex App no modo API não tem imagegen embutido e, com essa skill instalada, ele consegue gerar imagens através do endpoint de imagens compatível com OpenAI que você configurar — o gpt-image-2 da LMU AI."
+  - q: Como eu instalo?
+    a: "Abra o Codex App e simplesmente diga: instale a skill em https://github.com/yc-duan/api-image — quero gerar imagens com a API padrão OpenAI image 2, veja as instruções de uso em https://github.com/yc-duan/api-image. O Codex instala sozinho; reinicie o Codex App depois. Você também pode clonar o repositório manualmente em `~/.codex/skills/api-image`."
+  - q: Preciso preencher a base URL e a API key separadamente?
+    a: Não separadamente. Em tempo de execução ele lê a `OPENAI_API_KEY` de `~/.codex/auth.json` e a `base_url` do provedor em `config.toml`. O guia atualizado agora coloca a chave do Codex em um cabeçalho de requisição no `config.toml`, mas essa skill só lê o `auth.json`, então mantenha um `auth.json` com a mesma chave `sk-`.
   - q: A geração de imagens falha com model_not_found ou 403
-    a: O grupo da sua chave não expõe o `gpt-image-2`. Verifique a lista de modelos do grupo em "Modelos disponíveis" no console ou mude para um grupo com a geração de imagens habilitada.
+    a: O grupo da sua chave não expõe o `gpt-image-2`. Verifique a lista de modelos do grupo em "Modelos disponíveis" no console ou troque para um grupo com geração de imagens habilitada.
   - q: Onde as imagens geradas são salvas?
-    a: Por padrão, no diretório de trabalho atual do Codex, com nomes como `provider-image-20260920-153000.png`; informe um caminho na conversa para salvá-las em outro local.
+    a: Por padrão no diretório de trabalho atual do Codex, com nomes como `provider-image-20260920-153000.png`; informe um caminho na conversa para salvá-las em outro lugar.
 ---
 
-[api-image](https://github.com/yc-duan/api-image) é uma skill comunitária (licenciada pelo MIT): o Codex App no modo API não tem um recurso integrado de geração de imagens e, depois que essa skill é instalada, pode gerar imagens por meio do endpoint de imagens compatível com a OpenAI que você mesmo configurar. Com o LMU AI, não é necessária **nenhuma configuração extra** — ele reutiliza a chave e o endpoint já existentes em `~/.codex`, e uma única frase na conversa é suficiente.
+O [api-image](https://github.com/yc-duan/api-image) é uma skill comunitária (licença MIT): o Codex App no modo API não tem imagegen embutido e, assim que essa skill é instalada, ele consegue gerar imagens através do endpoint de imagens compatível com OpenAI que você mesmo configurar. Ela reaproveita a chave e o endpoint que já estão no seu `~/.codex`, e uma única frase na conversa já basta.
 
 <Callout type="warn" title="Skill comunitária de terceiros">
 
-Ela é executada na sua máquina, lê a chave de `~/.codex/auth.json` e envia seu prompt e as imagens de referência ao provedor — certifique-se de estar confortável com isso antes de instalar. O autor também observa que a compatibilidade varia entre os provedores; portanto, considere as mensagens de erro reais como a fonte de verdade.
+Ela roda na sua máquina, lê a chave de `~/.codex/auth.json` e envia seu prompt e imagens de referência para o provedor — certifique-se de que você está confortável com isso antes de instalar. O autor também observa que a compatibilidade varia entre provedores, então trate as mensagens de erro reais como a fonte da verdade.
 
 </Callout>
 
 ---
 
+## Preparação: mantenha o auth.json
+
+Essa skill lê a chave de `~/.codex/auth.json` (no Windows, `%USERPROFILE%\.codex\auth.json`). O [guia do Codex App](/pt/docs/tools/codex-app) atualizado agora coloca a chave em um cabeçalho de requisição no `config.toml` e não precisa mais do `auth.json`, mas, para usar essa skill, você precisa manter um, com a mesma chave:
+
+```json
+{
+  "OPENAI_API_KEY": "your sk- key generated in the console"
+}
+```
+
+Se você já criou o `auth.json` seguindo o guia antigo, basta deixá-lo como está.
+
+---
+
 ## Instalação: uma frase para o Codex
 
-Abra o Codex App e diga:
+Abra o Codex App e simplesmente diga:
 
-> Instale a skill em https://github.com/yc-duan/api-image — quero gerar imagens com a API padrão de imagens 2 da OpenAI; consulte as instruções de uso em https://github.com/yc-duan/api-image
+> Instale a skill em https://github.com/yc-duan/api-image — quero gerar imagens com a API padrão OpenAI image 2; veja as instruções de uso em https://github.com/yc-duan/api-image
 
-O Codex coloca o repositório em `~/.codex/skills/api-image` por conta própria (`%USERPROFILE%\.codex\skills\api-image` no Windows); **reinicie o Codex App** depois.
+O Codex coloca o repositório em `~/.codex/skills/api-image` por conta própria (`%USERPROFILE%\.codex\skills\api-image` no Windows); depois disso, **reinicie o Codex App**.
 
 A instalação manual também funciona:
 
@@ -52,21 +66,21 @@ git clone https://github.com/yc-duan/api-image.git ~/.codex/skills/api-image
 
 ---
 
-## Uso: ainda uma frase
+## Uso: também uma frase
 
 | O que você quer | Diga isto |
 |------|------|
-| Texto para imagem | Use api-image para gerar uma foto cinematográfica de 2048x1152: uma rua chuvosa de Tóquio à noite, reflexos de neon, estilo de fotografia realista |
-| Imagem para imagem | Usando a composição e a pose desta imagem como referência, gere uma ilustração acolhedora — mantenha a pose do sujeito, não copie o original |
-| Inpainting | Mude o copo vermelho desta imagem para verde, mantendo a forma, a composição e a iluminação originais |
-| Opções explícitas | Use api-image para gerar uma ilustração plana de 1024x1024, qualidade baixa, duas imagens, salvas em ./public/cover.png |
+| Texto para imagem | Use o api-image para gerar uma foto cinematográfica 2048x1152: uma rua de Tóquio à noite sob chuva, reflexos de neon, estilo de fotografia realista |
+| Imagem para imagem | Usando a composição e a pose desta imagem como referência, gere uma ilustração em tons quentes — mantenha a pose do personagem, não copie o original |
+| Inpainting | Mude a caneca vermelha desta imagem para verde, mantendo a forma, a composição e a iluminação originais |
+| Opções explícitas | Use o api-image para gerar uma ilustração flat 1024x1024, quality low, duas imagens, salvas em ./public/cover.png |
 
-Os padrões são `gpt-image-2`, `2048x1152`, qualidade alta e uma imagem; tamanho, qualidade, quantidade e caminho de saída podem ser alterados diretamente na conversa. Por padrão, a saída vai para o diretório de trabalho atual (`provider-image-<timestamp>.png`).
+Os padrões são `gpt-image-2`, `2048x1152`, quality high, uma imagem; tamanho, qualidade, quantidade e caminho de saída podem todos ser alterados diretamente na conversa. A saída vai por padrão para o diretório de trabalho atual (`provider-image-<timestamp>.png`).
 
 ---
 
 ## Observações
 
-- **Nada para configurar no LMU AI**: a skill lê o `auth.json` (chave) e o `config.toml` (endpoint) que você já configurou ao conectar-se ao LMU AI, correspondentes aos endpoints completos `https://api.lmuai.com/v1/images/generations` e `/v1/images/edits`
-- `model_not_found` / 403: o grupo da sua chave não inclui o modelo de imagens — verifique "Modelos disponíveis" no console ou mude de grupo
-- `gpt-image-2` não oferece suporte a fundos transparentes; o upstream pode normalizar os tamanhos solicitados, portanto confie na saída real
+- **Para a LMU AI, basta manter o `auth.json`**: a skill lê o `auth.json` (chave) e o `config.toml` (endpoint), correspondendo aos endpoints completos `https://api.lmuai.com/v1/images/generations` e `/v1/images/edits`
+- `model_not_found` / 403: o grupo da sua chave não inclui o modelo de imagem — verifique "Modelos disponíveis" no console ou troque de grupo
+- O `gpt-image-2` não suporta fundos transparentes; o upstream pode normalizar os tamanhos solicitados, então confie na saída real

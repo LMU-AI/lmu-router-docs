@@ -1,6 +1,6 @@
 ---
 title: Codex CLI (Servidor)
-description: "Despliega el Codex CLI en un servidor WSL2 o SSH y conéctalo a la API de LMU AI: instala Node 20 con volta, luego escribe config.toml y auth.json en un solo comando."
+description: "Despliega el Codex CLI en un servidor WSL2 o SSH y conéctalo a la API de LMU AI: instala Node 20 con volta y luego escribe config.toml con un solo comando."
 ogDescription: Despliega el Codex CLI en un servidor remoto, WSL2 o entorno SSH y conéctalo a LMU AI — ideal para DevOps, desarrollo remoto y equipos que comparten recursos de cómputo.
 keywords:
   - Codex CLI servidor
@@ -8,14 +8,14 @@ keywords:
   - Codex CLI WSL2
   - Codex CLI servidor Linux
   - Codex en un servidor remoto
-  - Despliegue de Codex en equipo
+  - despliegue de Codex en equipo
   - Codex CLI DevOps
 alternateNames:
   - Conectar el Codex CLI en un servidor / WSL2 a LMU AI
 ---
 
 
-Para configurar el Codex CLI en un entorno WSL2 o de servidor remoto SSH.
+Para configurar el Codex CLI en un entorno de servidor remoto WSL2 o SSH.
 
 ---
 
@@ -49,7 +49,7 @@ volta install @openai/codex
 
 ### Paso 4 — Crear los archivos de configuración
 
-Ejecuta lo siguiente en la terminal del servidor para escribir tanto `~/.codex/config.toml` como `~/.codex/auth.json` a la vez (**recuerda reemplazar la clave en auth.json con la clave `sk-` generada en la consola**):
+Ejecuta lo siguiente en la terminal del servidor para escribir `~/.codex/config.toml` de una sola vez (**recuerda reemplazar "your sk- key generated in the console" en la última línea con tu clave `sk-`, manteniendo un espacio después de `Bearer`**):
 
 ```bash
 mkdir -p ~/.codex
@@ -103,17 +103,13 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
-EOF
 
-cat > ~/.codex/auth.json <<'EOF'
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
+[model_providers.codex.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 EOF
 ```
 
-El contenido de la configuración es idéntico al de la [guía del Codex CLI (Mac/Linux)](/es/docs/tools/codex-cli-mac) — también puedes crear los dos archivos a mano con `vim` / `nano`.
+El contenido de la configuración es idéntico al de la [guía del Codex CLI (Mac/Linux)](/es/docs/tools/codex-cli-mac) — también puedes crearlo a mano con `vim` / `nano`. Las versiones más recientes de Codex ya no necesitan `~/.codex/auth.json`; si quedó uno antiguo, no causa problemas.
 
 ### Paso 5 — Iniciar el Codex CLI
 
@@ -121,7 +117,7 @@ El contenido de la configuración es idéntico al de la [guía del Codex CLI (Ma
 codex --dangerously-bypass-approvals-and-sandbox
 ```
 
-O bien:
+O:
 
 ```bash
 codex --yolo
@@ -131,11 +127,11 @@ codex --yolo
 
 ## Habilitar el contexto de 1M (opcional)
 
-`gpt-5.4` admite un contexto largo de 1M tokens, pero está desactivado de forma predeterminada. Edita `~/.codex/config.toml`, agrega dos líneas en el **nivel superior** del archivo (antes de cualquier `[section]`) y vuelve a entrar a Codex:
+`gpt-5.4` admite un contexto largo de 1M tokens, pero está desactivado por defecto. Edita `~/.codex/config.toml`, agrega dos líneas en el **nivel superior** del archivo (antes de cualquier `[section]`) y vuelve a entrar a Codex:
 
 ```toml
 model_context_window = 1000000
 model_auto_compact_token_limit = 900000
 ```
 
-Para el significado de los campos, cómo verificar y advertencias, consulta [Habilitar el contexto de 1M en Codex](/es/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional).
+Para conocer el significado de los campos, cómo verificar y las advertencias, consulta [Habilitar el contexto de 1M en Codex](/es/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional).

@@ -1,43 +1,43 @@
 ---
-title: Codex CLI（Mac/Linux）
-description: Mac / Linux に Codex CLI をインストールして設定し、LMU AI API に接続する方法（config.toml で 1M トークンのロングコンテキストを有効化する方法を含む）。
-ogDescription: Mac / Linux に Codex CLI をインストールして LMU AI に接続 — OpenAI Codex、GPT、Claude をプロキシなしで利用；config.toml に 2 行（model_context_window / model_auto_compact_token_limit）を追加するだけで 1M ロングコンテキストが有効化。
+title: Codex CLI (Mac/Linux)
+description: Mac / Linux で Codex CLI をインストールして LMU AI API に接続する手順。config.toml で 1M トークンのロングコンテキストを有効にする方法も含みます。
+ogDescription: Mac / Linux に Codex CLI をインストールして LMU AI に接続。プロキシなしで OpenAI Codex、GPT、Claude を利用でき、config.toml の 2 行（model_context_window / model_auto_compact_token_limit）で 1M ロングコンテキストを有効化できます。
 keywords:
   - Codex CLI Mac インストール
   - Codex CLI Linux インストール
-  - Codex CLI セットアップ
-  - OpenAI Codex リレー
+  - Codex CLI 設定
+  - OpenAI Codex 中継
   - Codex base url
   - Codex 1M コンテキスト
   - model_context_window
   - model_auto_compact_token_limit
   - Codex config.toml
-  - Codex プロキシなし
+  - Codex プロキシ不要
 alternateNames:
-  - Mac/Linux の Codex CLI を LMU AI に接続
-  - Codex で 1M コンテキストを有効化
+  - Mac/Linux の Codex CLI を LMU AI に接続する
+  - Codex で 1M コンテキストを有効にする
   - Codex 1M トークン設定ガイド
 faq:
-  - q: Mac / Linux で Codex CLI をサードパーティ API に向けるにはどうすればよいですか？
-    a: "Node.js 20+ と Codex CLI をインストールしたら、~/.codex/ 配下に手動で 2 つのファイルを作成します：config.toml では model_provider と base_url を https://api.lmuai.com に設定し、auth.json には LMU AI コンソールで生成した sk- キーを記入します。サードパーティの設定ツールは不要で、プロキシなしで直接接続できます。"
-  - q: Codex CLI で 1M トークンのロングコンテキストを有効にするにはどうすればよいですか？
-    a: "~/.codex/config.toml のトップレベル（すべての [section] より前）に model_context_window = 1000000 と model_auto_compact_token_limit = 900000 を追加し、保存して Codex に再入場します。2 番目の値はウィンドウのおよそ 90% に設定してください；より大きい値は Codex によってクランプされます。"
-  - q: 1M コンテキストを有効にしたのに /status がまだ 272K を表示します — どうすればよいですか？
-    a: "順番に確認してください：2 行がファイルのトップレベルにあるか（[profiles.xxx] の中では有効になりません）；ユーザーレベルの ~/.codex/config.toml にあるか（プロジェクトレベルの .codex/config.toml は無視される場合があります）；現在のモデルが 1M をサポートしているか（gpt-5.4 と gpt-5.5 はサポート；gpt-5.3-codex は 272K が上限）；最後に npm i -g @openai/codex@latest でアップグレードして再試行してください。一部のバージョンで約 950K と表示されるのは正常です — 予約された 5% の安全マージンです。"
-  - q: 1M コンテキストはコストが高くなりますか？
-    a: "はい。ロングコンテキストはリクエストごとに多くのトークンを消費し、272K を超える部分はより高いロングコンテキスト料金帯で課金されます。大規模リポジトリのレビューや長いログの分析など、本当に必要なときだけ有効にし、常時オンにはしないでください。"
+  - q: Mac / Linux で Codex CLI をサードパーティ API に向ける方法は？
+    a: "Node.js 20+ と Codex CLI をインストールしたあと、~/.codex/ 配下に config.toml を手動で作成します。model_provider と base_url を https://api.lmuai.com に設定し、[model_providers.codex.http_headers] セクションに Authorization = \"Bearer <LMU AI コンソールで発行した sk- キー>\" を記述します。サードパーティの設定ツールは不要で、プロキシなしで直接接続できます。"
+  - q: Codex CLI で 1M トークンのロングコンテキストを有効にする方法は？
+    a: "~/.codex/config.toml のトップレベル（どの [section] よりも前）に model_context_window = 1000000 と model_auto_compact_token_limit = 900000 を追加し、保存して Codex に再入室します。2 つ目の値はウィンドウの約 90% に設定してください。それより大きい値は Codex 側で上限に丸められます。"
+  - q: 1M コンテキストを有効にしたのに /status がまだ 272K と表示されます。どうすれば？
+    a: "順番に確認してください。2 行がファイルのトップレベルにあるか（[profiles.xxx] の中では有効になりません）、ユーザーレベルの ~/.codex/config.toml に書かれているか（プロジェクトレベルの .codex/config.toml は無視される場合があります）、現在のモデルが 1M に対応しているか（gpt-5.4 と gpt-5.5 は対応、gpt-5.3-codex は 272K が上限）。最後に npm i -g @openai/codex@latest でアップグレードして再試行してください。一部バージョンで約 950K と表示されるのは正常で、5% の安全マージンが予約されているためです。"
+  - q: 1M コンテキストはコストが上がりますか？
+    a: "はい。コンテキストが長くなるとリクエストあたりのトークン消費が増え、272K を超えた部分はより高いロングコンテキスト料金で課金されます。大規模リポジトリのレビューや長いログの解析など、本当に必要なときだけ有効にし、常時オンにはしないでください。"
 ---
 
 
-Codex CLI をインストールしたら、2 つの設定ファイル（`config.toml` + `auth.json`）を手動で作成して LMU AI API に接続します — サードパーティの設定ツールは不要です。
+Codex CLI をインストールしたあと、設定ファイル `config.toml` を 1 つ手動で作成するだけ（キーはその中のリクエストヘッダーに記述します）で LMU AI API に接続できます。サードパーティの設定ツールは不要です。
 
 ---
 
 ## ステップ 1 — Node.js をインストール
 
-**Node.js 20+** が必要です — ダウンロード：[https://nodejs.org/en/download](https://nodejs.org/en/download)
+**Node.js 20+** が必要です。ダウンロード: [https://nodejs.org/en/download](https://nodejs.org/en/download)
 
-インストーラーを進めたら、ターミナルで確認します：
+インストーラーを進めたあと、ターミナルで確認します:
 
 ```bash
 node --version
@@ -50,14 +50,14 @@ node --version
 npm i -g @openai/codex
 ```
 
-ネットワークの問題が発生した場合は、まず中国のミラーに切り替えてください：
+ネットワークの問題が出る場合は、先に中国のミラーに切り替えてください:
 
 ```bash
 npm config set registry https://registry.npmmirror.com
 npm i -g @openai/codex
 ```
 
-インストールを確認します：
+インストールを確認します:
 
 ```bash
 codex --version
@@ -66,7 +66,7 @@ codex --version
 
 ## ステップ 3 — 設定ファイルを作成
 
-設定ディレクトリは **`~/.codex/`** です（無ければ作成し、古いファイルは上書き）。その中に以下の 2 つのファイルを作成／上書きします：
+設定ディレクトリは **`~/.codex/`** です（無ければ作成し、古いファイルは上書きしてください）。その中に `config.toml` を作成／上書きします:
 
 ### config.toml
 
@@ -119,80 +119,83 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
+
+[model_providers.codex.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 ```
 
-### auth.json
+<Callout type="warn" title="キーはリクエストヘッダーに記述します">
 
-```json
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
-```
+- 最後の行の「コンソールで発行した sk- キー」を自分の `sk-` キーに置き換えます。**`Bearer` とキーの間にはスペースを 1 つ入れてください**。例: `Authorization = "Bearer sk-xxxx"`
+- `[model_providers.codex.http_headers]` セクションはファイルの**最後**に置き、その後に他の設定を書かないでください
+- 新しいバージョンの Codex では `auth.json` は不要です。旧ガイドに従って作成済みの場合、そのまま残しても問題ありませんし、削除しても構いません（[Codex App の画像生成スキル](/ja/docs/tools/codex-api-image)を使う場合は残してください）
+- 古い設定の `[model_providers.codex]` セクションに `requires_openai_auth = true` がある場合は、その行を削除するだけで済みます
+
+</Callout>
 
 ## ステップ 4 — Codex CLI を起動
 
-設定ファイルを保存したら、ターミナルを再度開いて次を実行し、自動的に起動・サインインします：
+設定ファイルを保存したら、ターミナルを開き直して以下を実行すると、自動的に起動・サインインします:
 
 ```bash
 codex --dangerously-bypass-approvals-and-sandbox
 ```
 
-または短縮形：
+または短縮形:
 
 ```bash
 codex --yolo
 ```
 
-> この起動コマンドはセキュリティ承認をスキップするため、自動実行される各ステップを個別に承認する必要はありません。
+> この起動コマンドはセキュリティ承認をスキップするため、自動実行される各ステップを承認する必要がなくなります。
 
-正常に起動すると、インターフェースには現在のモデルが `gpt-5.4 xhigh`（`config.toml` の `model` フィールドで設定したモデル）として表示されます。
+正常に起動すると、画面に現在のモデルとして `gpt-5.4 xhigh` が表示されます（`config.toml` の `model` フィールドで設定したモデルです）。
 
-<Callout type="info" title="モデルの切り替えについて">
+<Callout type="info" title="モデル切り替えについて">
 
-セッション中に誤って別のモデルに切り替えてしまった場合は、`~/.codex/config.toml` の `model` フィールドを `gpt-5.4` に戻し、ターミナルを再起動して元に戻してください。
+セッション中に誤って別のモデルに切り替えてしまった場合は、`~/.codex/config.toml` の `model` フィールドを `gpt-5.4` に戻し、ターミナルを再起動すれば元に戻ります。
 
 </Callout>
 
 ---
 
-## Codex で 1M コンテキストを有効化（オプション）
+## Codex で 1M コンテキストを有効にする（任意）
 
-`gpt-5.4` は **1M トークンのロングコンテキストウィンドウ**（デフォルトは 272K）をサポートしており、大規模リポジトリのレビュー、長いログの分析、ファイル横断のリファクタリングに役立ちます。Codex はデフォルトで 1M ウィンドウを有効にしないため、`config.toml` で明示的に宣言する必要があります。
+`gpt-5.4` は **1M トークンのロングコンテキストウィンドウ**に対応しています（デフォルトは 272K）。大規模リポジトリのレビュー、長いログの解析、ファイル横断のリファクタリングに便利です。Codex はデフォルトでは 1M ウィンドウを有効にしないため、`config.toml` で明示的に宣言する必要があります。
 
-### 設定方法：config.toml に 2 行を追加
+### 設定方法: config.toml に 2 行追加する
 
-`~/.codex/config.toml` を編集し、次を**トップレベル**（すべての `[section]` より前、例えば `model = "gpt-5.4"` の直後）に追加します：
+`~/.codex/config.toml` を編集し、**トップレベル**（どの `[section]` よりも前、例えば `model = "gpt-5.4"` の直後）に以下を追加します:
 
 ```toml
 model_context_window = 1000000
 model_auto_compact_token_limit = 900000
 ```
 
-保存してターミナルを再度開き、Codex に再入場して適用します。
+保存してターミナルを開き直し、Codex に再入室すると適用されます。
 
-**フィールドリファレンス**
+**フィールドの説明**
 
-| フィールド | 目的 |
+| フィールド | 用途 |
 |------|------|
-| `model_context_window` | モデルが使用可能なコンテキストウィンドウをトークン単位で宣言；`1000000` は 1M。未設定の場合はモデルのデフォルト（272K）を使用 |
-| `model_auto_compact_token_limit` | 履歴の自動圧縮をトリガーするトークン閾値；ウィンドウのおよそ 90%（1M なら `900000`）に設定。ウィンドウの 90% を超える値は Codex によってクランプされるため、より大きい数値は無意味 |
+| `model_context_window` | モデルが使用可能なコンテキストウィンドウをトークン単位で宣言します。`1000000` は 1M です。未設定の場合はモデルのデフォルト（272K）が使われます |
+| `model_auto_compact_token_limit` | 履歴の自動圧縮がトリガーされるトークン閾値。ウィンドウの約 90%（1M なら `900000`）に設定します。ウィンドウの 90% を超える値は Codex 側で丸められるため、それ以上大きくしても意味がありません |
 
-### 有効になったか確認
+### 適用されたか確認する
 
-Codex に再入場したら `/status` と入力し、`context window` が約 1M を表示するか確認します（一部のバージョンでは約 950K と表示されます — Codex が予約する 5% の安全マージン）。また `/statusline` を使ってコンテキスト使用量をステータスバーに追加し、リアルタイムで監視することもできます。
+Codex に再入室したあと `/status` と入力し、`context window` が 1M 前後になっているか確認してください（一部バージョンでは約 950K と表示されます。Codex が 5% の安全マージンを予約しているためです）。`/statusline` を使ってコンテキスト使用量をステータスバーに表示し、リアルタイムで監視することもできます。
 
-### CC Switch を使用している場合
+### CC Switch を使っている場合
 
-[CC Switch](/ja/docs/tools/cc-switch) で Codex 設定を管理している場合は、その Codex 設定エディターに同じ 2 行を追加して適用してください — 効果は同じです：
+[CC Switch](/ja/docs/tools/cc-switch) で Codex の設定を管理している場合は、その Codex 設定エディターに同じ 2 行を追加して適用してください。効果は同じです:
 
-![CC Switch で Codex 設定に model_context_window = 1000000 と model_auto_compact_token_limit = 900000 を設定して 1M トークンのロングコンテキストを有効化](/images/tools/codex/codex-ccs.png)
+![CC Switch の Codex 設定で model_context_window = 1000000 と model_auto_compact_token_limit = 900000 を設定し、1M トークンのロングコンテキストを有効にする](/images/tools/codex/codex-ccs.png)
 
-<Callout type="warn" title="使用上の注意">
+<Callout type="warn" title="利用上の注意">
 
-- **トップレベルに置く必要があります**：これら 2 つのフィールドは `[profiles.xxx]` セクション内では有効になりません（既知の Codex の制限）；また、プロジェクトレベルの `.codex/config.toml` は無視される場合があるため、ユーザーレベルの `~/.codex/config.toml` に置いてください
-- **モデルサポート**：`gpt-5.4` と `gpt-5.5` は API チャネル経由で 1M をサポート；`gpt-5.3-codex` などのモデルは 272K が上限であり、いかなる設定値もモデル自身の上限を超えることはできません
-- **コスト増**：ロングコンテキストはリクエストごとに多くのトークンを消費します；272K を超える部分はより高いロングコンテキスト料金帯で課金されるため、非常に長いタスク以外では有効にしたままにしないでください
-- **バージョン差異**：一部の新しい Codex バージョンはウィンドウサイズをモデルカタログから優先的に読み込みます；`/status` がまだ古い値を表示する場合は、最新版にアップグレード（`npm i -g @openai/codex@latest`）して再試行してください
+- **トップレベルに置く必要があります**: この 2 つのフィールドは `[profiles.xxx]` セクション内では有効になりません（Codex の既知の制限）。また、プロジェクトレベルの `.codex/config.toml` は無視される場合があるため、ユーザーレベルの `~/.codex/config.toml` に記述してください
+- **モデル対応状況**: API チャネルでは `gpt-5.4` と `gpt-5.5` が 1M に対応しています。`gpt-5.3-codex` などは 272K が上限で、設定値がモデル自体の上限を超えることはできません
+- **コスト増**: コンテキストが長くなるとリクエストあたりのトークン消費が増えます。272K を超えた部分はより高いロングコンテキスト料金で課金されるため、本当に長いタスク以外では有効にしたままにしないでください
+- **バージョン差異**: 一部の新しいバージョンの Codex はモデルカタログからウィンドウサイズを優先的に読み取ります。`/status` が古い値のままの場合は、最新版にアップグレード（`npm i -g @openai/codex@latest`）して再試行してください
 
 </Callout>

@@ -1,7 +1,7 @@
 ---
 title: Codex CLI (Servidor)
-description: "Implante o Codex CLI em um servidor WSL2 ou SSH e conecte-se à API LMU AI: instale o Node 20 com o volta e, em seguida, escreva config.toml e auth.json em um único comando."
-ogDescription: Implante o Codex CLI em um servidor remoto, WSL2 ou ambiente SSH e conecte-o à LMU AI — ideal para DevOps, desenvolvimento remoto e equipes que compartilham recursos de computação.
+description: "Implante o Codex CLI em um servidor WSL2 ou SSH e conecte-se à API da LMU AI: instale o Node 20 com o volta e depois escreva o config.toml em um único comando."
+ogDescription: Implante o Codex CLI em um servidor remoto, WSL2 ou ambiente SSH e conecte-o à LMU AI — ideal para DevOps, desenvolvimento remoto e equipes que compartilham capacidade de computação.
 keywords:
   - Codex CLI servidor
   - Codex CLI SSH
@@ -11,17 +11,17 @@ keywords:
   - implantação do Codex em equipe
   - Codex CLI DevOps
 alternateNames:
-  - Conecte o Codex CLI em um servidor / WSL2 à LMU AI
+  - Conectar o Codex CLI em um servidor / WSL2 à LMU AI
 ---
 
 
-Para configurar o Codex CLI em um ambiente WSL2 ou servidor remoto SSH.
+Para configurar o Codex CLI em um ambiente WSL2 ou de servidor remoto via SSH.
 
 ---
 
 ## Etapas de configuração
 
-### Passo 1 — Instale o ambiente Node.js (com o volta)
+### Etapa 1 — Instalar o ambiente Node.js (com o volta)
 
 No terminal do servidor, execute:
 
@@ -29,11 +29,11 @@ No terminal do servidor, execute:
 curl https://get.volta.sh | bash
 ```
 
-### Passo 2 — Instale o Node 20
+### Etapa 2 — Instalar o Node 20
 
-<Callout type="warn" title="Nota">
+<Callout type="warn" title="Observação">
 
-Depois que o volta for instalado com sucesso, você **deve abrir uma nova janela de terminal** antes de executar o comando a seguir:
+Depois que o volta for instalado com sucesso, você **precisa abrir uma nova janela de terminal** antes de executar o comando a seguir:
 
 </Callout>
 
@@ -41,15 +41,15 @@ Depois que o volta for instalado com sucesso, você **deve abrir uma nova janela
 volta install node@20
 ```
 
-### Passo 3 — Instale o Codex CLI
+### Etapa 3 — Instalar o Codex CLI
 
 ```bash
 volta install @openai/codex
 ```
 
-### Passo 4 — Crie os arquivos de configuração
+### Etapa 4 — Criar os arquivos de configuração
 
-Execute o seguinte no terminal do servidor para escrever ao mesmo tempo `~/.codex/config.toml` e `~/.codex/auth.json` (**lembre-se de substituir a chave em auth.json pela chave `sk-` gerada no console**):
+Execute o seguinte no terminal do servidor para escrever o `~/.codex/config.toml` de uma só vez (**lembre-se de substituir "your sk- key generated in the console" na última linha pela sua chave `sk-`, mantendo um espaço após `Bearer`**):
 
 ```bash
 mkdir -p ~/.codex
@@ -103,19 +103,15 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
-EOF
 
-cat > ~/.codex/auth.json <<'EOF'
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
+[model_providers.codex.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 EOF
 ```
 
-O conteúdo da configuração é idêntico ao do [guia do Codex CLI (Mac/Linux)](/pt/docs/tools/codex-cli-mac) — você também pode criar os dois arquivos manualmente com `vim` / `nano`.
+O conteúdo da configuração é idêntico ao do [guia do Codex CLI (Mac/Linux)](/pt/docs/tools/codex-cli-mac) — você também pode criá-lo manualmente com `vim` / `nano`. As versões mais recentes do Codex não precisam mais do `~/.codex/auth.json`; deixar um arquivo antigo no lugar não causa problemas.
 
-### Passo 5 — Inicie o Codex CLI
+### Etapa 5 — Iniciar o Codex CLI
 
 ```bash
 codex --dangerously-bypass-approvals-and-sandbox
@@ -129,13 +125,13 @@ codex --yolo
 
 ---
 
-## Habilitando o contexto de 1M (opcional)
+## Habilitar o contexto de 1M (opcional)
 
-O `gpt-5.4` suporta um contexto longo de 1M tokens, mas ele vem desativado por padrão. Edite `~/.codex/config.toml`, adicione duas linhas no **nível superior** do arquivo (antes de qualquer `[section]`) e entre novamente no Codex:
+O `gpt-5.4` suporta um contexto longo de 1M tokens, mas ele vem desativado por padrão. Edite o `~/.codex/config.toml`, adicione duas linhas no **nível superior** do arquivo (antes de qualquer `[section]`) e entre novamente no Codex:
 
 ```toml
 model_context_window = 1000000
 model_auto_compact_token_limit = 900000
 ```
 
-Para o significado dos campos, como verificar e ressalvas, consulte [Habilitando o contexto de 1M no Codex](/pt/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional).
+Para o significado dos campos, como verificar e as ressalvas, veja [Habilitar o contexto de 1M no Codex](/pt/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional).

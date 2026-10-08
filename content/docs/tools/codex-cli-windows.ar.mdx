@@ -1,47 +1,47 @@
 ---
 title: Codex CLI (Windows)
-description: قم بتثبيت وتهيئة Codex CLI على Windows للاتصال بواجهة LMU AI API، بما في ذلك كيفية تفعيل السياق الطويل بحجم مليون توكن في config.toml.
-ogDescription: "قم بتثبيت Codex CLI على Windows ووصله بـ LMU AI: يعمل مع PowerShell / WSL2، استخدم OpenAI Codex / GPT دون بروكسي؛ سطران في config.toml يفعّلان السياق الطويل بحجم مليون توكن."
+description: ثبّت وأعدّ Codex CLI على Windows للاتصال بواجهة LMU AI API، بما في ذلك طريقة تمكين السياق الطويل بسعة مليون توكن في config.toml.
+ogDescription: "ثبّت Codex CLI على Windows واربطه بـ LMU AI: يعمل مع PowerShell / WSL2، استخدم OpenAI Codex / GPT بدون بروكسي؛ سطران في config.toml يمكّنان السياق الطويل بسعة 1M."
 keywords:
   - Codex CLI Windows
   - تثبيت Codex CLI على Windows
-  - تهيئة Codex على Windows
+  - إعداد Codex على Windows
   - PowerShell Codex
   - WSL2 Codex
-  - Codex CLI Windows في الصين
-  - مُرحّل OpenAI Codex على Windows
-  - Codex سياق مليون توكن على Windows
-  - Codex السياق الطويل
+  - Codex CLI على Windows في الصين
+  - وسيط OpenAI Codex على Windows
+  - سياق 1M في Codex على Windows
+  - السياق الطويل في Codex
   - model_context_window
   - model_auto_compact_token_limit
 alternateNames:
-  - وصل Codex CLI على Windows بـ LMU AI
-  - تفعيل السياق بحجم مليون توكن في Codex على Windows
-# No faq here: the two pitfalls (script execution blocked, and CODEX not recognized) are already covered by faq.mdx questions 4 / 5, which carry the full original error text
-# and resolution steps and emit the FAQPage from that page. This page's body only gives the commands inline in the install steps, and does not duplicate the same Q&A.
+  - ربط Codex CLI على Windows بـ LMU AI
+  - تمكين سياق 1M في Codex على Windows
+# لا توجد faq هنا: المشكلتان الشائعتان (حجب تنفيذ السكربتات، وعدم التعرف على CODEX) مشمولتان بالفعل في السؤالين 4 / 5 من faq.mdx، وهما يحتويان نص الخطأ الأصلي الكامل
+# وخطوات الحل ويصدران FAQPage من تلك الصفحة. متن هذه الصفحة يقدّم الأوامر فقط ضمن خطوات التثبيت، ولا يكرر نفس الأسئلة والأجوبة.
 ---
 
 
-بعد تثبيت Codex CLI، أنشئ ملفَّي تهيئة يدويًا (`config.toml` + `auth.json`) للاتصال بواجهة LMU AI API — دون الحاجة إلى أي أداة تهيئة من طرف ثالث.
+بعد تثبيت Codex CLI، أنشئ ملف إعداد واحد يدويًا، وهو `config.toml` (يُوضع المفتاح داخله في ترويسة طلب)، للاتصال بواجهة LMU AI API — دون الحاجة إلى أي أداة إعداد من جهة خارجية.
 
 ---
 
 ## الخطوة 1 — تثبيت Windows Terminal
 
-على Windows، نوصي باستخدام **Windows Terminal** بدلًا من CMD مع Codex CLI — فهو يدعم نوافذ متعددة وأكثر ملاءمة.
+على Windows، نوصي باستخدام **Windows Terminal** بدلًا من CMD مع Codex CLI — فهو يدعم نوافذ متعددة وأكثر راحة في الاستخدام.
 
-- التنزيل من القرص السحابي في الصين (موصى به، سريع): [https://www.ilanzou.com/s/MzWnpE05](https://www.ilanzou.com/s/MzWnpE05)
-- التنزيل من GitHub: [https://github.com/microsoft/terminal/releases/tag/v1.23.20211.0](https://github.com/microsoft/terminal/releases/tag/v1.23.20211.0)
+- التحميل من التخزين السحابي في الصين (موصى به، سريع): [https://www.ilanzou.com/s/MzWnpE05](https://www.ilanzou.com/s/MzWnpE05)
+- التحميل من GitHub: [https://github.com/microsoft/terminal/releases/tag/v1.23.20211.0](https://github.com/microsoft/terminal/releases/tag/v1.23.20211.0)
 
-نزّل `Microsoft.WindowsTerminal_1.23.20211.0_x64.zip`، وفك ضغطه، ثم انقر نقرًا مزدوجًا على `WindowsTerminal.exe` لتشغيله — من الجيد إنشاء اختصار على سطح المكتب.
+نزّل الملف `Microsoft.WindowsTerminal_1.23.20211.0_x64.zip`، وفك ضغطه، وانقر نقرًا مزدوجًا على `WindowsTerminal.exe` للتشغيل — ومن الجيد إنشاء اختصار على سطح المكتب.
 
 ## الخطوة 2 — تثبيت Node.js
 
-> إذا كان مثبتًا بالفعل فيمكنك تخطي هذه الخطوة؛ تحقق باستخدام: `node -v`
+> إذا كان مثبتًا بالفعل يمكنك تخطي هذه الخطوة؛ تحقق بالأمر: `node -v`
 
-تحتاج إلى **Node.js 20+** — التنزيل: [https://nodejs.org/en/download](https://nodejs.org/en/download)
+تحتاج إلى **Node.js 20+** — التحميل: [https://nodejs.org/en/download](https://nodejs.org/en/download)
 
-أثناء التثبيت، احرص على تحديد خيار **"Automatically install the necessary tools"**.
+أثناء التثبيت، تأكد من تحديد خيار **"Automatically install the necessary tools"**.
 
 بعد التثبيت، تحقق في الطرفية:
 
@@ -52,11 +52,11 @@ node -v
 
 <Callout type="info" title="حالة خاصة">
 
-إذا لم يكن `node.js` مثبتًا، أو كنت قد ثبّته سابقًا لكن البيئة مُهيّأة بشكل خاطئ، فنزّله وأعد تثبيته مرة واحدة، ثم أعد فتح الطرفية.
+إذا لم يكن `node.js` مثبتًا، أو كنت قد ثبّته سابقًا لكن البيئة غير مهيأة بشكل صحيح، فنزّله وأعد تثبيته مرة واحدة، ثم أعد فتح الطرفية.
 
 </Callout>
 
-**إذا واجهت خطأ حظر تنفيذ النصوص البرمجية (script-execution-blocked)، فشغّل الأمر التالي:**
+**إذا واجهت خطأ حجب تنفيذ السكربتات، نفّذ الأمر التالي:**
 
 ```powershell
 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
@@ -68,7 +68,7 @@ Set-ExecutionPolicy RemoteSigned -Scope CurrentUser
 npm i -g @openai/codex
 ```
 
-إذا واجهت مشكلات في الشبكة، فبدّل إلى مرآة صينية أولًا ثم ثبّت:
+إذا واجهت مشكلات في الشبكة، فانتقل أولًا إلى مرآة صينية، ثم ثبّت:
 
 ```bash
 npm config set registry https://registry.npmmirror.com
@@ -82,9 +82,9 @@ codex --version
 # A version number means it installed correctly
 ```
 
-## الخطوة 4 — إنشاء ملفات التهيئة
+## الخطوة 4 — إنشاء ملفات الإعداد
 
-دليل التهيئة هو **`C:\users\your-username\.codex\`** (أنشئه إن لم يكن موجودًا؛ واستبدل أي ملفات قديمة). أنشئ/استبدل هذين الملفين بداخله:
+مجلد الإعداد هو **`C:\users\your-username\.codex\`** (أنشئه إن لم يكن موجودًا؛ واستبدل أي ملفات قديمة). أنشئ/استبدل ملف `config.toml` داخله:
 
 ### config.toml
 
@@ -137,20 +137,23 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
+
+[model_providers.codex.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 ```
 
-### auth.json
+<Callout type="warn" title="يُوضع المفتاح في ترويسة طلب">
 
-```json
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
-```
+- استبدل "your sk- key generated in the console" في السطر الأخير بمفتاح `sk-` الخاص بك، **مع الإبقاء على مسافة واحدة بين `Bearer` والمفتاح**، مثال: `Authorization = "Bearer sk-xxxx"`
+- ضع القسم `[model_providers.codex.http_headers]` في **نهاية** الملف تمامًا، دون أي إعدادات أخرى بعده
+- إصدارات Codex الأحدث لم تعد تحتاج إلى `auth.json`. إذا أنشأته وفق الدليل القديم، فلا ضرر من تركه كما هو، أو يمكنك حذفه (أبقِه إن كنت تستخدم [مهارة توليد الصور في تطبيق Codex](/ar/docs/tools/codex-api-image))
+- إذا كان إعدادك القديم يحتوي على `requires_openai_auth = true` داخل القسم `[model_providers.codex]`، فاحذف ذلك السطر فقط
+
+</Callout>
 
 ## الخطوة 5 — تشغيل Codex CLI
 
-بعد حفظ ملفات التهيئة، أعد فتح الطرفية وشغّل ما يلي للتشغيل وتسجيل الدخول تلقائيًا:
+بعد حفظ ملفات الإعداد، أعد فتح الطرفية ونفّذ ما يلي للتشغيل وتسجيل الدخول تلقائيًا:
 
 ```bash
 codex --dangerously-bypass-approvals-and-sandbox
@@ -162,49 +165,49 @@ codex --dangerously-bypass-approvals-and-sandbox
 codex --yolo
 ```
 
-> يتخطى أمر التشغيل هذا الموافقات الأمنية، لذا لن تحتاج إلى الموافقة على كل خطوة تُنفَّذ تلقائيًا.
+> أمر التشغيل هذا يتجاوز موافقات الأمان، فلن تحتاج إلى الموافقة على كل خطوة تُنفَّذ تلقائيًا.
 
-عند التشغيل الناجح، تُظهر الواجهة النموذج الحالي بوصفه `gpt-5.4 xhigh` (النموذج المحدد في الحقل `model` داخل `config.toml`).
+عند التشغيل بنجاح، تُظهر الواجهة الموديل الحالي باسم `gpt-5.4 xhigh` (الموديل المحدد في الحقل `model` داخل `config.toml`).
 
 ---
 
-## تفعيل السياق بحجم مليون توكن في Codex (اختياري)
+## تمكين سياق 1M في Codex (اختياري)
 
-يدعم `gpt-5.4` **نافذة سياق طويلة بحجم مليون توكن** (272K فقط بشكل افتراضي)، وهي مفيدة لمراجعة المستودعات الضخمة جدًا، وتحليل السجلات الطويلة، وإعادة الهيكلة عبر ملفات متعددة، والمهام المشابهة. لا يُفعّل Codex نافذة المليون توكن بشكل افتراضي؛ يجب أن تعلن عنها صراحةً في `config.toml`.
+يدعم `gpt-5.4` **نافذة سياق طويل بسعة مليون توكن** (272K فقط افتراضيًا)، وهي مفيدة لمراجعة المستودعات الضخمة جدًا، وتحليل السجلات الطويلة، وإعادة الهيكلة عبر ملفات متعددة، والمهام المشابهة. لا يُمكّن Codex نافذة 1M افتراضيًا؛ يجب أن تعلنها صراحةً في `config.toml`.
 
-### كيفية التهيئة: أضف سطرين إلى config.toml
+### طريقة الإعداد: أضف سطرين إلى config.toml
 
-عدّل `C:\users\your-username\.codex\config.toml` وأضف ما يلي في **المستوى الأعلى** (قبل أي `[section]`، مثلًا مباشرة بعد `model = "gpt-5.4"`):
+حرّر الملف `C:\users\your-username\.codex\config.toml` وأضف ما يلي في **المستوى الأعلى** (قبل أي `[section]`، مثلًا مباشرة بعد `model = "gpt-5.4"`):
 
 ```toml
 model_context_window = 1000000
 model_auto_compact_token_limit = 900000
 ```
 
-احفظ، وأعد فتح الطرفية، ثم ادخل إلى Codex مجددًا لتطبيقه.
+احفظ الملف، وأعد فتح الطرفية، وادخل إلى Codex مرة أخرى لتطبيق التغيير.
 
 **مرجع الحقول**
 
-| الحقل | الغرض |
+| الحقل | الوظيفة |
 |------|------|
-| `model_context_window` | يعلن عن نافذة السياق القابلة للاستخدام للنموذج بالتوكنات؛ `1000000` تعني مليونًا. إن لم يُضبط، يُستخدم الافتراضي للنموذج (272K) |
-| `model_auto_compact_token_limit` | حد التوكنات الذي يُشغّل الضغط التلقائي للسجل (auto-compact)؛ اضبطه على نحو 90% من النافذة (`900000` للمليون). القيم التي تتجاوز 90% من النافذة يقصّها Codex، لذا لا فائدة من رقم أكبر |
+| `model_context_window` | يعلن نافذة السياق القابلة للاستخدام للموديل بوحدة التوكن؛ القيمة `1000000` تعني 1M. إن لم تُحدَّد، يُستخدم الإعداد الافتراضي للموديل (272K) |
+| `model_auto_compact_token_limit` | حد التوكن الذي يفعّل الضغط التلقائي للمحادثات السابقة (auto-compact)؛ اضبطه على نحو 90% من النافذة (`900000` لنافذة 1M). القيم التي تتجاوز 90% من النافذة يقيّدها Codex، لذا لا جدوى من رقم أكبر |
 
-### التحقق من أنه سرى المفعول
+### التحقق من سريان الإعداد
 
-بعد الدخول إلى Codex مجددًا، اكتب `/status` وتحقق مما إذا كان `context window` يُظهر نحو مليون (تُظهر بعض الإصدارات نحو 950K — هامش أمان محجوز بنسبة 5% من Codex). يمكنك أيضًا استخدام `/statusline` لإضافة استخدام السياق إلى شريط الحالة للمراقبة الحية.
+بعد الدخول إلى Codex مرة أخرى، اكتب `/status` وتحقق مما إذا كانت `context window` تظهر بنحو 1M (تُظهر بعض الإصدارات نحو 950K — وهو هامش أمان محفوظ بنسبة 5% من Codex). يمكنك أيضًا استخدام `/statusline` لإضافة استهلاك السياق إلى شريط الحالة لمراقبته مباشرة.
 
 ### إذا كنت تستخدم CC Switch
 
-إذا كنت تدير تهيئة Codex باستخدام [CC Switch](/ar/docs/tools/cc-switch)، فأضف السطرين نفسيهما في محرر تهيئة Codex الخاص به وطبّق — النتيجة مطابقة:
+إذا كنت تدير إعداد Codex عبر [CC Switch](/ar/docs/tools/cc-switch)، فأضف السطرين نفسهما في محرر إعداد Codex الخاص به وطبّق التغيير — والنتيجة مماثلة تمامًا:
 
-![ضبط model_context_window = 1000000 و model_auto_compact_token_limit = 900000 لتهيئة Codex في CC Switch لتفعيل السياق الطويل بحجم مليون توكن](/images/tools/codex/codex-ccs.png)
+![ضبط model_context_window = 1000000 و model_auto_compact_token_limit = 900000 لإعداد Codex في CC Switch لتمكين السياق الطويل بسعة مليون توكن](/images/tools/codex/codex-ccs.png)
 
 <Callout type="warn" title="ملاحظات الاستخدام">
 
-- **يجب أن يكونا في المستوى الأعلى**: لا يسري مفعول هذين الحقلين داخل قسم `[profiles.xxx]` (قيد معروف في Codex)؛ كما يجب وضعهما في ملف المستوى الخاص بالمستخدم `C:\users\your-username\.codex\config.toml`، لأن ملف `.codex\config.toml` على مستوى المشروع قد يُتجاهل
-- **دعم النماذج**: يدعم `gpt-5.4` و`gpt-5.5` المليون توكن عبر قناة API؛ بينما تُحدّ نماذج مثل `gpt-5.3-codex` عند 272K، ولا يمكن لأي قيمة تهيئة أن تتجاوز حد النموذج نفسه
-- **تكلفة أعلى**: كلما طال السياق، زاد عدد التوكنات المستخدمة في كل طلب؛ ويُحتسب الجزء الذي يتجاوز 272K بفئة سياق طويل أعلى تكلفة، لذا لا تتركه مُفعّلًا إلا للمهام الطويلة جدًا
-- **اختلافات الإصدارات**: تقرأ بعض إصدارات Codex الأحدث حجم النافذة من كتالوج النماذج أولًا؛ إن ظل `/status` يُظهر القيمة القديمة، فحدّث إلى الأحدث (`npm i -g @openai/codex@latest`) وأعد المحاولة
+- **يجب أن يكونا في المستوى الأعلى**: هذان الحقلان لا يسريان داخل قسم `[profiles.xxx]` (قيد معروف في Codex)؛ كما ينبغي وضعهما في ملف مستوى المستخدم `C:\users\your-username\.codex\config.toml`، لأن ملف `.codex\config.toml` على مستوى المشروع قد يُتجاهَل
+- **دعم الموديلات**: يدعم `gpt-5.4` و `gpt-5.5` سعة 1M عبر قناة API؛ أما موديلات مثل `gpt-5.3-codex` فهي محدودة بـ 272K، ولا يمكن لأي قيمة في الإعداد أن تتجاوز حد الموديل نفسه
+- **تكلفة أعلى**: كلما طال السياق، زاد عدد التوكنات المستهلكة في كل طلب؛ والجزء الذي يتجاوز 272K يُحاسب بشريحة السياق الطويل الأعلى سعرًا، فلا تُبقِه مفعّلًا إلا للمهام الطويلة جدًا
+- **اختلافات الإصدارات**: بعض إصدارات Codex الأحدث تقرأ حجم النافذة من كتالوج الموديلات أولًا؛ إذا كان `/status` لا يزال يُظهر القيمة القديمة، فحدّث إلى أحدث إصدار (`npm i -g @openai/codex@latest`) وأعد المحاولة
 
 </Callout>

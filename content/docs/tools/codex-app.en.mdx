@@ -33,7 +33,7 @@ Config file location:
 - **Mac/Linux**: the `.codex` folder in your home directory (`~`)
 - **Windows**: `C:\users\your-username\.codex\`
 
-If the folder already exists, it's best to delete the `auth.json` and `config.toml` inside it and recreate them, to avoid interference from old config.
+If the folder already exists, it's best to delete the `config.toml` inside it (and any `auth.json` left over from the old guide) and recreate it, to avoid interference from old config.
 
 **Create the folder with a terminal command:**
 
@@ -42,21 +42,11 @@ If the folder already exists, it's best to delete the `auth.json` and `config.to
 rm -rf ~/.codex && mkdir ~/.codex
 ```
 
-Create two files in the `.codex` folder:
-
-### auth.json
-
-Holds your API key:
-
-```json
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
-```
+Create `config.toml` in the `.codex` folder.
 
 ### config.toml
 
-Configure the service provider:
+Configure the service provider; the API key goes in a request header at the very end of the file:
 
 ```toml
 model = "gpt-5.4"
@@ -107,12 +97,16 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
+
+[model_providers.codex.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 ```
+
+Replace the last line with your `sk-` key, keeping one space between `Bearer` and the key. Put the `[model_providers.codex.http_headers]` section at the very end of the file, with no other settings after it.
 
 <Callout type="info">
 
-It's usually inside the `.codex` folder in your home directory. If you can't find the `.codex` folder there, you can create the folder manually, along with `config.toml` and `auth.json`.
+It's usually inside the `.codex` folder in your home directory. If you can't find the `.codex` folder there, you can create the folder manually, then create `config.toml` in it.
 
 The config file contents are identical to the [Codex CLI Mac/Linux setup guide](/en/docs/tools/codex-cli-mac) — you can follow that guide to create them in the terminal, and they take effect after restarting the Codex App just the same.
 
@@ -145,4 +139,10 @@ For field meanings, how to verify, and caveats, see [Enabling the 1M context in 
 
 Cause: the request is still going to OpenAI's official endpoint rather than our API relay, or you didn't restart the tool to reload the config file.
 
-Fix: follow the guide again to create or replace the `config.toml` and `auth.json` files, then reopen the app.
+Fix: follow the guide again to create or replace `config.toml`, then reopen the app.
+
+**Error 401 API_KEY_REQUIRED:**
+
+Cause: newer Codex versions may no longer read the key from `auth.json`, so the request carries no key.
+
+Fix: add the `[model_providers.codex.http_headers]` section at the end of `config.toml` as shown above; see [FAQ · Issue 10](/en/docs/guide/faq#issue-10).

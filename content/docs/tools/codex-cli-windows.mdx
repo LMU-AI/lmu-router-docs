@@ -22,7 +22,7 @@ alternateNames:
 ---
 
 
-安装 Codex CLI 后，手动创建两份配置文件（`config.toml` + `auth.json`）即可接入灵眸 API，无需任何第三方配置工具。
+安装 Codex CLI 后，手动创建一份配置文件 `config.toml`（密钥写在里面的请求头中）即可接入灵眸 API，无需任何第三方配置工具。
 
 ---
 
@@ -84,7 +84,7 @@ codex --version
 
 ## 第4步：创建配置文件
 
-配置文件目录为 **`C:\users\你的用户名\.codex\`**（没有就新建，已有旧文件则覆盖）。在该目录下创建/覆盖以下两个文件：
+配置文件目录为 **`C:\users\你的用户名\.codex\`**（没有就新建，已有旧文件则覆盖）。在该目录下创建/覆盖 `config.toml`：
 
 ### config.toml
 
@@ -137,16 +137,19 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
+
+[model_providers.codex.http_headers]
+Authorization = "Bearer 这里填入后台生成的sk-开头的密钥"
 ```
 
-### auth.json
+<Callout type="warn" title="密钥写在请求头里">
 
-```json
-{
-  "OPENAI_API_KEY": "这里填入后台生成的sk-开头的密钥"
-}
-```
+- 把最后一行的「这里填入后台生成的sk-开头的密钥」换成你的 `sk-` 密钥，**`Bearer` 和密钥之间保留一个空格**，例如 `Authorization = "Bearer sk-xxxx"`
+- `[model_providers.codex.http_headers]` 这一段要放在文件**最末尾**，后面不要再接其它配置项
+- 新版 Codex 不再需要 `auth.json`。以前按旧教程建过的，留着不影响，也可以删掉（用 [Codex App 生图 Skill](./codex-api-image) 的话请保留）
+- 旧配置里 `[model_providers.codex]` 段的 `requires_openai_auth = true` 这一行删掉即可
+
+</Callout>
 
 ## 第5步：启动 Codex CLI
 
