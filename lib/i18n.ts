@@ -44,3 +44,11 @@ export const DIR: Record<string, string> = { ar: 'rtl' };
 export function localePrefix(locale: string): string {
   return locale === i18n.defaultLanguage ? '' : `/${locale}`;
 }
+
+// 语言前缀感知的文档路径（同一逻辑页在该语言下的 HTML 地址，不含站点源）：
+// cn → /docs/...；en → /en/docs/...（.ai 变体上默认语言是 en，cn 变 `/{lang}` 侧）。
+// HTML 页的 canonical/hreflang 与 /md 路由的 Link: rel="canonical" 头共用这一份。
+export function docsPath(lang: string, slug?: string[]): string {
+  const prefix = localePrefix(lang);
+  return slug && slug.length > 0 ? `${prefix}/docs/${slug.join('/')}` : `${prefix}/docs`;
+}

@@ -1,5 +1,7 @@
 import { source } from '@/lib/source';
 import { buildPageMarkdown, markdownResponse } from '@/lib/llms';
+import { docsPath } from '@/lib/i18n';
+import { SITE_URL } from '@/lib/site';
 
 // Markdown for Agents —— 每页的纯 markdown。
 //
@@ -25,5 +27,11 @@ export async function GET(
   const { lang, slug } = await params;
   const page = source.getPage(slug, lang);
   if (!page) return new Response('Not found', { status: 404 });
-  return markdownResponse(await buildPageMarkdown(page));
+  // Markdown 版本不是独立页面（#60）：声明同语言 HTML 页才是正式版本，
+  // 免得 Bing 把 /md 和 HTML 页当成两份内容抢收录。不用 noindex —— 那会连
+  // AI 搜索一起挡掉，而这份 Markdown 本来就是给 AI 读的。
+  const canonical = `${SITE_URL}${docsPath(lang, slug)}`;
+  return markdownResponse(await buildPageMarkdown(page), {
+    Link: `<${canonical}>; rel="canonical"`,
+  });
 }

@@ -254,11 +254,15 @@ export async function buildPageMarkdown(page: LoadedPage): Promise<string> {
 // markdown 响应。Vary: Accept —— 经 proxy 的 Accept 协商，/docs/... 这一 URL 既可能
 // 返回 HTML 也可能返回本 markdown，故对本响应声明按 Accept 变体（HTML 侧靠 CF 对 docs
 // HTML 恒为 cf-cache-status: DYNAMIC、边缘不缓存来保证不被跨投；见 proxy.ts 注释）。
-export function markdownResponse(body: string): Response {
+export function markdownResponse(
+  body: string,
+  extraHeaders?: Record<string, string>,
+): Response {
   return new Response(body, {
     headers: {
       'Content-Type': 'text/markdown; charset=utf-8',
       Vary: 'Accept',
+      ...extraHeaders,
     },
   });
 }
