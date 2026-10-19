@@ -10,6 +10,9 @@ export const docs = defineDocs({
   dir: process.env.SITE_VARIANT === 'ai' ? 'content-ai/docs' : 'content/docs',
   docs: {
     schema: frontmatterSchema.extend({
+      // SEO 专用标题（#58）：只进 <title>/og:title，不进侧栏与 H1。
+      // 存在时以 absolute 形式输出，跳过 app/[lang]/layout.tsx 的「 | 灵眸文档」模板。
+      seoTitle: z.string().optional(),
       keywords: z.array(z.string()).optional(),
       ogDescription: z.string().optional(),
       alternateNames: z.array(z.string()).optional(),

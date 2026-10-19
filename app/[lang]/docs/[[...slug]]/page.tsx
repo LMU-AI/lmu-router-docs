@@ -200,6 +200,12 @@ export async function generateMetadata({
   const canonicalPath = docsPath(lang, slug);
   const ogDescription = page.data.ogDescription ?? page.data.description;
 
+  // SEO-only 标题（#58）：有 seoTitle 时用 absolute 跳过 layout 的「 | 灵眸文档」后缀，
+  // 让搜索结果里完整用上 50–60 的安全宽度。侧栏与 H1 仍用 page.data.title。
+  const seoTitle = page.data.seoTitle;
+  const title = seoTitle ? { absolute: seoTitle } : page.data.title;
+  const socialTitle = seoTitle ?? page.data.title;
+
   // Markdown for Agents：声明本页的 markdown 备用表述（/md/{lang}/docs/{slug}），
   // 渲染成 <link rel="alternate" type="text/markdown">，作为 Accept 协商之外的显式发现面。
   const mdPath = `/md/${lang}/docs${slug && slug.length > 0 ? `/${slug.join('/')}` : ''}`;
@@ -217,7 +223,7 @@ export async function generateMetadata({
       : undefined;
 
   return {
-    title: page.data.title,
+    title,
     description: page.data.description,
     keywords: page.data.keywords,
     alternates: {
@@ -230,7 +236,7 @@ export async function generateMetadata({
       locale: OG_LOCALE[lang] ?? OG_LOCALE.cn,
       siteName: siteName(lang),
       url: canonicalPath,
-      title: page.data.title,
+      title: socialTitle,
       description: ogDescription,
       // 显式 og:image：文件式 opengraph-image 不会自动注入到 [lang] 页（实测缺失），
       // 指向全站唯一 OG 图 /opengraph-image（metadataBase 解析为绝对 URL）。
@@ -238,7 +244,7 @@ export async function generateMetadata({
     },
     twitter: {
       card: 'summary_large_image',
-      title: page.data.title,
+      title: socialTitle,
       description: ogDescription,
       // twitter:image 同样须显式声明。
       images: ['/opengraph-image'],
