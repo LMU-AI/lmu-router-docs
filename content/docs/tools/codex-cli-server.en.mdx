@@ -1,6 +1,6 @@
 ---
 title: Codex CLI (Server)
-description: "Deploy the Codex CLI on a WSL2 or SSH server and connect to the LMU AI API: install Node 20 with volta, then write config.toml and auth.json in one command."
+description: "Deploy the Codex CLI on a WSL2 or SSH server and connect to the LMU AI API: install Node 20 with volta, then write config.toml in one command."
 ogDescription: Deploy the Codex CLI on a remote server, WSL2, or SSH environment and connect it to LMU AI — ideal for DevOps, remote development, and teams sharing compute.
 keywords:
   - Codex CLI server
@@ -49,7 +49,7 @@ volta install @openai/codex
 
 ### Step 4 — Create the config files
 
-Run the following in the server terminal to write both `~/.codex/config.toml` and `~/.codex/auth.json` at once (**remember to replace the key in auth.json with the `sk-` key generated in the console**):
+Run the following in the server terminal to write `~/.codex/config.toml` in one go (**remember to replace "your sk- key generated in the console" on the last line with your `sk-` key, keeping one space after `Bearer`**):
 
 ```bash
 mkdir -p ~/.codex
@@ -103,17 +103,13 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
-EOF
 
-cat > ~/.codex/auth.json <<'EOF'
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
+[model_providers.codex.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 EOF
 ```
 
-The config contents are identical to the [Codex CLI (Mac/Linux) guide](/en/docs/tools/codex-cli-mac) — you can also create the two files by hand with `vim` / `nano`.
+The config contents are identical to the [Codex CLI (Mac/Linux) guide](/en/docs/tools/codex-cli-mac) — you can also create it by hand with `vim` / `nano`. Newer Codex versions no longer need `~/.codex/auth.json`; an old one left in place is harmless.
 
 ### Step 5 — Launch the Codex CLI
 

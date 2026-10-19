@@ -1,29 +1,29 @@
 ---
 title: Codex CLI (서버)
-description: "WSL2 또는 SSH 서버에 Codex CLI를 배포하고 LMU AI API에 연결하세요: volta로 Node 20을 설치한 다음, 한 번의 명령으로 config.toml과 auth.json을 작성합니다."
-ogDescription: 원격 서버, WSL2 또는 SSH 환경에 Codex CLI를 배포하고 LMU AI에 연결하세요 — DevOps, 원격 개발, 컴퓨팅 자원을 공유하는 팀에 이상적입니다.
+description: "WSL2 또는 SSH 서버에 Codex CLI를 배포하고 LMU AI API에 연결하세요: volta로 Node 20을 설치한 뒤 명령 한 번으로 config.toml을 작성합니다."
+ogDescription: 원격 서버, WSL2, SSH 환경에 Codex CLI를 배포하고 LMU AI에 연결하세요 — DevOps, 원격 개발, 연산 자원을 공유하는 팀에 적합합니다.
 keywords:
   - Codex CLI 서버
   - Codex CLI SSH
   - Codex CLI WSL2
-  - Codex CLI Linux 서버
-  - 원격 서버의 Codex
+  - Codex CLI 리눅스 서버
+  - 원격 서버에서 Codex 사용
   - Codex 팀 배포
   - Codex CLI DevOps
 alternateNames:
-  - 서버 / WSL2에서 Codex CLI를 LMU AI에 연결하기
+  - 서버 / WSL2의 Codex CLI를 LMU AI에 연결하기
 ---
 
 
-WSL2 또는 SSH 원격 서버 환경에서 Codex CLI를 구성하기 위한 안내입니다.
+WSL2 또는 SSH 원격 서버 환경에서 Codex CLI를 설정할 때 사용합니다.
 
 ---
 
-## 구성 단계
+## 설정 단계
 
 ### 1단계 — Node.js 환경 설치 (volta 사용)
 
-서버 터미널에서 다음을 실행하세요:
+서버 터미널에서 다음을 실행합니다:
 
 ```bash
 curl https://get.volta.sh | bash
@@ -33,7 +33,7 @@ curl https://get.volta.sh | bash
 
 <Callout type="warn" title="참고">
 
-volta 설치가 완료된 후에는 다음 명령을 실행하기 전에 **반드시 새 터미널 창을 열어야 합니다**:
+volta 설치가 완료된 뒤에는 **반드시 새 터미널 창을 열고** 아래 명령을 실행해야 합니다:
 
 </Callout>
 
@@ -47,9 +47,9 @@ volta install node@20
 volta install @openai/codex
 ```
 
-### 4단계 — 구성 파일 생성
+### 4단계 — 설정 파일 생성
 
-서버 터미널에서 다음을 실행하여 `~/.codex/config.toml`과 `~/.codex/auth.json`을 한 번에 작성하세요 (**auth.json의 키는 콘솔에서 생성한 `sk-` 키로 교체하는 것을 잊지 마세요**):
+서버 터미널에서 아래를 실행하면 `~/.codex/config.toml`을 한 번에 작성할 수 있습니다 (**마지막 줄의 "your sk- key generated in the console" 부분을 콘솔에서 발급한 `sk-` 키로 바꾸고, `Bearer` 뒤의 공백 한 칸은 그대로 유지하세요**):
 
 ```bash
 mkdir -p ~/.codex
@@ -103,17 +103,13 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
-EOF
 
-cat > ~/.codex/auth.json <<'EOF'
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
+[model_providers.codex.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 EOF
 ```
 
-구성 내용은 [Codex CLI (Mac/Linux) 가이드](/ko/docs/tools/codex-cli-mac)와 동일합니다 — `vim` / `nano`로 직접 두 파일을 만들 수도 있습니다.
+설정 내용은 [Codex CLI (Mac/Linux) 가이드](/ko/docs/tools/codex-cli-mac)와 동일합니다 — `vim` / `nano`로 직접 작성해도 됩니다. 최신 Codex 버전에서는 `~/.codex/auth.json`이 더 이상 필요하지 않으며, 예전 파일이 남아 있어도 문제가 되지 않습니다.
 
 ### 5단계 — Codex CLI 실행
 
@@ -129,13 +125,13 @@ codex --yolo
 
 ---
 
-## 1M 컨텍스트 활성화 (선택 사항)
+## 1M 컨텍스트 활성화 (선택)
 
-`gpt-5.4`는 1M 토큰의 긴 컨텍스트를 지원하지만 기본적으로 꺼져 있습니다. `~/.codex/config.toml`을 편집하여 파일의 **최상위 레벨**(어떤 `[section]`보다 앞)에 다음 두 줄을 추가하고, Codex에 다시 진입하세요:
+`gpt-5.4`는 1M 토큰 장문 컨텍스트를 지원하지만 기본값은 비활성화 상태입니다. `~/.codex/config.toml`을 편집해 파일의 **최상위 레벨**(모든 `[section]` 앞)에 두 줄을 추가한 뒤 Codex에 다시 진입하세요:
 
 ```toml
 model_context_window = 1000000
 model_auto_compact_token_limit = 900000
 ```
 
-필드의 의미, 확인 방법, 주의 사항은 [Codex에서 1M 컨텍스트 활성화하기](/ko/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional)를 참고하세요.
+각 필드의 의미, 확인 방법, 주의 사항은 [Codex에서 1M 컨텍스트 활성화하기](/ko/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional)를 참고하세요.

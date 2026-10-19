@@ -1,7 +1,7 @@
 ---
 title: Codex App 生图（api-image Skill）
-description: 给 Codex App 装上社区 Skill api-image，API 模式下就能出图：接灵眸零配置，对话里说一句话完成文生图、图生图与局部编辑。
-ogDescription: Codex App 生图最简教程：对 Codex 说一句「安装 https://github.com/yc-duan/api-image 这个 skill」，接上灵眸后无需任何额外配置，直接用自然语言调用 gpt-image-2 做图。
+description: 给 Codex App 装上社区 Skill api-image，API 模式下就能出图：接灵眸后保留 auth.json 即可，对话里说一句话完成文生图、图生图与局部编辑。
+ogDescription: Codex App 生图最简教程：对 Codex 说一句「安装 https://github.com/yc-duan/api-image 这个 skill」，接上灵眸并保留 auth.json，直接用自然语言调用 gpt-image-2 做图。
 keywords:
   - Codex App 生图
   - api-image
@@ -19,20 +19,34 @@ faq:
   - q: 怎么安装？
     a: 打开 Codex App 直接说「安装 https://github.com/yc-duan/api-image 这个 skill，我要用 OpenAI image 2 标准 API 做图，参考使用说明 https://github.com/yc-duan/api-image」，Codex 会自己装好，重开 Codex App 生效。也可以手动把仓库 clone 到 `~/.codex/skills/api-image`。
   - q: 需要单独填 base URL 和 API Key 吗？
-    a: 不用。它运行时读 `~/.codex/auth.json` 的 `OPENAI_API_KEY` 和 `config.toml` 里 Provider 的 `base_url`，就是你在 Codex App 接灵眸时已经配好的那套，装完即用。
+    a: 不用单独填。它运行时读 `~/.codex/auth.json` 的 `OPENAI_API_KEY` 和 `config.toml` 里 Provider 的 `base_url`。新版教程里 Codex 的密钥改写在 `config.toml` 的请求头中，但这个 Skill 仍只认 `auth.json`，所以要保留一份写着同一把 `sk-` 密钥的 `auth.json`。
   - q: 生图报 model_not_found 或 403 怎么办？
     a: 说明你的密钥所属分组没有开放 `gpt-image-2`。去后台「可用模型」确认分组范围，或换一个支持图片生成的分组。
   - q: 生成的图片保存在哪里？
     a: 默认写到 Codex 的当前工作目录，文件名形如 `provider-image-20260920-153000.png`；在对话里指定路径即可存到别处。
 ---
 
-[api-image](https://github.com/yc-duan/api-image) 是个社区 Skill（MIT 协议）：API 模式下的 Codex App 没有内置 imagegen，装上它就能出图，走你自己配置的 OpenAI 兼容图片接口。接灵眸**零配置**——它直接复用你 `~/.codex` 里已有的密钥和接口地址，对话里说一句话就能出图。
+[api-image](https://github.com/yc-duan/api-image) 是个社区 Skill（MIT 协议）：API 模式下的 Codex App 没有内置 imagegen，装上它就能出图，走你自己配置的 OpenAI 兼容图片接口。它直接复用你 `~/.codex` 里的密钥和接口地址，对话里说一句话就能出图。
 
 <Callout type="warn" title="第三方社区 Skill">
 
 它会在你本机运行、读取 `~/.codex/auth.json` 里的密钥，并把提示词与参考图发给 provider，装之前请自行确认可以接受。作者也说明不同 provider 兼容程度不同，遇到参数问题以实际报错为准。
 
 </Callout>
+
+---
+
+## 准备：保留 auth.json
+
+这个 Skill 从 `~/.codex/auth.json`（Windows 为 `%USERPROFILE%\.codex\auth.json`）读密钥。新版 [Codex App 教程](./codex-app) 已把密钥改写在 `config.toml` 的请求头里、不再需要 `auth.json`，但要用这个 Skill 就得留一份，内容填同一把密钥：
+
+```json
+{
+  "OPENAI_API_KEY": "这里填入后台生成的sk-开头的密钥"
+}
+```
+
+以前按旧教程建过 `auth.json` 的，保持不动即可。
 
 ---
 
@@ -67,6 +81,6 @@ git clone https://github.com/yc-duan/api-image.git ~/.codex/skills/api-image
 
 ## 注意
 
-- **接灵眸无需改任何配置**：Skill 读的就是你接灵眸时配好的 `auth.json`（密钥）与 `config.toml`（接口地址），对应完整端点 `https://api.lmuai.com/v1/images/generations` 与 `/v1/images/edits`
+- **接灵眸只需保留 `auth.json`**：Skill 读的是 `auth.json`（密钥）与 `config.toml`（接口地址），对应完整端点 `https://api.lmuai.com/v1/images/generations` 与 `/v1/images/edits`
 - 报 `model_not_found` / 403：你的分组没开图片模型，去后台「可用模型」确认或换分组
 - `gpt-image-2` 不支持透明背景；请求的尺寸上游可能归一化，以实际输出为准

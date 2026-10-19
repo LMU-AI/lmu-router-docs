@@ -1,7 +1,7 @@
 ---
 title: Codex App（デスクトップ版）
-description: Codex App デスクトップクライアントで LMU AI の API ベース URL とキーを設定します — Windows と Mac の両方で動作します。
-ogDescription: "Codex App デスクトップクライアントを LMU AI に接続：ベース URL と API キーを入力し、プロキシなしで Windows と Mac で OpenAI Codex / GPT を利用できます。"
+description: Codex App デスクトップクライアントで LMU AI の API ベース URL とキーを設定する方法 — Windows と Mac の両方に対応しています。
+ogDescription: "Codex App デスクトップクライアントを LMU AI に接続：ベース URL と API キーを入力するだけで、Windows と Mac でプロキシなしで OpenAI Codex / GPT を利用できます。"
 keywords:
   - Codex App
   - Codex デスクトップクライアント
@@ -15,13 +15,13 @@ alternateNames:
 ---
 
 
-Codex CLI をインストールせず、**Codex App デスクトップクライアント**だけを使いたい場合は、この方法に従ってください。
+Codex CLI をインストールしたくなく、**Codex App デスクトップクライアント**だけを使いたい場合は、この方法に従ってください。
 
 <Callout type="warn" title="注意">
 
-- 以前に自分のアカウントでサインインしたことがある場合は、まず Codex App で**現在のアカウントからサインアウト**してから再設定してください。
-- API を切り替えると、チャット履歴は消えます（アカウント種別のチャット履歴はローカルではなく GPT アカウントのスペースに保存されています）。
-- **API ログインに切り替えた後は、それ以降のすべてのチャット履歴がローカルに保存され、失われることはありません！**
+- 以前に自分のアカウントでサインインしていた場合は、まず Codex App で**現在のアカウントからサインアウト**してから、再設定してください。
+- API を切り替えると、それまでのチャット履歴は表示されなくなります（アカウント方式のチャット履歴はローカルではなく GPT アカウントの領域に保存されています）。
+- **API ログインに切り替えた後は、以降のチャット履歴はすべてローカルに保存されるので失われません！**
 
 </Callout>
 
@@ -33,7 +33,7 @@ Codex CLI をインストールせず、**Codex App デスクトップクライ�
 - **Mac/Linux**：ホームディレクトリ（`~`）内の `.codex` フォルダ
 - **Windows**：`C:\users\your-username\.codex\`
 
-フォルダがすでに存在する場合は、古い設定の干渉を避けるため、中の `auth.json` と `config.toml` を削除して作り直すのが最善です。
+フォルダがすでに存在する場合は、古い設定の干渉を避けるため、中の `config.toml`（および以前のガイドで残った `auth.json`）を削除して作り直すのがおすすめです。
 
 **ターミナルコマンドでフォルダを作成する：**
 
@@ -42,21 +42,11 @@ Codex CLI をインストールせず、**Codex App デスクトップクライ�
 rm -rf ~/.codex && mkdir ~/.codex
 ```
 
-`.codex` フォルダ内に 2 つのファイルを作成します：
-
-### auth.json
-
-API キーを保持します：
-
-```json
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
-```
+`.codex` フォルダ内に `config.toml` を作成します。
 
 ### config.toml
 
-サービスプロバイダーを設定します：
+サービスプロバイダーを設定します。API キーはファイル末尾のリクエストヘッダーに記述します：
 
 ```toml
 model = "gpt-5.4"
@@ -107,14 +97,18 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
+
+[model_providers.codex.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 ```
+
+最後の行をご自身の `sk-` キーに置き換えてください。`Bearer` とキーの間にはスペースを 1 つ入れます。`[model_providers.codex.http_headers]` セクションはファイルの最後に置き、その後に他の設定を書かないでください。
 
 <Callout type="info">
 
-通常はホームディレクトリ内の `.codex` フォルダの中にあります。そこに `.codex` フォルダが見つからない場合は、フォルダを手動で作成し、`config.toml` と `auth.json` も一緒に作成してください。
+通常はホームディレクトリ内の `.codex` フォルダにあります。そこに `.codex` フォルダが見つからない場合は、手動でフォルダを作成し、その中に `config.toml` を作成してください。
 
-設定ファイルの内容は [Codex CLI Mac/Linux セットアップガイド](/ja/docs/tools/codex-cli-mac) と同一です — そのガイドに従ってターミナルで作成でき、同様に Codex App を再起動すると反映されます。
+設定ファイルの内容は [Codex CLI Mac/Linux セットアップガイド](/ja/docs/tools/codex-cli-mac) と同じです。そのガイドに従ってターミナルで作成することもでき、同じように Codex App を再起動すれば反映されます。
 
 </Callout>
 
@@ -122,27 +116,33 @@ requires_openai_auth = true
 
 ## ステップ 2 — Codex App を再度開く
 
-設定ファイルを保存した後、Codex App を再度開くと、自動的にサインインして利用できる状態になります。
+設定ファイルを保存したら Codex App を開き直してください。自動的にサインインされ、そのまま使えるようになります。
 
 ---
 
-## 1M コンテキストを有効にする（オプション）
+## 1M コンテキストを有効にする（任意）
 
-`gpt-5.4` は 1M トークンの長いコンテキストをサポートしていますが、デフォルトではオフになっています。上記の `config.toml` の**トップレベル**（どの `[section]` よりも前）に 2 行を追加し、Codex App を再起動してください：
+`gpt-5.4` は 1M トークンのロングコンテキストに対応していますが、デフォルトではオフになっています。上記の `config.toml` の**トップレベル**（どの `[section]` よりも前）に次の 2 行を追加し、Codex App を再起動してください：
 
 ```toml
 model_context_window = 1000000
 model_auto_compact_token_limit = 900000
 ```
 
-フィールドの意味、確認方法、注意点については、[Codex で 1M コンテキストを有効にする](/ja/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional) を参照してください。
+各フィールドの意味、確認方法、注意点については [Codex で 1M コンテキストを有効にする](/ja/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional) をご覧ください。
 
 ---
 
 ## よくあるエラー
 
-**エラー 401、キーが正しくない：**
+**Error 401、キーが正しくない：**
 
-原因：リクエストが当社の API 中継ではなく OpenAI の公式エンドポイントに送信されている、または設定ファイルを再読み込みするためにツールを再起動していない。
+原因：リクエストが当社の API 中継ではなく、OpenAI の公式エンドポイントに送信されたままになっている、またはツールを再起動して設定ファイルを再読み込みしていない。
 
-対処：ガイドに従って `config.toml` と `auth.json` ファイルを再度作成または置き換え、アプリを再度開いてください。
+対処：ガイドに従って `config.toml` をもう一度作成または置き換えてから、アプリを開き直してください。
+
+**Error 401 API_KEY_REQUIRED：**
+
+原因：新しいバージョンの Codex では `auth.json` からキーを読み込まなくなっている可能性があり、リクエストにキーが含まれていません。
+
+対処：上記のとおり `config.toml` の末尾に `[model_providers.codex.http_headers]` セクションを追加してください。詳しくは [FAQ · Issue 10](/ja/docs/guide/faq#issue-10) をご覧ください。

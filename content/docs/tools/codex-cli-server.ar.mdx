@@ -1,27 +1,27 @@
 ---
-title: Codex CLI (خادم)
-description: "انشر Codex CLI على خادم WSL2 أو SSH واتصل بواجهة LMU AI API: ثبّت Node 20 باستخدام volta، ثم اكتب config.toml و auth.json في أمر واحد."
-ogDescription: انشر Codex CLI على خادم بعيد أو WSL2 أو بيئة SSH واربطه بـ LMU AI — مثالي لعمليات DevOps والتطوير عن بُعد والفرق التي تشارك موارد الحوسبة.
+title: Codex CLI (الخادم)
+description: "نشر Codex CLI على خادم WSL2 أو SSH والاتصال بواجهة LMU AI API: ثبّت Node 20 عبر volta، ثم اكتب config.toml بأمر واحد."
+ogDescription: نشر Codex CLI على خادم بعيد أو في بيئة WSL2 أو SSH وربطه بـ LMU AI — مثالي لـ DevOps والتطوير البعيد والفرق التي تتشارك موارد الحوسبة.
 keywords:
   - خادم Codex CLI
-  - Codex CLI SSH
-  - Codex CLI WSL2
-  - خادم Codex CLI Linux
+  - Codex CLI عبر SSH
+  - Codex CLI على WSL2
+  - Codex CLI على خادم Linux
   - Codex على خادم بعيد
-  - نشر Codex للفرق
-  - Codex CLI DevOps
+  - نشر Codex على مستوى الفريق
+  - Codex CLI لفرق DevOps
 alternateNames:
   - ربط Codex CLI على خادم / WSL2 بـ LMU AI
 ---
 
 
-لتهيئة Codex CLI في بيئة خادم WSL2 أو SSH البعيد.
+لإعداد Codex CLI في بيئة WSL2 أو على خادم بعيد عبر SSH.
 
 ---
 
-## خطوات التهيئة
+## خطوات الإعداد
 
-### الخطوة 1 — تثبيت بيئة Node.js (باستخدام volta)
+### الخطوة 1 — تثبيت بيئة Node.js (عبر volta)
 
 في طرفية الخادم، نفّذ:
 
@@ -33,7 +33,7 @@ curl https://get.volta.sh | bash
 
 <Callout type="warn" title="ملاحظة">
 
-بعد تثبيت volta بنجاح، **يجب أن تفتح نافذة طرفية جديدة** قبل تنفيذ الأمر التالي:
+بعد نجاح تثبيت volta، **يجب فتح نافذة طرفية جديدة** قبل تنفيذ الأمر التالي:
 
 </Callout>
 
@@ -47,9 +47,9 @@ volta install node@20
 volta install @openai/codex
 ```
 
-### الخطوة 4 — إنشاء ملفات التهيئة
+### الخطوة 4 — إنشاء ملفات الإعداد
 
-نفّذ ما يلي في طرفية الخادم لكتابة كلٍّ من `~/.codex/config.toml` و `~/.codex/auth.json` دفعة واحدة (**تذكّر استبدال المفتاح في auth.json بمفتاح `sk-` المُنشأ في لوحة التحكم**):
+نفّذ ما يلي في طرفية الخادم لكتابة `~/.codex/config.toml` بخطوة واحدة (**تذكّر استبدال "your sk- key generated in the console" في السطر الأخير بمفتاح `sk-` الخاص بك، مع الإبقاء على مسافة واحدة بعد `Bearer`**):
 
 ```bash
 mkdir -p ~/.codex
@@ -103,17 +103,13 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
-EOF
 
-cat > ~/.codex/auth.json <<'EOF'
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
+[model_providers.codex.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 EOF
 ```
 
-محتوى التهيئة مطابق لدليل [Codex CLI (Mac/Linux)](/ar/docs/tools/codex-cli-mac) — يمكنك أيضًا إنشاء الملفين يدويًا باستخدام `vim` / `nano`.
+محتوى الإعداد مطابق لما في [دليل Codex CLI (Mac/Linux)](/ar/docs/tools/codex-cli-mac) — ويمكنك أيضًا إنشاؤه يدويًا باستخدام `vim` / `nano`. إصدارات Codex الأحدث لم تعد تحتاج إلى `~/.codex/auth.json`، ووجود ملف قديم منه لا يسبب أي مشكلة.
 
 ### الخطوة 5 — تشغيل Codex CLI
 
@@ -131,11 +127,11 @@ codex --yolo
 
 ## تفعيل سياق 1M (اختياري)
 
-يدعم `gpt-5.4` سياقًا طويلًا يصل إلى 1M توكن، لكنه معطّل افتراضيًا. عدّل `~/.codex/config.toml`، وأضِف سطرين على **المستوى الأعلى** من الملف (قبل أي `[section]`)، ثم أعد الدخول إلى Codex:
+يدعم `gpt-5.4` سياقًا طويلًا بحجم 1M توكن، لكنه معطّل افتراضيًا. حرّر `~/.codex/config.toml`، وأضف سطرين في **المستوى الأعلى** من الملف (قبل أي `[section]`)، ثم أعد الدخول إلى Codex:
 
 ```toml
 model_context_window = 1000000
 model_auto_compact_token_limit = 900000
 ```
 
-لمعرفة معاني الحقول وكيفية التحقق والملاحظات المهمة، راجع [تفعيل سياق 1M في Codex](/ar/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional).
+لمعاني الحقول وطريقة التحقق والملاحظات المهمة، راجع [تفعيل سياق 1M في Codex](/ar/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional).

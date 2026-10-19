@@ -19,7 +19,7 @@ alternateNames:
   - Codex 1M token config guide
 faq:
   - q: How do I point the Codex CLI at a third-party API on Mac / Linux?
-    a: "After installing Node.js 20+ and the Codex CLI, create two files under ~/.codex/ by hand: config.toml, where you set model_provider and base_url to https://api.lmuai.com, and auth.json, where you put the sk- key generated in the LMU AI console. No third-party config tool is needed, and it's a direct domestic connection with no proxy."
+    a: "After installing Node.js 20+ and the Codex CLI, create config.toml under ~/.codex/ by hand: set model_provider and base_url to https://api.lmuai.com, and in the [model_providers.codex.http_headers] section write Authorization = \"Bearer <the sk- key generated in the LMU AI console>\". No third-party config tool is needed, and it's a direct domestic connection with no proxy."
   - q: How do I enable the 1M-token long context in the Codex CLI?
     a: "Add model_context_window = 1000000 and model_auto_compact_token_limit = 900000 at the top level of ~/.codex/config.toml (before any [section]), save, and re-enter Codex. Set the second value to about 90% of the window; a larger value is clamped by Codex."
   - q: I enabled the 1M context but /status still shows 272K — what now?
@@ -29,7 +29,7 @@ faq:
 ---
 
 
-After installing the Codex CLI, create two config files by hand (`config.toml` + `auth.json`) to connect to the LMU AI API — no third-party config tool needed.
+After installing the Codex CLI, create one config file by hand, `config.toml` (the key goes in a request header inside it), to connect to the LMU AI API — no third-party config tool needed.
 
 ---
 
@@ -66,7 +66,7 @@ codex --version
 
 ## Step 3 — Create the config files
 
-The config directory is **`~/.codex/`** (create it if missing; overwrite any old files). Create/overwrite these two files in it:
+The config directory is **`~/.codex/`** (create it if missing; overwrite any old files). Create/overwrite `config.toml` in it:
 
 ### config.toml
 
@@ -119,16 +119,19 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
+
+[model_providers.codex.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 ```
 
-### auth.json
+<Callout type="warn" title="The key goes in a request header">
 
-```json
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
-```
+- Replace "your sk- key generated in the console" on the last line with your `sk-` key, **keeping one space between `Bearer` and the key**, e.g. `Authorization = "Bearer sk-xxxx"`
+- Put the `[model_providers.codex.http_headers]` section at the **very end** of the file, with no other settings after it
+- Newer Codex versions no longer need `auth.json`. If you created one with the old guide, leaving it in place is harmless, or you can delete it (keep it if you use the [Codex App image-generation skill](/en/docs/tools/codex-api-image))
+- If your old config has `requires_openai_auth = true` in the `[model_providers.codex]` section, just delete that line
+
+</Callout>
 
 ## Step 4 — Launch the Codex CLI
 

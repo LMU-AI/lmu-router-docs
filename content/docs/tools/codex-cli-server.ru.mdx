@@ -1,27 +1,27 @@
 ---
-title: Codex CLI (Сервер)
-description: "Разверните Codex CLI на сервере WSL2 или SSH и подключитесь к LMU AI API: установите Node 20 с помощью volta, затем создайте config.toml и auth.json одной командой."
-ogDescription: Разверните Codex CLI на удалённом сервере, WSL2 или в SSH-окружении и подключите его к LMU AI — идеально для DevOps, удалённой разработки и команд, совместно использующих вычислительные ресурсы.
+title: Codex CLI (сервер)
+description: "Разверните Codex CLI в WSL2 или на SSH-сервере и подключитесь к API LMU AI: установите Node 20 через volta, затем одной командой создайте config.toml."
+ogDescription: Разверните Codex CLI на удалённом сервере, в WSL2 или через SSH и подключите его к LMU AI — идеально для DevOps, удалённой разработки и команд с общими вычислительными ресурсами.
 keywords:
-  - сервер Codex CLI
+  - Codex CLI сервер
   - Codex CLI SSH
   - Codex CLI WSL2
-  - Codex CLI на сервере Linux
+  - Codex CLI Linux-сервер
   - Codex на удалённом сервере
-  - командное развёртывание Codex
+  - развёртывание Codex в команде
   - Codex CLI DevOps
 alternateNames:
-  - Подключение Codex CLI на сервере / WSL2 к LMU AI
+  - Подключение Codex CLI на сервере / в WSL2 к LMU AI
 ---
 
 
-Для настройки Codex CLI в окружении WSL2 или на удалённом сервере SSH.
+Для настройки Codex CLI в среде WSL2 или на удалённом SSH-сервере.
 
 ---
 
 ## Шаги настройки
 
-### Шаг 1 — Установите окружение Node.js (с помощью volta)
+### Шаг 1 — Установите окружение Node.js (через volta)
 
 В терминале сервера выполните:
 
@@ -33,7 +33,7 @@ curl https://get.volta.sh | bash
 
 <Callout type="warn" title="Примечание">
 
-После успешной установки volta вы **должны открыть новое окно терминала** перед выполнением следующей команды:
+После успешной установки volta **обязательно откройте новое окно терминала**, прежде чем выполнять следующую команду:
 
 </Callout>
 
@@ -49,7 +49,7 @@ volta install @openai/codex
 
 ### Шаг 4 — Создайте файлы конфигурации
 
-Выполните следующее в терминале сервера, чтобы записать сразу оба файла `~/.codex/config.toml` и `~/.codex/auth.json` (**не забудьте заменить ключ в auth.json на `sk-`-ключ, сгенерированный в консоли**):
+Выполните в терминале сервера следующую команду, чтобы за один раз записать `~/.codex/config.toml` (**не забудьте заменить «ваш ключ sk-, созданный в консоли» в последней строке на свой ключ `sk-`, сохранив один пробел после `Bearer`**):
 
 ```bash
 mkdir -p ~/.codex
@@ -103,17 +103,13 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
-EOF
 
-cat > ~/.codex/auth.json <<'EOF'
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
+[model_providers.codex.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 EOF
 ```
 
-Содержимое конфигурации идентично [руководству Codex CLI (Mac/Linux)](/ru/docs/tools/codex-cli-mac) — вы также можете создать эти два файла вручную с помощью `vim` / `nano`.
+Содержимое конфигурации идентично руководству [Codex CLI (Mac/Linux)](/ru/docs/tools/codex-cli-mac) — файл также можно создать вручную через `vim` / `nano`. Новым версиям Codex больше не нужен `~/.codex/auth.json`; оставшийся старый файл не помешает.
 
 ### Шаг 5 — Запустите Codex CLI
 
@@ -129,13 +125,13 @@ codex --yolo
 
 ---
 
-## Включение контекста 1M (опционально)
+## Включение контекста 1M (необязательно)
 
-`gpt-5.4` поддерживает длинный контекст в 1M токенов, но по умолчанию он отключён. Отредактируйте `~/.codex/config.toml`, добавьте две строки на **верхнем уровне** файла (до любой `[section]`) и снова войдите в Codex:
+`gpt-5.4` поддерживает длинный контекст на 1M токенов, но по умолчанию он отключён. Откройте `~/.codex/config.toml`, добавьте две строки на **верхнем уровне** файла (перед любым `[section]`) и снова войдите в Codex:
 
 ```toml
 model_context_window = 1000000
 model_auto_compact_token_limit = 900000
 ```
 
-О значениях полей, способах проверки и предостережениях см. [Включение контекста 1M в Codex](/ru/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional).
+Значения полей, способы проверки и ограничения описаны в разделе [Включение контекста 1M в Codex](/ru/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional).

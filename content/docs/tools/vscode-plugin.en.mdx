@@ -31,7 +31,7 @@ The Codex extension method on this page suits users who want to use the **GPT / 
 
 Cause: the request is still going to the official OpenAI backend rather than our API relay, or you haven't restarted the tool to reload the config file.
 
-Fix: follow the guide again to **create or replace** the two files `config.toml` and `auth.json`, then restart the IDE tool.
+Fix: follow the guide again to **create or replace** `config.toml`, then restart the IDE tool.
 
 <Callout type="info" title="When you hit an error">
 
@@ -87,18 +87,12 @@ model_auto_compact_token_limit = 900000
 name = "OpenAI"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
+
+[model_providers.OpenAI.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 ```
 
-### Step 3 — Write auth.json
-
-In the `.codex` directory, create or overwrite `auth.json`:
-
-```json
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
-```
+Replace the last line with your `sk-` key, keeping one space between `Bearer` and the key, and put the `http_headers` section at the very end of the file. Newer Codex versions no longer need `auth.json`; an old one left in place is harmless.
 
 Once configured, open VS Code, Cursor, or Trae, and the Codex extension inside will sign in automatically.
 
@@ -126,7 +120,7 @@ If you previously signed in with the official account or another platform, sign 
 
 ### Finish the configuration
 
-After setting up `config.toml` and `auth.json`, reopen the Codex extension and click **Continue** to complete the sign-in flow.
+After setting up `config.toml`, reopen the Codex extension and click **Continue** to complete the sign-in flow.
 
 <Callout type="info" title="About model display">
 

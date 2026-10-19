@@ -1,7 +1,7 @@
 ---
 title: Codex CLI (Serveur)
-description: "Déployez le Codex CLI sur un serveur WSL2 ou SSH et connectez-le à l'API LMU AI : installez Node 20 avec volta, puis écrivez config.toml et auth.json en une seule commande."
-ogDescription: Déployez le Codex CLI sur un serveur distant, WSL2 ou un environnement SSH et connectez-le à LMU AI — idéal pour le DevOps, le développement à distance et les équipes partageant de la puissance de calcul.
+description: "Déployez le Codex CLI sur un serveur WSL2 ou SSH et connectez-le à l'API LMU AI : installez Node 20 avec volta, puis écrivez config.toml en une seule commande."
+ogDescription: Déployez le Codex CLI sur un serveur distant, en WSL2 ou dans un environnement SSH et connectez-le à LMU AI — idéal pour le DevOps, le développement à distance et les équipes qui partagent des ressources de calcul.
 keywords:
   - Codex CLI serveur
   - Codex CLI SSH
@@ -15,7 +15,7 @@ alternateNames:
 ---
 
 
-Pour configurer le Codex CLI dans un environnement de serveur distant WSL2 ou SSH.
+Pour configurer le Codex CLI dans un environnement WSL2 ou sur un serveur distant en SSH.
 
 ---
 
@@ -33,7 +33,7 @@ curl https://get.volta.sh | bash
 
 <Callout type="warn" title="Remarque">
 
-Après l'installation réussie de volta, vous **devez ouvrir une nouvelle fenêtre de terminal** avant d'exécuter la commande suivante :
+Une fois volta installé avec succès, vous **devez ouvrir une nouvelle fenêtre de terminal** avant d'exécuter la commande suivante :
 
 </Callout>
 
@@ -49,7 +49,7 @@ volta install @openai/codex
 
 ### Étape 4 — Créer les fichiers de configuration
 
-Exécutez ce qui suit dans le terminal du serveur pour écrire à la fois `~/.codex/config.toml` et `~/.codex/auth.json` en une seule fois (**n'oubliez pas de remplacer la clé dans auth.json par la clé `sk-` générée dans la console**) :
+Exécutez ce qui suit dans le terminal du serveur pour écrire `~/.codex/config.toml` en une seule fois (**n'oubliez pas de remplacer « votre clé sk- générée dans la console » sur la dernière ligne par votre clé `sk-`, en conservant un espace après `Bearer`**) :
 
 ```bash
 mkdir -p ~/.codex
@@ -103,17 +103,13 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
-EOF
 
-cat > ~/.codex/auth.json <<'EOF'
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
+[model_providers.codex.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 EOF
 ```
 
-Le contenu de la configuration est identique à celui du guide [Codex CLI (Mac/Linux)](/fr/docs/tools/codex-cli-mac) — vous pouvez également créer les deux fichiers à la main avec `vim` / `nano`.
+Le contenu de la configuration est identique à celui du [guide Codex CLI (Mac/Linux)](/fr/docs/tools/codex-cli-mac) — vous pouvez aussi le créer à la main avec `vim` / `nano`. Les versions récentes de Codex n'ont plus besoin de `~/.codex/auth.json` ; en laisser un ancien en place est sans conséquence.
 
 ### Étape 5 — Lancer le Codex CLI
 
@@ -131,11 +127,11 @@ codex --yolo
 
 ## Activer le contexte de 1M (optionnel)
 
-`gpt-5.4` prend en charge un long contexte de 1M tokens, mais il est désactivé par défaut. Modifiez `~/.codex/config.toml`, ajoutez deux lignes au **niveau supérieur** du fichier (avant toute `[section]`), et relancez Codex :
+`gpt-5.4` prend en charge un contexte long de 1M tokens, mais il est désactivé par défaut. Modifiez `~/.codex/config.toml`, ajoutez deux lignes au **niveau racine** du fichier (avant toute `[section]`), puis relancez Codex :
 
 ```toml
 model_context_window = 1000000
 model_auto_compact_token_limit = 900000
 ```
 
-Pour la signification des champs, comment vérifier, et les mises en garde, consultez [Activer le contexte de 1M dans Codex](/fr/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional).
+Pour la signification des champs, la méthode de vérification et les points d'attention, voir [Activer le contexte de 1M dans Codex](/fr/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional).

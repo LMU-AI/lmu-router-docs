@@ -1,7 +1,7 @@
 ---
 title: Codex CLI (Server)
-description: "Stellen Sie die Codex CLI auf einem WSL2- oder SSH-Server bereit und verbinden Sie sie mit der LMU AI API: Installieren Sie Node 20 mit volta und schreiben Sie dann config.toml und auth.json in einem einzigen Befehl."
-ogDescription: Stellen Sie die Codex CLI auf einem Remote-Server, WSL2 oder in einer SSH-Umgebung bereit und verbinden Sie sie mit LMU AI — ideal für DevOps, Remote-Entwicklung und Teams, die sich Rechenleistung teilen.
+description: "Codex CLI auf einem WSL2- oder SSH-Server bereitstellen und mit der LMU AI API verbinden: Node 20 mit volta installieren, dann config.toml mit einem Befehl schreiben."
+ogDescription: Codex CLI auf einem Remote-Server, in WSL2 oder in einer SSH-Umgebung bereitstellen und mit LMU AI verbinden — ideal für DevOps, Remote-Entwicklung und Teams, die sich Rechenleistung teilen.
 keywords:
   - Codex CLI Server
   - Codex CLI SSH
@@ -15,7 +15,7 @@ alternateNames:
 ---
 
 
-Zum Konfigurieren der Codex CLI in einer WSL2- oder SSH-Remote-Server-Umgebung.
+Für die Konfiguration der Codex CLI in einer WSL2- oder SSH-Remote-Server-Umgebung.
 
 ---
 
@@ -23,7 +23,7 @@ Zum Konfigurieren der Codex CLI in einer WSL2- oder SSH-Remote-Server-Umgebung.
 
 ### Schritt 1 — Node.js-Umgebung installieren (mit volta)
 
-Führen Sie im Server-Terminal aus:
+Führe im Terminal des Servers aus:
 
 ```bash
 curl https://get.volta.sh | bash
@@ -33,7 +33,7 @@ curl https://get.volta.sh | bash
 
 <Callout type="warn" title="Hinweis">
 
-Nachdem volta erfolgreich installiert wurde, **müssen Sie ein neues Terminalfenster öffnen**, bevor Sie den folgenden Befehl ausführen:
+Nachdem volta erfolgreich installiert wurde, **musst du ein neues Terminalfenster öffnen**, bevor du den folgenden Befehl ausführst:
 
 </Callout>
 
@@ -47,9 +47,9 @@ volta install node@20
 volta install @openai/codex
 ```
 
-### Schritt 4 — Die Konfigurationsdateien erstellen
+### Schritt 4 — Konfigurationsdateien erstellen
 
-Führen Sie Folgendes im Server-Terminal aus, um sowohl `~/.codex/config.toml` als auch `~/.codex/auth.json` auf einmal zu schreiben (**denken Sie daran, den Schlüssel in auth.json durch den in der Konsole generierten `sk-`-Schlüssel zu ersetzen**):
+Führe Folgendes im Terminal des Servers aus, um `~/.codex/config.toml` in einem Durchgang zu schreiben (**denke daran, „dein in der Konsole generierter sk- Key" in der letzten Zeile durch deinen `sk-`-Key zu ersetzen, und behalte dabei das eine Leerzeichen nach `Bearer`**):
 
 ```bash
 mkdir -p ~/.codex
@@ -103,17 +103,13 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
-EOF
 
-cat > ~/.codex/auth.json <<'EOF'
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
+[model_providers.codex.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 EOF
 ```
 
-Der Inhalt der Konfiguration ist identisch mit der [Codex CLI (Mac/Linux)-Anleitung](/de/docs/tools/codex-cli-mac) — Sie können die beiden Dateien auch von Hand mit `vim` / `nano` erstellen.
+Die Konfigurationsinhalte sind identisch mit der [Anleitung Codex CLI (Mac/Linux)](/de/docs/tools/codex-cli-mac) — du kannst die Datei auch manuell mit `vim` / `nano` erstellen. Neuere Codex-Versionen benötigen `~/.codex/auth.json` nicht mehr; eine alte Datei, die noch vorhanden ist, richtet keinen Schaden an.
 
 ### Schritt 5 — Codex CLI starten
 
@@ -129,13 +125,13 @@ codex --yolo
 
 ---
 
-## Den 1M-Kontext aktivieren (optional)
+## 1M-Kontext aktivieren (optional)
 
-`gpt-5.4` unterstützt einen langen 1M-Token-Kontext, der jedoch standardmäßig deaktiviert ist. Bearbeiten Sie `~/.codex/config.toml`, fügen Sie zwei Zeilen auf der **obersten Ebene** der Datei hinzu (vor jeder `[section]`) und öffnen Sie Codex erneut:
+`gpt-5.4` unterstützt einen langen Kontext von 1M Token, der standardmäßig jedoch deaktiviert ist. Bearbeite `~/.codex/config.toml`, füge zwei Zeilen auf der **obersten Ebene** der Datei hinzu (vor jeder `[section]`) und starte Codex neu:
 
 ```toml
 model_context_window = 1000000
 model_auto_compact_token_limit = 900000
 ```
 
-Zu den Bedeutungen der Felder, zur Überprüfung und zu den Einschränkungen siehe [Den 1M-Kontext in Codex aktivieren](/de/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional).
+Zur Bedeutung der Felder, zur Überprüfung und zu den Einschränkungen siehe [1M-Kontext in Codex aktivieren](/de/docs/tools/codex-cli-mac#enabling-the-1m-context-in-codex-optional).

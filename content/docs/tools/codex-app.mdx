@@ -33,7 +33,7 @@ alternateNames:
 - **Mac/Linux**：`~` 用户目录下的 `.codex` 文件夹
 - **Windows**：`C:\users\你的用户名\.codex\`
 
-如果文件夹已经存在，建议先删掉里面的 `auth.json` 和 `config.toml`，再重新创建，避免旧配置干扰。
+如果文件夹已经存在，建议先删掉里面的 `config.toml`（以及旧教程留下的 `auth.json`），再重新创建，避免旧配置干扰。
 
 **使用终端命令创建文件夹：**
 
@@ -42,21 +42,11 @@ alternateNames:
 rm -rf ~/.codex && mkdir ~/.codex
 ```
 
-在 `.codex` 文件夹里创建两个文件：
-
-### auth.json
-
-存放你的 API 密钥：
-
-```json
-{
-  "OPENAI_API_KEY": "这里填入后台生成的sk-开头的密钥"
-}
-```
+在 `.codex` 文件夹里创建 `config.toml`。
 
 ### config.toml
 
-配置服务提供商：
+配置服务提供商，API 密钥写在文件最末尾的请求头里：
 
 ```toml
 model = "gpt-5.4"
@@ -107,12 +97,16 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
+
+[model_providers.codex.http_headers]
+Authorization = "Bearer 这里填入后台生成的sk-开头的密钥"
 ```
+
+把最后一行换成你的 `sk-` 密钥，`Bearer` 和密钥之间保留一个空格；`[model_providers.codex.http_headers]` 这一段放在文件最末尾，后面不要再接其它配置项。
 
 <Callout type="info">
 
-一般都在用户目录下的 `.codex` 文件夹内。如果在用户目录下找不到 `.codex` 文件夹，可以手动创建该文件夹，和手动创建 `config.toml` 和 `auth.json` 即可。
+一般都在用户目录下的 `.codex` 文件夹内。如果在用户目录下找不到 `.codex` 文件夹，可以手动创建该文件夹，再手动创建 `config.toml` 即可。
 
 配置文件内容与 [Codex CLI Mac/Linux 配置教程](./codex-cli-mac) 完全一致，可参考该教程在终端中创建，重启 CODEX APP 后同样生效。
 
@@ -145,4 +139,10 @@ model_auto_compact_token_limit = 900000
 
 原因：请求还是走的 OpenAI 官方，没有请求我们中转站，或者没有重启工具重新加载配置文件。
 
-解决：请再次按教程创建或替换 `config.toml` 和 `auth.json` 这两个文件，重新打开 APP 即可。
+解决：请再次按教程创建或替换 `config.toml`，重新打开 APP 即可。
+
+**报错 401 API_KEY_REQUIRED：**
+
+原因：新版 Codex 可能不再读取 `auth.json` 里的密钥，请求没带上密钥。
+
+解决：按上面的 `config.toml` 在文件末尾加上 `[model_providers.codex.http_headers]` 段，详见[常见问题 · 问题 10](../guide/faq#问题-10401-api_key_requiredcodex-请求未携带密钥)。

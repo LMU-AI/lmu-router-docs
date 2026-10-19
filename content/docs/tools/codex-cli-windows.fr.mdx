@@ -1,45 +1,45 @@
 ---
 title: Codex CLI (Windows)
-description: Installez et configurez le Codex CLI sous Windows pour vous connecter à l'API LMU AI, en apprenant notamment à activer le contexte long de 1M tokens dans config.toml.
-ogDescription: "Installez le Codex CLI sous Windows et connectez-le à LMU AI : fonctionne avec PowerShell / WSL2, utilisez OpenAI Codex / GPT sans proxy ; deux lignes dans config.toml activent le contexte long de 1M."
+description: Installez et configurez le Codex CLI sous Windows pour vous connecter à l'API LMU AI, avec la méthode pour activer le contexte long de 1M tokens dans config.toml.
+ogDescription: "Installez le Codex CLI sous Windows et connectez-le à LMU AI : compatible PowerShell / WSL2, utilisez OpenAI Codex / GPT sans proxy ; deux lignes dans config.toml activent le contexte long de 1M."
 keywords:
   - Codex CLI Windows
-  - installer Codex CLI Windows
+  - installation Codex CLI Windows
   - configuration Codex Windows
   - PowerShell Codex
   - WSL2 Codex
   - Codex CLI Windows en Chine
   - relais OpenAI Codex Windows
   - Codex contexte 1M Windows
-  - Codex contexte long
+  - contexte long Codex
   - model_context_window
   - model_auto_compact_token_limit
 alternateNames:
   - Connecter le Codex CLI sous Windows à LMU AI
-  - Activer le contexte 1M dans Codex sous Windows
+  - Activer le contexte de 1M dans Codex sous Windows
 # No faq here: the two pitfalls (script execution blocked, and CODEX not recognized) are already covered by faq.mdx questions 4 / 5, which carry the full original error text
 # and resolution steps and emit the FAQPage from that page. This page's body only gives the commands inline in the install steps, and does not duplicate the same Q&A.
 ---
 
 
-Après avoir installé le Codex CLI, créez à la main deux fichiers de configuration (`config.toml` + `auth.json`) pour vous connecter à l'API LMU AI — aucun outil de configuration tiers nécessaire.
+Après avoir installé le Codex CLI, créez à la main un seul fichier de configuration, `config.toml` (la clé est placée dans un en-tête de requête à l'intérieur), pour vous connecter à l'API LMU AI — aucun outil de configuration tiers n'est nécessaire.
 
 ---
 
 ## Étape 1 — Installer Windows Terminal
 
-Sous Windows, nous recommandons d'utiliser **Windows Terminal** plutôt que CMD pour le Codex CLI — il prend en charge plusieurs fenêtres et est plus pratique.
+Sous Windows, nous recommandons d'utiliser **Windows Terminal** plutôt que CMD pour le Codex CLI — il prend en charge plusieurs fenêtres et s'avère plus pratique.
 
-- Téléchargement depuis le cloud chinois (recommandé, rapide) : [https://www.ilanzou.com/s/MzWnpE05](https://www.ilanzou.com/s/MzWnpE05)
-- Téléchargement depuis GitHub : [https://github.com/microsoft/terminal/releases/tag/v1.23.20211.0](https://github.com/microsoft/terminal/releases/tag/v1.23.20211.0)
+- Téléchargement via cloud chinois (recommandé, rapide) : [https://www.ilanzou.com/s/MzWnpE05](https://www.ilanzou.com/s/MzWnpE05)
+- Téléchargement GitHub : [https://github.com/microsoft/terminal/releases/tag/v1.23.20211.0](https://github.com/microsoft/terminal/releases/tag/v1.23.20211.0)
 
-Téléchargez `Microsoft.WindowsTerminal_1.23.20211.0_x64.zip`, décompressez-le, et double-cliquez sur `WindowsTerminal.exe` pour le lancer — c'est une bonne idée de créer un raccourci sur le bureau.
+Téléchargez `Microsoft.WindowsTerminal_1.23.20211.0_x64.zip`, décompressez-le, puis double-cliquez sur `WindowsTerminal.exe` pour le lancer — c'est une bonne idée de créer un raccourci sur le bureau.
 
 ## Étape 2 — Installer Node.js
 
 > Si c'est déjà installé, vous pouvez passer cette étape ; vérifiez avec : `node -v`
 
-Vous avez besoin de **Node.js 20+** — téléchargement : [https://nodejs.org/en/download](https://nodejs.org/en/download)
+Il vous faut **Node.js 20+** — téléchargement : [https://nodejs.org/en/download](https://nodejs.org/en/download)
 
 Pendant l'installation, veillez à cocher **« Automatically install the necessary tools »**.
 
@@ -52,7 +52,7 @@ node -v
 
 <Callout type="info" title="Cas particulier">
 
-Si `node.js` n'est pas installé, ou si vous l'aviez installé auparavant mais que l'environnement est mal configuré, téléchargez-le et réinstallez-le une fois, puis rouvrez le terminal.
+Si `node.js` n'est pas installé, ou si vous l'avez installé auparavant mais que l'environnement est mal configuré, téléchargez-le et réinstallez-le une fois, puis réouvrez le terminal.
 
 </Callout>
 
@@ -84,7 +84,7 @@ codex --version
 
 ## Étape 4 — Créer les fichiers de configuration
 
-Le répertoire de configuration est **`C:\users\your-username\.codex\`** (créez-le s'il est absent ; écrasez tout ancien fichier). Créez/écrasez ces deux fichiers dedans :
+Le répertoire de configuration est **`C:\users\your-username\.codex\`** (créez-le s'il est absent ; écrasez tout ancien fichier). Créez/écrasez `config.toml` à l'intérieur :
 
 ### config.toml
 
@@ -137,26 +137,29 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
+
+[model_providers.codex.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 ```
 
-### auth.json
+<Callout type="warn" title="La clé va dans un en-tête de requête">
 
-```json
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
-```
+- Remplacez « votre clé sk- générée dans la console » sur la dernière ligne par votre clé `sk-`, **en gardant un espace entre `Bearer` et la clé**, par exemple `Authorization = "Bearer sk-xxxx"`
+- Placez la section `[model_providers.codex.http_headers]` **tout à la fin** du fichier, sans aucun autre paramètre après elle
+- Les versions récentes de Codex n'ont plus besoin de `auth.json`. Si vous en avez créé un avec l'ancien guide, le laisser en place est sans conséquence, ou vous pouvez le supprimer (gardez-le si vous utilisez la [compétence de génération d'images de l'application Codex](/fr/docs/tools/codex-api-image))
+- Si votre ancienne configuration contient `requires_openai_auth = true` dans la section `[model_providers.codex]`, supprimez simplement cette ligne
+
+</Callout>
 
 ## Étape 5 — Lancer le Codex CLI
 
-Après avoir enregistré les fichiers de configuration, rouvrez le terminal et lancez ce qui suit pour démarrer et vous connecter automatiquement :
+Après avoir enregistré les fichiers de configuration, réouvrez le terminal et exécutez ce qui suit pour lancer et vous connecter automatiquement :
 
 ```bash
 codex --dangerously-bypass-approvals-and-sandbox
 ```
 
-Ou la forme abrégée :
+Ou la forme courte :
 
 ```bash
 codex --yolo
@@ -164,47 +167,47 @@ codex --yolo
 
 > Cette commande de lancement contourne les approbations de sécurité, vous n'approuvez donc pas chaque étape exécutée automatiquement.
 
-Au lancement réussi, l'interface affiche le modèle courant comme `gpt-5.4 xhigh` (le modèle défini par le champ `model` dans `config.toml`).
+En cas de lancement réussi, l'interface affiche le modèle courant comme `gpt-5.4 xhigh` (le modèle défini par le champ `model` dans `config.toml`).
 
 ---
 
-## Activer le contexte 1M dans Codex (facultatif)
+## Activer le contexte de 1M dans Codex (facultatif)
 
-`gpt-5.4` prend en charge une **fenêtre de contexte long de 1M tokens** (seulement 272K par défaut), utile pour examiner de très grands dépôts, analyser de longs journaux, refactoriser sur plusieurs fichiers et des tâches similaires. Codex n'active **pas** la fenêtre de 1M par défaut ; vous devez la déclarer explicitement dans `config.toml`.
+`gpt-5.4` prend en charge une **fenêtre de contexte longue de 1M tokens** (seulement 272K par défaut), utile pour relire de très gros dépôts, analyser de longs journaux, refactoriser sur plusieurs fichiers et des tâches similaires. Codex **n'active pas** la fenêtre de 1M par défaut ; vous devez la déclarer explicitement dans `config.toml`.
 
-### Comment configurer : ajouter deux lignes à config.toml
+### Comment configurer : ajoutez deux lignes à config.toml
 
-Modifiez `C:\users\your-username\.codex\config.toml` et ajoutez ce qui suit au **niveau supérieur** (avant toute `[section]`, par exemple juste après `model = "gpt-5.4"`) :
+Modifiez `C:\users\your-username\.codex\config.toml` et ajoutez ce qui suit au **niveau racine** (avant toute `[section]`, par exemple juste après `model = "gpt-5.4"`) :
 
 ```toml
 model_context_window = 1000000
 model_auto_compact_token_limit = 900000
 ```
 
-Enregistrez, rouvrez le terminal et rentrez dans Codex pour l'appliquer.
+Enregistrez, réouvrez le terminal et relancez Codex pour appliquer.
 
 **Référence des champs**
 
-| Champ | Objectif |
+| Champ | Rôle |
 |------|------|
-| `model_context_window` | Déclare la fenêtre de contexte utilisable du modèle en tokens ; `1000000` correspond à 1M. Non défini, il utilise la valeur par défaut du modèle (272K) |
-| `model_auto_compact_token_limit` | Le seuil de tokens qui déclenche la compaction automatique de l'historique (auto-compact) ; réglez-le à environ 90 % de la fenêtre (`900000` pour 1M). Les valeurs supérieures à 90 % de la fenêtre sont plafonnées par Codex, un nombre plus grand est donc inutile |
+| `model_context_window` | Déclare la fenêtre de contexte utilisable du modèle en tokens ; `1000000` correspond à 1M. Non défini, la valeur par défaut du modèle s'applique (272K) |
+| `model_auto_compact_token_limit` | Le seuil en tokens qui déclenche la compaction automatique de l'historique (auto-compact) ; réglez-le à environ 90 % de la fenêtre (`900000` pour 1M). Les valeurs supérieures à 90 % de la fenêtre sont ramenées par Codex, donc un nombre plus grand est inutile |
 
-### Vérifier que cela a pris effet
+### Vérifier la prise d'effet
 
-Après être rentré dans Codex, tapez `/status` et vérifiez si `context window` affiche environ 1M (certaines versions affichent environ 950K — une marge de sécurité de 5 % réservée par Codex). Vous pouvez aussi utiliser `/statusline` pour ajouter l'utilisation du contexte à la barre d'état afin de le surveiller en direct.
+Après avoir relancé Codex, tapez `/status` et vérifiez si `context window` affiche environ 1M (certaines versions affichent environ 950K — une marge de sécurité de 5 % réservée par Codex). Vous pouvez aussi utiliser `/statusline` pour ajouter l'utilisation du contexte à la barre d'état et la suivre en direct.
 
 ### Si vous utilisez CC Switch
 
 Si vous gérez la configuration Codex avec [CC Switch](/fr/docs/tools/cc-switch), ajoutez les deux mêmes lignes dans son éditeur de configuration Codex et appliquez — l'effet est identique :
 
-![Réglage de model_context_window = 1000000 et model_auto_compact_token_limit = 900000 pour la configuration Codex dans CC Switch afin d'activer le contexte long de 1M tokens](/images/tools/codex/codex-ccs.png)
+![Définition de model_context_window = 1000000 et model_auto_compact_token_limit = 900000 pour la configuration Codex dans CC Switch afin d'activer le contexte long de 1M tokens](/images/tools/codex/codex-ccs.png)
 
-<Callout type="warn" title="Notes d'utilisation">
+<Callout type="warn" title="Remarques d'utilisation">
 
-- **Doit être au niveau supérieur** : ces deux champs ne prennent pas effet à l'intérieur d'une section `[profiles.xxx]` (une limitation connue de Codex) ; placez-les aussi dans le `C:\users\your-username\.codex\config.toml` au niveau utilisateur, car un `.codex\config.toml` au niveau du projet peut être ignoré
-- **Prise en charge des modèles** : `gpt-5.4` et `gpt-5.5` prennent en charge le 1M via le canal API ; des modèles comme `gpt-5.3-codex` sont plafonnés à 272K, et aucune valeur de configuration ne peut dépasser la limite propre au modèle
-- **Coût plus élevé** : plus le contexte est long, plus chaque requête utilise de tokens ; la portion au-delà de 272K est facturée au tarif supérieur de contexte long, alors ne le laissez pas activé sauf pour des tâches très longues
-- **Différences de version** : certaines versions récentes de Codex lisent d'abord la taille de la fenêtre depuis le catalogue de modèles ; si `/status` affiche toujours l'ancienne valeur, mettez à jour vers la dernière version (`npm i -g @openai/codex@latest`) et réessayez
+- **Doit être au niveau racine** : ces deux champs ne prennent pas effet à l'intérieur d'une section `[profiles.xxx]` (limitation connue de Codex) ; placez-les également dans le `C:\users\your-username\.codex\config.toml` au niveau utilisateur, car un `.codex\config.toml` au niveau projet peut être ignoré
+- **Prise en charge par les modèles** : `gpt-5.4` et `gpt-5.5` prennent en charge 1M via le canal API ; des modèles comme `gpt-5.3-codex` sont plafonnés à 272K, et aucune valeur de configuration ne peut dépasser la limite propre au modèle
+- **Coût plus élevé** : plus le contexte est long, plus chaque requête consomme de tokens ; la portion au-delà de 272K est facturée au palier contexte long plus élevé, ne le laissez donc pas activé en dehors des tâches très longues
+- **Différences de versions** : certaines versions récentes de Codex lisent d'abord la taille de la fenêtre dans le catalogue de modèles ; si `/status` affiche toujours l'ancienne valeur, mettez à jour vers la dernière version (`npm i -g @openai/codex@latest`) et réessayez
 
 </Callout>

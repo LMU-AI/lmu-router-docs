@@ -19,7 +19,7 @@ alternateNames:
   - Codex 1M token 配置教程
 faq:
   - q: Mac / Linux 上怎么让 Codex CLI 走第三方 API？
-    a: "安装 Node.js 20+ 与 Codex CLI 后，在 ~/.codex/ 目录下手动创建 config.toml 与 auth.json 两个文件：config.toml 里配置 model_provider 与 base_url 指向 https://api.lmuai.com，auth.json 里填灵眸后台生成的 sk- 开头密钥。无需任何第三方配置工具，国内直连免代理。"
+    a: "安装 Node.js 20+ 与 Codex CLI 后，在 ~/.codex/ 目录下手动创建 config.toml：配置 model_provider 与 base_url 指向 https://api.lmuai.com，并在 [model_providers.codex.http_headers] 段写 Authorization = \"Bearer 灵眸后台生成的 sk- 开头密钥\"。无需任何第三方配置工具，国内直连免代理。"
   - q: Codex CLI 怎么开启 1M token 长上下文？
     a: "在 ~/.codex/config.toml 的**顶层**（任意 [section] 之前）追加 model_context_window = 1000000 与 model_auto_compact_token_limit = 900000 两行，保存后重新进入 Codex 即生效。第二个值建议设为窗口的 90%，写更大会被 Codex 钳制。"
   - q: 配了 1M 上下文但 /status 显示还是 272K 怎么办？
@@ -29,7 +29,7 @@ faq:
 ---
 
 
-安装 Codex CLI 后，手动创建两份配置文件（`config.toml` + `auth.json`）即可接入灵眸 API，无需任何第三方配置工具。
+安装 Codex CLI 后，手动创建一份配置文件 `config.toml`（密钥写在里面的请求头中）即可接入灵眸 API，无需任何第三方配置工具。
 
 ---
 
@@ -66,7 +66,7 @@ codex --version
 
 ## 第3步：创建配置文件
 
-配置文件目录为 **`~/.codex/`**（没有就新建，已有旧文件则覆盖）。在该目录下创建/覆盖以下两个文件：
+配置文件目录为 **`~/.codex/`**（没有就新建，已有旧文件则覆盖）。在该目录下创建/覆盖 `config.toml`：
 
 ### config.toml
 
@@ -119,16 +119,19 @@ hide_gpt5_1_migration_prompt = true
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
+
+[model_providers.codex.http_headers]
+Authorization = "Bearer 这里填入后台生成的sk-开头的密钥"
 ```
 
-### auth.json
+<Callout type="warn" title="密钥写在请求头里">
 
-```json
-{
-  "OPENAI_API_KEY": "这里填入后台生成的sk-开头的密钥"
-}
-```
+- 把最后一行的「这里填入后台生成的sk-开头的密钥」换成你的 `sk-` 密钥，**`Bearer` 和密钥之间保留一个空格**，例如 `Authorization = "Bearer sk-xxxx"`
+- `[model_providers.codex.http_headers]` 这一段要放在文件**最末尾**，后面不要再接其它配置项
+- 新版 Codex 不再需要 `auth.json`。以前按旧教程建过的，留着不影响，也可以删掉（用 [Codex App 生图 Skill](./codex-api-image) 的话请保留）
+- 旧配置里 `[model_providers.codex]` 段的 `requires_openai_auth = true` 这一行删掉即可
+
+</Callout>
 
 ## 第4步：启动 Codex CLI
 

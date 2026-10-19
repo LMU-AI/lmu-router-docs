@@ -31,7 +31,7 @@ alternateNames:
 
 原因：请求走的还是 OpenAI 官方，没有请求我们的中转站，或者没有重启工具重新加载配置文件。
 
-解决：请再次按教程**创建或替换** `config.toml` 和 `auth.json` 两个文件，然后重启 IDE 工具。
+解决：请再次按教程**创建或替换** `config.toml`，然后重启 IDE 工具。
 
 <Callout type="info" title="遇见报错">
 
@@ -87,18 +87,12 @@ model_auto_compact_token_limit = 900000
 name = "OpenAI"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
+
+[model_providers.OpenAI.http_headers]
+Authorization = "Bearer 这里填入后台生成的sk-开头的密钥"
 ```
 
-### 第3步：写入 auth.json
-
-在 `.codex` 目录下创建或覆盖 `auth.json`：
-
-```json
-{
-  "OPENAI_API_KEY": "这里填入后台生成的sk-开头的密钥"
-}
-```
+把最后一行换成你的 `sk-` 密钥，`Bearer` 和密钥之间保留一个空格；`http_headers` 这一段放在文件最末尾。新版 Codex 不再需要 `auth.json`，旧的留着不影响。
 
 配置完成后，打开 VS Code、Cursor、Trae，里面的 Codex 插件就能自动登录。
 
@@ -126,7 +120,7 @@ requires_openai_auth = true
 
 ### 完成配置
 
-配置好 `config.toml` 和 `auth.json` 后，重新打开 Codex 插件，点击「**Continue**」完成登录流程。
+配置好 `config.toml` 后，重新打开 Codex 插件，点击「**Continue**」完成登录流程。
 
 <Callout type="info" title="关于模型显示">
 

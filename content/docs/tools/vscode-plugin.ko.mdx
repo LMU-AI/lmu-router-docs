@@ -1,13 +1,13 @@
 ---
 title: Codex 확장 프로그램 (VS Code / Cursor / Trae)
-description: Codex 확장 프로그램을 통해 OpenAI 호환 인터페이스로 Claude / Codex를 사용하여 VS Code, Cursor, Trae 같은 에디터에서 LMU AI API에 연결하세요.
+description: Codex 확장 프로그램을 통해 VS Code, Cursor, Trae 같은 편집기에서 LMU AI API에 연결하고, OpenAI 호환 인터페이스로 Claude / Codex를 사용하세요.
 ogDescription: VS Code / Cursor / Trae에 Codex 확장 프로그램 설치 + LMU AI — OpenAI 호환 인터페이스로 Claude, GPT, Codex, 중국어 모델을 동시에 사용하세요.
 keywords:
   - Codex VS Code 확장 프로그램
   - Codex Cursor 확장 프로그램
   - Codex Trae 확장 프로그램
   - VS Code OpenAI 확장 프로그램
-  - Cursor를 OpenAI에 연결
+  - Cursor에 OpenAI 연결
   - OpenAI 호환 VS Code
   - Codex IDE 확장 프로그램
 alternateNames:
@@ -15,9 +15,9 @@ alternateNames:
 ---
 
 
-<Callout type="info" title="Trae 에디터를 사용하는 경우">
+<Callout type="info" title="Trae 편집기를 사용하는 경우">
 
-**Claude 또는 중국어 모델(GLM / Qwen 등)**을 사용하려면, Trae에는 더 간단한 네이티브 방식(확장 프로그램 없이 GUI에서 몇 번의 클릭만)이 있습니다 — [Trae 네이티브 모델 구성](/ko/docs/tools/trae)을 참조하세요.
+**Claude 또는 중국어 모델(GLM / Qwen 등)**을 사용하고 싶다면, Trae에는 더 간단한 기본 제공 방식이 있습니다(확장 프로그램 없이 GUI에서 몇 번의 클릭만). [Trae 기본 모델 설정](/ko/docs/tools/trae)을 참고하세요.
 
 이 페이지의 Codex 확장 프로그램 방식은 **GPT / Codex** 시리즈를 사용하려는 사용자에게 적합합니다.
 
@@ -27,35 +27,35 @@ alternateNames:
 
 ## 자주 발생하는 오류
 
-**오류: 구성 후 키가 잘못되었다는 401 오류가 발생함**
+**오류: 설정 후 키가 올바르지 않다는 401이 발생합니다**
 
-원인: 요청이 우리 API 릴레이가 아닌 여전히 공식 OpenAI 백엔드로 전달되고 있거나, 구성 파일을 다시 로드하기 위해 도구를 재시작하지 않았기 때문입니다.
+원인: 요청이 우리 API 중계가 아니라 여전히 공식 OpenAI 백엔드로 전달되고 있거나, 설정 파일을 다시 불러오기 위해 도구를 재시작하지 않았습니다.
 
-해결 방법: 가이드를 다시 따라 `config.toml`과 `auth.json` 두 파일을 **생성하거나 교체**한 다음, IDE 도구를 재시작하세요.
+해결: 가이드를 다시 따라 `config.toml`을 **생성하거나 교체**한 뒤 IDE 도구를 재시작하세요.
 
-<Callout type="info" title="오류가 발생하면">
+<Callout type="info" title="오류가 발생했을 때">
 
-오류 메시지를 스크린샷으로 찍어 번역해 보세요 — 무엇이 오류를 일으켰는지 스스로 파악할 수 있습니다!
+오류 메시지를 스크린샷으로 찍어 번역해 보세요. 오류의 원인을 직접 파악할 수 있습니다!
 
 </Callout>
 
 ---
 
-## 구성
+## 설정
 
-### 1단계 — 구성 파일 생성 / 덮어쓰기
+### 1단계 — 설정 파일 생성 / 덮어쓰기
 
-구성 파일 위치:
+설정 파일 위치:
 - **Mac/Linux**: `~/.codex/` 디렉터리
 - **Windows**: `C:\users\YourUsername\.codex\` 디렉터리
 
-<Callout type="warn" title="Windows 참고">
+<Callout type="warn" title="Windows 참고 사항">
 
-이전에 공식 계정이나 다른 플랫폼으로 로그인한 적이 있다면, 먼저 로그아웃한 후 구성하세요!
+이전에 공식 계정이나 다른 플랫폼으로 로그인한 적이 있다면, 먼저 로그아웃한 후 설정하세요!
 
 </Callout>
 
-`.codex` 폴더가 없다면, 터미널 명령으로 생성하세요:
+`.codex` 폴더가 없다면 터미널 명령으로 생성하세요:
 
 ```bash
 # Mac/Linux
@@ -87,20 +87,14 @@ model_auto_compact_token_limit = 900000
 name = "OpenAI"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
+
+[model_providers.OpenAI.http_headers]
+Authorization = "Bearer your sk- key generated in the console"
 ```
 
-### 3단계 — auth.json 작성
+마지막 줄을 본인의 `sk-` 키로 교체하고, `Bearer`와 키 사이에 공백 한 칸을 유지하며, `http_headers` 섹션은 파일의 가장 마지막에 두세요. 최신 Codex 버전에서는 `auth.json`이 더 이상 필요하지 않으며, 이전 파일이 남아 있어도 문제되지 않습니다.
 
-`.codex` 디렉터리에서 `auth.json`을 생성하거나 덮어쓰세요:
-
-```json
-{
-  "OPENAI_API_KEY": "your sk- key generated in the console"
-}
-```
-
-구성이 완료되면 VS Code, Cursor, 또는 Trae를 열면 내부의 Codex 확장 프로그램이 자동으로 로그인됩니다.
+설정이 끝나면 VS Code, Cursor 또는 Trae를 열면 내부의 Codex 확장 프로그램이 자동으로 로그인됩니다.
 
 ---
 
@@ -108,36 +102,36 @@ requires_openai_auth = true
 
 ### 확장 프로그램 설치
 
-1. VS Code를 열고 먼저 아무 프로젝트 폴더나 워크스페이스로 여세요 (**그렇지 않으면 프로젝트 폴더를 열라는 팝업이 뜹니다!**)
-2. 왼쪽의 확장 프로그램 패널(Extensions 아이콘)을 클릭하세요
-3. **Codex**를 검색하여 OpenAI의 공식 확장 프로그램 "Codex – OpenAI's coding agent"를 찾아 설치를 클릭하세요
-4. 설치 후 왼쪽 사이드바에 Codex 항목이 나타납니다 (없다면 인터페이스 오른쪽 상단을 확인하세요)
+1. VS Code를 열고 먼저 아무 프로젝트 폴더를 작업 공간으로 엽니다 (**그렇지 않으면 프로젝트 폴더를 열라는 팝업이 표시됩니다!**)
+2. 왼쪽의 확장 프로그램 패널(Extensions 아이콘)을 클릭합니다
+3. **Codex**를 검색하고, OpenAI 공식 확장 프로그램인 "Codex – OpenAI's coding agent"를 찾아 설치를 클릭합니다
+4. 설치 후 왼쪽 사이드바에 Codex 항목이 나타납니다 (보이지 않으면 인터페이스 오른쪽 상단을 확인하세요)
 
 ### 기존 계정에서 로그아웃
 
 <Callout type="warn" title="중요">
 
-이전에 공식 계정이나 다른 플랫폼으로 로그인한 적이 있다면, 먼저 로그아웃한 후 구성하세요!
+이전에 공식 계정이나 다른 플랫폼으로 로그인한 적이 있다면, 먼저 로그아웃한 후 설정하세요!
 
 </Callout>
 
-1. Codex 패널 오른쪽 상단의 설정 아이콘을 클릭하세요
-2. **Log out**을 클릭하여 로그아웃하세요
+1. Codex 패널 오른쪽 상단의 설정 아이콘을 클릭합니다
+2. **Log out**을 클릭해 로그아웃합니다
 
-### 구성 완료
+### 설정 마무리
 
-`config.toml`과 `auth.json`을 설정한 후, Codex 확장 프로그램을 다시 열고 **Continue**를 클릭하여 로그인 과정을 완료하세요.
+`config.toml`을 설정한 후 Codex 확장 프로그램을 다시 열고 **Continue**를 클릭해 로그인 과정을 완료하세요.
 
 <Callout type="info" title="모델 표시에 대하여">
 
-GPT-5.3 모델은 드롭다운에 나타나지 않습니다. "Custom" 위에 마우스를 올리면 현재 사용 중인 모델을 확인할 수 있습니다.
+GPT-5.3 모델은 드롭다운에 표시되지 않습니다. "Custom" 위에 마우스를 올리면 현재 사용 중인 모델을 확인할 수 있습니다.
 
-콘솔의 "사용 기록"에서 실제로 요청된 모델을 확인할 수도 있습니다.
+콘솔의 "사용 기록"에서 실제로 요청된 모델도 확인할 수 있습니다.
 
 </Callout>
 
 ---
 
-## Claude 또는 중국어 모델을 사용하고 싶으신가요?
+## Claude나 중국어 모델을 사용하고 싶으신가요?
 
-Trae만 사용하고 목표가 **Claude / GLM / Qwen** 같은 모델이라면, Codex 확장 프로그램이 필요 없습니다 — [Trae 네이티브 모델 구성](/ko/docs/tools/trae)(Anthropic 프로토콜, GUI에서 몇 개의 필드만 채우면 됨)이 더 간단합니다.
+Trae만 사용하면서 **Claude / GLM / Qwen** 같은 모델을 목표로 한다면 Codex 확장 프로그램이 필요하지 않습니다. [Trae 기본 모델 설정](/ko/docs/tools/trae)(Anthropic 프로토콜, GUI에서 몇 개 항목만 입력)이 더 간단합니다.

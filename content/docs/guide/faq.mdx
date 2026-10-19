@@ -26,7 +26,7 @@ faq:
   - q: "报错 exceeded retry limit, last status: 429 Too Many Requests 是什么原因？"
     a: "当日额度已用完。到「我的订阅」确认额度，如需增量请购买**不同规格**的套餐（如天卡换月卡），再到后台 API 密钥中切换到新套餐的分组。购买相同套餐是续期而非增量，不会增加当日额度。"
   - q: "报错 401 Unauthorized: Incorrect API key provided 怎么排查？"
-    a: "说明请求仍走了 OpenAI 官方而非灵眸中转。依次检查：config.toml 与 auth.json 两个文件是否都已正确创建或替换；重启 VS Code / Cursor 等 IDE 重新加载配置；若此前用官方或其他平台登录过，先退出账号再重新配置。"
+    a: "说明请求仍走了 OpenAI 官方而非灵眸中转。依次检查：config.toml 是否已按教程正确创建或替换；重启 VS Code / Cursor 等 IDE 重新加载配置；若此前用官方或其他平台登录过，先退出账号再重新配置。"
   - q: "Windows 报「无法加载文件，因为在此系统上禁止运行脚本」怎么解决？"
     a: "在 PowerShell 中执行 Set-ExecutionPolicy RemoteSigned -Scope CurrentUser，然后关闭并重新打开一个新终端即可。"
   - q: "Windows 提示 CODEX 无法识别为 cmdlet 怎么办？"
@@ -40,7 +40,7 @@ faq:
   - q: "灵眸 API 需要科学上网吗？"
     a: "不需要。灵眸接入网关部署在中国境内，api.lmuai.com 国内直连即可获得最快速度与最稳定的连接。反之挂着魔法或代理时，代理自动切换出口 IP 反而容易造成断流。"
   - q: "Codex 报 unexpected status 401 Unauthorized: API_KEY_REQUIRED 怎么办？"
-    a: "Codex 版本的已知 bug：自定义 model provider 走 responses 协议时，请求完全没有携带 API Key（三个密钥头一个都没发）。在 config.toml 的 [model_providers.你的ID] 段内补一行 requires_openai_auth = true，保存后重开终端即可。"
+    a: "新版 Codex 的认证方式变了：自定义 model provider 可能不再读取 auth.json 里的密钥，请求里没带 API Key（三个密钥头一个都没发）。在 config.toml 文件末尾加上 [model_providers.你的ID.http_headers] 段，写入 Authorization = \"Bearer 你的 sk- 密钥\"，保存后重开终端即可。"
 ---
 
 
@@ -115,7 +115,7 @@ unexpected status 401 Unauthorized: Incorrect API key provided
 **原因：** 请求还是走的 OpenAI 官方，没有走我们的中转站。
 
 **解决方案：**
-1. 确认已正确创建或替换 `config.toml` 和 `auth.json` 两个文件
+1. 确认已按教程正确创建或替换 `config.toml`
 2. 重启 IDE 工具（VS Code / Cursor 等）重新加载配置文件
 3. 若之前使用官方或其他平台登录过，请先退出账号再进行配置
 
@@ -273,27 +273,33 @@ Invalid `signature` in `thinking` block
 unexpected status 401 Unauthorized: {"code":"API_KEY_REQUIRED","message":"API key is required in Authorization header (Bearer scheme), x-api-key header, or x-goog-api-key header"}, url: https://api.lmuai.com/responses, request id: ...
 ```
 
-**原因：** 这是 Codex 版本的 bug——自定义 model provider 使用 `wire_api = "responses"` 时，Codex 发出的请求**完全没有携带 API Key**（`Authorization`、`x-api-key`、`x-goog-api-key` 三个头一个都没发），网关校验不到密钥，返回 401 `API_KEY_REQUIRED`。
+**原因：** 新版 Codex 的认证方式变了——凭据可能改存在系统钥匙串（keyring）里、不再读取 `auth.json`，这时按旧教程配置（`auth.json` + `requires_openai_auth = true`），Codex 发出的请求**完全没有携带 API Key**（`Authorization`、`x-api-key`、`x-goog-api-key` 三个头一个都没发），网关校验不到密钥，返回 401 `API_KEY_REQUIRED`。
 
 注意它和[问题 3](#问题-3401-密钥不正确) 的 `Incorrect API key provided` 不是一回事：那个是密钥发了但不对（多数因为请求走了 OpenAI 官方而非灵眸中转），这个是**压根没发密钥**。
 
-**解决方案：** 打开 `~/.codex/config.toml`，找到你的 model provider 配置段 `[model_providers.<ID>]`（按本站教程配置的一般是 `[model_providers.codex]`），在该段内补上一行 `requires_openai_auth = true`：
+**解决方案：** 把密钥直接写进请求头。打开 `~/.codex/config.toml`（Windows 为 `C:\users\你的用户名\.codex\config.toml`），找到你的 model provider 配置段 `[model_providers.<ID>]`（按本站教程配置的一般是 `[model_providers.codex]`），删掉其中的 `requires_openai_auth = true`，再在**文件最末尾**加上对应的 `http_headers` 子表：
 
 ```toml
 [model_providers.codex]
 name = "codex"
 base_url = "https://api.lmuai.com"
 wire_api = "responses"
-requires_openai_auth = true
+
+[model_providers.codex.http_headers]
+Authorization = "Bearer 这里填入后台生成的sk-开头的密钥"
 ```
 
 保存后重新打开终端、重启 Codex 即可。
 
-<Callout type="info" title="按本站教程配置的用户不受影响">
+<Callout type="warn" title="几个容易写错的地方">
 
-本站 Codex 各教程（[Mac](../tools/codex-cli-mac) / [Windows](../tools/codex-cli-windows) / [服务器](../tools/codex-cli-server) / [Codex App](../tools/codex-app)）的 `config.toml` 示例里已包含 `requires_openai_auth = true`。遇到这个报错一般是因为配置复制自旧版教程或其他来源、缺了这一行，对照上面示例补齐即可。
+- 子表名里的 `codex` 要和上面 `[model_providers.codex]` 的 ID 一致（比如 VS Code 插件教程里是 `[model_providers.OpenAI.http_headers]`）
+- `Bearer` 和密钥之间保留**一个空格**
+- `http_headers` 子表要放在文件最末尾，后面再写的配置项会被当成请求头
 
 </Callout>
+
+本站 Codex 各教程（[Mac](../tools/codex-cli-mac) / [Windows](../tools/codex-cli-windows) / [服务器](../tools/codex-cli-server) / [Codex App](../tools/codex-app) / [VS Code 插件](../tools/vscode-plugin)）已更新为上面的写法。
 
 ---
 

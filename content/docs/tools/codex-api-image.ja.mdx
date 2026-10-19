@@ -1,7 +1,7 @@
 ---
 title: Codex App 画像生成（api-image スキル）
-description: Codex App にコミュニティ製の api-image スキルをインストールして、API モードの画像生成を復元します — LMU AI なら追加設定は不要で、テキストから画像、画像から画像、インペイントを自然言語で依頼できます。
-ogDescription: "最も簡単な Codex App 画像生成ガイド: Codex に https://github.com/yc-duan/api-image のスキルをインストールさせ、OpenAI image 2 標準 API で画像を生成します — LMU AI なら追加設定は不要です。"
+description: Codex App にコミュニティ製 api-image スキルをインストールして、API モードでの画像生成を復活させましょう。LMU AI なら auth.json を残しておくだけで、自然な言葉で指示するだけでテキストから画像生成、画像から画像生成、インペイントが使えます。
+ogDescription: "最もシンプルな Codex App 画像生成ガイド：Codex に https://github.com/yc-duan/api-image のスキルをインストールするよう伝え、OpenAI image 2 標準 API で画像を生成します。LMU AI なら auth.json をそのまま残しておくだけです。"
 keywords:
   - Codex App 画像生成
   - api-image
@@ -12,39 +12,53 @@ keywords:
   - Codex インペイント
 alternateNames:
   - Codex App 画像生成スキル
-  - api-image インストール
+  - api-image のインストール
 faq:
   - q: api-image とは何ですか？
-    a: "コミュニティがメンテナンスするサードパーティ製の Codex スキル（MIT ライセンス）です。API モードの Codex App には組み込みの画像生成機能がありませんが、このスキルをインストールすると、設定した OpenAI 互換の画像エンドポイント — LMU AI の gpt-image-2 — を通じて画像を生成できます。"
-  - q: どのようにインストールしますか？
-    a: "Codex App を開き、「https://github.com/yc-duan/api-image のスキルをインストールしてください — OpenAI image 2 標準 API で画像を生成したいです。使用方法は https://github.com/yc-duan/api-image の説明を見てください」と伝えるだけです。Codex が自動的にインストールするので、その後 Codex App を再起動してください。リポジトリを手動で `~/.codex/skills/api-image` に clone することもできます。"
-  - q: base URL と API キーを別々に入力する必要がありますか？
-    a: いいえ。実行時に `~/.codex/auth.json` から `OPENAI_API_KEY` を、`config.toml` からプロバイダーの `base_url` を読み取ります — これは Codex App を LMU AI に接続するときにすでに設定した構成そのものです。インストールして使うだけです。
+    a: "コミュニティが管理するサードパーティ製の Codex スキル（MIT ライセンス）です。API モードの Codex App には imagegen が内蔵されていませんが、このスキルを入れると、自分で設定した OpenAI 互換の画像エンドポイント（LMU AI の gpt-image-2）経由で画像を生成できるようになります。"
+  - q: どうやってインストールしますか？
+    a: "Codex App を開いて、こう伝えるだけです：https://github.com/yc-duan/api-image のスキルをインストールして。OpenAI image 2 標準 API で画像を生成したい。使い方は https://github.com/yc-duan/api-image を見て。Codex が自分でインストールしてくれます。その後 Codex App を再起動してください。リポジトリを `~/.codex/skills/api-image` に手動で clone してもかまいません。"
+  - q: ベース URL と API キーを別々に入力する必要がありますか？
+    a: 別々に入力する必要はありません。実行時に `~/.codex/auth.json` から `OPENAI_API_KEY` を読み取り、`config.toml` からプロバイダーの `base_url` を読み取ります。更新後のガイドでは Codex のキーを `config.toml` のリクエストヘッダーに置くようになりましたが、このスキルは `auth.json` しか読まないため、同じ `sk-` キーを入れた `auth.json` を残しておいてください。
   - q: 画像生成が model_not_found または 403 で失敗します
-    a: お使いのキーのグループでは `gpt-image-2` が公開されていません。コンソールの「Available models」でグループのモデル一覧を確認するか、画像生成が有効なグループに切り替えてください。
-  - q: 生成された画像はどこに保存されますか？
-    a: デフォルトでは Codex の現在の作業ディレクトリに、`provider-image-20260920-153000.png` のような名前で保存されます。別の場所に保存するには、会話内でパスを指定してください。
+    a: キーのグループが `gpt-image-2` を提供していません。コンソールの「利用可能なモデル」でグループのモデル一覧を確認するか、画像生成が有効なグループに切り替えてください。
+  - q: 生成した画像はどこに保存されますか？
+    a: デフォルトでは Codex の現在の作業ディレクトリに、`provider-image-20260920-153000.png` のような名前で保存されます。別の場所に保存したい場合は、会話の中でパスを指定してください。
 ---
 
-[api-image](https://github.com/yc-duan/api-image) はコミュニティ製のスキル（MIT ライセンス）です。API モードの Codex App には組み込みの画像生成機能がありませんが、このスキルをインストールすると、自分で設定した OpenAI 互換の画像エンドポイントを通じて画像を生成できます。LMU AI なら**追加設定は不要**です — `~/.codex` にすでにあるキーとエンドポイントを再利用するため、会話で一文伝えるだけで使えます。
+[api-image](https://github.com/yc-duan/api-image) はコミュニティ製のスキル（MIT ライセンス）です。API モードの Codex App には imagegen が内蔵されていませんが、このスキルをインストールすると、自分で設定した OpenAI 互換の画像エンドポイント経由で画像を生成できるようになります。`~/.codex` にあるキーとエンドポイントをそのまま使うので、会話で一言伝えるだけで済みます。
 
-<Callout type="warn" title="サードパーティ製コミュニティスキル">
+<Callout type="warn" title="サードパーティのコミュニティスキル">
 
-これはお使いのマシン上で実行され、`~/.codex/auth.json` からキーを読み取り、プロンプトと参照画像をプロバイダーに送信します — インストールする前に、その点を問題ないと思えることを確認してください。作者もプロバイダーによって互換性が異なると説明しているため、実際のエラーメッセージを正しい情報源として扱ってください。
+このスキルはあなたのマシン上で動作し、`~/.codex/auth.json` からキーを読み取り、プロンプトと参照画像をプロバイダーへ送信します。インストールする前に、その点に納得できるか確認してください。作者もプロバイダーごとに互換性が異なると述べているため、実際のエラーメッセージを判断の基準にしてください。
 
 </Callout>
 
 ---
 
-## インストール: Codex に一文伝えるだけ
+## 準備：auth.json を残しておく
 
-Codex App を開き、次のように伝えるだけです。
+このスキルは `~/.codex/auth.json`（Windows では `%USERPROFILE%\.codex\auth.json`）からキーを読み取ります。更新後の [Codex App ガイド](/ja/docs/tools/codex-app) ではキーを `config.toml` のリクエストヘッダーに置くようになり、`auth.json` は不要になりましたが、このスキルを使うには同じキーを入れた `auth.json` を残しておく必要があります：
 
-> https://github.com/yc-duan/api-image のスキルをインストールしてください — OpenAI image 2 標準 API で画像を生成したいです。使用方法は https://github.com/yc-duan/api-image の説明を見てください
+```json
+{
+  "OPENAI_API_KEY": "your sk- key generated in the console"
+}
+```
 
-Codex はリポジトリを自動的に `~/.codex/skills/api-image`（Windows では `%USERPROFILE%\.codex\skills\api-image`）に配置します。その後、**Codex App を再起動**してください。
+以前のガイドで `auth.json` を作成済みなら、そのままにしておけば大丈夫です。
 
-手動インストールも可能です。
+---
+
+## インストール：Codex に一言伝えるだけ
+
+Codex App を開いて、こう伝えるだけです：
+
+> https://github.com/yc-duan/api-image のスキルをインストールして。OpenAI image 2 標準 API で画像を生成したい。使い方は https://github.com/yc-duan/api-image を見て
+
+Codex が自分でリポジトリを `~/.codex/skills/api-image`（Windows では `%USERPROFILE%\.codex\skills\api-image`）に配置します。その後、**Codex App を再起動**してください。
+
+手動インストールでも動作します：
 
 ```bash
 git clone https://github.com/yc-duan/api-image.git ~/.codex/skills/api-image
@@ -52,21 +66,21 @@ git clone https://github.com/yc-duan/api-image.git ~/.codex/skills/api-image
 
 ---
 
-## 使い方: ここでも一文だけ
+## 使い方：こちらも一言だけ
 
 | やりたいこと | こう伝える |
 |------|------|
-| テキストから画像 | api-image を使って 2048x1152 の映画のワンシーンのような写真を生成してください: 夜の雨に濡れた東京の街路、ネオンの反射、リアルな写真風 |
-| 画像から画像 | この画像の構図とポーズを参考に、温かみのあるイラストを生成してください — 被写体のポーズは維持し、元画像をコピーしないでください |
-| インペイント | この画像の赤いカップを緑色に変更し、元の形状、構図、ライティングを維持してください |
-| オプションを明示 | api-image を使って 1024x1024 のフラットなイラストを生成してください。品質は low、画像は 2 枚、`./public/cover.png` に保存してください |
+| テキストから画像生成 | api-image を使って 2048x1152 の映画的な写真を生成して：雨の夜の東京の街、ネオンの反射、リアルな写真スタイル |
+| 画像から画像生成 | この画像の構図とポーズを参考に、温かみのあるイラストを生成して。被写体のポーズは保ち、元画像をそのまま複製しないで |
+| インペイント | この画像の赤いカップを緑に変えて。元の形、構図、ライティングは保って |
+| オプションを明示 | api-image を使って 1024x1024 のフラットイラストを生成して。quality は low、2 枚、./public/cover.png に保存 |
 
-デフォルトは `gpt-image-2`、`2048x1152`、品質 high、画像 1 枚です。サイズ、品質、枚数、出力先はすべて会話内で変更できます。出力はデフォルトで現在の作業ディレクトリに保存されます（`provider-image-<timestamp>.png`）。
+デフォルトは `gpt-image-2`、`2048x1152`、quality high、1 枚です。サイズ、品質、枚数、出力先はすべて会話の中で変更できます。出力はデフォルトで現在の作業ディレクトリに保存されます（`provider-image-<timestamp>.png`）。
 
 ---
 
-## 注意点
+## 注意事項
 
-- **LMU AI では設定不要**: このスキルは、LMU AI への接続時にすでに設定した `auth.json`（キー）と `config.toml`（エンドポイント）を読み取ります。これは完全なエンドポイント `https://api.lmuai.com/v1/images/generations` と `/v1/images/edits` に対応しています
-- `model_not_found` / 403: お使いのキーのグループに画像モデルが含まれていません — コンソールの「Available models」を確認するか、グループを切り替えてください
-- `gpt-image-2` は透明な背景に対応していません。上流側でリクエストしたサイズが正規化される場合があるため、実際の出力を信頼してください
+- **LMU AI では `auth.json` を残しておくだけ**：このスキルは `auth.json`（キー）と `config.toml`（エンドポイント）を読み取り、完全なエンドポイントは `https://api.lmuai.com/v1/images/generations` と `/v1/images/edits` になります
+- `model_not_found` / 403：キーのグループに画像モデルが含まれていません。コンソールの「利用可能なモデル」を確認するか、グループを切り替えてください
+- `gpt-image-2` は透過背景に対応していません。また上流でリクエストしたサイズが正規化される場合があるため、実際の出力を基準にしてください
