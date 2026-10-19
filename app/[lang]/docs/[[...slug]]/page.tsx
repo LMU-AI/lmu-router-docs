@@ -10,16 +10,10 @@ import { ModelCard, ModelGrid } from '@/components/model-card';
 import { Mermaid } from '@/components/mermaid';
 import { getBreadcrumbItems } from 'fumadocs-core/breadcrumb';
 import { SITE_URL, siteName } from '@/lib/site';
-import { HTML_LANG, OG_LOCALE, i18n, localePrefix } from '@/lib/i18n';
+import { HTML_LANG, OG_LOCALE, i18n, localePrefix, docsPath } from '@/lib/i18n';
 import { PLAZA_MODELS } from '@/lib/models';
 import { lastModifiedOf } from '@/lib/last-modified';
 import { LastUpdated } from '@/components/last-updated';
-
-// 语言前缀感知的文档路径：cn → /docs/...；en → /en/docs/...
-function docsPath(lang: string, slug?: string[]): string {
-  const prefix = localePrefix(lang);
-  return slug && slug.length > 0 ? `${prefix}/docs/${slug.join('/')}` : `${prefix}/docs`;
-}
 
 export default async function Page({
   params,
