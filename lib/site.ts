@@ -1,6 +1,13 @@
 // 域名 / API 端点 / 注册链接随站点变体走（.com 国内站 / .ai 海外站），
 // 单一事实源在 lib/variant.ts；这里 re-export 维持既有 import 路径不变。
-export { SITE_URL, API_BASE_URL, API_HOST, REGISTER_URL } from './variant';
+export {
+  SITE_URL,
+  API_BASE_URL,
+  API_HOST,
+  REGISTER_URL,
+  COMMUNITY_URL,
+  COMMUNITY_HELP_URL,
+} from './variant';
 
 export const SITE_NAME = '灵眸文档';
 export const SITE_SHORT_NAME = '灵眸';

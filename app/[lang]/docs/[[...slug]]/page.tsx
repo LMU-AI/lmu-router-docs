@@ -5,6 +5,7 @@ import defaultMdxComponents from 'fumadocs-ui/mdx';
 import { Tabs, Tab } from 'fumadocs-ui/components/tabs';
 import { Callout } from 'fumadocs-ui/components/callout';
 import type { Metadata } from 'next';
+import { CommunityHelp } from '@/components/community-help';
 import { CtaFooter } from '@/components/cta-footer';
 import { ModelCard, ModelGrid } from '@/components/model-card';
 import { Mermaid } from '@/components/mermaid';
@@ -151,6 +152,7 @@ export default async function Page({
             }}
           />
           <LastUpdated date={lastModifiedDate} locale={lang} />
+          <CommunityHelp locale={lang} />
           <CtaFooter locale={lang} />
         </DocsBody>
       </DocsPage>
