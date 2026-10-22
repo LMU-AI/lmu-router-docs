@@ -48,6 +48,13 @@ export const GA_MEASUREMENT_ID =
 // 不渲染该脚本 → .com 构建产物与旧版逐字节一致（发布闸门 diff 的就是它）。
 export const CLARITY_PROJECT_ID: string | null = IS_AI ? 'yg0ybh49o9' : null;
 
+// —— 用户社区（community.lmuai.ai，Discourse；以中文为主，账号即控制台账号，单点登录）——
+// 只在国际站挂入口（2026-10-23 定）：顶栏「社区」、文档页尾的求助入口、llms.txt 一条。
+// com 分支必须为 null，三处入口都不渲染 → .com 构建产物与旧版逐字节一致。
+export const COMMUNITY_URL: string | null = IS_AI ? 'https://community.lmuai.ai' : null;
+// 「使用求助」分类：新帖会先收到社区 AI 助手的回复，页尾的「还有问题？」直接链到这里。
+export const COMMUNITY_HELP_URL: string | null = COMMUNITY_URL && `${COMMUNITY_URL}/c/help/6`;
+
 // —— IndexNow（Bing / Yandex / Naver / Seznam / Yep 的即时收录推送）——
 // 内容一变就 POST 变更 URL，不必干等爬虫回访。协议要求域名下能取到一个「内容 == key」
 // 的文本文件；IndexNow 把每个 host 当独立 host，故两站各一把。

@@ -6,6 +6,7 @@ import {
   SITE_URL,
   API_BASE_URL,
   API_HOST,
+  COMMUNITY_URL,
 } from '@/lib/site';
 import { IS_AI } from '@/lib/variant';
 import { MODELS, FLAGSHIP } from '@/lib/models';
@@ -65,6 +66,8 @@ interface LlmsStrings {
     fullDocs: string;
     modelPlaza: string;
     errors: string;
+    // 社区只在国际站挂入口（lib/variant.ts 的 COMMUNITY_URL），.com 为 null、不输出这一行
+    community: string | null;
     flagship: string;
     newest: string;
     size: (tools: number, guide: number, api: number) => string;
@@ -95,6 +98,9 @@ function strings(lang: string, pfx: string): LlmsStrings {
         fullDocs: `- Full docs (with body text): ${SITE_URL}${pfx}/llms-full.txt`,
         modelPlaza: `- Model plaza: ${SITE_URL}${pfx}/docs/guide/models`,
         errors: `- Error-code reference: ${SITE_URL}${pfx}/docs/guide/errors`,
+        community: COMMUNITY_URL
+          ? `- User community (in Chinese): ${COMMUNITY_URL} — sign in with your console account; ask usage questions in the Help category`
+          : null,
         flagship: '- Current flagship model per vendor: ',
         newest: '- Newest models: ',
         size: (tools, guide, api) =>
@@ -127,6 +133,9 @@ function strings(lang: string, pfx: string): LlmsStrings {
       fullDocs: `- 完整文档（含正文）：${SITE_URL}${pfx}/llms-full.txt`,
       modelPlaza: `- 模型广场：${SITE_URL}${pfx}/docs/guide/models`,
       errors: `- 错误码速查：${SITE_URL}${pfx}/docs/guide/errors`,
+      community: COMMUNITY_URL
+        ? `- 用户社区：${COMMUNITY_URL} （控制台账号即可登录，使用问题可在「使用求助」分类提问）`
+        : null,
       flagship: '- 各厂商当前旗舰模型：',
       newest: '- 最新上线模型：',
       size: (tools, guide, api) =>
@@ -178,6 +187,7 @@ export function buildLlmsIndex(lang: string): string {
     s.bullets.fullDocs,
     s.bullets.modelPlaza,
     s.bullets.errors,
+    ...(s.bullets.community ? [s.bullets.community] : []),
     `${s.bullets.flagship}${flagships}`,
     `${s.bullets.newest}${newModels}`,
     s.bullets.size(countUnder('/tools'), countUnder('/guide'), countUnder('/api')),
