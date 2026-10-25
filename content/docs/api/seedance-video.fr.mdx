@@ -1,0 +1,243 @@
+---
+title: API de génération vidéo Seedance
+description: "Appelez la génération vidéo Seedance (Volcengine Ark) via LMU AI avec le protocole asynchrone natif : créez, consultez, listez et annulez des tâches, avec un exemple complet d'interrogation périodique."
+ogDescription: "API de génération vidéo Seedance de LMU AI : créez des tâches avec POST /api/v3/contents/generations/tasks et interrogez périodiquement les résultats. Prend en charge le texte vers vidéo et les images de référence en première image, facturation selon les Token de sortie."
+keywords:
+  - API Seedance
+  - génération vidéo Seedance
+  - API de génération vidéo Volcengine Ark
+  - seedance-2.5
+  - image de première image Seedance
+  - LMU AI Seedance
+alternateNames:
+  - API vidéo Seedance
+  - API de génération vidéo Volcengine Ark
+faq:
+  - q: Puis-je envoyer ratio en mode première image avec Seedance ?
+    a: "Non. En mode première image (role vaut first_frame), le format d'image suit celui de l'image de première image, et le service amont rejette la requête avec une erreur 400 si vous envoyez ratio."
+  - q: Les tâches Seedance peuvent-elles être annulées ?
+    a: "Les tâches encore en file d'attente (queued) peuvent être annulées sans frais. Les tâches dont la génération a commencé (running) ne peuvent pas être annulées et renvoient 409. Pour les tâches terminées, l'enregistrement amont peut être supprimé, sans remboursement."
+  - q: Recevrai-je un rappel si je transmets callback_url ?
+    a: "Non. callback_url n'est pas transmis au service amont, vous ne recevrez donc pas de rappel. Interrogez plutôt périodiquement le statut de la tâche."
+  - q: Comment Seedance est-il facturé ?
+    a: "Selon les Token de sortie. Un montant estimé est bloqué à la création de la tâche, puis réglé selon l'utilisation réelle en cas de succès ; les tâches échouées et annulées sont intégralement remboursées."
+---
+
+La génération vidéo Seedance (Volcengine Ark) utilise le **protocole asynchrone natif** du fournisseur : remplacez l'adresse dans le SDK officiel ou la commande curl par l'adresse LMU AI et la clé par votre clé API LMU AI ; le corps de la requête reste inchangé. Pour les règles communes concernant l'authentification, la facturation et les filigranes, les limites de concurrence et les codes d'erreur, consultez la [présentation de l'API de génération vidéo](/fr/docs/api/video-generation).
+
+<Callout type="info" title="URL de base">
+
+```text
+https://api.lmuai.com
+```
+
+| Opération | Endpoint |
+|---|---|
+| Créer une tâche | `POST /api/v3/contents/generations/tasks` |
+| Consulter une tâche | `GET /api/v3/contents/generations/tasks/{id}` |
+| Lister les tâches | `GET /api/v3/contents/generations/tasks` |
+| Annuler / supprimer | `DELETE /api/v3/contents/generations/tasks/{id}` |
+
+</Callout>
+
+<Callout type="warn" title="La génération vidéo doit être activée pour votre groupe">
+
+Le groupe de la clé API doit avoir l'option « Génération vidéo » activée ; à défaut, les appels renvoient `403`. Le nom du modèle doit correspondre **exactement** au nom activé pour votre groupe (sensible à la casse) ; vérifiez les modèles disponibles avec `GET /v1/models`.
+
+</Callout>
+
+## 1. Créer une tâche [#create-task]
+
+### `POST /api/v3/contents/generations/tasks`
+
+| Paramètre | Type | Obligatoire | Description |
+|---|---|---|---|
+| `model` | string | Oui | Nom du modèle ; doit correspondre exactement au nom activé pour votre groupe (sensible à la casse) |
+| `content` | array | Oui | Contenu d'entrée. Texte : `{"type":"text","text":"…"}` ; image de référence : `{"type":"image_url","image_url":{"url":"…"},"role":"first_frame"}`, où `role` peut valoir `first_frame` (première image) ou `reference_image` (image de référence) |
+| `resolution` | string | Non | Niveau de résolution : `480p` / `720p` / `1080p` |
+| `duration` | integer | Non | Durée de la vidéo en secondes |
+| `ratio` | string | Non | Format d'image : `16:9` / `9:16` / `1:1` / `4:3` |
+| `generate_audio` | boolean | Non | Indique s'il faut également générer l'audio |
+
+<Tabs items={['cURL', 'Python', 'Node.js']}>
+<Tab value="cURL">
+
+```bash
+curl https://api.lmuai.com/api/v3/contents/generations/tasks \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "seedance-2.5",
+    "content": [
+      {"type": "text", "text": "Waves gently lapping the beach at dusk, slow motion"}
+    ],
+    "resolution": "720p",
+    "duration": 5,
+    "ratio": "16:9",
+    "generate_audio": true
+  }'
+```
+
+</Tab>
+<Tab value="Python">
+
+```python
+import requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+resp = requests.post(f"{BASE}/api/v3/contents/generations/tasks", headers=HEADERS, json={
+    "model": "seedance-2.5",
+    "content": [{"type": "text", "text": "Waves gently lapping the beach at dusk, slow motion"}],
+    "resolution": "720p",
+    "duration": 5,
+    "ratio": "16:9",
+    "generate_audio": True,
+})
+resp.raise_for_status()
+task_id = resp.json()["id"]
+print(task_id)
+```
+
+</Tab>
+<Tab value="Node.js">
+
+```js
+const BASE = "https://api.lmuai.com";
+const headers = {
+  Authorization: "Bearer YOUR_API_KEY",
+  "Content-Type": "application/json",
+};
+
+const resp = await fetch(`${BASE}/api/v3/contents/generations/tasks`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    model: "seedance-2.5",
+    content: [{ type: "text", text: "Waves gently lapping the beach at dusk, slow motion" }],
+    resolution: "720p",
+    duration: 5,
+    ratio: "16:9",
+    generate_audio: true,
+  }),
+});
+const data = await resp.json();
+console.log(data.id);
+```
+
+</Tab>
+</Tabs>
+
+Réponse :
+
+```json
+{
+  "id": "cgt-20261022103211-ab12c"
+}
+```
+
+Pour utiliser une image de référence en première image, ajoutez un élément image à `content` :
+
+```json
+{
+  "model": "seedance-2.5",
+  "content": [
+    {"type": "text", "text": "The camera slowly pushes in as waves gently lap the beach"},
+    {"type": "image_url", "image_url": {"url": "https://example.com/first-frame.png"}, "role": "first_frame"}
+  ],
+  "resolution": "720p",
+  "duration": 5
+}
+```
+
+<Callout type="warn" title="Remarques">
+
+- En mode première image (`role` vaut `first_frame`), **n'envoyez pas `ratio`** : le format d'image suit celui de l'image de première image, et le service amont rejette la requête avec `400` si vous l'envoyez.
+- `callback_url` n'est pas transmis au service amont ; vous ne recevrez pas de rappel même si vous le transmettez. Utilisez plutôt l'interrogation périodique.
+
+</Callout>
+
+## 2. Consulter une tâche [#query-task]
+
+### `GET /api/v3/contents/generations/tasks/{id}`
+
+Valeurs de `status` : `queued` → `running` → `succeeded` / `failed` / `cancelled`. En cas de succès, l'URL de la vidéo se trouve dans `content.video_url`.
+
+```bash
+curl https://api.lmuai.com/api/v3/contents/generations/tasks/TASK_ID \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+Réponse (succès) :
+
+```json
+{
+  "id": "cgt-20261022103211-ab12c",
+  "model": "seedance-2.5",
+  "status": "succeeded",
+  "content": {
+    "video_url": "https://…/video.mp4"
+  },
+  "usage": {
+    "completion_tokens": 108900,
+    "total_tokens": 108900
+  },
+  "created_at": 1792629131,
+  "updated_at": 1792629262
+}
+```
+
+## 3. Lister les tâches [#list-tasks]
+
+### `GET /api/v3/contents/generations/tasks?limit=20&offset=0`
+
+Renvoie les tâches créées avec la clé API actuelle (`limit` de 1 à 100, 20 par défaut). La réponse est de la forme `{object, data[], has_more}`. Les enregistrements de tâches restent consultables après l'expiration du lien vidéo.
+
+## 4. Annuler / supprimer [#cancel-task]
+
+### `DELETE /api/v3/contents/generations/tasks/{id}`
+
+- Les tâches encore en file d'attente (`queued`) peuvent être annulées sans frais.
+- Les tâches dont la génération a commencé (`running`) ne peuvent pas être annulées et renvoient `409`.
+- Pour les tâches terminées, l'enregistrement amont peut être supprimé, sans remboursement.
+
+## 5. Exemple complet : créer et interroger [#poll-example]
+
+```python
+import time, requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+# 1. Create the task
+resp = requests.post(f"{BASE}/api/v3/contents/generations/tasks", headers=HEADERS, json={
+    "model": "seedance-2.5",
+    "content": [{"type": "text", "text": "Waves gently lapping the beach at dusk, slow motion"}],
+    "resolution": "720p", "duration": 5, "ratio": "16:9",
+})
+resp.raise_for_status()
+task_id = resp.json()["id"]
+
+# 2. Poll until a final state (every 10 seconds)
+while True:
+    task = requests.get(f"{BASE}/api/v3/contents/generations/tasks/{task_id}", headers=HEADERS).json()
+    status = task["status"]
+    if status in ("succeeded", "failed", "cancelled", "canceled", "expired"):
+        break
+    time.sleep(10)
+
+# 3. Download (the link is valid for 24 hours)
+if status == "succeeded":
+    url = task["content"]["video_url"]
+    with open(f"{task_id}.mp4", "wb") as f:
+        f.write(requests.get(url).content)
+else:
+    print("Generation failed:", task)
+```
+
+## 6. Facturation et codes d'erreur [#billing]
+
+Seedance est facturé selon les Token de sortie. Un montant estimé est bloqué à la création de la tâche, et un solde insuffisant renvoie `402` ; en cas de succès, la tâche est réglée selon l'utilisation réelle, et les tâches échouées et annulées sont intégralement remboursées. Chaque utilisateur et chaque clé API peut avoir au maximum 5 tâches en cours de génération simultanément ; au-delà, les requêtes renvoient `429`.
+
+Pour les règles complètes, consultez [Facturation et filigranes](/fr/docs/api/video-generation#billing), [Limites de concurrence](/fr/docs/api/video-generation#limits) et [Codes d'erreur](/fr/docs/api/video-generation#errors) dans la présentation. Pour l'autre fournisseur, consultez l'[API de génération vidéo Wan](/fr/docs/api/wan-video).

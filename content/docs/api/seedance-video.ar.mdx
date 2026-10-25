@@ -1,0 +1,243 @@
+---
+title: واجهة API لتوليد الفيديو عبر Seedance
+description: "استدعِ خدمة توليد الفيديو Seedance (Volcengine Ark) عبر LMU AI باستخدام البروتوكول غير المتزامن الأصلي: إنشاء المهام والاستعلام عنها وعرضها وإلغاؤها، مع مثال كامل على الاستطلاع الدوري."
+ogDescription: "واجهة API لتوليد الفيديو عبر Seedance من LMU AI: أنشئ المهام باستخدام POST /api/v3/contents/generations/tasks واستطلع النتائج دوريًا. تدعم تحويل النص إلى فيديو والصور المرجعية للإطار الأول، ويُحتسب الدفع حسب Token المخرجات."
+keywords:
+  - Seedance API
+  - توليد الفيديو Seedance
+  - واجهة API لتوليد الفيديو Volcengine Ark
+  - seedance-2.5
+  - صورة الإطار الأول Seedance
+  - LMU AI Seedance
+alternateNames:
+  - واجهة API للفيديو Seedance
+  - واجهة API لتوليد الفيديو Volcengine Ark
+faq:
+  - q: هل يمكنني إرسال ratio في وضع الإطار الأول في Seedance؟
+    a: "لا. في وضع الإطار الأول (عندما تكون قيمة role هي first_frame)، تتبع نسبة العرض إلى الارتفاع صورة الإطار الأول، ويرفض المصدر الأصلي الطلب برمز 400 إذا أرسلت ratio."
+  - q: هل يمكن إلغاء مهام Seedance؟
+    a: "يمكن إلغاء المهام التي لا تزال في قائمة الانتظار (queued) دون أي رسوم. أما المهام التي بدأ توليدها (running) فلا يمكن إلغاؤها وتُعيد 409. ويمكن حذف السجل الأصلي للمهام المنتهية، دون استرداد المبلغ."
+  - q: هل سأتلقى استدعاءً راجعًا إذا مررت callback_url؟
+    a: "لا. لا يُمرَّر callback_url إلى المصدر الأصلي، لذا لن تتلقى أي استدعاء راجع. استطلع حالة المهمة دوريًا بدلًا من ذلك."
+  - q: كيف يُحتسب الدفع في Seedance؟
+    a: "حسب Token المخرجات. يُجمَّد مبلغ تقديري عند إنشاء المهمة ويُسوّى حسب الاستخدام الفعلي عند النجاح؛ وتُسترد المبالغ بالكامل للمهام الفاشلة والملغاة."
+---
+
+يستخدم توليد الفيديو عبر Seedance (Volcengine Ark) **البروتوكول غير المتزامن الأصلي** الخاص بالمزوّد: استبدل العنوان في SDK الرسمية أو في أمر curl بعنوان LMU AI، واستبدل المفتاح بمفتاح API الخاص بك من LMU AI، ويبقى جسم الطلب دون تغيير. للاطلاع على القواعد المشتركة الخاصة بالمصادقة والفوترة والعلامات المائية وحدود التزامن ورموز الأخطاء، راجع [نظرة عامة على واجهة API لتوليد الفيديو](/ar/docs/api/video-generation).
+
+<Callout type="info" title="عنوان URL الأساسي">
+
+```text
+https://api.lmuai.com
+```
+
+| العملية | نقطة النهاية |
+|---|---|
+| إنشاء مهمة | `POST /api/v3/contents/generations/tasks` |
+| الاستعلام عن مهمة | `GET /api/v3/contents/generations/tasks/{id}` |
+| عرض المهام | `GET /api/v3/contents/generations/tasks` |
+| إلغاء / حذف | `DELETE /api/v3/contents/generations/tasks/{id}` |
+
+</Callout>
+
+<Callout type="warn" title="يجب تفعيل توليد الفيديو لمجموعتك">
+
+يجب أن تكون ميزة "توليد الفيديو" مفعّلة في المجموعة التي ينتمي إليها مفتاح API؛ وإلا فستُعيد الاستدعاءات `403`. ويجب أن يطابق اسم النموذج الاسم المفعّل لمجموعتك **تمامًا** (مع مراعاة حالة الأحرف)؛ تحقق من النماذج المتاحة باستخدام `GET /v1/models`.
+
+</Callout>
+
+## 1. إنشاء مهمة [#create-task]
+
+### `POST /api/v3/contents/generations/tasks`
+
+| المعامل | النوع | مطلوب | الوصف |
+|---|---|---|---|
+| `model` | string | نعم | اسم النموذج؛ يجب أن يطابق تمامًا الاسم المفعّل لمجموعتك (مع مراعاة حالة الأحرف) |
+| `content` | array | نعم | محتوى الإدخال. النص: `{"type":"text","text":"…"}`؛ الصورة المرجعية: `{"type":"image_url","image_url":{"url":"…"},"role":"first_frame"}`، حيث يمكن أن تكون قيمة `role` إما `first_frame` (الإطار الأول) أو `reference_image` (صورة مرجعية) |
+| `resolution` | string | لا | مستوى الدقة: `480p` / `720p` / `1080p` |
+| `duration` | integer | لا | مدة الفيديو بالثواني |
+| `ratio` | string | لا | نسبة العرض إلى الارتفاع: `16:9` / `9:16` / `1:1` / `4:3` |
+| `generate_audio` | boolean | لا | ما إذا كان سيتم توليد الصوت أيضًا |
+
+<Tabs items={['cURL', 'Python', 'Node.js']}>
+<Tab value="cURL">
+
+```bash
+curl https://api.lmuai.com/api/v3/contents/generations/tasks \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "seedance-2.5",
+    "content": [
+      {"type": "text", "text": "Waves gently lapping the beach at dusk, slow motion"}
+    ],
+    "resolution": "720p",
+    "duration": 5,
+    "ratio": "16:9",
+    "generate_audio": true
+  }'
+```
+
+</Tab>
+<Tab value="Python">
+
+```python
+import requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+resp = requests.post(f"{BASE}/api/v3/contents/generations/tasks", headers=HEADERS, json={
+    "model": "seedance-2.5",
+    "content": [{"type": "text", "text": "Waves gently lapping the beach at dusk, slow motion"}],
+    "resolution": "720p",
+    "duration": 5,
+    "ratio": "16:9",
+    "generate_audio": True,
+})
+resp.raise_for_status()
+task_id = resp.json()["id"]
+print(task_id)
+```
+
+</Tab>
+<Tab value="Node.js">
+
+```js
+const BASE = "https://api.lmuai.com";
+const headers = {
+  Authorization: "Bearer YOUR_API_KEY",
+  "Content-Type": "application/json",
+};
+
+const resp = await fetch(`${BASE}/api/v3/contents/generations/tasks`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    model: "seedance-2.5",
+    content: [{ type: "text", text: "Waves gently lapping the beach at dusk, slow motion" }],
+    resolution: "720p",
+    duration: 5,
+    ratio: "16:9",
+    generate_audio: true,
+  }),
+});
+const data = await resp.json();
+console.log(data.id);
+```
+
+</Tab>
+</Tabs>
+
+الاستجابة:
+
+```json
+{
+  "id": "cgt-20261022103211-ab12c"
+}
+```
+
+لاستخدام صورة مرجعية للإطار الأول، أضف عنصر صورة إلى `content`:
+
+```json
+{
+  "model": "seedance-2.5",
+  "content": [
+    {"type": "text", "text": "The camera slowly pushes in as waves gently lap the beach"},
+    {"type": "image_url", "image_url": {"url": "https://example.com/first-frame.png"}, "role": "first_frame"}
+  ],
+  "resolution": "720p",
+  "duration": 5
+}
+```
+
+<Callout type="warn" title="ملاحظات">
+
+- في وضع الإطار الأول (عندما تكون قيمة `role` هي `first_frame`)، **لا ترسل `ratio`**: إذ تتبع نسبة العرض إلى الارتفاع صورة الإطار الأول، ويرفض المصدر الأصلي الطلب برمز `400` إذا أرسلته.
+- لا يُمرَّر `callback_url` إلى المصدر الأصلي؛ ولن تتلقى استدعاءً راجعًا حتى لو مررته. استخدم الاستطلاع الدوري بدلًا من ذلك.
+
+</Callout>
+
+## 2. الاستعلام عن مهمة [#query-task]
+
+### `GET /api/v3/contents/generations/tasks/{id}`
+
+قيم `status`: `queued` ← `running` ← `succeeded` / `failed` / `cancelled`. عند النجاح، يوجد رابط الفيديو في `content.video_url`.
+
+```bash
+curl https://api.lmuai.com/api/v3/contents/generations/tasks/TASK_ID \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+الاستجابة (عند النجاح):
+
+```json
+{
+  "id": "cgt-20261022103211-ab12c",
+  "model": "seedance-2.5",
+  "status": "succeeded",
+  "content": {
+    "video_url": "https://…/video.mp4"
+  },
+  "usage": {
+    "completion_tokens": 108900,
+    "total_tokens": 108900
+  },
+  "created_at": 1792629131,
+  "updated_at": 1792629262
+}
+```
+
+## 3. عرض المهام [#list-tasks]
+
+### `GET /api/v3/contents/generations/tasks?limit=20&offset=0`
+
+يُعيد المهام التي أُنشئت باستخدام مفتاح API الحالي (قيمة `limit` من 1 إلى 100، والافتراضية 20). الاستجابة بالشكل `{object, data[], has_more}`. تظل سجلات المهام قابلة للاستعلام بعد انتهاء صلاحية رابط الفيديو.
+
+## 4. إلغاء / حذف [#cancel-task]
+
+### `DELETE /api/v3/contents/generations/tasks/{id}`
+
+- يمكن إلغاء المهام التي لا تزال في قائمة الانتظار (`queued`) دون أي رسوم.
+- لا يمكن إلغاء المهام التي بدأ توليدها (`running`)، وتُعيد `409`.
+- يمكن حذف السجل الأصلي للمهام المنتهية، دون استرداد المبلغ.
+
+## 5. مثال كامل: الإنشاء والاستطلاع الدوري [#poll-example]
+
+```python
+import time, requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+# 1. Create the task
+resp = requests.post(f"{BASE}/api/v3/contents/generations/tasks", headers=HEADERS, json={
+    "model": "seedance-2.5",
+    "content": [{"type": "text", "text": "Waves gently lapping the beach at dusk, slow motion"}],
+    "resolution": "720p", "duration": 5, "ratio": "16:9",
+})
+resp.raise_for_status()
+task_id = resp.json()["id"]
+
+# 2. Poll until a final state (every 10 seconds)
+while True:
+    task = requests.get(f"{BASE}/api/v3/contents/generations/tasks/{task_id}", headers=HEADERS).json()
+    status = task["status"]
+    if status in ("succeeded", "failed", "cancelled", "canceled", "expired"):
+        break
+    time.sleep(10)
+
+# 3. Download (the link is valid for 24 hours)
+if status == "succeeded":
+    url = task["content"]["video_url"]
+    with open(f"{task_id}.mp4", "wb") as f:
+        f.write(requests.get(url).content)
+else:
+    print("Generation failed:", task)
+```
+
+## 6. الفوترة ورموز الأخطاء [#billing]
+
+يُحتسب الدفع في Seedance حسب Token المخرجات. يُجمَّد مبلغ تقديري عند إنشاء المهمة، ويُعيد الرصيد غير الكافي `402`؛ وعند النجاح تُسوّى المهمة حسب الاستخدام الفعلي، وتُسترد المبالغ بالكامل للمهام الفاشلة والملغاة. يمكن لكل مستخدم ولكل مفتاح API تشغيل 5 مهام توليد كحد أقصى في الوقت نفسه؛ وما يتجاوز ذلك تُعيد طلباته `429`.
+
+للاطلاع على القواعد الكاملة، راجع [الفوترة والعلامات المائية](/ar/docs/api/video-generation#billing) و[حدود التزامن](/ar/docs/api/video-generation#limits) و[رموز الأخطاء](/ar/docs/api/video-generation#errors) في النظرة العامة. وللمزوّد الآخر، راجع [واجهة API لتوليد الفيديو عبر Wan](/ar/docs/api/wan-video).

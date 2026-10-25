@@ -1,0 +1,206 @@
+---
+title: Wan Video Generation API
+description: "Call Wan (Alibaba DashScope) video generation through LMU AI with the native async protocol: create tasks, poll for results, defaults, and a full polling example."
+ogDescription: "LMU AI Wan Video Generation API: create tasks with POST /api/v1/services/aigc/video-generation/video-synthesis and query them with GET /api/v1/tasks/{task_id}. Billed by seconds × resolution tier."
+keywords:
+  - Wan video API
+  - Wan video generation
+  - wan3.0-video
+  - DashScope video generation
+  - Alibaba Cloud Model Studio video generation API
+  - Tongyi Wanxiang video generation
+  - LMU AI Wan
+alternateNames:
+  - Tongyi Wanxiang video generation API
+  - Wan video generation API
+faq:
+  - q: Do I need to send the X-DashScope-Async header?
+    a: "No. The platform adds X-DashScope-Async: enable automatically."
+  - q: Can Wan tasks be cancelled?
+    a: "No. Wan has no cancel endpoint: once submitted, a task always runs to completion. Failed tasks are not charged."
+  - q: What are the defaults if I omit resolution and duration?
+    a: "The resolution defaults to 1080P and the duration defaults to 5 seconds."
+  - q: How is Wan billed?
+    a: "By actual seconds × resolution-tier unit price; the billed seconds are in usage.duration of the query result. An estimated amount is frozen when the task is created and settled by actual usage on success."
+---
+
+Wan (Alibaba Cloud Model Studio, DashScope) video generation uses the vendor's **native asynchronous protocol**, identical to the official DashScope protocol: replace the address in the official SDK or curl command with the LMU AI address and the key with your LMU AI API key, and the request body stays unchanged. For the shared rules on authentication, billing and watermarks, concurrency limits, and error codes, see the [Video Generation API overview](/en/docs/api/video-generation).
+
+<Callout type="info" title="Base URL">
+
+```text
+https://api.lmuai.com
+```
+
+| Operation | Endpoint |
+|---|---|
+| Create a task | `POST /api/v1/services/aigc/video-generation/video-synthesis` |
+| Query a task | `GET /api/v1/tasks/{task_id}` |
+
+</Callout>
+
+<Callout type="warn" title="Video generation must be enabled for your group">
+
+The API key's group must have "Video generation" enabled; otherwise calls return `403`. The model name must match the name enabled for your group **exactly** (case-sensitive); check available models with `GET /v1/models`.
+
+</Callout>
+
+## 1. Create a task [#create-task]
+
+### `POST /api/v1/services/aigc/video-generation/video-synthesis`
+
+The async header `X-DashScope-Async: enable` is optional; the platform adds it automatically.
+
+| Parameter | Type | Required | Description |
+|---|---|---|---|
+| `model` | string | Yes | For example `wan3.0-video` |
+| `input.prompt` | string | Yes | Prompt |
+| `input.media` | array | No | Reference media, such as `[{"type":"first_frame","url":"…"}]`; `type` can be `first_frame` or `reference_image` |
+| `parameters.resolution` | string | No | Resolution tier: `480P` / `720P` / `1080P`, default `1080P` |
+| `parameters.duration` | integer | No | Length in seconds, default 5 |
+| `parameters.watermark` | boolean | No | Set uniformly by the platform according to group policy; a client-supplied value may be overridden |
+
+<Tabs items={['cURL', 'Python', 'Node.js']}>
+<Tab value="cURL">
+
+```bash
+curl https://api.lmuai.com/api/v1/services/aigc/video-generation/video-synthesis \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5}
+  }'
+```
+
+</Tab>
+<Tab value="Python">
+
+```python
+import requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+resp = requests.post(f"{BASE}/api/v1/services/aigc/video-generation/video-synthesis", headers=HEADERS, json={
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5},
+})
+resp.raise_for_status()
+task_id = resp.json()["output"]["task_id"]
+print(task_id)
+```
+
+</Tab>
+<Tab value="Node.js">
+
+```js
+const BASE = "https://api.lmuai.com";
+const headers = {
+  Authorization: "Bearer YOUR_API_KEY",
+  "Content-Type": "application/json",
+};
+
+const resp = await fetch(`${BASE}/api/v1/services/aigc/video-generation/video-synthesis`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    model: "wan3.0-video",
+    input: { prompt: "A Shiba Inu running across a sunny meadow" },
+    parameters: { resolution: "720P", duration: 5 },
+  }),
+});
+const data = await resp.json();
+console.log(data.output.task_id);
+```
+
+</Tab>
+</Tabs>
+
+Response:
+
+```json
+{
+  "request_id": "4909100c-…",
+  "output": {
+    "task_id": "c65c77fe-323b-4140-8de6-5a7241d9ec44",
+    "task_status": "PENDING"
+  }
+}
+```
+
+## 2. Query a task [#query-task]
+
+### `GET /api/v1/tasks/{task_id}`
+
+`output.task_status` values: `PENDING` → `RUNNING` → `SUCCEEDED` / `FAILED` / `CANCELED`. On success, the video URL is in `output.video_url`, and the billed seconds are in `usage.duration`.
+
+```bash
+curl https://api.lmuai.com/api/v1/tasks/TASK_ID \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+Response (success):
+
+```json
+{
+  "request_id": "…",
+  "output": {
+    "task_id": "c65c77fe-323b-4140-8de6-5a7241d9ec44",
+    "task_status": "SUCCEEDED",
+    "video_url": "https://…/output.mp4"
+  },
+  "usage": {
+    "duration": 2.0,
+    "video_count": 1
+  }
+}
+```
+
+<Callout type="info" title="No cancel endpoint">
+
+Wan has no cancel endpoint: once submitted, a task always runs to completion. Failed tasks are not charged.
+
+</Callout>
+
+## 3. Complete example: create and poll [#poll-example]
+
+```python
+import time, requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+# 1. Create the task
+resp = requests.post(f"{BASE}/api/v1/services/aigc/video-generation/video-synthesis", headers=HEADERS, json={
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5},
+})
+resp.raise_for_status()
+task_id = resp.json()["output"]["task_id"]
+
+# 2. Poll until a final state (every 10 seconds)
+while True:
+    task = requests.get(f"{BASE}/api/v1/tasks/{task_id}", headers=HEADERS).json()
+    status = task["output"]["task_status"]
+    if status in ("SUCCEEDED", "FAILED", "CANCELED", "CANCELLED", "UNKNOWN"):
+        break
+    time.sleep(10)
+
+# 3. Download (the link is valid for 24 hours)
+if status == "SUCCEEDED":
+    url = task["output"]["video_url"]
+    with open(f"{task_id}.mp4", "wb") as f:
+        f.write(requests.get(url).content)
+else:
+    print("Generation failed:", task)
+```
+
+## 4. Billing and error codes [#billing]
+
+Wan is billed by "actual seconds × resolution-tier unit price", and the billed seconds are in `usage.duration` of the query result. An estimated amount is frozen when the task is created, and an insufficient balance returns `402`; on success the task is settled by actual usage, and failed tasks are fully refunded. Each user and each API key can have at most 5 tasks generating at the same time; beyond that, requests return `429`.
+
+For the full rules, see [Billing and watermarks](/en/docs/api/video-generation#billing), [Concurrency limits](/en/docs/api/video-generation#limits) and [Error codes](/en/docs/api/video-generation#errors) in the overview. For the other provider, see the [Seedance Video Generation API](/en/docs/api/seedance-video).
