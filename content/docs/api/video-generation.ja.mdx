@@ -1,0 +1,447 @@
+---
+title: 動画生成 API
+description: "LMU AI を通じて、Seedance（Volcengine Ark）と Wan（Alibaba DashScope）による動画生成を、各ベンダーのネイティブな非同期タスクプロトコルで利用できます。タスクを作成し、結果をポーリングして、動画をダウンロードします。パラメーター、課金とウォーターマーク、同時実行数の制限、エラーコードについて説明します。"
+ogDescription: "LMU AI 動画生成 API ガイド：Seedance は /api/v3/contents/generations/tasks、Wan は /api/v1/services/aigc/video-generation/video-synthesis を使用します。非同期でタスクを作成し、結果をポーリングします。"
+keywords:
+  - 動画生成 API
+  - Seedance API
+  - Volcengine Ark 動画生成
+  - Wan 動画 API
+  - wan3.0-video
+  - DashScope 動画生成
+  - LMU AI 動画生成
+alternateNames:
+  - AI 動画生成 API
+  - Seedance 動画 API
+faq:
+  - q: 動画生成は同期ですか、それとも非同期ですか？
+    a: "非同期です。作成エンドポイントはタスク ID のみを返します。タスクが成功、失敗、またはキャンセルされるまで、約 10 秒ごとにタスクを照会してください。"
+  - q: 動画リンクの有効期間はどのくらいですか？
+    a: "上流の動画リンクの有効期間は 24 時間のため、速やかにダウンロードしてください。プラットフォームは完成した各動画のコピーを保持しており、コンソールの「動画タスク」ページで再生・ダウンロードできます。"
+  - q: 失敗したタスクは課金されますか？
+    a: "いいえ。タスク作成時に見積額が凍結され、成功時に実際の使用量に基づいて精算されます。失敗およびキャンセルされたタスクは全額返金されます。"
+  - q: 呼び出しで 403 が返されるのはなぜですか？
+    a: "API キーのグループで動画生成が有効になっていないか、そのグループでモデルが利用できません。動画生成に対応した API キーを使用してください。"
+---
+
+LMU AI は 2 種類の**非同期**動画生成 API を提供しており、いずれも各ベンダーの**ネイティブプロトコル**を使用します。公式 SDK や curl コマンドのアドレスを LMU AI のアドレスに、キーを LMU AI の API キーに置き換えるだけで、リクエストボディはそのまま使用できます。
+
+<Callout type="info" title="ベース URL">
+
+```text
+https://api.lmuai.com
+```
+
+| プロバイダー | タスク作成 | タスク照会 |
+|---|---|---|
+| Seedance（Volcengine Ark） | `POST /api/v3/contents/generations/tasks` | `GET /api/v3/contents/generations/tasks/{id}` |
+| Wan（Alibaba DashScope） | `POST /api/v1/services/aigc/video-generation/video-synthesis` | `GET /api/v1/tasks/{task_id}` |
+
+</Callout>
+
+<Callout type="warn" title="グループで動画生成を有効にする必要があります">
+
+API キーのグループで「動画生成」が有効になっている必要があります。有効でない場合、呼び出しは `403` を返します。実際に呼び出せるモデルは API キーによって異なります。`GET /v1/models` で確認してください。
+
+</Callout>
+
+## 1. 概要
+
+| プロバイダー | モデル例 | 課金方式 |
+|---|---|---|
+| Seedance（Volcengine Ark） | `seedance-2.5` | 出力トークン単位 |
+| Wan（Alibaba DashScope） | `wan3.0-video` | 「秒数 × 解像度ティア」単位 |
+
+モデル名は、グループで有効化されている名前と**完全に**一致する必要があります（大文字と小文字を区別します）。
+
+## 2. 認証
+
+すべてのリクエストのヘッダーで API キーを送信してください：
+
+```http
+Authorization: Bearer YOUR_API_KEY
+```
+
+API キーをブラウザのフロントエンドコード、公開リポジトリ、URL クエリ文字列、ログに含めないでください。API は自社のサーバーから呼び出してください。
+
+## 3. 非同期タスクの流れ
+
+1. **作成**：`POST` はタスク ID のみを返し、動画の完成は待ちません。
+2. **ポーリング**：最終状態（succeeded / failed / cancelled）になるまで、約 10 秒ごとにタスクを `GET` します。
+3. **参照画像**：API 呼び出しでは、公開アクセス可能な画像 URL（JPG / PNG / WebP）を渡す必要があります。コンソールの「動画生成」ページではローカル画像のアップロードも可能です。
+4. **ダウンロード**：成功したら、レスポンスから動画リンクを取得します。上流のリンクは**24 時間有効**のため、速やかにダウンロードしてください。プラットフォームは完成した各動画のコピーを保持しており、コンソールの「動画タスク」ページで再生・ダウンロードできます。
+
+<Callout type="info" title="ポーリングを停止しても精算は行われます">
+
+送信後、プラットフォームはバックグラウンドでタスクを追跡し、照会を停止しても通常どおり精算します。失敗およびキャンセルされたタスクは課金されません。
+
+</Callout>
+
+## 4. Seedance · タスクの作成
+
+### `POST /api/v3/contents/generations/tasks`
+
+| パラメーター | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `model` | string | はい | モデル名。グループで有効化されている名前と完全に一致する必要があります（大文字と小文字を区別） |
+| `content` | array | はい | 入力コンテンツ。テキスト：`{"type":"text","text":"…"}`、参照画像：`{"type":"image_url","image_url":{"url":"…"},"role":"first_frame"}`。`role` には `first_frame`（先頭フレーム）または `reference_image`（参照画像）を指定できます |
+| `resolution` | string | いいえ | 解像度ティア：`480p` / `720p` / `1080p` |
+| `duration` | integer | いいえ | 動画の長さ（秒） |
+| `ratio` | string | いいえ | アスペクト比：`16:9` / `9:16` / `1:1` / `4:3` |
+| `generate_audio` | boolean | いいえ | 音声も同時に生成するかどうか |
+
+<Tabs items={['cURL', 'Python', 'Node.js']}>
+<Tab value="cURL">
+
+```bash
+curl https://api.lmuai.com/api/v3/contents/generations/tasks \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "seedance-2.5",
+    "content": [
+      {"type": "text", "text": "Waves gently lapping the beach at dusk, slow motion"}
+    ],
+    "resolution": "720p",
+    "duration": 5,
+    "ratio": "16:9",
+    "generate_audio": true
+  }'
+```
+
+</Tab>
+<Tab value="Python">
+
+```python
+import requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+resp = requests.post(f"{BASE}/api/v3/contents/generations/tasks", headers=HEADERS, json={
+    "model": "seedance-2.5",
+    "content": [{"type": "text", "text": "Waves gently lapping the beach at dusk, slow motion"}],
+    "resolution": "720p",
+    "duration": 5,
+    "ratio": "16:9",
+    "generate_audio": True,
+})
+resp.raise_for_status()
+task_id = resp.json()["id"]
+print(task_id)
+```
+
+</Tab>
+<Tab value="Node.js">
+
+```js
+const BASE = "https://api.lmuai.com";
+const headers = {
+  Authorization: "Bearer YOUR_API_KEY",
+  "Content-Type": "application/json",
+};
+
+const resp = await fetch(`${BASE}/api/v3/contents/generations/tasks`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    model: "seedance-2.5",
+    content: [{ type: "text", text: "Waves gently lapping the beach at dusk, slow motion" }],
+    resolution: "720p",
+    duration: 5,
+    ratio: "16:9",
+    generate_audio: true,
+  }),
+});
+const data = await resp.json();
+console.log(data.id);
+```
+
+</Tab>
+</Tabs>
+
+レスポンス：
+
+```json
+{
+  "id": "cgt-20261022103211-ab12c"
+}
+```
+
+先頭フレームの参照画像を使用するには、`content` に画像アイテムを追加します：
+
+```json
+{
+  "model": "seedance-2.5",
+  "content": [
+    {"type": "text", "text": "The camera slowly pushes in as waves gently lap the beach"},
+    {"type": "image_url", "image_url": {"url": "https://example.com/first-frame.png"}, "role": "first_frame"}
+  ],
+  "resolution": "720p",
+  "duration": 5
+}
+```
+
+<Callout type="warn" title="注意事項">
+
+- 先頭フレームモード（`role` が `first_frame`）では、**`ratio` を送信しないでください**。アスペクト比は先頭フレーム画像に従い、送信すると上流がリクエストを `400` で拒否します。
+- `callback_url` は上流に転送されないため、指定してもコールバックは届きません。代わりにポーリングを使用してください。
+
+</Callout>
+
+## 5. Seedance · タスクの照会
+
+### `GET /api/v3/contents/generations/tasks/{id}`
+
+`status` の値：`queued` → `running` → `succeeded` / `failed` / `cancelled`。成功時、動画 URL は `content.video_url` に含まれます。
+
+```bash
+curl https://api.lmuai.com/api/v3/contents/generations/tasks/TASK_ID \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+レスポンス（成功時）：
+
+```json
+{
+  "id": "cgt-20261022103211-ab12c",
+  "model": "seedance-2.5",
+  "status": "succeeded",
+  "content": {
+    "video_url": "https://…/video.mp4"
+  },
+  "usage": {
+    "completion_tokens": 108900,
+    "total_tokens": 108900
+  },
+  "created_at": 1792629131,
+  "updated_at": 1792629262
+}
+```
+
+## 6. Seedance · タスク一覧
+
+### `GET /api/v3/contents/generations/tasks?limit=20&offset=0`
+
+現在の API キーで作成されたタスクを返します（`limit` は 1～100、デフォルトは 20）。レスポンスは `{object, data[], has_more}` です。動画リンクの有効期限が切れた後も、タスクレコードは照会可能です。
+
+## 7. Seedance · キャンセル / 削除
+
+### `DELETE /api/v3/contents/generations/tasks/{id}`
+
+- キューにあるタスク（`queued`）は無料でキャンセルできます。
+- 生成が開始されたタスク（`running`）はキャンセルできず、`409` を返します。
+- 完了したタスクは上流のレコードを削除できますが、返金はありません。
+
+## 8. Wan · タスクの作成
+
+### `POST /api/v1/services/aigc/video-generation/video-synthesis`
+
+Alibaba Cloud Model Studio（DashScope）のネイティブプロトコルと同一です。非同期ヘッダー `X-DashScope-Async: enable` は任意で、プラットフォームが自動的に付加します。
+
+| パラメーター | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `model` | string | はい | 例：`wan3.0-video` |
+| `input.prompt` | string | はい | プロンプト |
+| `input.media` | array | いいえ | 参照メディア。例：`[{"type":"first_frame","url":"…"}]`。`type` には `first_frame` または `reference_image` を指定できます |
+| `parameters.resolution` | string | いいえ | 解像度ティア：`480P` / `720P` / `1080P`、デフォルトは `1080P` |
+| `parameters.duration` | integer | いいえ | 長さ（秒）、デフォルトは 5 |
+| `parameters.watermark` | boolean | いいえ | グループのポリシーに従いプラットフォームが一律に設定します。クライアントが指定した値は上書きされる場合があります |
+
+<Tabs items={['cURL', 'Python', 'Node.js']}>
+<Tab value="cURL">
+
+```bash
+curl https://api.lmuai.com/api/v1/services/aigc/video-generation/video-synthesis \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5}
+  }'
+```
+
+</Tab>
+<Tab value="Python">
+
+```python
+import requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+resp = requests.post(f"{BASE}/api/v1/services/aigc/video-generation/video-synthesis", headers=HEADERS, json={
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5},
+})
+resp.raise_for_status()
+task_id = resp.json()["output"]["task_id"]
+print(task_id)
+```
+
+</Tab>
+<Tab value="Node.js">
+
+```js
+const BASE = "https://api.lmuai.com";
+const headers = {
+  Authorization: "Bearer YOUR_API_KEY",
+  "Content-Type": "application/json",
+};
+
+const resp = await fetch(`${BASE}/api/v1/services/aigc/video-generation/video-synthesis`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    model: "wan3.0-video",
+    input: { prompt: "A Shiba Inu running across a sunny meadow" },
+    parameters: { resolution: "720P", duration: 5 },
+  }),
+});
+const data = await resp.json();
+console.log(data.output.task_id);
+```
+
+</Tab>
+</Tabs>
+
+レスポンス：
+
+```json
+{
+  "request_id": "4909100c-…",
+  "output": {
+    "task_id": "c65c77fe-323b-4140-8de6-5a7241d9ec44",
+    "task_status": "PENDING"
+  }
+}
+```
+
+## 9. Wan · タスクの照会
+
+### `GET /api/v1/tasks/{task_id}`
+
+`output.task_status` の値：`PENDING` → `RUNNING` → `SUCCEEDED` / `FAILED` / `CANCELED`。成功時、動画 URL は `output.video_url` に、課金対象の秒数は `usage.duration` に含まれます。キャンセル用エンドポイントはありません。一度送信されたタスクは必ず完了まで実行されます。
+
+```bash
+curl https://api.lmuai.com/api/v1/tasks/TASK_ID \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+レスポンス（成功時）：
+
+```json
+{
+  "request_id": "…",
+  "output": {
+    "task_id": "c65c77fe-323b-4140-8de6-5a7241d9ec44",
+    "task_status": "SUCCEEDED",
+    "video_url": "https://…/output.mp4"
+  },
+  "usage": {
+    "duration": 2.0,
+    "video_count": 1
+  }
+}
+```
+
+## 10. 課金とウォーターマーク
+
+- タスク作成時に見積額が凍結されます。残高が不足している場合、リクエストは即座に拒否され（`402`）、動画は生成されません。
+- 成功時、タスクは実際の使用量に基づいて一度だけ精算され、凍結額の超過分は自動的に返還されます。失敗およびキャンセルされたタスクは全額返金され、課金されません。
+- Seedance は出力トークン単位で課金され、Wan は「実際の秒数 × 解像度ティアの単価」で課金されます。
+- 完成した動画にはプラットフォームの「AI 生成」ラベルが付与され、クライアント側でオフにすることはできません。
+
+## 11. 同時実行数の制限
+
+各ユーザーおよび各 API キーで同時に生成中にできるタスクは最大 **5** 件です。これを超えると、リクエストは `Retry-After` ヘッダー（約 60 秒）付きで `429` を返します。間隔を空けて再試行してください。
+
+## 12. エラーコード
+
+| HTTP | 意味 | 対処方法 |
+|---|---|---|
+| `401` | API キーが無効または無効化されています | API キーを確認してください |
+| `402` | 見積額を凍結するための残高またはクォータが不足しています | チャージしてから再試行してください |
+| `403` | グループで動画生成が有効になっていないか、グループでモデルが利用できません | 動画生成に対応した API キーを使用してください |
+| `404 model_not_found` | モデルがまだ利用できません（モデル名の誤記でも発生します） | `GET /v1/models` が返す正確な名前を使用してください |
+| `409` | タスクの生成が開始されており、キャンセルできません | タスクの完了を待ってください |
+| `429` | 実行中のタスク数が上限に達しています | `Retry-After` に従って間隔を空けて再試行してください |
+
+一般的なエラーについては、[エラーコード](/ja/docs/guide/errors)を参照してください。
+
+## 13. 完全な例：作成とポーリング
+
+<Tabs items={['Seedance', 'Wan']}>
+<Tab value="Seedance">
+
+```python
+import time, requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+# 1. Create the task
+resp = requests.post(f"{BASE}/api/v3/contents/generations/tasks", headers=HEADERS, json={
+    "model": "seedance-2.5",
+    "content": [{"type": "text", "text": "Waves gently lapping the beach at dusk, slow motion"}],
+    "resolution": "720p", "duration": 5, "ratio": "16:9",
+})
+resp.raise_for_status()
+task_id = resp.json()["id"]
+
+# 2. Poll until a final state (every 10 seconds)
+while True:
+    task = requests.get(f"{BASE}/api/v3/contents/generations/tasks/{task_id}", headers=HEADERS).json()
+    status = task["status"]
+    if status in ("succeeded", "failed", "cancelled", "canceled", "expired"):
+        break
+    time.sleep(10)
+
+# 3. Download (the link is valid for 24 hours)
+if status == "succeeded":
+    url = task["content"]["video_url"]
+    with open(f"{task_id}.mp4", "wb") as f:
+        f.write(requests.get(url).content)
+else:
+    print("Generation failed:", task)
+```
+
+</Tab>
+<Tab value="Wan">
+
+```python
+import time, requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+# 1. Create the task
+resp = requests.post(f"{BASE}/api/v1/services/aigc/video-generation/video-synthesis", headers=HEADERS, json={
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5},
+})
+resp.raise_for_status()
+task_id = resp.json()["output"]["task_id"]
+
+# 2. Poll until a final state (every 10 seconds)
+while True:
+    task = requests.get(f"{BASE}/api/v1/tasks/{task_id}", headers=HEADERS).json()
+    status = task["output"]["task_status"]
+    if status in ("SUCCEEDED", "FAILED", "CANCELED", "CANCELLED", "UNKNOWN"):
+        break
+    time.sleep(10)
+
+# 3. Download (the link is valid for 24 hours)
+if status == "SUCCEEDED":
+    url = task["output"]["video_url"]
+    with open(f"{task_id}.mp4", "wb") as f:
+        f.write(requests.get(url).content)
+else:
+    print("Generation failed:", task)
+```
+
+</Tab>
+</Tabs>
