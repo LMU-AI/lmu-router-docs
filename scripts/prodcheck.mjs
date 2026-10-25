@@ -299,9 +299,11 @@ async function main() {
 
   const llmsFull = await get('/llms-full.txt');
   check('live', '/llms-full.txt 200', llmsFull.status === 200, `status=${llmsFull.status}`);
+  // APIv3 指已下线支付文档里的微信支付「APIv3 密钥」。必须带 \b：视频生成页的标题
+  // `POST /api/v3/contents/…` 会生成 #post-apiv3contents… 这样的锚点，不加边界会误报。
+  const payHit = llmsFull.body.match(/Stripe|z-pay|\bAPIv3\b/i);
   check('next', 'llms-full.txt 不含 payment 内容',
-    !/Stripe|z-pay|APIv3/i.test(llmsFull.body),
-    /Stripe/i.test(llmsFull.body) ? '仍含 Stripe/z-pay/APIv3 字样' : '干净');
+    !payHit, payHit ? `仍含「${payHit[0]}」字样` : '干净');
 
   // 非默认语言的 LLM 发现面（v0.1.28 起）：com 上是 /en/*，ai 上是 /cn/*。
   const llmsOther = await get(`${OTHER_SEG}/llms.txt`);
