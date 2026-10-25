@@ -5,6 +5,7 @@
     "gpt-image",
     "grok-image",
     "gemini-image-batch",
+    "video-generation",
     "usage-export"
   ]
 }
