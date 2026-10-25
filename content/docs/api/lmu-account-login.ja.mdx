@@ -1,0 +1,430 @@
+---
+title: LMU AI でサインイン
+description: "Web サイトやアプリに「LMU AI でサインイン」を追加する方法：認可ページへリダイレクトし、コールバックで state を検証し、サーバー側で client_secret を使ってチケットをユーザーの ID 情報と交換します。フロー、エンドポイント、ユーザーフィールド、セキュリティ要件、サンプルコード、そして AI コーディングアシスタントにそのまま渡せるプロンプトを掲載しています。"
+ogDescription: "LMU AI アカウントログイン（シングルサインオン）連携ガイド：GET /sso/authorize でリダイレクトし、コールバックで使い捨てのチケットを受け取り、サーバー側で POST /api/v1/sso/exchange により交換します。Node.js / Python のサンプルと AI コーディングアシスタント用プロンプト付き。"
+keywords:
+  - LMU AI でサインイン
+  - シングルサインオン SSO
+  - 認可ログイン
+  - サードパーティログイン連携
+  - OAuth 認可コード
+  - LMU AI ID 情報
+alternateNames:
+  - LMU AI アカウントログイン
+  - LMU AI SSO
+faq:
+  - q: LMU AI アカウントログインを連携するには何が必要ですか？
+    a: "LMU AI に client_id と client_secret を申請し、コールバック URL を登録してください。Web サイト側には client_secret を安全に保管できるサーバーが必要です。"
+  - q: 連携先サイトはユーザーの API キーや残高を取得できますか？
+    a: "できません。LMU AI アカウントログインが提供するのは ID 情報（ユーザー ID、ユーザー名、アバター、承認された場合はメールアドレス）のみです。ユーザーの API キーや残高が共有されることはありません。"
+  - q: チケットの有効期間はどのくらいですか？
+    a: "60 秒で、使用できるのは 1 回のみです。コールバックで受け取ったら、すぐにサーバー側で交換してください。"
+  - q: ユーザーが認可ページで「キャンセル」をクリックするとどうなりますか？
+    a: "LMU AI は error=access_denied と元の state を付けてコールバック URL にリダイレクトします。サイト側はログインページに戻り、認可がキャンセルされたことを表示してください。"
+---
+
+「LMU AI でサインイン」を使うと、他の Web サイトやアプリ（コミュニティ、クリエイティブツール、社内プロジェクトなど）で、ユーザーが LMU AI アカウントを使ってサインインできるようになります。ユーザーは LMU AI 上で「認可してサインイン」を一度クリックするだけでサインインが完了します。アカウントを持っていないユーザーもその場で LMU AI に登録でき、登録後は自動的にあなたのサイトに戻されます。
+
+あなたのサイトが受け取るのはユーザーの **ID 情報** のみです。**ユーザーの API キーや残高を受け取ることは決してありません。**
+
+<Callout type="info" title="利用できる方">
+
+Web サイトまたはアプリに **サーバー** が必要です。最後のステップでは `client_secret` を使ってチケットを交換しますが、`client_secret` はブラウザ、ミニプログラム、モバイルのフロントエンドコードに決して含めてはいけません。フロントエンドのみのプロジェクトは、自前のバックエンド経由で交換を行ってください。
+
+</Callout>
+
+## 1. 仕組み
+
+このフローは OAuth 認可コードフローを簡略化したものです。ブラウザのアドレスバーに載るのは **60 秒間有効な使い捨てチケット** だけで、あなたの **サーバー** が `client_secret` を使ってそれをユーザーの ID 情報と交換します。
+
+<Mermaid chart={`sequenceDiagram
+    participant U as ユーザーのブラウザ
+    participant S as あなたのサイト
+    participant L as LMU AI
+    U->>S: 「LMU AI でサインイン」をクリック
+    S->>U: state を生成して Cookie に保存し、認可ページへリダイレクト
+    U->>L: GET /sso/authorize?client_id&state
+    L->>U: 必要に応じてサインインまたは登録後、認可ページを表示
+    U->>L: 「認可してサインイン」をクリック
+    L->>U: コールバックへリダイレクト ?ticket&state
+    U->>S: GET /sso/callback?ticket&state
+    S->>S: state が Cookie と一致するか確認
+    S->>L: POST /api/v1/sso/exchange
+    L->>S: ユーザーの ID 情報を返す
+    S->>U: アカウントを作成またはサインインし、セッションを設定
+`} />
+
+## 2. 始める前に：利用申請
+
+以下の情報を LMU AI に登録してください。
+
+| 項目 | 説明 |
+|---|---|
+| プロジェクト名 | 認可ページに表示されます。例：「立刻图 liketu.ai」 |
+| コールバック URL | HTTPS 必須で、**URL 全体の完全一致** で照合されます。例：`https://your-app.example.com/sso/callback`。テスト環境用にもう 1 つ登録できます。ローカル開発では `http://localhost` または `http://127.0.0.1` で始まる URL も登録できます |
+| ロゴ（任意） | 認可ページに表示されます |
+| メールアドレスの要否 | メールアドレスはデフォルトでは返されません。必要な場合は理由を説明してください。承認後にのみ返されます |
+
+登録後、以下が発行されます。
+
+- `client_id`：プロジェクトを識別するもので、公開しても問題ありません。
+- `client_secret`：プロジェクトのシークレットです。**表示されるのは一度だけ** なので、サーバー側の環境変数またはシークレットマネージャーに保管してください。
+
+<Callout type="info" title="申請方法">
+
+LMU AI の社内プロジェクトは管理者が管理コンソールで作成します。外部パートナーの方は LMU AI カスタマーサポートにお問い合わせのうえ申請してください。
+
+</Callout>
+
+## 3. ベース URL
+
+```text
+https://api.lmuai.com
+```
+
+アカウントは LMU AI の中国本土サイトと国際サイトで共通です。同じユーザーはどちらのサイトでも同じユーザー ID を持ちます。このページの例では現在のサイトのアドレスを使用しています。
+
+<Callout type="warn" title="認可と交換は同じサイトで行う">
+
+チケットは発行したサイトに保存されます。チケットの交換は、ユーザーを認可に送ったサイトと同じサイトで行う必要があります。そうでない場合、交換は失敗します（`401`）。
+
+</Callout>
+
+## 4. ステップ 1：認可ページへリダイレクトする
+
+### `GET /sso/authorize`
+
+ユーザーが「LMU AI でサインイン」をクリックしたら、サーバーでランダムな `state` を生成して Cookie に保存し、ブラウザを認可ページへ 302 リダイレクトします。
+
+```text
+https://api.lmuai.com/sso/authorize?client_id=YOUR_CLIENT_ID&state=RANDOM_STATE&redirect_uri=https%3A%2F%2Fyour-app.example.com%2Fsso%2Fcallback
+```
+
+| パラメータ | 必須 | 説明 |
+|---|---|---|
+| `client_id` | はい | 申請時に受け取ったプロジェクト識別子 |
+| `state` | はい | サインインのたびに新しく生成するランダム文字列。使用できる文字は `A-Z a-z 0-9 _ -` のみで、長さは 16〜128 文字。32 バイトの乱数を base64url エンコードしたもの（43 文字）を推奨します |
+| `redirect_uri` | いいえ | コールバック URL。登録済みの URL のいずれかと **完全に** 一致する必要があります。省略した場合は最初に登録した URL が使用されます |
+
+LMU AI 側では、ユーザーは次のように操作します。
+
+1. 未サインインの場合はまずサインインし、アカウントがなければその場で登録します。その後、自動的に認可ページに戻ります。
+2. 認可ページにはあなたのプロジェクト名と、「サインインにのみ使用されます。API キーと残高は共有されません。」という注記が表示されます。
+3. 「認可してサインイン」または「キャンセル」をクリックします。
+
+<Callout type="warn" title="認可ページを iframe に埋め込まないでください">
+
+認可ページは埋め込みできません（`X-Frame-Options: DENY`）。ページ全体をリダイレクトするか、新しいウィンドウで開いてください。
+
+</Callout>
+
+## 5. ステップ 2：コールバックを処理する
+
+ユーザーが認可すると、ブラウザはあなたのコールバック URL にリダイレクトされます。
+
+```text
+https://your-app.example.com/sso/callback?ticket=TICKET&state=RANDOM_STATE
+```
+
+ユーザーがキャンセルした場合：
+
+```text
+https://your-app.example.com/sso/callback?error=access_denied&state=RANDOM_STATE
+```
+
+コールバックハンドラーでは、次の処理を順番に行ってください。
+
+1. **state を確認する**：URL の `state` が Cookie に保存したものと完全に一致する必要があります。確認後すぐに Cookie を削除してください。一致しない場合はサインインを拒否します。
+2. **キャンセルを処理する**：`error=access_denied` の場合はログインページに戻り、「認可がキャンセルされました」と表示します。
+3. **ID 情報と交換する**：サーバー上で `ticket` を使い、ステップ 3 の交換エンドポイントを呼び出します。
+4. **アカウントを作成またはサインインする**：ユーザーの `id` でローカルアカウントを検索または作成し、サイトのセッションを設定します。
+5. **元のページに戻る**：自サイト内の相対パスのみ許可し、リダイレクトがオープンリダイレクトとして悪用されないようにします。
+
+## 6. ステップ 3：サーバー側でチケットをユーザーの ID 情報と交換する
+
+### `POST /api/v1/sso/exchange`
+
+このステップは **必ずサーバーからのみ** 呼び出してください。
+
+```bash
+curl https://api.lmuai.com/api/v1/sso/exchange \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_id": "YOUR_CLIENT_ID",
+    "client_secret": "YOUR_CLIENT_SECRET",
+    "ticket": "TICKET"
+  }'
+```
+
+| パラメータ | 必須 | 説明 |
+|---|---|---|
+| `client_id` | はい | プロジェクト識別子 |
+| `client_secret` | はい | プロジェクトのシークレット |
+| `ticket` | はい | コールバック URL から取得したチケット |
+
+成功時のレスポンス（HTTP `200`）：
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "user": {
+      "id": 10086,
+      "username": "alice",
+      "email": "alice@example.com",
+      "avatar": "https://example.com/avatar.png"
+    }
+  }
+}
+```
+
+失敗時：
+
+| HTTP | 原因 | 対処方法 |
+|---|---|---|
+| `401` | `client_id` または `client_secret` が誤っている、チケットの有効期限切れ・使用済み、またはこのプロジェクトに発行されたものではない | 同じチケットで再試行せず、ユーザーにサインインを最初からやり直してもらう |
+| `404` | このサイトで LMU AI アカウントログインが有効になっていない | ベース URL が申請したサイトのものであることを確認する |
+| `429` | リクエストが多すぎる | 時間をおいて再試行する |
+| `5xx` | サービスが一時的に利用できない | 時間をおいてユーザーにサインインを最初からやり直してもらう |
+
+探索攻撃を防ぐため、認証情報やチケットに関するエラーはすべて同じ `401` を返し、どの項目が誤っていたかは示しません。
+
+**チケットのルール**：有効期間は 60 秒、交換できるのは 1 回のみ、発行先のプロジェクトのみ、かつ発行したサイトと同じサイトでのみ交換できます。
+
+## 7. ユーザーフィールド
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `id` | integer | 一意のユーザー ID。変更されることはなく、中国本土サイトと国際サイトで同じです。**あなたの側でアカウントを紐付けるキーとして使用してください** |
+| `username` | string | ユーザー名。ユーザーが変更でき、空の場合もあります。空の場合は「LMU AI ユーザー `{id}`」などのデフォルト名を表示してください |
+| `email` | string | メールアドレスの受け取りを承認されたプロジェクトにのみ返されます。それ以外の場合は空です。ユーザーが変更する可能性があり、**検証済みであることは保証されません** |
+| `avatar` | string | アバターの URL。空の場合があります |
+
+<Callout type="warn" title="メールアドレスでアカウントを自動統合しないでください">
+
+サイトにメールアドレスで登録された既存アカウントがある場合、LMU AI から返されたメールアドレスが一致するという理由だけで、ユーザーを既存アカウントに直接サインインさせては **いけません**。まずそのメールアドレスに認証コードを送信し、認証された後にのみアカウントを紐付けてください。そのメールアドレスを使用しているアカウントがない場合は、新規アカウントを作成するだけで構いません。
+
+</Callout>
+
+## 8. セキュリティ要件
+
+本番公開前に各項目を確認してください。
+
+- [ ] `client_secret` はサーバー上にのみ存在する：フロントエンドコード、ログ、URL、コードリポジトリには決して含めない。
+- [ ] サインインのたびに新しい `state` を生成し、httpOnly・Secure・SameSite=Lax で有効期限 5 分の Cookie に保存する。コールバックで一致を確認したらすぐに削除する。
+- [ ] コールバック URL は HTTPS を使用し、登録済みの URL と完全に一致する。
+- [ ] `ticket` を受け取ったらすぐに交換する。再試行、キャッシュ、ログ出力はしない。
+- [ ] アカウントは `id` で紐付ける。メールアドレスで既存アカウントを自動統合しない。
+- [ ] サインイン後は自サイト内の相対パスにのみリダイレクトする。
+- [ ] 交換呼び出しにタイムアウトを設定する（10 秒を推奨）。失敗時は空白画面のままにせず、理由を付けてログインページに戻す。
+- [ ] サイトからのサインアウトは自サイトのセッションのみをクリアする。ユーザーの LMU AI のサインイン状態には影響しない。
+
+## 9. サンプルコード
+
+どちらのサンプルも `/sso/login`（認可ページへのリダイレクト）と `/sso/callback`（state の確認と ID 情報との交換）を実装しています。使用する環境変数：
+
+| 変数 | 例 |
+|---|---|
+| `LMU_SSO_BASE_URL` | `https://api.lmuai.com` |
+| `LMU_SSO_CLIENT_ID` | あなたの `client_id` |
+| `LMU_SSO_CLIENT_SECRET` | あなたの `client_secret` |
+| `LMU_SSO_REDIRECT_URI` | `https://your-app.example.com/sso/callback` |
+
+<Tabs items={['Node.js (Express)', 'Python (FastAPI)']}>
+<Tab value="Node.js (Express)">
+
+```js
+import express from "express";
+import cookieParser from "cookie-parser";
+import crypto from "node:crypto";
+
+const BASE = process.env.LMU_SSO_BASE_URL;
+const CLIENT_ID = process.env.LMU_SSO_CLIENT_ID;
+const CLIENT_SECRET = process.env.LMU_SSO_CLIENT_SECRET;
+const REDIRECT_URI = process.env.LMU_SSO_REDIRECT_URI;
+const STATE_COOKIE = "lmu_sso_state";
+
+const app = express();
+app.use(cookieParser());
+
+// Step 1: generate state and redirect to the LMU AI authorization page
+app.get("/sso/login", (req, res) => {
+  const state = crypto.randomBytes(32).toString("base64url");
+  res.cookie(STATE_COOKIE, state, {
+    httpOnly: true, secure: true, sameSite: "lax", maxAge: 5 * 60 * 1000, path: "/",
+  });
+  const url = new URL("/sso/authorize", BASE);
+  url.searchParams.set("client_id", CLIENT_ID);
+  url.searchParams.set("state", state);
+  url.searchParams.set("redirect_uri", REDIRECT_URI);
+  res.redirect(url.toString());
+});
+
+// Steps 2 and 3: check state and exchange for identity on the server
+app.get("/sso/callback", async (req, res) => {
+  const { ticket, state, error } = req.query;
+  const expected = req.cookies[STATE_COOKIE];
+  res.clearCookie(STATE_COOKIE, { path: "/" });
+
+  const ok = typeof state === "string" && typeof expected === "string" &&
+    Buffer.byteLength(state) === Buffer.byteLength(expected) &&
+    crypto.timingSafeEqual(Buffer.from(state), Buffer.from(expected));
+  if (!ok) return res.redirect("/login?error=invalid_state");
+  if (error === "access_denied") return res.redirect("/login?error=cancelled");
+  if (typeof ticket !== "string" || !ticket) return res.redirect("/login?error=missing_ticket");
+
+  let user;
+  try {
+    const resp = await fetch(new URL("/api/v1/sso/exchange", BASE), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, ticket }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!resp.ok) return res.redirect("/login?error=exchange_failed");
+    user = (await resp.json()).data.user; // { id, username, email, avatar }
+  } catch {
+    return res.redirect("/login?error=exchange_failed");
+  }
+
+  // Replace with your own logic: find or create the local account by user.id, then set your session
+  // const localUser = await upsertUserByLmuId(user);
+  // await createSession(res, localUser);
+
+  res.redirect("/");
+});
+
+app.listen(3000);
+```
+
+</Tab>
+<Tab value="Python (FastAPI)">
+
+```python
+import hmac
+import os
+import secrets
+from urllib.parse import urlencode
+
+import httpx
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
+
+BASE = os.environ["LMU_SSO_BASE_URL"]
+CLIENT_ID = os.environ["LMU_SSO_CLIENT_ID"]
+CLIENT_SECRET = os.environ["LMU_SSO_CLIENT_SECRET"]
+REDIRECT_URI = os.environ["LMU_SSO_REDIRECT_URI"]
+STATE_COOKIE = "lmu_sso_state"
+
+app = FastAPI()
+
+
+def back_to_login(reason: str) -> RedirectResponse:
+    resp = RedirectResponse(f"/login?error={reason}", status_code=302)
+    resp.delete_cookie(STATE_COOKIE)
+    return resp
+
+
+# Step 1: generate state and redirect to the LMU AI authorization page
+@app.get("/sso/login")
+def sso_login():
+    state = secrets.token_urlsafe(32)
+    query = urlencode({"client_id": CLIENT_ID, "state": state, "redirect_uri": REDIRECT_URI})
+    resp = RedirectResponse(f"{BASE}/sso/authorize?{query}", status_code=302)
+    resp.set_cookie(STATE_COOKIE, state, max_age=300, httponly=True, secure=True, samesite="lax")
+    return resp
+
+
+# Steps 2 and 3: check state and exchange for identity on the server
+@app.get("/sso/callback")
+async def sso_callback(request: Request, ticket: str | None = None,
+                       state: str | None = None, error: str | None = None):
+    expected = request.cookies.get(STATE_COOKIE)
+    if not state or not expected or not hmac.compare_digest(state.encode(), expected.encode()):
+        return back_to_login("invalid_state")
+    if error == "access_denied":
+        return back_to_login("cancelled")
+    if not ticket:
+        return back_to_login("missing_ticket")
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(f"{BASE}/api/v1/sso/exchange", json={
+                "client_id": CLIENT_ID,
+                "client_secret": CLIENT_SECRET,
+                "ticket": ticket,
+            })
+        resp.raise_for_status()
+        user = resp.json()["data"]["user"]  # {"id", "username", "email", "avatar"}
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        return back_to_login("exchange_failed")
+
+    # Replace with your own logic: find or create the local account by user["id"], then set your session
+    # local_user = upsert_user_by_lmu_id(user)
+
+    done = RedirectResponse("/", status_code=302)
+    done.delete_cookie(STATE_COOKIE)
+    # create_session(done, local_user)
+    return done
+```
+
+</Tab>
+</Tabs>
+
+## 10. AI コーディングアシスタントに連携を任せる
+
+以下のプロンプトをプロジェクトと一緒に Claude Code、Codex、Cursor などの AI コーディングアシスタントに渡し、山括弧内の部分をプロジェクトに合わせて置き換えてください。
+
+```text
+Integrate "Sign in with LMU AI" into this project. Implement it exactly as specified below; do not change the endpoints, parameters, or security requirements.
+
+[Configuration] Add 4 server-side environment variables. They must never appear in front-end code, logs, or the code repository:
+- LMU_SSO_BASE_URL=https://api.lmuai.com
+- LMU_SSO_CLIENT_ID=<your client_id>
+- LMU_SSO_CLIENT_SECRET=<your client_secret>
+- LMU_SSO_REDIRECT_URI=https://<this project's domain>/sso/callback (must exactly match the callback URL registered with LMU AI)
+
+[Step 1] Add GET /sso/login:
+- Generate state as the base64url encoding of 32 random bytes;
+- Store it in the cookie lmu_sso_state: httpOnly, Secure, SameSite=Lax, expires in 5 minutes;
+- 302-redirect to {LMU_SSO_BASE_URL}/sso/authorize?client_id=…&state=…&redirect_uri=… (URL-encode the parameters).
+
+[Step 2] Add GET /sso/callback:
+- The state URL parameter must exactly match the cookie lmu_sso_state (use a constant-time comparison); delete the cookie right after comparing. If they do not match, return to the login page with "The sign-in link has expired. Please sign in again.";
+- If error=access_denied, return to the login page with "You cancelled authorization.";
+- If ticket is missing, return to the login page with the reason.
+
+[Step 3] Exchange the ticket for the identity on the server:
+- POST {LMU_SSO_BASE_URL}/api/v1/sso/exchange with Content-Type: application/json and body {"client_id","client_secret","ticket"}, timeout 10 seconds;
+- On success (HTTP 200) the user is in data.user of the response JSON: {id, username, email, avatar};
+- On failure (401/404/429/5xx or timeout), do not retry the same ticket; return to the login page with "Sign-in failed. Please try again.";
+- A ticket can be used only once and expires in 60 seconds; do not cache or log it.
+
+[Accounts]
+- Use data.user.id as the unique key for linking LMU AI accounts (add a field such as lmu_user_id with a unique index): update the username and avatar if it exists, otherwise create a new account;
+- Do not sign the user into an existing local account just because the email matches: send a verification code to that email first and link only after it is verified;
+- username may be empty — show "LMU AI user {id}" in that case; email may be empty.
+- After creating or signing in the account, set this project's session and redirect to the page the user came from (relative paths on this site only).
+
+[UI] Add a "Sign in with LMU AI" button to the login page that goes to /sso/login.
+
+[Tests] Add automated tests covering at least:
+1. Normal sign-in: account created on first sign-in, profile updated on the next sign-in;
+2. Missing, mismatched, or tampered state is rejected;
+3. error=access_denied returns to the login page with a cancellation notice;
+4. A 401 from exchange returns to the login page without retrying;
+5. Reusing the same ticket fails;
+6. An existing account with the same email can only be linked after email verification.
+
+When done, list the changed files, the new environment variables, and the test results.
+```
+
+## 11. 公開前チェック
+
+- [ ] すでに LMU AI にサインインしているユーザー：「LMU AI でサインイン」をクリック → 認可ページで「認可してサインイン」をクリック → あなたのサイトに戻り、サインイン済みになる。
+- [ ] LMU AI アカウントを持たない新規ユーザー：サインインをクリック → LMU AI で登録 → 認可 → あなたのサイトに戻り、サインイン済みになる。
+- [ ] 認可ページで「キャンセル」をクリック：ログインページに戻り、認可がキャンセルされた旨が表示される。
+- [ ] コールバックページの再読み込み、同じチケットの再利用、改ざんされた state や state の欠落：いずれも失敗し、理由を付けてログインページに戻る。
+- [ ] 同じ LMU AI ユーザーが 2 回目にサインインした場合、同じローカルアカウントにサインインし、プロフィールが更新される。
+- [ ] `client_secret` がフロントエンドコード、ブラウザのネットワークリクエスト、ログに一切現れない。

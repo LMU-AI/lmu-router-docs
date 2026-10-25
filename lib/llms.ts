@@ -91,8 +91,8 @@ function strings(lang: string, pfx: string): LlmsStrings {
       sep: ', ',
       indexHeading: (name) => `# ${name} (Lingmou AI)`,
       blockquote: IS_AI
-        ? '> LMU AI (Lingmou AI) is a large-model API relay. One API key calls Claude, OpenAI GPT and leading Chinese models; the international gateway offers direct access from outside mainland China, and the same account, key and balance also work on the mainland endpoint. This site is its integration documentation, covering how to configure mainstream AI tools such as Claude Code, Codex CLI, Cursor, Trae and Chatbox, plus the image-generation, video-generation and usage-export APIs.'
-        : '> LMU AI (Lingmou AI) is a large-model API relay for users in mainland China. One API key calls Claude, OpenAI GPT and leading Chinese models; the gateway is hosted inside mainland China for direct, proxy-free access. This site is its integration documentation, covering how to configure mainstream AI tools such as Claude Code, Codex CLI, Cursor, Trae and Chatbox, plus the image-generation, video-generation and usage-export APIs.',
+        ? '> LMU AI (Lingmou AI) is a large-model API relay. One API key calls Claude, OpenAI GPT and leading Chinese models; the international gateway offers direct access from outside mainland China, and the same account, key and balance also work on the mainland endpoint. This site is its integration documentation, covering how to configure mainstream AI tools such as Claude Code, Codex CLI, Cursor, Trae and Chatbox, plus the image-generation, video-generation and usage-export APIs and "Sign in with LMU AI" for other websites.'
+        : '> LMU AI (Lingmou AI) is a large-model API relay for users in mainland China. One API key calls Claude, OpenAI GPT and leading Chinese models; the gateway is hosted inside mainland China for direct, proxy-free access. This site is its integration documentation, covering how to configure mainstream AI tools such as Claude Code, Codex CLI, Cursor, Trae and Chatbox, plus the image-generation, video-generation and usage-export APIs and "Sign in with LMU AI" for other websites.',
       bullets: {
         apiBase: `- API Base URL: ${API_BASE_URL}`,
         fullDocs: `- Full docs (with body text): ${SITE_URL}${pfx}/llms-full.txt`,
@@ -126,8 +126,8 @@ function strings(lang: string, pfx: string): LlmsStrings {
     sep: '、',
     indexHeading: (name) => `# ${name}（灵眸 AI）`,
     blockquote: IS_AI
-      ? '> 灵眸 AI 是大模型 API 中转服务，一把 API Key 即可调用 Claude、OpenAI GPT 与国产大模型；国际站网关境外可直接访问，账号、密钥与余额与大陆端点通用。本站是它的接入文档，覆盖 Claude Code、Codex CLI、Cursor、Trae、Chatbox 等主流 AI 工具的配置方法，以及生图、视频生成与用量导出 API。'
-      : '> 灵眸 AI 是面向中国大陆用户的大模型 API 中转服务，一把 API Key 即可调用 Claude、OpenAI GPT 与国产大模型，网关部署在中国境内、国内直连免代理。本站是它的接入文档，覆盖 Claude Code、Codex CLI、Cursor、Trae、Chatbox 等主流 AI 工具的配置方法，以及生图、视频生成与用量导出 API。',
+      ? '> 灵眸 AI 是大模型 API 中转服务，一把 API Key 即可调用 Claude、OpenAI GPT 与国产大模型；国际站网关境外可直接访问，账号、密钥与余额与大陆端点通用。本站是它的接入文档，覆盖 Claude Code、Codex CLI、Cursor、Trae、Chatbox 等主流 AI 工具的配置方法，以及生图、视频生成、用量导出 API 与供其他网站接入的灵眸账号登录。'
+      : '> 灵眸 AI 是面向中国大陆用户的大模型 API 中转服务，一把 API Key 即可调用 Claude、OpenAI GPT 与国产大模型，网关部署在中国境内、国内直连免代理。本站是它的接入文档，覆盖 Claude Code、Codex CLI、Cursor、Trae、Chatbox 等主流 AI 工具的配置方法，以及生图、视频生成、用量导出 API 与供其他网站接入的灵眸账号登录。',
     bullets: {
       apiBase: `- API Base URL：${API_BASE_URL}`,
       fullDocs: `- 完整文档（含正文）：${SITE_URL}${pfx}/llms-full.txt`,

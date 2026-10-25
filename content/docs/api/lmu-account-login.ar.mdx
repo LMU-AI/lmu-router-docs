@@ -1,0 +1,430 @@
+---
+title: تسجيل الدخول باستخدام LMU AI
+description: "أضف زر \"تسجيل الدخول باستخدام LMU AI\" إلى موقعك أو تطبيقك: وجّه المستخدم إلى صفحة التفويض، وتحقّق من state عند الاستدعاء الراجع، ثم استبدل التذكرة بهوية المستخدم على خادمك باستخدام client_secret. يغطي هذا الدليل التدفق ونقاط النهاية وحقول المستخدم ومتطلبات الأمان ونماذج الشيفرة، إضافةً إلى موجّه جاهز تسلّمه مباشرةً لمساعد برمجة يعمل بالذكاء الاصطناعي."
+ogDescription: "دليل دمج تسجيل الدخول بحساب LMU AI (الدخول الموحّد): التوجيه عبر GET /sso/authorize، واستلام تذكرة لمرة واحدة على عنوان الاستدعاء الراجع، واستبدالها على خادمك عبر POST /api/v1/sso/exchange؛ يتضمن نماذج بلغتَي Node.js وPython وموجّهًا لمساعد البرمجة بالذكاء الاصطناعي."
+keywords:
+  - تسجيل الدخول باستخدام LMU AI
+  - الدخول الموحّد SSO
+  - تسجيل الدخول بالتفويض
+  - دمج تسجيل الدخول من طرف ثالث
+  - رمز التفويض OAuth
+  - هوية LMU AI
+alternateNames:
+  - تسجيل الدخول بحساب LMU AI
+  - LMU AI SSO
+faq:
+  - q: ما الذي أحتاجه لدمج تسجيل الدخول بحساب LMU AI؟
+    a: "قدّم طلبًا إلى LMU AI للحصول على client_id وclient_secret، وسجّل عنوان الاستدعاء الراجع الخاص بك. يحتاج موقعك إلى خادم يمكنه تخزين client_secret بأمان."
+  - q: هل يمكن للموقع المُدمِج الحصول على مفاتيح API الخاصة بالمستخدم أو رصيده؟
+    a: "لا. لا يوفّر تسجيل الدخول بحساب LMU AI سوى الهوية (معرّف المستخدم واسم المستخدم والصورة الرمزية، والبريد الإلكتروني في حال الموافقة). ولا يشارك أبدًا مفاتيح API الخاصة بالمستخدم أو رصيده."
+  - q: ما مدة صلاحية التذكرة؟
+    a: "60 ثانية، ولا يمكن استخدامها إلا مرة واحدة. استبدلها على خادمك فور استلامها على عنوان الاستدعاء الراجع."
+  - q: ماذا يحدث إذا نقر المستخدم على "إلغاء" في صفحة التفويض؟
+    a: "يعيد LMU AI توجيه المستخدم إلى عنوان الاستدعاء الراجع الخاص بك مع error=access_denied وقيمة state الأصلية. ينبغي أن يعود موقعك إلى صفحة تسجيل الدخول ويُعلم المستخدم بأن التفويض أُلغي."
+---
+
+تتيح ميزة "تسجيل الدخول باستخدام LMU AI" للمواقع والتطبيقات الأخرى (المجتمعات، وأدوات الإبداع، والمشاريع الداخلية، وغيرها) تسجيل دخول المستخدمين بحساباتهم على LMU AI: ينقر المستخدم مرة واحدة على "التفويض وتسجيل الدخول" في LMU AI فيصبح مسجّلًا. ويمكن لمن لا يملك حسابًا التسجيل في LMU AI فورًا، ثم يُعاد توجيهه تلقائيًا إلى موقعك بعد ذلك.
+
+لا يتلقى موقعك سوى **هوية** المستخدم. **ولا يتلقى أبدًا مفاتيح API الخاصة بالمستخدم أو رصيده.**
+
+<Callout type="info" title="من يمكنه استخدامها">
+
+يحتاج موقعك أو تطبيقك إلى **خادم**: إذ تتضمن الخطوة الأخيرة استبدال تذكرة باستخدام `client_secret`، ويجب ألا يظهر `client_secret` أبدًا في شيفرة المتصفح أو البرامج المصغّرة أو الواجهة الأمامية لتطبيقات الهاتف. ينبغي للمشاريع التي تقتصر على الواجهة الأمامية إجراء الاستبدال عبر خادمها الخلفي الخاص.
+
+</Callout>
+
+## 1. آلية العمل
+
+التدفق هو تدفق رمز تفويض OAuth مبسّط: لا يحمل شريط عنوان المتصفح إلا **تذكرة لمرة واحدة صالحة لمدة 60 ثانية**، ويستبدلها **خادمك** بهوية المستخدم باستخدام `client_secret`.
+
+<Mermaid chart={`sequenceDiagram
+    participant U as متصفح المستخدم
+    participant S as موقعك
+    participant L as LMU AI
+    U->>S: النقر على "تسجيل الدخول باستخدام LMU AI"
+    S->>U: إنشاء state وتخزينه في ملف تعريف ارتباط، ثم التوجيه إلى صفحة التفويض
+    U->>L: GET /sso/authorize?client_id&state
+    L->>U: تسجيل الدخول أو التسجيل عند الحاجة، ثم عرض صفحة التفويض
+    U->>L: النقر على "التفويض وتسجيل الدخول"
+    L->>U: التوجيه إلى الاستدعاء الراجع ?ticket&state
+    U->>S: GET /sso/callback?ticket&state
+    S->>S: التحقق من تطابق state مع ملف تعريف الارتباط
+    S->>L: POST /api/v1/sso/exchange
+    L->>S: إرجاع هوية المستخدم
+    S->>U: إنشاء الحساب أو تسجيل الدخول إليه، وتعيين الجلسة
+`} />
+
+## 2. قبل البدء: تقديم طلب الوصول
+
+سجّل البيانات التالية لدى LMU AI:
+
+| البند | الوصف |
+|---|---|
+| اسم المشروع | يُعرض في صفحة التفويض، مثل "立刻图 liketu.ai" |
+| عنوان الاستدعاء الراجع | يجب أن يستخدم HTTPS، وتتم مطابقته مع **العنوان الكامل بدقة**، مثل `https://your-app.example.com/sso/callback`؛ ويمكنك تسجيل عنوان ثانٍ لبيئة الاختبار، كما يُسمح للتطوير المحلي بعناوين تبدأ بـ `http://localhost` أو `http://127.0.0.1` |
+| الشعار (اختياري) | يُعرض في صفحة التفويض |
+| هل تحتاج إلى البريد الإلكتروني | لا يُعاد البريد الإلكتروني افتراضيًا؛ إذا كنت تحتاج إليه فاشرح السبب — ولن يُعاد إلا بعد الموافقة |
+
+بعد التسجيل ستتلقى:
+
+- `client_id`: يعرّف مشروعك ويمكن أن يكون علنيًا؛
+- `client_secret`: السرّ الخاص بمشروعك. **يُعرض مرة واحدة فقط** — خزّنه في متغيرات البيئة على الخادم أو في مدير الأسرار.
+
+<Callout type="info" title="كيفية تقديم الطلب">
+
+يُنشئ المسؤول المشاريع الداخلية لـ LMU AI من لوحة الإدارة؛ أما الشركاء الخارجيون فعليهم التواصل مع خدمة عملاء LMU AI لتقديم الطلب.
+
+</Callout>
+
+## 3. العنوان الأساسي
+
+```text
+https://api.lmuai.com
+```
+
+تعمل الحسابات عبر موقع LMU AI في البر الرئيسي للصين والموقع الدولي: للمستخدم نفسه معرّف المستخدم نفسه على كلا الموقعين. تستخدم الأمثلة في هذه الصفحة عنوان الموقع الحالي.
+
+<Callout type="warn" title="التفويض والاستبدال على الموقع نفسه">
+
+تُخزَّن التذكرة لدى الموقع الذي أصدرها. يجب أن تستبدل التذكرة على الموقع نفسه الذي أرسلت المستخدم إليه للتفويض؛ وإلا سيفشل الاستبدال (`401`).
+
+</Callout>
+
+## 4. الخطوة 1: التوجيه إلى صفحة التفويض
+
+### `GET /sso/authorize`
+
+عندما ينقر المستخدم على "تسجيل الدخول باستخدام LMU AI"، يُنشئ خادمك قيمة `state` عشوائية، ويخزّنها في ملف تعريف ارتباط، ثم يعيد توجيه المتصفح بالرمز 302 إلى صفحة التفويض:
+
+```text
+https://api.lmuai.com/sso/authorize?client_id=YOUR_CLIENT_ID&state=RANDOM_STATE&redirect_uri=https%3A%2F%2Fyour-app.example.com%2Fsso%2Fcallback
+```
+
+| المعامل | إلزامي | الوصف |
+|---|---|---|
+| `client_id` | نعم | معرّف المشروع الذي تلقيته عند تقديم الطلب |
+| `state` | نعم | سلسلة عشوائية جديدة لكل عملية تسجيل دخول، لا تحتوي إلا على `A-Z a-z 0-9 _ -`، بطول يتراوح بين 16 و128 حرفًا. نوصي بترميز base64url لـ 32 بايت عشوائيًا (43 حرفًا) |
+| `redirect_uri` | لا | عنوان الاستدعاء الراجع؛ يجب أن يطابق **بدقة** أحد عناوينك المسجّلة. إذا أُغفل، يُستخدم أول عنوان مسجّل |
+
+على جانب LMU AI، سيقوم المستخدم بما يلي:
+
+1. تسجيل الدخول أولًا إن لم يكن مسجّلًا — أو التسجيل فورًا إن لم يكن لديه حساب — ثم العودة تلقائيًا إلى صفحة التفويض؛
+2. رؤية اسم مشروعك في صفحة التفويض، مع الملاحظة "يُستخدم لتسجيل الدخول فقط. لا تتم مشاركة مفاتيح API الخاصة بك ولا رصيدك.";
+3. النقر على "التفويض وتسجيل الدخول" أو "إلغاء".
+
+<Callout type="warn" title="لا تضمّن صفحة التفويض في iframe">
+
+لا يمكن تضمين صفحة التفويض (`X-Frame-Options: DENY`). أعد توجيه الصفحة بالكامل، أو افتحها في نافذة جديدة.
+
+</Callout>
+
+## 5. الخطوة 2: معالجة الاستدعاء الراجع
+
+بعد أن يمنح المستخدم التفويض، يُعاد توجيه المتصفح إلى عنوان الاستدعاء الراجع الخاص بك:
+
+```text
+https://your-app.example.com/sso/callback?ticket=TICKET&state=RANDOM_STATE
+```
+
+إذا ألغى المستخدم:
+
+```text
+https://your-app.example.com/sso/callback?error=access_denied&state=RANDOM_STATE
+```
+
+ينبغي أن يقوم معالج الاستدعاء الراجع بما يلي، بالترتيب:
+
+1. **التحقق من state**: يجب أن تطابق قيمة `state` في العنوان القيمة المخزّنة في ملف تعريف الارتباط تمامًا؛ واحذف ملف تعريف الارتباط فور التحقق. ارفض تسجيل الدخول إذا لم تتطابقا.
+2. **معالجة الإلغاء**: عند `error=access_denied`، عُد إلى صفحة تسجيل الدخول واعرض الرسالة "لقد ألغيت التفويض."
+3. **الاستبدال بالهوية**: استدعِ نقطة نهاية الاستبدال الواردة في الخطوة 3 على خادمك باستخدام `ticket`.
+4. **إنشاء الحساب أو تسجيل الدخول إليه**: ابحث عن الحساب المحلي أو أنشئه بناءً على `id` الخاص بالمستخدم، وعيّن جلسة موقعك.
+5. **العودة إلى الصفحة الأصلية**: اسمح فقط بالمسارات النسبية على موقعك، حتى لا يُساء استخدام إعادة التوجيه كإعادة توجيه مفتوحة.
+
+## 6. الخطوة 3: استبدال التذكرة بهوية المستخدم على خادمك
+
+### `POST /api/v1/sso/exchange`
+
+يجب استدعاء هذه الخطوة **من خادمك فقط**.
+
+```bash
+curl https://api.lmuai.com/api/v1/sso/exchange \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_id": "YOUR_CLIENT_ID",
+    "client_secret": "YOUR_CLIENT_SECRET",
+    "ticket": "TICKET"
+  }'
+```
+
+| المعامل | إلزامي | الوصف |
+|---|---|---|
+| `client_id` | نعم | معرّف المشروع |
+| `client_secret` | نعم | سرّ المشروع |
+| `ticket` | نعم | التذكرة الواردة في عنوان الاستدعاء الراجع |
+
+الاستجابة الناجحة (HTTP `200`):
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "user": {
+      "id": 10086,
+      "username": "alice",
+      "email": "alice@example.com",
+      "avatar": "https://example.com/avatar.png"
+    }
+  }
+}
+```
+
+عند الفشل:
+
+| HTTP | السبب | ما يجب فعله |
+|---|---|---|
+| `401` | قيمة `client_id` أو `client_secret` خاطئة؛ أو انتهت صلاحية التذكرة، أو سبق استخدامها، أو لم تُصدر لهذا المشروع | لا تُعِد المحاولة بالتذكرة نفسها؛ واطلب من المستخدم بدء تسجيل الدخول من جديد |
+| `404` | تسجيل الدخول بحساب LMU AI غير مفعّل على هذا الموقع | تأكد من أن العنوان الأساسي هو الموقع الذي قدّمت الطلب إليه |
+| `429` | طلبات كثيرة جدًا | أعد المحاولة لاحقًا |
+| `5xx` | الخدمة غير متاحة مؤقتًا | اطلب من المستخدم بدء تسجيل الدخول من جديد لاحقًا |
+
+لمنع محاولات الاستكشاف، يُعيد كل خطأ في بيانات الاعتماد أو التذكرة الرمز `401` نفسه دون الإشارة إلى العنصر الخاطئ.
+
+**قواعد التذكرة**: صالحة لمدة 60 ثانية، ولا يمكن استبدالها إلا مرة واحدة، ومن قِبل المشروع الذي أُصدرت له فقط، وعلى الموقع نفسه الذي أصدرها فقط.
+
+## 7. حقول المستخدم
+
+| الحقل | النوع | الوصف |
+|---|---|---|
+| `id` | integer | معرّف المستخدم الفريد. لا يتغير أبدًا، وهو نفسه على موقعَي البر الرئيسي للصين والموقع الدولي. **استخدمه مفتاحًا لربط الحسابات لديك** |
+| `username` | string | اسم المستخدم. يمكن للمستخدم تغييره، وقد يكون فارغًا؛ وإذا كان فارغًا فاعرض اسمًا افتراضيًا مثل "مستخدم LMU AI `{id}`" |
+| `email` | string | لا يُعاد إلا للمشاريع الموافَق لها على تلقي البريد الإلكتروني؛ وإلا فيكون فارغًا. قد يغيّره المستخدم، و**ليس مضمونًا أنه موثَّق** |
+| `avatar` | string | عنوان URL للصورة الرمزية؛ وقد يكون فارغًا |
+
+<Callout type="warn" title="لا تدمج الحسابات تلقائيًا بناءً على البريد الإلكتروني">
+
+إذا كان لدى موقعك حسابات مسجّلة بالبريد الإلكتروني بالفعل، فلا تُدخل المستخدم مباشرةً إلى حساب موجود لمجرد تطابق البريد الإلكتروني الذي أعاده LMU AI. أرسل أولًا رمز تحقق إلى ذلك البريد، ولا تربط الحسابات إلا بعد التحقق منه. وإذا لم يكن هناك حساب يستخدم ذلك البريد، فأنشئ حسابًا جديدًا ببساطة.
+
+</Callout>
+
+## 8. متطلبات الأمان
+
+تأكد من كل بند قبل الإطلاق:
+
+- [ ] لا يوجد `client_secret` إلا على خادمك: وليس أبدًا في شيفرة الواجهة الأمامية أو السجلات أو عناوين URL أو مستودع الشيفرة.
+- [ ] أنشئ قيمة `state` جديدة لكل عملية تسجيل دخول، وخزّنها في ملف تعريف ارتباط httpOnly وSecure وSameSite=Lax تنتهي صلاحيته بعد 5 دقائق؛ واحذفه فور تطابقه عند الاستدعاء الراجع.
+- [ ] يستخدم عنوان الاستدعاء الراجع HTTPS ويطابق العنوان المسجّل بدقة.
+- [ ] استبدل `ticket` فور استلامها؛ ولا تُعِد المحاولة بها أو تخزّنها مؤقتًا أو تسجّلها في السجلات.
+- [ ] اربط الحسابات بواسطة `id`؛ ولا تدمج الحسابات الموجودة تلقائيًا بناءً على البريد الإلكتروني.
+- [ ] بعد تسجيل الدخول، لا تُعِد التوجيه إلا إلى مسارات نسبية على موقعك.
+- [ ] عيّن مهلة زمنية لاستدعاء الاستبدال (يوصى بـ 10 ثوانٍ)؛ وعند الفشل، عُد إلى صفحة تسجيل الدخول مع ذكر السبب بدلًا من ترك شاشة فارغة.
+- [ ] تسجيل الخروج من موقعك يمسح جلستك فقط؛ ولا يتأثر تسجيل دخول المستخدم في LMU AI.
+
+## 9. نماذج الشيفرة
+
+يطبّق كلا النموذجين `/sso/login` (التوجيه إلى صفحة التفويض) و`/sso/callback` (التحقق من state والاستبدال بالهوية). متغيرات البيئة المستخدمة:
+
+| المتغير | مثال |
+|---|---|
+| `LMU_SSO_BASE_URL` | `https://api.lmuai.com` |
+| `LMU_SSO_CLIENT_ID` | قيمة `client_id` الخاصة بك |
+| `LMU_SSO_CLIENT_SECRET` | قيمة `client_secret` الخاصة بك |
+| `LMU_SSO_REDIRECT_URI` | `https://your-app.example.com/sso/callback` |
+
+<Tabs items={['Node.js (Express)', 'Python (FastAPI)']}>
+<Tab value="Node.js (Express)">
+
+```js
+import express from "express";
+import cookieParser from "cookie-parser";
+import crypto from "node:crypto";
+
+const BASE = process.env.LMU_SSO_BASE_URL;
+const CLIENT_ID = process.env.LMU_SSO_CLIENT_ID;
+const CLIENT_SECRET = process.env.LMU_SSO_CLIENT_SECRET;
+const REDIRECT_URI = process.env.LMU_SSO_REDIRECT_URI;
+const STATE_COOKIE = "lmu_sso_state";
+
+const app = express();
+app.use(cookieParser());
+
+// Step 1: generate state and redirect to the LMU AI authorization page
+app.get("/sso/login", (req, res) => {
+  const state = crypto.randomBytes(32).toString("base64url");
+  res.cookie(STATE_COOKIE, state, {
+    httpOnly: true, secure: true, sameSite: "lax", maxAge: 5 * 60 * 1000, path: "/",
+  });
+  const url = new URL("/sso/authorize", BASE);
+  url.searchParams.set("client_id", CLIENT_ID);
+  url.searchParams.set("state", state);
+  url.searchParams.set("redirect_uri", REDIRECT_URI);
+  res.redirect(url.toString());
+});
+
+// Steps 2 and 3: check state and exchange for identity on the server
+app.get("/sso/callback", async (req, res) => {
+  const { ticket, state, error } = req.query;
+  const expected = req.cookies[STATE_COOKIE];
+  res.clearCookie(STATE_COOKIE, { path: "/" });
+
+  const ok = typeof state === "string" && typeof expected === "string" &&
+    Buffer.byteLength(state) === Buffer.byteLength(expected) &&
+    crypto.timingSafeEqual(Buffer.from(state), Buffer.from(expected));
+  if (!ok) return res.redirect("/login?error=invalid_state");
+  if (error === "access_denied") return res.redirect("/login?error=cancelled");
+  if (typeof ticket !== "string" || !ticket) return res.redirect("/login?error=missing_ticket");
+
+  let user;
+  try {
+    const resp = await fetch(new URL("/api/v1/sso/exchange", BASE), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, ticket }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!resp.ok) return res.redirect("/login?error=exchange_failed");
+    user = (await resp.json()).data.user; // { id, username, email, avatar }
+  } catch {
+    return res.redirect("/login?error=exchange_failed");
+  }
+
+  // Replace with your own logic: find or create the local account by user.id, then set your session
+  // const localUser = await upsertUserByLmuId(user);
+  // await createSession(res, localUser);
+
+  res.redirect("/");
+});
+
+app.listen(3000);
+```
+
+</Tab>
+<Tab value="Python (FastAPI)">
+
+```python
+import hmac
+import os
+import secrets
+from urllib.parse import urlencode
+
+import httpx
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
+
+BASE = os.environ["LMU_SSO_BASE_URL"]
+CLIENT_ID = os.environ["LMU_SSO_CLIENT_ID"]
+CLIENT_SECRET = os.environ["LMU_SSO_CLIENT_SECRET"]
+REDIRECT_URI = os.environ["LMU_SSO_REDIRECT_URI"]
+STATE_COOKIE = "lmu_sso_state"
+
+app = FastAPI()
+
+
+def back_to_login(reason: str) -> RedirectResponse:
+    resp = RedirectResponse(f"/login?error={reason}", status_code=302)
+    resp.delete_cookie(STATE_COOKIE)
+    return resp
+
+
+# Step 1: generate state and redirect to the LMU AI authorization page
+@app.get("/sso/login")
+def sso_login():
+    state = secrets.token_urlsafe(32)
+    query = urlencode({"client_id": CLIENT_ID, "state": state, "redirect_uri": REDIRECT_URI})
+    resp = RedirectResponse(f"{BASE}/sso/authorize?{query}", status_code=302)
+    resp.set_cookie(STATE_COOKIE, state, max_age=300, httponly=True, secure=True, samesite="lax")
+    return resp
+
+
+# Steps 2 and 3: check state and exchange for identity on the server
+@app.get("/sso/callback")
+async def sso_callback(request: Request, ticket: str | None = None,
+                       state: str | None = None, error: str | None = None):
+    expected = request.cookies.get(STATE_COOKIE)
+    if not state or not expected or not hmac.compare_digest(state.encode(), expected.encode()):
+        return back_to_login("invalid_state")
+    if error == "access_denied":
+        return back_to_login("cancelled")
+    if not ticket:
+        return back_to_login("missing_ticket")
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(f"{BASE}/api/v1/sso/exchange", json={
+                "client_id": CLIENT_ID,
+                "client_secret": CLIENT_SECRET,
+                "ticket": ticket,
+            })
+        resp.raise_for_status()
+        user = resp.json()["data"]["user"]  # {"id", "username", "email", "avatar"}
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        return back_to_login("exchange_failed")
+
+    # Replace with your own logic: find or create the local account by user["id"], then set your session
+    # local_user = upsert_user_by_lmu_id(user)
+
+    done = RedirectResponse("/", status_code=302)
+    done.delete_cookie(STATE_COOKIE)
+    # create_session(done, local_user)
+    return done
+```
+
+</Tab>
+</Tabs>
+
+## 10. دع مساعد برمجة بالذكاء الاصطناعي يتولى الدمج
+
+قدّم الموجّه أدناه، مع مشروعك، إلى مساعد برمجة بالذكاء الاصطناعي مثل Claude Code أو Codex أو Cursor، واستبدل الأجزاء الموجودة بين الأقواس الزاوية بما يناسب مشروعك:
+
+```text
+Integrate "Sign in with LMU AI" into this project. Implement it exactly as specified below; do not change the endpoints, parameters, or security requirements.
+
+[Configuration] Add 4 server-side environment variables. They must never appear in front-end code, logs, or the code repository:
+- LMU_SSO_BASE_URL=https://api.lmuai.com
+- LMU_SSO_CLIENT_ID=<your client_id>
+- LMU_SSO_CLIENT_SECRET=<your client_secret>
+- LMU_SSO_REDIRECT_URI=https://<this project's domain>/sso/callback (must exactly match the callback URL registered with LMU AI)
+
+[Step 1] Add GET /sso/login:
+- Generate state as the base64url encoding of 32 random bytes;
+- Store it in the cookie lmu_sso_state: httpOnly, Secure, SameSite=Lax, expires in 5 minutes;
+- 302-redirect to {LMU_SSO_BASE_URL}/sso/authorize?client_id=…&state=…&redirect_uri=… (URL-encode the parameters).
+
+[Step 2] Add GET /sso/callback:
+- The state URL parameter must exactly match the cookie lmu_sso_state (use a constant-time comparison); delete the cookie right after comparing. If they do not match, return to the login page with "The sign-in link has expired. Please sign in again.";
+- If error=access_denied, return to the login page with "You cancelled authorization.";
+- If ticket is missing, return to the login page with the reason.
+
+[Step 3] Exchange the ticket for the identity on the server:
+- POST {LMU_SSO_BASE_URL}/api/v1/sso/exchange with Content-Type: application/json and body {"client_id","client_secret","ticket"}, timeout 10 seconds;
+- On success (HTTP 200) the user is in data.user of the response JSON: {id, username, email, avatar};
+- On failure (401/404/429/5xx or timeout), do not retry the same ticket; return to the login page with "Sign-in failed. Please try again.";
+- A ticket can be used only once and expires in 60 seconds; do not cache or log it.
+
+[Accounts]
+- Use data.user.id as the unique key for linking LMU AI accounts (add a field such as lmu_user_id with a unique index): update the username and avatar if it exists, otherwise create a new account;
+- Do not sign the user into an existing local account just because the email matches: send a verification code to that email first and link only after it is verified;
+- username may be empty — show "LMU AI user {id}" in that case; email may be empty.
+- After creating or signing in the account, set this project's session and redirect to the page the user came from (relative paths on this site only).
+
+[UI] Add a "Sign in with LMU AI" button to the login page that goes to /sso/login.
+
+[Tests] Add automated tests covering at least:
+1. Normal sign-in: account created on first sign-in, profile updated on the next sign-in;
+2. Missing, mismatched, or tampered state is rejected;
+3. error=access_denied returns to the login page with a cancellation notice;
+4. A 401 from exchange returns to the login page without retrying;
+5. Reusing the same ticket fails;
+6. An existing account with the same email can only be linked after email verification.
+
+When done, list the changed files, the new environment variables, and the test results.
+```
+
+## 11. فحوصات ما قبل الإطلاق
+
+- [ ] مستخدم مسجّل الدخول بالفعل في LMU AI: النقر على "تسجيل الدخول باستخدام LMU AI" ← النقر على "التفويض وتسجيل الدخول" في صفحة التفويض ← العودة إلى موقعك مسجّل الدخول.
+- [ ] مستخدم جديد بلا حساب على LMU AI: النقر على تسجيل الدخول ← التسجيل في LMU AI ← التفويض ← العودة إلى موقعك مسجّل الدخول.
+- [ ] النقر على "إلغاء" في صفحة التفويض: العودة إلى صفحة تسجيل الدخول لديك مع إشعار بأن التفويض أُلغي.
+- [ ] تحديث صفحة الاستدعاء الراجع، أو إعادة استخدام التذكرة نفسها، أو state معدّلة أو مفقودة: تفشل جميعها وتعود إلى صفحة تسجيل الدخول مع ذكر السبب.
+- [ ] عند تسجيل مستخدم LMU AI نفسه للدخول مرة ثانية، يصل إلى الحساب المحلي نفسه مع تحديث ملفه الشخصي.
+- [ ] لا يظهر `client_secret` أبدًا في شيفرة الواجهة الأمامية أو طلبات الشبكة في المتصفح أو السجلات.

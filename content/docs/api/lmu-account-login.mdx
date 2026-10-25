@@ -1,0 +1,430 @@
+---
+title: 灵眸账号登录接入
+description: 让你的网站或应用支持「使用灵眸 AI 账号登录」：跳转授权页、回调校验 state、服务端用 client_secret 换取用户身份。包含接入流程、接口说明、用户字段、安全要求、示例代码，以及可直接复制给 AI 编程助手的接入提示词。
+ogDescription: 灵眸账号登录（单点登录）接入指南：GET /sso/authorize 跳转授权，回调拿到一次性票据，服务端 POST /api/v1/sso/exchange 换取用户身份；附 Node.js / Python 示例与 AI 编程助手提示词。
+keywords:
+  - 灵眸账号登录
+  - 单点登录 SSO
+  - 授权登录
+  - 第三方登录接入
+  - OAuth 授权码
+  - 灵眸 AI 身份认证
+alternateNames:
+  - 使用灵眸 AI 账号登录
+  - 灵眸 SSO
+faq:
+  - q: 接入灵眸账号登录需要准备什么？
+    a: 向灵眸申请 client_id 和 client_secret，并登记回调地址；你的网站需要有能安全保存 client_secret 的服务端。
+  - q: 接入方能拿到用户的 API Key 或余额吗？
+    a: 不能。灵眸账号登录只提供身份信息（用户 ID、用户名、头像，以及经批准的邮箱），不会共享用户的 API Key 和余额。
+  - q: 票据多久过期？
+    a: 60 秒，且只能使用一次。请在回调里立即用服务端换取身份。
+  - q: 用户在授权页点了取消会怎样？
+    a: 灵眸会带着 error=access_denied 和原 state 跳回你的回调地址，你的网站应回到登录页并提示已取消授权。
+---
+
+「灵眸账号登录」让其他网站和应用（社区、创意工具、内部项目等）直接使用灵眸 AI 账号登录：用户在灵眸点一次「授权并登录」就能进入，没有账号的可以在灵眸当场注册，注册完自动回到你的网站。
+
+接入方只拿到用户**身份**，**不会拿到用户的 API Key 和余额**。
+
+<Callout type="info" title="适用范围">
+
+需要你的网站或应用有**服务端**：最后一步要用 `client_secret` 换取身份，`client_secret` 绝不能放在浏览器、小程序或 App 的前端代码里。纯前端项目请通过自己的后端完成换取。
+
+</Callout>
+
+## 1. 工作原理
+
+本流程是一个精简的 OAuth 授权码流程：浏览器地址里只出现 **60 秒有效、只能用一次的票据（ticket）**，用户身份由你的**服务端**带着 `client_secret` 去换取。
+
+<Mermaid chart={`sequenceDiagram
+    participant U as 用户浏览器
+    participant S as 你的网站
+    participant L as 灵眸 AI
+    U->>S: 点击「使用灵眸 AI 账号登录」
+    S->>U: 生成 state 写入 Cookie，跳转授权页
+    U->>L: GET /sso/authorize?client_id&state
+    L->>U: 未登录先登录或注册，再显示授权页
+    U->>L: 点击「授权并登录」
+    L->>U: 跳回回调地址 ?ticket&state
+    U->>S: GET /sso/callback?ticket&state
+    S->>S: 校验 state 与 Cookie 一致
+    S->>L: POST /api/v1/sso/exchange
+    L->>S: 返回用户身份 user
+    S->>U: 建号或登录，写入会话
+`} />
+
+## 2. 准备：申请接入
+
+向灵眸登记以下信息：
+
+| 登记项 | 说明 |
+|---|---|
+| 项目名称 | 显示在授权页上，例如「立刻图 liketu.ai」 |
+| 回调地址 | 必须是 HTTPS，按**完整地址精确匹配**，例如 `https://your-app.example.com/sso/callback`；测试环境可以另外登记一个，本地开发可以登记 `http://localhost` 或 `http://127.0.0.1` 开头的地址 |
+| Logo（可选） | 显示在授权页上 |
+| 是否需要邮箱 | 默认不返回邮箱；确有需要时说明用途，批准后才会返回 |
+
+登记后你会拿到：
+
+- `client_id`：项目标识，可以公开；
+- `client_secret`：项目密钥，**只显示一次**，请保存在服务端的环境变量或密钥管理里。
+
+<Callout type="info" title="怎么申请">
+
+灵眸内部项目由管理员在后台创建；外部合作方请联系灵眸客服申请。
+
+</Callout>
+
+## 3. Base URL
+
+```text
+https://api.lmuai.com
+```
+
+灵眸的国内站和国际站账号通用：同一个用户在两个站的用户 ID 相同。本页示例使用的是当前站点的地址。
+
+<Callout type="warn" title="跳转授权和换取身份必须是同一个站点">
+
+票据由签发它的站点保存。从哪个站点发起授权，就必须向哪个站点换取身份，否则换取会失败（`401`）。
+
+</Callout>
+
+## 4. 第一步：跳转到授权页
+
+### `GET /sso/authorize`
+
+用户点击「使用灵眸 AI 账号登录」后，你的服务端生成随机 `state`，写入 Cookie，再把浏览器 302 跳转到授权页：
+
+```text
+https://api.lmuai.com/sso/authorize?client_id=YOUR_CLIENT_ID&state=RANDOM_STATE&redirect_uri=https%3A%2F%2Fyour-app.example.com%2Fsso%2Fcallback
+```
+
+| 参数 | 必填 | 说明 |
+|---|---|---|
+| `client_id` | 是 | 申请接入时拿到的项目标识 |
+| `state` | 是 | 每次登录新生成的随机串，只能包含 `A-Z a-z 0-9 _ -`，长度 16–128。推荐 32 字节随机数的 base64url 编码（43 位） |
+| `redirect_uri` | 否 | 回调地址，必须与登记的某个地址**完全一致**；不传时使用登记的第一个 |
+
+用户在灵眸这一侧会：
+
+1. 没登录时先登录，没有账号可以当场注册，完成后自动回到授权页；
+2. 在授权页看到你的项目名称，以及「只用于登录，不会共享你的 API Key 和余额」的说明；
+3. 点「授权并登录」或「取消」。
+
+<Callout type="warn" title="不要用 iframe 嵌入授权页">
+
+授权页禁止被嵌入（`X-Frame-Options: DENY`），请整页跳转，或在新窗口中打开。
+
+</Callout>
+
+## 5. 第二步：处理回调
+
+用户授权后，浏览器会被跳回你的回调地址：
+
+```text
+https://your-app.example.com/sso/callback?ticket=TICKET&state=RANDOM_STATE
+```
+
+用户取消时：
+
+```text
+https://your-app.example.com/sso/callback?error=access_denied&state=RANDOM_STATE
+```
+
+你的回调处理要按顺序做这几件事：
+
+1. **校验 state**：URL 里的 `state` 必须与 Cookie 里保存的完全一致，校验后立即删除这个 Cookie。不一致就拒绝登录。
+2. **处理取消**：`error=access_denied` 时回到登录页，提示「你取消了授权」。
+3. **换取身份**：用 `ticket` 在服务端调用第三步的换取接口。
+4. **建号或登录**：以用户 `id` 查找或创建本站账号，写入本站会话。
+5. **跳回原页面**：只允许跳到本站的相对路径，避免被利用做开放跳转。
+
+## 6. 第三步：服务端换取用户身份
+
+### `POST /api/v1/sso/exchange`
+
+这一步**只能在服务端调用**。
+
+```bash
+curl https://api.lmuai.com/api/v1/sso/exchange \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_id": "YOUR_CLIENT_ID",
+    "client_secret": "YOUR_CLIENT_SECRET",
+    "ticket": "TICKET"
+  }'
+```
+
+| 参数 | 必填 | 说明 |
+|---|---|---|
+| `client_id` | 是 | 项目标识 |
+| `client_secret` | 是 | 项目密钥 |
+| `ticket` | 是 | 回调地址里拿到的票据 |
+
+成功响应（HTTP `200`）：
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "user": {
+      "id": 10086,
+      "username": "alice",
+      "email": "alice@example.com",
+      "avatar": "https://example.com/avatar.png"
+    }
+  }
+}
+```
+
+失败时：
+
+| HTTP | 原因 | 处理建议 |
+|---|---|---|
+| `401` | `client_id` 或 `client_secret` 不对；票据已过期、已被使用，或不是签发给这个项目的 | 不要重试同一张票据，让用户重新发起登录 |
+| `404` | 当前站点没有开放灵眸账号登录 | 确认 Base URL 是你申请接入的站点 |
+| `429` | 请求太频繁 | 稍后重试 |
+| `5xx` | 服务暂时不可用 | 让用户稍后重新发起登录 |
+
+为了不被拿来探测，所有凭据和票据类错误都只返回同一个 `401`，不会告诉你具体是哪一项不对。
+
+**票据规则**：有效期 60 秒，只能换取一次，只能由签发给的那个项目换取，并且要在签发它的同一个站点换取。
+
+## 7. 用户字段
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `id` | integer | 用户唯一 ID，不会改变，国内站和国际站相同。**用它作为你这边关联账号的主键** |
+| `username` | string | 用户名，用户可以修改，也可能为空；为空时可显示为「灵眸用户 `{id}`」之类的默认名 |
+| `email` | string | 只有批准返回邮箱的项目才会拿到，否则为空。邮箱可能被用户更换，**也不保证已经验证过** |
+| `avatar` | string | 头像地址，可能为空 |
+
+<Callout type="warn" title="不要按邮箱自动合并账号">
+
+如果你的网站原本就有邮箱注册的账号，**不要**因为灵眸返回的邮箱相同就直接登进那个账号。先给这个邮箱发验证码，验证通过后再关联；没有同邮箱账号时照常新建即可。
+
+</Callout>
+
+## 8. 安全要求
+
+上线前请逐条确认：
+
+- [ ] `client_secret` 只出现在服务端：不进前端代码、不进日志、不进 URL、不提交到代码仓库。
+- [ ] 每次登录都新生成 `state`，存在 httpOnly、Secure、SameSite=Lax 的 Cookie 里，5 分钟过期；回调时比对一致后立即删除。
+- [ ] 回调地址使用 HTTPS，并与登记的地址完全一致。
+- [ ] 拿到 `ticket` 后立即换取，不重试、不缓存、不写日志。
+- [ ] 以 `id` 关联账号，不按邮箱自动合并已有账号。
+- [ ] 登录后只跳转到本站的相对路径。
+- [ ] 换取接口设置超时（建议 10 秒），失败时回到登录页并提示原因，不要卡在白屏。
+- [ ] 本站登出只清本站会话；用户在灵眸的登录状态不受影响。
+
+## 9. 示例代码
+
+两个示例都实现了 `/sso/login`（跳转授权页）和 `/sso/callback`（校验并换取身份）。用到的环境变量：
+
+| 变量 | 示例 |
+|---|---|
+| `LMU_SSO_BASE_URL` | `https://api.lmuai.com` |
+| `LMU_SSO_CLIENT_ID` | 申请到的 `client_id` |
+| `LMU_SSO_CLIENT_SECRET` | 申请到的 `client_secret` |
+| `LMU_SSO_REDIRECT_URI` | `https://your-app.example.com/sso/callback` |
+
+<Tabs items={['Node.js (Express)', 'Python (FastAPI)']}>
+<Tab value="Node.js (Express)">
+
+```js
+import express from "express";
+import cookieParser from "cookie-parser";
+import crypto from "node:crypto";
+
+const BASE = process.env.LMU_SSO_BASE_URL;
+const CLIENT_ID = process.env.LMU_SSO_CLIENT_ID;
+const CLIENT_SECRET = process.env.LMU_SSO_CLIENT_SECRET;
+const REDIRECT_URI = process.env.LMU_SSO_REDIRECT_URI;
+const STATE_COOKIE = "lmu_sso_state";
+
+const app = express();
+app.use(cookieParser());
+
+// 第一步：生成 state，跳转到灵眸授权页
+app.get("/sso/login", (req, res) => {
+  const state = crypto.randomBytes(32).toString("base64url");
+  res.cookie(STATE_COOKIE, state, {
+    httpOnly: true, secure: true, sameSite: "lax", maxAge: 5 * 60 * 1000, path: "/",
+  });
+  const url = new URL("/sso/authorize", BASE);
+  url.searchParams.set("client_id", CLIENT_ID);
+  url.searchParams.set("state", state);
+  url.searchParams.set("redirect_uri", REDIRECT_URI);
+  res.redirect(url.toString());
+});
+
+// 第二、三步：校验 state，服务端换取身份
+app.get("/sso/callback", async (req, res) => {
+  const { ticket, state, error } = req.query;
+  const expected = req.cookies[STATE_COOKIE];
+  res.clearCookie(STATE_COOKIE, { path: "/" });
+
+  const ok = typeof state === "string" && typeof expected === "string" &&
+    Buffer.byteLength(state) === Buffer.byteLength(expected) &&
+    crypto.timingSafeEqual(Buffer.from(state), Buffer.from(expected));
+  if (!ok) return res.redirect("/login?error=invalid_state");
+  if (error === "access_denied") return res.redirect("/login?error=cancelled");
+  if (typeof ticket !== "string" || !ticket) return res.redirect("/login?error=missing_ticket");
+
+  let user;
+  try {
+    const resp = await fetch(new URL("/api/v1/sso/exchange", BASE), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, ticket }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!resp.ok) return res.redirect("/login?error=exchange_failed");
+    user = (await resp.json()).data.user; // { id, username, email, avatar }
+  } catch {
+    return res.redirect("/login?error=exchange_failed");
+  }
+
+  // 换成你自己的逻辑：按 user.id 查找或创建本站账号，然后写入本站会话
+  // const localUser = await upsertUserByLmuId(user);
+  // await createSession(res, localUser);
+
+  res.redirect("/");
+});
+
+app.listen(3000);
+```
+
+</Tab>
+<Tab value="Python (FastAPI)">
+
+```python
+import hmac
+import os
+import secrets
+from urllib.parse import urlencode
+
+import httpx
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
+
+BASE = os.environ["LMU_SSO_BASE_URL"]
+CLIENT_ID = os.environ["LMU_SSO_CLIENT_ID"]
+CLIENT_SECRET = os.environ["LMU_SSO_CLIENT_SECRET"]
+REDIRECT_URI = os.environ["LMU_SSO_REDIRECT_URI"]
+STATE_COOKIE = "lmu_sso_state"
+
+app = FastAPI()
+
+
+def back_to_login(reason: str) -> RedirectResponse:
+    resp = RedirectResponse(f"/login?error={reason}", status_code=302)
+    resp.delete_cookie(STATE_COOKIE)
+    return resp
+
+
+# 第一步：生成 state，跳转到灵眸授权页
+@app.get("/sso/login")
+def sso_login():
+    state = secrets.token_urlsafe(32)
+    query = urlencode({"client_id": CLIENT_ID, "state": state, "redirect_uri": REDIRECT_URI})
+    resp = RedirectResponse(f"{BASE}/sso/authorize?{query}", status_code=302)
+    resp.set_cookie(STATE_COOKIE, state, max_age=300, httponly=True, secure=True, samesite="lax")
+    return resp
+
+
+# 第二、三步：校验 state，服务端换取身份
+@app.get("/sso/callback")
+async def sso_callback(request: Request, ticket: str | None = None,
+                       state: str | None = None, error: str | None = None):
+    expected = request.cookies.get(STATE_COOKIE)
+    if not state or not expected or not hmac.compare_digest(state.encode(), expected.encode()):
+        return back_to_login("invalid_state")
+    if error == "access_denied":
+        return back_to_login("cancelled")
+    if not ticket:
+        return back_to_login("missing_ticket")
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(f"{BASE}/api/v1/sso/exchange", json={
+                "client_id": CLIENT_ID,
+                "client_secret": CLIENT_SECRET,
+                "ticket": ticket,
+            })
+        resp.raise_for_status()
+        user = resp.json()["data"]["user"]  # {"id", "username", "email", "avatar"}
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        return back_to_login("exchange_failed")
+
+    # 换成你自己的逻辑：按 user["id"] 查找或创建本站账号，然后写入本站会话
+    # local_user = upsert_user_by_lmu_id(user)
+
+    done = RedirectResponse("/", status_code=302)
+    done.delete_cookie(STATE_COOKIE)
+    # create_session(done, local_user)
+    return done
+```
+
+</Tab>
+</Tabs>
+
+## 10. 让 AI 编程助手帮你接入
+
+把下面这段提示词连同你的项目一起交给 Claude Code、Codex、Cursor 等 AI 编程助手，按项目实际情况替换尖括号里的内容即可：
+
+```text
+请为本项目接入「灵眸账号登录」（使用灵眸 AI 账号登录），按下面的规范实现，不要改动规范中的接口、参数和安全要求。
+
+【配置】新增 4 个服务端环境变量，不得出现在前端代码、日志或代码仓库里：
+- LMU_SSO_BASE_URL=https://api.lmuai.com
+- LMU_SSO_CLIENT_ID=<申请到的 client_id>
+- LMU_SSO_CLIENT_SECRET=<申请到的 client_secret>
+- LMU_SSO_REDIRECT_URI=https://<本项目域名>/sso/callback（必须与在灵眸登记的回调地址完全一致）
+
+【第一步】新增 GET /sso/login：
+- 生成 32 字节随机数的 base64url 编码作为 state；
+- 写入 Cookie lmu_sso_state：httpOnly、Secure、SameSite=Lax、5 分钟过期；
+- 302 跳转到 {LMU_SSO_BASE_URL}/sso/authorize?client_id=…&state=…&redirect_uri=…（参数做 URL 编码）。
+
+【第二步】新增 GET /sso/callback：
+- URL 参数 state 必须与 Cookie lmu_sso_state 完全一致（用常量时间比较），比对后立即删除该 Cookie；不一致就回登录页并提示「登录链接已失效，请重新登录」；
+- 参数 error=access_denied 时回登录页并提示「你取消了授权」；
+- 缺少 ticket 时回登录页并提示原因。
+
+【第三步】在服务端用票据换取身份：
+- POST {LMU_SSO_BASE_URL}/api/v1/sso/exchange，Content-Type: application/json，请求体 {"client_id","client_secret","ticket"}，超时 10 秒；
+- 成功时 HTTP 200，用户信息在响应 JSON 的 data.user：{id, username, email, avatar}；
+- 失败（401/404/429/5xx 或超时）时不要重试同一个 ticket，回登录页提示「登录失败，请重试」；
+- ticket 只能用一次、60 秒过期，不要缓存、不要写日志。
+
+【账号】
+- 以 data.user.id 作为关联灵眸账号的唯一键（新增字段如 lmu_user_id，加唯一索引）：存在就更新用户名和头像，不存在就新建；
+- 不要因为邮箱相同就自动登进已有的本地账号：先向该邮箱发送验证码，验证通过后再关联；
+- username 可能为空，为空时显示「灵眸用户 {id}」；email 可能为空。
+- 建号或登录后写入本项目的会话，再跳回登录前的页面（只允许本站相对路径）。
+
+【页面】登录页增加「使用灵眸 AI 账号登录」按钮，点击后跳转 /sso/login。
+
+【测试】补充自动化测试，至少覆盖：
+1. 正常登录：首次登录建号、再次登录更新资料；
+2. state 缺失、不一致、被篡改都会拒绝；
+3. error=access_denied 回到登录页并提示已取消；
+4. exchange 返回 401 时回到登录页，且不重试；
+5. 同一个 ticket 第二次使用失败；
+6. 同邮箱的已有账号必须先验证邮箱才能关联。
+
+完成后列出改动的文件、新增的环境变量和测试结果。
+```
+
+## 11. 上线前自测
+
+- [ ] 已登录灵眸的用户：点「使用灵眸 AI 账号登录」→ 授权页点「授权并登录」→ 回到你的网站并已登录。
+- [ ] 没有灵眸账号的新用户：点登录 → 在灵眸注册 → 授权 → 回到你的网站并已登录。
+- [ ] 在授权页点「取消」：回到你的登录页，提示已取消授权。
+- [ ] 刷新回调页、重复使用同一张票据、篡改或缺少 state：都失败，回到登录页并提示原因。
+- [ ] 同一个灵眸用户第二次登录：进入的是同一个本站账号，资料已更新。
+- [ ] `client_secret` 不出现在前端代码、浏览器网络请求和日志里。
