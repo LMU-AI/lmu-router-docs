@@ -1,0 +1,206 @@
+---
+title: Wan Videogenerierungs-API
+description: "Wan-Videogenerierung (Alibaba DashScope) über LMU AI mit dem nativen asynchronen Protokoll aufrufen: Aufgaben erstellen, Ergebnisse abfragen, Standardwerte und ein vollständiges Polling-Beispiel."
+ogDescription: "LMU AI Wan Videogenerierungs-API: Aufgaben mit POST /api/v1/services/aigc/video-generation/video-synthesis erstellen und mit GET /api/v1/tasks/{task_id} abfragen. Abrechnung nach Sekunden × Auflösungsstufe."
+keywords:
+  - Wan Video API
+  - Wan Videogenerierung
+  - wan3.0-video
+  - DashScope Videogenerierung
+  - Alibaba Cloud Model Studio Videogenerierungs-API
+  - Tongyi Wanxiang Videogenerierung
+  - LMU AI Wan
+alternateNames:
+  - Tongyi Wanxiang Videogenerierungs-API
+  - Wan Videogenerierungs-API
+faq:
+  - q: Muss ich den Header X-DashScope-Async senden?
+    a: "Nein. Die Plattform fügt X-DashScope-Async: enable automatisch hinzu."
+  - q: Können Wan-Aufgaben abgebrochen werden?
+    a: "Nein. Wan hat keinen Abbruch-Endpunkt: Einmal übermittelt, läuft eine Aufgabe immer bis zum Ende. Fehlgeschlagene Aufgaben werden nicht berechnet."
+  - q: Welche Standardwerte gelten, wenn ich resolution und duration weglasse?
+    a: "Die Auflösung ist standardmäßig 1080P und die Dauer standardmäßig 5 Sekunden."
+  - q: Wie wird Wan abgerechnet?
+    a: "Nach tatsächlichen Sekunden × Stückpreis der Auflösungsstufe; die abgerechneten Sekunden stehen in usage.duration des Abfrageergebnisses. Beim Erstellen der Aufgabe wird ein geschätzter Betrag reserviert und bei Erfolg nach tatsächlicher Nutzung abgerechnet."
+---
+
+Die Wan-Videogenerierung (Alibaba Cloud Model Studio, DashScope) verwendet das **native asynchrone Protokoll** des Anbieters, das mit dem offiziellen DashScope-Protokoll identisch ist: Ersetzen Sie im offiziellen SDK oder curl-Befehl die Adresse durch die LMU AI-Adresse und den Schlüssel durch Ihren LMU AI API-Schlüssel; der Request-Body bleibt unverändert. Die gemeinsamen Regeln zu Authentifizierung, Abrechnung und Wasserzeichen, Parallelitätslimits und Fehlercodes finden Sie in der [Übersicht zur Videogenerierungs-API](/de/docs/api/video-generation).
+
+<Callout type="info" title="Basis-URL">
+
+```text
+https://api.lmuai.com
+```
+
+| Vorgang | Endpunkt |
+|---|---|
+| Aufgabe erstellen | `POST /api/v1/services/aigc/video-generation/video-synthesis` |
+| Aufgabe abfragen | `GET /api/v1/tasks/{task_id}` |
+
+</Callout>
+
+<Callout type="warn" title="Videogenerierung muss für Ihre Gruppe aktiviert sein">
+
+Für die Gruppe des API-Schlüssels muss „Videogenerierung“ aktiviert sein; andernfalls liefern Aufrufe `403`. Der Modellname muss **exakt** (unter Beachtung der Groß-/Kleinschreibung) mit dem für Ihre Gruppe aktivierten Namen übereinstimmen; verfügbare Modelle prüfen Sie mit `GET /v1/models`.
+
+</Callout>
+
+## 1. Aufgabe erstellen [#create-task]
+
+### `POST /api/v1/services/aigc/video-generation/video-synthesis`
+
+Der Async-Header `X-DashScope-Async: enable` ist optional; die Plattform fügt ihn automatisch hinzu.
+
+| Parameter | Typ | Erforderlich | Beschreibung |
+|---|---|---|---|
+| `model` | string | Ja | Zum Beispiel `wan3.0-video` |
+| `input.prompt` | string | Ja | Prompt |
+| `input.media` | array | Nein | Referenzmedien, etwa `[{"type":"first_frame","url":"…"}]`; `type` kann `first_frame` oder `reference_image` sein |
+| `parameters.resolution` | string | Nein | Auflösungsstufe: `480P` / `720P` / `1080P`, Standard `1080P` |
+| `parameters.duration` | integer | Nein | Länge in Sekunden, Standard 5 |
+| `parameters.watermark` | boolean | Nein | Wird von der Plattform einheitlich gemäß Gruppenrichtlinie festgelegt; ein vom Client übergebener Wert kann überschrieben werden |
+
+<Tabs items={['cURL', 'Python', 'Node.js']}>
+<Tab value="cURL">
+
+```bash
+curl https://api.lmuai.com/api/v1/services/aigc/video-generation/video-synthesis \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5}
+  }'
+```
+
+</Tab>
+<Tab value="Python">
+
+```python
+import requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+resp = requests.post(f"{BASE}/api/v1/services/aigc/video-generation/video-synthesis", headers=HEADERS, json={
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5},
+})
+resp.raise_for_status()
+task_id = resp.json()["output"]["task_id"]
+print(task_id)
+```
+
+</Tab>
+<Tab value="Node.js">
+
+```js
+const BASE = "https://api.lmuai.com";
+const headers = {
+  Authorization: "Bearer YOUR_API_KEY",
+  "Content-Type": "application/json",
+};
+
+const resp = await fetch(`${BASE}/api/v1/services/aigc/video-generation/video-synthesis`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    model: "wan3.0-video",
+    input: { prompt: "A Shiba Inu running across a sunny meadow" },
+    parameters: { resolution: "720P", duration: 5 },
+  }),
+});
+const data = await resp.json();
+console.log(data.output.task_id);
+```
+
+</Tab>
+</Tabs>
+
+Antwort:
+
+```json
+{
+  "request_id": "4909100c-…",
+  "output": {
+    "task_id": "c65c77fe-323b-4140-8de6-5a7241d9ec44",
+    "task_status": "PENDING"
+  }
+}
+```
+
+## 2. Aufgabe abfragen [#query-task]
+
+### `GET /api/v1/tasks/{task_id}`
+
+Werte von `output.task_status`: `PENDING` → `RUNNING` → `SUCCEEDED` / `FAILED` / `CANCELED`. Bei Erfolg steht die Video-URL in `output.video_url` und die abgerechneten Sekunden in `usage.duration`.
+
+```bash
+curl https://api.lmuai.com/api/v1/tasks/TASK_ID \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+Antwort (Erfolg):
+
+```json
+{
+  "request_id": "…",
+  "output": {
+    "task_id": "c65c77fe-323b-4140-8de6-5a7241d9ec44",
+    "task_status": "SUCCEEDED",
+    "video_url": "https://…/output.mp4"
+  },
+  "usage": {
+    "duration": 2.0,
+    "video_count": 1
+  }
+}
+```
+
+<Callout type="info" title="Kein Abbruch-Endpunkt">
+
+Wan hat keinen Abbruch-Endpunkt: Einmal übermittelt, läuft eine Aufgabe immer bis zum Ende. Fehlgeschlagene Aufgaben werden nicht berechnet.
+
+</Callout>
+
+## 3. Vollständiges Beispiel: Erstellen und Abfragen [#poll-example]
+
+```python
+import time, requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+# 1. Create the task
+resp = requests.post(f"{BASE}/api/v1/services/aigc/video-generation/video-synthesis", headers=HEADERS, json={
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5},
+})
+resp.raise_for_status()
+task_id = resp.json()["output"]["task_id"]
+
+# 2. Poll until a final state (every 10 seconds)
+while True:
+    task = requests.get(f"{BASE}/api/v1/tasks/{task_id}", headers=HEADERS).json()
+    status = task["output"]["task_status"]
+    if status in ("SUCCEEDED", "FAILED", "CANCELED", "CANCELLED", "UNKNOWN"):
+        break
+    time.sleep(10)
+
+# 3. Download (the link is valid for 24 hours)
+if status == "SUCCEEDED":
+    url = task["output"]["video_url"]
+    with open(f"{task_id}.mp4", "wb") as f:
+        f.write(requests.get(url).content)
+else:
+    print("Generation failed:", task)
+```
+
+## 4. Abrechnung und Fehlercodes [#billing]
+
+Wan wird nach „tatsächlichen Sekunden × Stückpreis der Auflösungsstufe“ abgerechnet; die abgerechneten Sekunden stehen in `usage.duration` des Abfrageergebnisses. Beim Erstellen der Aufgabe wird ein geschätzter Betrag reserviert, und bei unzureichendem Guthaben wird `402` zurückgegeben; bei Erfolg wird die Aufgabe nach tatsächlicher Nutzung abgerechnet, fehlgeschlagene Aufgaben werden vollständig erstattet. Jeder Benutzer und jeder API-Schlüssel kann höchstens 5 Aufgaben gleichzeitig generieren lassen; darüber hinaus liefern Anfragen `429`.
+
+Die vollständigen Regeln finden Sie unter [Abrechnung und Wasserzeichen](/de/docs/api/video-generation#billing), [Parallelitätslimits](/de/docs/api/video-generation#limits) und [Fehlercodes](/de/docs/api/video-generation#errors) in der Übersicht. Für den anderen Anbieter siehe die [Seedance Videogenerierungs-API](/de/docs/api/seedance-video).

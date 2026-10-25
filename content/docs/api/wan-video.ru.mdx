@@ -1,0 +1,206 @@
+---
+title: API генерации видео Wan
+description: "Генерация видео Wan (Alibaba DashScope) через LMU AI по нативному асинхронному протоколу: создание задач, опрос результатов, значения по умолчанию и полный пример опроса."
+ogDescription: "API генерации видео Wan в LMU AI: создавайте задачи через POST /api/v1/services/aigc/video-generation/video-synthesis и запрашивайте их статус через GET /api/v1/tasks/{task_id}. Оплата: секунды × тариф уровня разрешения."
+keywords:
+  - Wan видео API
+  - генерация видео Wan
+  - wan3.0-video
+  - генерация видео DashScope
+  - API генерации видео Alibaba Cloud Model Studio
+  - генерация видео Tongyi Wanxiang
+  - LMU AI Wan
+alternateNames:
+  - API генерации видео Tongyi Wanxiang
+  - API генерации видео Wan
+faq:
+  - q: Нужно ли отправлять заголовок X-DashScope-Async?
+    a: "Нет. Платформа автоматически добавляет X-DashScope-Async: enable."
+  - q: Можно ли отменить задачу Wan?
+    a: "Нет. У Wan нет эндпоинта отмены: после отправки задача всегда выполняется до конца. Неудавшиеся задачи не оплачиваются."
+  - q: Какие значения используются по умолчанию, если не указать resolution и duration?
+    a: "По умолчанию разрешение — 1080P, длительность — 5 секунд."
+  - q: Как тарифицируется Wan?
+    a: "По формуле: фактические секунды × цена за единицу для уровня разрешения; оплачиваемые секунды указаны в usage.duration результата запроса. При создании задачи замораживается расчётная сумма, а при успешном выполнении производится окончательный расчёт по фактическому использованию."
+---
+
+Генерация видео Wan (Alibaba Cloud Model Studio, DashScope) использует **нативный асинхронный протокол** поставщика, идентичный официальному протоколу DashScope: замените адрес в официальном SDK или команде curl на адрес LMU AI, а ключ — на ваш API-ключ LMU AI; тело запроса остаётся без изменений. Общие правила аутентификации, тарификации и водяных знаков, ограничения параллелизма и коды ошибок описаны в [обзоре API генерации видео](/ru/docs/api/video-generation).
+
+<Callout type="info" title="Базовый URL">
+
+```text
+https://api.lmuai.com
+```
+
+| Операция | Эндпоинт |
+|---|---|
+| Создать задачу | `POST /api/v1/services/aigc/video-generation/video-synthesis` |
+| Запросить задачу | `GET /api/v1/tasks/{task_id}` |
+
+</Callout>
+
+<Callout type="warn" title="Для вашей группы должна быть включена генерация видео">
+
+Для группы API-ключа должна быть включена функция «Генерация видео», иначе вызовы возвращают `403`. Название модели должно **точно** совпадать с названием, включённым для вашей группы (с учётом регистра); список доступных моделей можно получить через `GET /v1/models`.
+
+</Callout>
+
+## 1. Создание задачи [#create-task]
+
+### `POST /api/v1/services/aigc/video-generation/video-synthesis`
+
+Асинхронный заголовок `X-DashScope-Async: enable` необязателен — платформа добавляет его автоматически.
+
+| Параметр | Тип | Обязательный | Описание |
+|---|---|---|---|
+| `model` | string | Да | Например, `wan3.0-video` |
+| `input.prompt` | string | Да | Промпт |
+| `input.media` | array | Нет | Референсные медиафайлы, например `[{"type":"first_frame","url":"…"}]`; `type` может быть `first_frame` или `reference_image` |
+| `parameters.resolution` | string | Нет | Уровень разрешения: `480P` / `720P` / `1080P`, по умолчанию `1080P` |
+| `parameters.duration` | integer | Нет | Длительность в секундах, по умолчанию 5 |
+| `parameters.watermark` | boolean | Нет | Устанавливается платформой единообразно в соответствии с политикой группы; значение, переданное клиентом, может быть переопределено |
+
+<Tabs items={['cURL', 'Python', 'Node.js']}>
+<Tab value="cURL">
+
+```bash
+curl https://api.lmuai.com/api/v1/services/aigc/video-generation/video-synthesis \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5}
+  }'
+```
+
+</Tab>
+<Tab value="Python">
+
+```python
+import requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+resp = requests.post(f"{BASE}/api/v1/services/aigc/video-generation/video-synthesis", headers=HEADERS, json={
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5},
+})
+resp.raise_for_status()
+task_id = resp.json()["output"]["task_id"]
+print(task_id)
+```
+
+</Tab>
+<Tab value="Node.js">
+
+```js
+const BASE = "https://api.lmuai.com";
+const headers = {
+  Authorization: "Bearer YOUR_API_KEY",
+  "Content-Type": "application/json",
+};
+
+const resp = await fetch(`${BASE}/api/v1/services/aigc/video-generation/video-synthesis`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    model: "wan3.0-video",
+    input: { prompt: "A Shiba Inu running across a sunny meadow" },
+    parameters: { resolution: "720P", duration: 5 },
+  }),
+});
+const data = await resp.json();
+console.log(data.output.task_id);
+```
+
+</Tab>
+</Tabs>
+
+Ответ:
+
+```json
+{
+  "request_id": "4909100c-…",
+  "output": {
+    "task_id": "c65c77fe-323b-4140-8de6-5a7241d9ec44",
+    "task_status": "PENDING"
+  }
+}
+```
+
+## 2. Запрос задачи [#query-task]
+
+### `GET /api/v1/tasks/{task_id}`
+
+Значения `output.task_status`: `PENDING` → `RUNNING` → `SUCCEEDED` / `FAILED` / `CANCELED`. При успешном выполнении URL видео находится в `output.video_url`, а оплачиваемые секунды — в `usage.duration`.
+
+```bash
+curl https://api.lmuai.com/api/v1/tasks/TASK_ID \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+Ответ (успех):
+
+```json
+{
+  "request_id": "…",
+  "output": {
+    "task_id": "c65c77fe-323b-4140-8de6-5a7241d9ec44",
+    "task_status": "SUCCEEDED",
+    "video_url": "https://…/output.mp4"
+  },
+  "usage": {
+    "duration": 2.0,
+    "video_count": 1
+  }
+}
+```
+
+<Callout type="info" title="Нет эндпоинта отмены">
+
+У Wan нет эндпоинта отмены: после отправки задача всегда выполняется до конца. Неудавшиеся задачи не оплачиваются.
+
+</Callout>
+
+## 3. Полный пример: создание и опрос [#poll-example]
+
+```python
+import time, requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+# 1. Create the task
+resp = requests.post(f"{BASE}/api/v1/services/aigc/video-generation/video-synthesis", headers=HEADERS, json={
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5},
+})
+resp.raise_for_status()
+task_id = resp.json()["output"]["task_id"]
+
+# 2. Poll until a final state (every 10 seconds)
+while True:
+    task = requests.get(f"{BASE}/api/v1/tasks/{task_id}", headers=HEADERS).json()
+    status = task["output"]["task_status"]
+    if status in ("SUCCEEDED", "FAILED", "CANCELED", "CANCELLED", "UNKNOWN"):
+        break
+    time.sleep(10)
+
+# 3. Download (the link is valid for 24 hours)
+if status == "SUCCEEDED":
+    url = task["output"]["video_url"]
+    with open(f"{task_id}.mp4", "wb") as f:
+        f.write(requests.get(url).content)
+else:
+    print("Generation failed:", task)
+```
+
+## 4. Тарификация и коды ошибок [#billing]
+
+Wan тарифицируется по формуле «фактические секунды × цена за единицу для уровня разрешения», а оплачиваемые секунды указаны в `usage.duration` результата запроса. При создании задачи замораживается расчётная сумма; при недостаточном балансе возвращается `402`. При успешном выполнении задача рассчитывается по фактическому использованию, а за неудавшиеся задачи средства возвращаются полностью. У каждого пользователя и каждого API-ключа одновременно может генерироваться не более 5 задач; при превышении запросы возвращают `429`.
+
+Полные правила см. в разделах [Тарификация и водяные знаки](/ru/docs/api/video-generation#billing), [Ограничения параллелизма](/ru/docs/api/video-generation#limits) и [Коды ошибок](/ru/docs/api/video-generation#errors) обзора. Информацию о другом поставщике см. в [API генерации видео Seedance](/ru/docs/api/seedance-video).

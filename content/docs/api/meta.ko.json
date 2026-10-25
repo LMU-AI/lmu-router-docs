@@ -6,6 +6,8 @@
     "grok-image",
     "gemini-image-batch",
     "video-generation",
+    "seedance-video",
+    "wan-video",
     "usage-export"
   ]
 }

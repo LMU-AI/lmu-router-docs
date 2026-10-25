@@ -1,0 +1,206 @@
+---
+title: واجهة Wan API لتوليد الفيديو
+description: "استدعِ توليد الفيديو من Wan (Alibaba DashScope) عبر LMU AI باستخدام البروتوكول غير المتزامن الأصلي: إنشاء المهام، والاستعلام الدوري عن النتائج، والقيم الافتراضية، ومثال كامل على الاستعلام الدوري."
+ogDescription: "واجهة Wan API لتوليد الفيديو من LMU AI: أنشئ المهام عبر POST /api/v1/services/aigc/video-generation/video-synthesis واستعلم عنها عبر GET /api/v1/tasks/{task_id}. تُحتسب التكلفة حسب عدد الثواني × فئة الدقة."
+keywords:
+  - واجهة Wan API للفيديو
+  - توليد الفيديو باستخدام Wan
+  - wan3.0-video
+  - توليد الفيديو عبر DashScope
+  - واجهة API لتوليد الفيديو في Alibaba Cloud Model Studio
+  - توليد الفيديو باستخدام Tongyi Wanxiang
+  - LMU AI Wan
+alternateNames:
+  - واجهة Tongyi Wanxiang API لتوليد الفيديو
+  - واجهة Wan API لتوليد الفيديو
+faq:
+  - q: هل أحتاج إلى إرسال الترويسة X-DashScope-Async؟
+    a: "لا. تضيف المنصة الترويسة X-DashScope-Async: enable تلقائيًا."
+  - q: هل يمكن إلغاء مهام Wan؟
+    a: "لا. لا تتوفر لدى Wan نقطة نهاية للإلغاء: بمجرد إرسال المهمة، تُنفَّذ دائمًا حتى اكتمالها. لا تُحتسب أي تكلفة على المهام الفاشلة."
+  - q: ما القيم الافتراضية إذا لم أحدد الدقة والمدة؟
+    a: "الدقة الافتراضية هي 1080P والمدة الافتراضية هي 5 ثوانٍ."
+  - q: كيف تُحتسب تكلفة Wan؟
+    a: "حسب عدد الثواني الفعلية × سعر الوحدة لفئة الدقة؛ وتظهر الثواني المحتسبة في usage.duration ضمن نتيجة الاستعلام. يُجمَّد مبلغ تقديري عند إنشاء المهمة، ثم تتم التسوية وفق الاستخدام الفعلي عند النجاح."
+---
+
+يستخدم توليد الفيديو من Wan (Alibaba Cloud Model Studio، DashScope) **البروتوكول غير المتزامن الأصلي** الخاص بالمزوّد، وهو مطابق لبروتوكول DashScope الرسمي: استبدل العنوان في SDK الرسمي أو أمر curl بعنوان LMU AI، واستبدل المفتاح بمفتاح API الخاص بك من LMU AI، ويبقى جسم الطلب دون تغيير. للاطلاع على القواعد المشتركة الخاصة بالمصادقة والفوترة والعلامات المائية وحدود التزامن ورموز الأخطاء، راجع [نظرة عامة على واجهة API لتوليد الفيديو](/ar/docs/api/video-generation).
+
+<Callout type="info" title="عنوان URL الأساسي">
+
+```text
+https://api.lmuai.com
+```
+
+| العملية | نقطة النهاية |
+|---|---|
+| إنشاء مهمة | `POST /api/v1/services/aigc/video-generation/video-synthesis` |
+| الاستعلام عن مهمة | `GET /api/v1/tasks/{task_id}` |
+
+</Callout>
+
+<Callout type="warn" title="يجب تفعيل توليد الفيديو لمجموعتك">
+
+يجب أن تكون ميزة "توليد الفيديو" مفعّلة لمجموعة مفتاح API؛ وإلا فستُرجع الاستدعاءات `403`. يجب أن يتطابق اسم النموذج مع الاسم المفعّل لمجموعتك **تمامًا** (مع مراعاة حالة الأحرف)؛ تحقق من النماذج المتاحة باستخدام `GET /v1/models`.
+
+</Callout>
+
+## 1. إنشاء مهمة [#create-task]
+
+### `POST /api/v1/services/aigc/video-generation/video-synthesis`
+
+الترويسة غير المتزامنة `X-DashScope-Async: enable` اختيارية؛ إذ تضيفها المنصة تلقائيًا.
+
+| المعامل | النوع | مطلوب | الوصف |
+|---|---|---|---|
+| `model` | string | نعم | على سبيل المثال `wan3.0-video` |
+| `input.prompt` | string | نعم | الموجّه |
+| `input.media` | array | لا | وسائط مرجعية، مثل `[{"type":"first_frame","url":"…"}]`؛ ويمكن أن تكون قيمة `type` إما `first_frame` أو `reference_image` |
+| `parameters.resolution` | string | لا | فئة الدقة: `480P` / `720P` / `1080P`، والقيمة الافتراضية `1080P` |
+| `parameters.duration` | integer | لا | المدة بالثواني، والقيمة الافتراضية 5 |
+| `parameters.watermark` | boolean | لا | تضبطها المنصة بشكل موحّد وفقًا لسياسة المجموعة؛ وقد يتم تجاوز القيمة التي يرسلها العميل |
+
+<Tabs items={['cURL', 'Python', 'Node.js']}>
+<Tab value="cURL">
+
+```bash
+curl https://api.lmuai.com/api/v1/services/aigc/video-generation/video-synthesis \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5}
+  }'
+```
+
+</Tab>
+<Tab value="Python">
+
+```python
+import requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+resp = requests.post(f"{BASE}/api/v1/services/aigc/video-generation/video-synthesis", headers=HEADERS, json={
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5},
+})
+resp.raise_for_status()
+task_id = resp.json()["output"]["task_id"]
+print(task_id)
+```
+
+</Tab>
+<Tab value="Node.js">
+
+```js
+const BASE = "https://api.lmuai.com";
+const headers = {
+  Authorization: "Bearer YOUR_API_KEY",
+  "Content-Type": "application/json",
+};
+
+const resp = await fetch(`${BASE}/api/v1/services/aigc/video-generation/video-synthesis`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    model: "wan3.0-video",
+    input: { prompt: "A Shiba Inu running across a sunny meadow" },
+    parameters: { resolution: "720P", duration: 5 },
+  }),
+});
+const data = await resp.json();
+console.log(data.output.task_id);
+```
+
+</Tab>
+</Tabs>
+
+الاستجابة:
+
+```json
+{
+  "request_id": "4909100c-…",
+  "output": {
+    "task_id": "c65c77fe-323b-4140-8de6-5a7241d9ec44",
+    "task_status": "PENDING"
+  }
+}
+```
+
+## 2. الاستعلام عن مهمة [#query-task]
+
+### `GET /api/v1/tasks/{task_id}`
+
+قيم `output.task_status`: `PENDING` ← `RUNNING` ← `SUCCEEDED` / `FAILED` / `CANCELED`. عند النجاح، يكون عنوان URL للفيديو في `output.video_url`، وتكون الثواني المحتسبة في `usage.duration`.
+
+```bash
+curl https://api.lmuai.com/api/v1/tasks/TASK_ID \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+الاستجابة (عند النجاح):
+
+```json
+{
+  "request_id": "…",
+  "output": {
+    "task_id": "c65c77fe-323b-4140-8de6-5a7241d9ec44",
+    "task_status": "SUCCEEDED",
+    "video_url": "https://…/output.mp4"
+  },
+  "usage": {
+    "duration": 2.0,
+    "video_count": 1
+  }
+}
+```
+
+<Callout type="info" title="لا توجد نقطة نهاية للإلغاء">
+
+لا تتوفر لدى Wan نقطة نهاية للإلغاء: بمجرد إرسال المهمة، تُنفَّذ دائمًا حتى اكتمالها. لا تُحتسب أي تكلفة على المهام الفاشلة.
+
+</Callout>
+
+## 3. مثال كامل: الإنشاء والاستعلام الدوري [#poll-example]
+
+```python
+import time, requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+# 1. Create the task
+resp = requests.post(f"{BASE}/api/v1/services/aigc/video-generation/video-synthesis", headers=HEADERS, json={
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5},
+})
+resp.raise_for_status()
+task_id = resp.json()["output"]["task_id"]
+
+# 2. Poll until a final state (every 10 seconds)
+while True:
+    task = requests.get(f"{BASE}/api/v1/tasks/{task_id}", headers=HEADERS).json()
+    status = task["output"]["task_status"]
+    if status in ("SUCCEEDED", "FAILED", "CANCELED", "CANCELLED", "UNKNOWN"):
+        break
+    time.sleep(10)
+
+# 3. Download (the link is valid for 24 hours)
+if status == "SUCCEEDED":
+    url = task["output"]["video_url"]
+    with open(f"{task_id}.mp4", "wb") as f:
+        f.write(requests.get(url).content)
+else:
+    print("Generation failed:", task)
+```
+
+## 4. الفوترة ورموز الأخطاء [#billing]
+
+تُحتسب تكلفة Wan وفق "عدد الثواني الفعلية × سعر الوحدة لفئة الدقة"، وتظهر الثواني المحتسبة في `usage.duration` ضمن نتيجة الاستعلام. يُجمَّد مبلغ تقديري عند إنشاء المهمة، ويُرجَع `402` في حال عدم كفاية الرصيد؛ وعند النجاح تتم تسوية المهمة وفق الاستخدام الفعلي، ويُسترد المبلغ بالكامل للمهام الفاشلة. يمكن لكل مستخدم ولكل مفتاح API أن يكون لديه 5 مهام كحد أقصى قيد التوليد في الوقت نفسه؛ وما يتجاوز ذلك تُرجع طلباته `429`.
+
+للاطلاع على القواعد الكاملة، راجع [الفوترة والعلامات المائية](/ar/docs/api/video-generation#billing) و[حدود التزامن](/ar/docs/api/video-generation#limits) و[رموز الأخطاء](/ar/docs/api/video-generation#errors) في النظرة العامة. وللاطلاع على المزوّد الآخر، راجع [واجهة Seedance API لتوليد الفيديو](/ar/docs/api/seedance-video).

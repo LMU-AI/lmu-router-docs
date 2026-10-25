@@ -1,0 +1,206 @@
+---
+title: 千问万相视频生成 API
+description: 使用灵眸调用千问万相（阿里云百炼 DashScope）视频生成：原厂原生异步协议，创建任务并轮询结果，含参数说明、分辨率与时长缺省值和完整轮询示例。
+ogDescription: "灵眸千问万相视频生成 API：POST /api/v1/services/aigc/video-generation/video-synthesis 创建任务，GET /api/v1/tasks/{task_id} 查询结果，按秒 × 分辨率计费。"
+keywords:
+  - 千问万相 API
+  - 万相视频生成
+  - wan3.0-video
+  - DashScope 视频生成
+  - 阿里云百炼视频生成 API
+  - 通义万相视频生成
+  - 灵眸千问万相
+alternateNames:
+  - 通义万相视频生成 API
+  - Wan 视频生成接口
+faq:
+  - q: 需要传 X-DashScope-Async 请求头吗？
+    a: "可以不传。平台会自动补上 X-DashScope-Async: enable。"
+  - q: 千问万相的任务能取消吗？
+    a: 不能。千问万相没有取消接口，提交后任务一定会跑完；失败的任务不收费。
+  - q: 不传 resolution 和 duration 时默认是多少？
+    a: 分辨率缺省 1080P，时长缺省 5 秒。
+  - q: 千问万相怎么计费？
+    a: 按「实际秒数 × 分辨率档位单价」计费，计费秒数见查询结果里的 usage.duration。创建时冻结预估金额，成功后按实际用量结算。
+---
+
+千问万相（阿里云百炼 DashScope）视频生成使用原厂**原生异步协议**，与 DashScope 官方协议一致：把官方 SDK 或 curl 里的地址换成灵眸地址、密钥换成灵眸 API Key 即可调用，无需改写请求体。鉴权、计费与水印、并发上限和错误码等通用规则见[视频生成 API 总览](/docs/api/video-generation)。
+
+<Callout type="info" title="Base URL">
+
+```text
+https://api.lmuai.com
+```
+
+| 操作 | 端点 |
+|---|---|
+| 创建任务 | `POST /api/v1/services/aigc/video-generation/video-synthesis` |
+| 查询任务 | `GET /api/v1/tasks/{task_id}` |
+
+</Callout>
+
+<Callout type="warn" title="需要分组开通视频生成">
+
+API Key 所属分组需开启「视频生成」才能调用，否则返回 `403`。模型名需与分组开放的名字**逐字一致**（区分大小写），可用 `GET /v1/models` 查询。
+
+</Callout>
+
+## 1. 创建任务 [#create-task]
+
+### `POST /api/v1/services/aigc/video-generation/video-synthesis`
+
+异步头 `X-DashScope-Async: enable` 可不传，平台会自动补上。
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `model` | string | 是 | 如 `wan3.0-video` |
+| `input.prompt` | string | 是 | 提示词 |
+| `input.media` | array | 否 | 参考素材，如 `[{"type":"first_frame","url":"…"}]`；`type` 可选 `first_frame` / `reference_image` |
+| `parameters.resolution` | string | 否 | 分辨率档位：`480P` / `720P` / `1080P`，缺省 `1080P` |
+| `parameters.duration` | integer | 否 | 秒数，缺省 5 |
+| `parameters.watermark` | boolean | 否 | 由平台按分组策略统一设置，客户端传入的值可能被覆盖 |
+
+<Tabs items={['cURL', 'Python', 'Node.js']}>
+<Tab value="cURL">
+
+```bash
+curl https://api.lmuai.com/api/v1/services/aigc/video-generation/video-synthesis \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "wan3.0-video",
+    "input": {"prompt": "一只柴犬在草地上奔跑，阳光明媚"},
+    "parameters": {"resolution": "720P", "duration": 5}
+  }'
+```
+
+</Tab>
+<Tab value="Python">
+
+```python
+import requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+resp = requests.post(f"{BASE}/api/v1/services/aigc/video-generation/video-synthesis", headers=HEADERS, json={
+    "model": "wan3.0-video",
+    "input": {"prompt": "一只柴犬在草地上奔跑，阳光明媚"},
+    "parameters": {"resolution": "720P", "duration": 5},
+})
+resp.raise_for_status()
+task_id = resp.json()["output"]["task_id"]
+print(task_id)
+```
+
+</Tab>
+<Tab value="Node.js">
+
+```js
+const BASE = "https://api.lmuai.com";
+const headers = {
+  Authorization: "Bearer YOUR_API_KEY",
+  "Content-Type": "application/json",
+};
+
+const resp = await fetch(`${BASE}/api/v1/services/aigc/video-generation/video-synthesis`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    model: "wan3.0-video",
+    input: { prompt: "一只柴犬在草地上奔跑，阳光明媚" },
+    parameters: { resolution: "720P", duration: 5 },
+  }),
+});
+const data = await resp.json();
+console.log(data.output.task_id);
+```
+
+</Tab>
+</Tabs>
+
+响应：
+
+```json
+{
+  "request_id": "4909100c-…",
+  "output": {
+    "task_id": "c65c77fe-323b-4140-8de6-5a7241d9ec44",
+    "task_status": "PENDING"
+  }
+}
+```
+
+## 2. 查询任务 [#query-task]
+
+### `GET /api/v1/tasks/{task_id}`
+
+`output.task_status` 取值：`PENDING` → `RUNNING` → `SUCCEEDED` / `FAILED` / `CANCELED`。成功时视频地址在 `output.video_url`，计费秒数见 `usage.duration`。
+
+```bash
+curl https://api.lmuai.com/api/v1/tasks/TASK_ID \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+响应（成功）：
+
+```json
+{
+  "request_id": "…",
+  "output": {
+    "task_id": "c65c77fe-323b-4140-8de6-5a7241d9ec44",
+    "task_status": "SUCCEEDED",
+    "video_url": "https://…/output.mp4"
+  },
+  "usage": {
+    "duration": 2.0,
+    "video_count": 1
+  }
+}
+```
+
+<Callout type="info" title="没有取消接口">
+
+千问万相没有取消接口，提交后任务一定会跑完；失败的任务不收费。
+
+</Callout>
+
+## 3. 完整示例：创建并轮询 [#poll-example]
+
+```python
+import time, requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+# 1. 创建任务
+resp = requests.post(f"{BASE}/api/v1/services/aigc/video-generation/video-synthesis", headers=HEADERS, json={
+    "model": "wan3.0-video",
+    "input": {"prompt": "一只柴犬在草地上奔跑，阳光明媚"},
+    "parameters": {"resolution": "720P", "duration": 5},
+})
+resp.raise_for_status()
+task_id = resp.json()["output"]["task_id"]
+
+# 2. 轮询到终态（每 10 秒）
+while True:
+    task = requests.get(f"{BASE}/api/v1/tasks/{task_id}", headers=HEADERS).json()
+    status = task["output"]["task_status"]
+    if status in ("SUCCEEDED", "FAILED", "CANCELED", "CANCELLED", "UNKNOWN"):
+        break
+    time.sleep(10)
+
+# 3. 下载（链接 24 小时内有效）
+if status == "SUCCEEDED":
+    url = task["output"]["video_url"]
+    with open(f"{task_id}.mp4", "wb") as f:
+        f.write(requests.get(url).content)
+else:
+    print("生成失败:", task)
+```
+
+## 4. 计费与错误码 [#billing]
+
+千问万相按「实际秒数 × 分辨率档位单价」计费，计费秒数见查询结果里的 `usage.duration`：创建时冻结预估金额，余额不足返回 `402`；成功后按实际用量结算，失败的任务全额退回。同一用户、同一 API Key 各自最多同时有 5 个生成中的任务，超限返回 `429`。
+
+完整规则见总览的[计费与水印](/docs/api/video-generation#billing)、[并发上限](/docs/api/video-generation#limits)和[错误码](/docs/api/video-generation#errors)。另一家接口见 [Seedance 视频生成 API](/docs/api/seedance-video)。

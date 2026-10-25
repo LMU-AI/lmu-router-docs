@@ -1,0 +1,206 @@
+---
+title: Wan 動画生成 API
+description: "LMU AI 経由で Wan（Alibaba DashScope）の動画生成をネイティブ非同期プロトコルで呼び出す方法：タスクの作成、結果のポーリング、デフォルト値、完全なポーリング例。"
+ogDescription: "LMU AI Wan 動画生成 API：POST /api/v1/services/aigc/video-generation/video-synthesis でタスクを作成し、GET /api/v1/tasks/{task_id} で照会します。秒数 × 解像度ティアで課金されます。"
+keywords:
+  - Wan 動画 API
+  - Wan 動画生成
+  - wan3.0-video
+  - DashScope 動画生成
+  - Alibaba Cloud Model Studio 動画生成 API
+  - Tongyi Wanxiang 動画生成
+  - LMU AI Wan
+alternateNames:
+  - Tongyi Wanxiang 動画生成 API
+  - Wan 動画生成 API
+faq:
+  - q: X-DashScope-Async ヘッダーを送信する必要はありますか？
+    a: "いいえ。プラットフォームが X-DashScope-Async: enable を自動的に付加します。"
+  - q: Wan のタスクはキャンセルできますか？
+    a: "いいえ。Wan にはキャンセル用のエンドポイントがありません。送信されたタスクは必ず完了まで実行されます。失敗したタスクには課金されません。"
+  - q: resolution と duration を省略した場合のデフォルト値は？
+    a: "解像度のデフォルトは 1080P、長さのデフォルトは 5 秒です。"
+  - q: Wan はどのように課金されますか？
+    a: "実際の秒数 × 解像度ティアの単価で課金されます。課金対象の秒数は照会結果の usage.duration に含まれます。タスク作成時に見積額が凍結され、成功時に実際の使用量で精算されます。"
+---
+
+Wan（Alibaba Cloud Model Studio、DashScope）の動画生成は、ベンダーの**ネイティブ非同期プロトコル**を使用しており、DashScope 公式プロトコルと同一です。公式 SDK または curl コマンドのアドレスを LMU AI のアドレスに、キーを LMU AI の API キーに置き換えるだけで、リクエストボディは変更不要です。認証、課金と透かし、同時実行数の制限、エラーコードに関する共通ルールについては、[動画生成 API の概要](/ja/docs/api/video-generation)を参照してください。
+
+<Callout type="info" title="Base URL">
+
+```text
+https://api.lmuai.com
+```
+
+| 操作 | エンドポイント |
+|---|---|
+| タスクの作成 | `POST /api/v1/services/aigc/video-generation/video-synthesis` |
+| タスクの照会 | `GET /api/v1/tasks/{task_id}` |
+
+</Callout>
+
+<Callout type="warn" title="グループで動画生成を有効にする必要があります">
+
+API キーが属するグループで「動画生成」が有効になっている必要があります。有効でない場合、呼び出しは `403` を返します。モデル名はグループで有効化された名前と**完全に**一致している必要があります（大文字と小文字を区別）。利用可能なモデルは `GET /v1/models` で確認してください。
+
+</Callout>
+
+## 1. タスクの作成 [#create-task]
+
+### `POST /api/v1/services/aigc/video-generation/video-synthesis`
+
+非同期ヘッダー `X-DashScope-Async: enable` は任意です。プラットフォームが自動的に付加します。
+
+| パラメーター | 型 | 必須 | 説明 |
+|---|---|---|---|
+| `model` | string | はい | 例：`wan3.0-video` |
+| `input.prompt` | string | はい | プロンプト |
+| `input.media` | array | いいえ | 参照メディア。例：`[{"type":"first_frame","url":"…"}]`。`type` には `first_frame` または `reference_image` を指定できます |
+| `parameters.resolution` | string | いいえ | 解像度ティア：`480P` / `720P` / `1080P`、デフォルトは `1080P` |
+| `parameters.duration` | integer | いいえ | 長さ（秒）、デフォルトは 5 |
+| `parameters.watermark` | boolean | いいえ | グループのポリシーに従いプラットフォームが一律に設定します。クライアントが指定した値は上書きされる場合があります |
+
+<Tabs items={['cURL', 'Python', 'Node.js']}>
+<Tab value="cURL">
+
+```bash
+curl https://api.lmuai.com/api/v1/services/aigc/video-generation/video-synthesis \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5}
+  }'
+```
+
+</Tab>
+<Tab value="Python">
+
+```python
+import requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+resp = requests.post(f"{BASE}/api/v1/services/aigc/video-generation/video-synthesis", headers=HEADERS, json={
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5},
+})
+resp.raise_for_status()
+task_id = resp.json()["output"]["task_id"]
+print(task_id)
+```
+
+</Tab>
+<Tab value="Node.js">
+
+```js
+const BASE = "https://api.lmuai.com";
+const headers = {
+  Authorization: "Bearer YOUR_API_KEY",
+  "Content-Type": "application/json",
+};
+
+const resp = await fetch(`${BASE}/api/v1/services/aigc/video-generation/video-synthesis`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    model: "wan3.0-video",
+    input: { prompt: "A Shiba Inu running across a sunny meadow" },
+    parameters: { resolution: "720P", duration: 5 },
+  }),
+});
+const data = await resp.json();
+console.log(data.output.task_id);
+```
+
+</Tab>
+</Tabs>
+
+レスポンス：
+
+```json
+{
+  "request_id": "4909100c-…",
+  "output": {
+    "task_id": "c65c77fe-323b-4140-8de6-5a7241d9ec44",
+    "task_status": "PENDING"
+  }
+}
+```
+
+## 2. タスクの照会 [#query-task]
+
+### `GET /api/v1/tasks/{task_id}`
+
+`output.task_status` の値：`PENDING` → `RUNNING` → `SUCCEEDED` / `FAILED` / `CANCELED`。成功時、動画の URL は `output.video_url` に、課金対象の秒数は `usage.duration` に含まれます。
+
+```bash
+curl https://api.lmuai.com/api/v1/tasks/TASK_ID \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+レスポンス（成功）：
+
+```json
+{
+  "request_id": "…",
+  "output": {
+    "task_id": "c65c77fe-323b-4140-8de6-5a7241d9ec44",
+    "task_status": "SUCCEEDED",
+    "video_url": "https://…/output.mp4"
+  },
+  "usage": {
+    "duration": 2.0,
+    "video_count": 1
+  }
+}
+```
+
+<Callout type="info" title="キャンセル用エンドポイントはありません">
+
+Wan にはキャンセル用のエンドポイントがありません。送信されたタスクは必ず完了まで実行されます。失敗したタスクには課金されません。
+
+</Callout>
+
+## 3. 完全な例：作成とポーリング [#poll-example]
+
+```python
+import time, requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+# 1. Create the task
+resp = requests.post(f"{BASE}/api/v1/services/aigc/video-generation/video-synthesis", headers=HEADERS, json={
+    "model": "wan3.0-video",
+    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
+    "parameters": {"resolution": "720P", "duration": 5},
+})
+resp.raise_for_status()
+task_id = resp.json()["output"]["task_id"]
+
+# 2. Poll until a final state (every 10 seconds)
+while True:
+    task = requests.get(f"{BASE}/api/v1/tasks/{task_id}", headers=HEADERS).json()
+    status = task["output"]["task_status"]
+    if status in ("SUCCEEDED", "FAILED", "CANCELED", "CANCELLED", "UNKNOWN"):
+        break
+    time.sleep(10)
+
+# 3. Download (the link is valid for 24 hours)
+if status == "SUCCEEDED":
+    url = task["output"]["video_url"]
+    with open(f"{task_id}.mp4", "wb") as f:
+        f.write(requests.get(url).content)
+else:
+    print("Generation failed:", task)
+```
+
+## 4. 課金とエラーコード [#billing]
+
+Wan は「実際の秒数 × 解像度ティアの単価」で課金され、課金対象の秒数は照会結果の `usage.duration` に含まれます。タスク作成時に見積額が凍結され、残高が不足している場合は `402` が返されます。成功時には実際の使用量で精算され、失敗したタスクは全額返金されます。ユーザーごと、および API キーごとに同時に生成できるタスクは最大 5 件までで、これを超えるリクエストは `429` を返します。
+
+詳細なルールについては、概要の[課金と透かし](/ja/docs/api/video-generation#billing)、[同時実行数の制限](/ja/docs/api/video-generation#limits)、[エラーコード](/ja/docs/api/video-generation#errors)を参照してください。もう一方のプロバイダーについては、[Seedance 動画生成 API](/ja/docs/api/seedance-video)を参照してください。

@@ -1,30 +1,30 @@
 ---
-title: 동영상 생성 API
-description: "LMU AI를 통해 공급업체의 네이티브 비동기 작업 프로토콜로 Seedance(Volcengine Ark)와 Wan(Alibaba DashScope) 동영상을 생성합니다. 작업 생성, 결과 폴링, 동영상 다운로드 방법과 파라미터, 과금 및 워터마크, 동시 실행 제한, 오류 코드를 설명합니다."
-ogDescription: "LMU AI 동영상 생성 API 가이드: Seedance는 /api/v3/contents/generations/tasks, Wan은 /api/v1/services/aigc/video-generation/video-synthesis를 사용하며, 작업을 비동기로 생성한 뒤 결과를 폴링합니다."
+title: 영상 생성 API
+description: "LMU AI 영상 생성 API 개요: Seedance와 Wan 중 선택하는 방법과 인증, 비동기 작업, 과금, 동시 실행 제한, 오류 코드에 관한 공통 규칙을 안내합니다."
+ogDescription: "LMU AI 영상 생성 API 개요: Seedance와 Wan 엔드포인트, 과금 및 파라미터 규칙을 비교하고 인증, 비동기 작업, 과금, 동시 실행 제한, 오류 코드에 관한 공통 규칙을 확인하세요."
 keywords:
-  - 동영상 생성 API
+  - 영상 생성 API
+  - AI 영상 생성 API
   - Seedance API
-  - Volcengine Ark 동영상 생성
-  - Wan 동영상 API
-  - wan3.0-video
-  - DashScope 동영상 생성
-  - LMU AI 동영상 생성
+  - Wan 영상 API
+  - Volcengine Ark 영상 생성
+  - DashScope 영상 생성
+  - LMU AI 영상 생성
 alternateNames:
-  - AI 동영상 생성 API
-  - Seedance 동영상 API
+  - AI 영상 생성 API
+  - 영상 생성 API 개요
 faq:
-  - q: 동영상 생성은 동기 방식인가요, 비동기 방식인가요?
+  - q: 영상 생성은 동기 방식인가요, 비동기 방식인가요?
     a: "비동기 방식입니다. 생성 엔드포인트는 작업 id만 반환합니다. 작업이 성공, 실패 또는 취소될 때까지 약 10초마다 작업을 조회하세요."
-  - q: 동영상 링크는 얼마 동안 유효한가요?
-    a: "업스트림 동영상 링크는 24시간 동안 유효하므로 빠르게 다운로드하세요. 플랫폼은 완료된 각 동영상의 사본을 보관하며, 콘솔의 동영상 작업 페이지에서 재생 및 다운로드할 수 있습니다."
+  - q: 영상 링크는 얼마 동안 유효한가요?
+    a: "업스트림 영상 링크는 24시간 동안 유효하므로 빠르게 다운로드하세요. 플랫폼은 완성된 각 영상의 사본을 보관하며, 콘솔의 영상 작업 페이지에서 재생하고 다운로드할 수 있습니다."
   - q: 실패한 작업도 과금되나요?
-    a: "아니요. 작업 생성 시 예상 금액이 동결되고 성공 시 실제 사용량에 따라 정산됩니다. 실패하거나 취소된 작업은 전액 환불됩니다."
+    a: "아니요. 작업 생성 시 예상 금액이 동결되고, 성공 시 실제 사용량에 따라 정산됩니다. 실패하거나 취소된 작업은 전액 환불됩니다."
   - q: 호출 시 403이 반환되는 이유는 무엇인가요?
-    a: "API 키의 그룹에 동영상 생성이 활성화되어 있지 않거나, 해당 그룹에서 모델을 사용할 수 없기 때문입니다. 동영상 생성을 지원하는 API 키를 사용하세요."
+    a: "API 키의 그룹에 영상 생성이 활성화되어 있지 않거나, 해당 그룹에서 모델을 사용할 수 없기 때문입니다. 영상 생성을 지원하는 API 키를 사용하세요."
 ---
 
-LMU AI는 두 가지 **비동기** 동영상 생성 API를 제공하며, 둘 다 공급업체의 **네이티브 프로토콜**을 사용합니다. 공식 SDK 또는 curl 명령의 주소를 LMU AI 주소로, 키를 LMU AI API 키로 바꾸기만 하면 되며 요청 본문은 그대로 유지됩니다.
+LMU AI는 두 종류의 **비동기** 영상 생성 API를 제공하며, 둘 다 각 벤더의 **네이티브 프로토콜**을 사용합니다. 공식 SDK나 curl 명령의 주소를 LMU AI 주소로, 키를 LMU AI API 키로 바꾸기만 하면 요청 본문은 그대로 사용할 수 있습니다. 이 페이지는 개요 페이지입니다. 아래 표에서 API를 선택한 뒤 해당 제공업체 페이지를 참고하세요. 두 제공업체에 공통으로 적용되는 규칙(인증, 과금, 동시 실행 제한, 오류 코드)은 이 페이지에서 설명합니다.
 
 <Callout type="info" title="Base URL">
 
@@ -32,416 +32,82 @@ LMU AI는 두 가지 **비동기** 동영상 생성 API를 제공하며, 둘 다
 https://api.lmuai.com
 ```
 
-| 공급업체 | 작업 생성 | 작업 조회 |
-|---|---|---|
-| Seedance (Volcengine Ark) | `POST /api/v3/contents/generations/tasks` | `GET /api/v3/contents/generations/tasks/{id}` |
-| Wan (Alibaba DashScope) | `POST /api/v1/services/aigc/video-generation/video-synthesis` | `GET /api/v1/tasks/{task_id}` |
+| 제공업체 | 작업 생성 | 작업 조회 | 문서 |
+|---|---|---|---|
+| Seedance (Volcengine Ark) | `POST /api/v3/contents/generations/tasks` | `GET /api/v3/contents/generations/tasks/{id}` | [Seedance 영상 생성 API](/ko/docs/api/seedance-video) |
+| Wan (Alibaba DashScope) | `POST /api/v1/services/aigc/video-generation/video-synthesis` | `GET /api/v1/tasks/{task_id}` | [Wan 영상 생성 API](/ko/docs/api/wan-video) |
 
 </Callout>
 
-<Callout type="warn" title="그룹에서 동영상 생성이 활성화되어 있어야 합니다">
+<Callout type="warn" title="그룹에 영상 생성이 활성화되어 있어야 합니다">
 
-API 키의 그룹에 "동영상 생성"이 활성화되어 있어야 하며, 그렇지 않으면 호출 시 `403`이 반환됩니다. 실제로 호출할 수 있는 모델은 API 키에 따라 다르며, `GET /v1/models`로 확인할 수 있습니다.
+API 키의 그룹에 "영상 생성"이 활성화되어 있어야 하며, 그렇지 않으면 호출 시 `403`이 반환됩니다. 실제로 호출할 수 있는 모델은 API 키에 따라 다르며, `GET /v1/models`로 확인할 수 있습니다.
 
 </Callout>
 
-## 1. 개요
+## 1. 두 API 중 선택하기 [#compare]
 
-| 공급업체 | 예시 모델 | 과금 방식 |
+| | Seedance (Volcengine Ark) | Wan (Alibaba DashScope) |
 |---|---|---|
-| Seedance (Volcengine Ark) | `seedance-2.5` | 출력 토큰 기준 |
-| Wan (Alibaba DashScope) | `wan3.0-video` | "초 × 해상도 등급" 기준 |
+| 예시 모델 | `seedance-2.5` | `wan3.0-video` |
+| 과금 방식 | 출력 Token 기준 | "실제 초 수 × 해상도 등급 단가" 기준 |
+| 해상도 값 | `480p` / `720p` / `1080p` (소문자) | `480P` / `720P` / `1080P` (대문자), 기본값 `1080P` |
+| 작업 상태 | `queued` → `running` → `succeeded` / `failed` / `cancelled` | `PENDING` → `RUNNING` → `SUCCEEDED` / `FAILED` / `CANCELED` |
+| 영상 URL 필드 | `content.video_url` | `output.video_url` |
+| 작업 취소 | 대기 중(`queued`)인 작업은 취소 가능 | 취소 엔드포인트 없음. 제출된 작업은 항상 완료될 때까지 실행됨 |
 
-모델 이름은 그룹에 활성화된 이름과 **정확히** 일치해야 합니다(대소문자 구분).
+모델 이름은 그룹에 활성화된 이름과 **정확히** 일치해야 합니다(대소문자 구분). 두 API는 필드 이름이 비슷하지만 대소문자와 경로가 다르므로, 예시를 복사할 때 혼동하지 않도록 주의하세요.
 
-## 2. 인증
+## 2. 인증 [#auth]
 
-모든 요청의 헤더에 API 키를 포함하세요:
+모든 요청의 헤더에 API 키를 포함하세요.
 
 ```http
 Authorization: Bearer YOUR_API_KEY
 ```
 
-API 키를 브라우저 프런트엔드 코드, 공개 저장소, URL 쿼리 문자열 또는 로그에 넣지 마세요. 자체 서버에서 API를 호출하세요.
+API 키를 브라우저 프런트엔드 코드, 공개 저장소, URL 쿼리 문자열 또는 로그에 넣지 마세요. API는 자체 서버에서 호출하세요.
 
-## 3. 비동기 작업 흐름
+## 3. 비동기 작업 흐름 [#flow]
 
-1. **생성**: `POST`는 작업 id만 반환하며, 동영상 생성을 기다리지 않습니다.
-2. **폴링**: 최종 상태(성공 / 실패 / 취소)에 도달할 때까지 약 10초마다 작업을 `GET`합니다.
-3. **참조 이미지**: API 호출 시에는 공개적으로 접근 가능한 이미지 URL(JPG / PNG / WebP)을 전달해야 합니다. 콘솔의 동영상 생성 페이지에서는 로컬 이미지 업로드가 가능합니다.
-4. **다운로드**: 성공 시 응답에서 동영상 링크를 가져옵니다. 업스트림 링크는 **24시간 동안 유효**하므로 빠르게 다운로드하세요. 플랫폼은 완료된 각 동영상의 사본을 보관하며, 콘솔의 동영상 작업 페이지에서 재생 및 다운로드할 수 있습니다.
+1. **생성**: `POST`는 작업 id만 반환하며, 영상이 완성될 때까지 기다리지 않습니다.
+2. **폴링**: 작업이 최종 상태(성공 / 실패 / 취소)에 도달할 때까지 약 10초마다 `GET`으로 작업을 조회합니다.
+3. **참조 이미지**: API 호출 시에는 공개적으로 접근 가능한 이미지 URL(JPG / PNG / WebP)을 전달해야 합니다. 콘솔의 영상 생성 페이지에서는 로컬 이미지 업로드가 가능합니다.
+4. **다운로드**: 성공하면 응답에서 영상 링크를 가져옵니다. 업스트림 링크는 **24시간 동안 유효**하므로 빠르게 다운로드하세요. 플랫폼은 완성된 각 영상의 사본을 보관하며, 콘솔의 영상 작업 페이지에서 재생하고 다운로드할 수 있습니다.
 
-<Callout type="info" title="폴링을 중단해도 정산은 진행됩니다">
+<Callout type="info" title="폴링을 중단해도 과금은 정산됩니다">
 
 제출 후 플랫폼이 백그라운드에서 작업을 추적하므로, 조회를 중단하더라도 정상적으로 정산됩니다. 실패하거나 취소된 작업은 과금되지 않습니다.
 
 </Callout>
 
-## 4. Seedance · 작업 생성
+작업 생성 및 폴링의 전체 예시는 [Seedance](/ko/docs/api/seedance-video#poll-example) 및 [Wan](/ko/docs/api/wan-video#poll-example) 페이지를 참고하세요.
 
-### `POST /api/v3/contents/generations/tasks`
+## 4. 과금 및 워터마크 [#billing]
 
-| 파라미터 | 타입 | 필수 | 설명 |
-|---|---|---|---|
-| `model` | string | 예 | 모델 이름. 그룹에 활성화된 이름과 정확히 일치해야 합니다(대소문자 구분) |
-| `content` | array | 예 | 입력 콘텐츠. 텍스트: `{"type":"text","text":"…"}`; 참조 이미지: `{"type":"image_url","image_url":{"url":"…"},"role":"first_frame"}`. `role`은 `first_frame`(첫 프레임) 또는 `reference_image`(참조 이미지)일 수 있습니다 |
-| `resolution` | string | 아니요 | 해상도 등급: `480p` / `720p` / `1080p` |
-| `duration` | integer | 아니요 | 동영상 길이(초) |
-| `ratio` | string | 아니요 | 화면 비율: `16:9` / `9:16` / `1:1` / `4:3` |
-| `generate_audio` | boolean | 아니요 | 오디오를 함께 생성할지 여부 |
-
-<Tabs items={['cURL', 'Python', 'Node.js']}>
-<Tab value="cURL">
-
-```bash
-curl https://api.lmuai.com/api/v3/contents/generations/tasks \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "seedance-2.5",
-    "content": [
-      {"type": "text", "text": "Waves gently lapping the beach at dusk, slow motion"}
-    ],
-    "resolution": "720p",
-    "duration": 5,
-    "ratio": "16:9",
-    "generate_audio": true
-  }'
-```
-
-</Tab>
-<Tab value="Python">
-
-```python
-import requests
-
-BASE = "https://api.lmuai.com"
-HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
-
-resp = requests.post(f"{BASE}/api/v3/contents/generations/tasks", headers=HEADERS, json={
-    "model": "seedance-2.5",
-    "content": [{"type": "text", "text": "Waves gently lapping the beach at dusk, slow motion"}],
-    "resolution": "720p",
-    "duration": 5,
-    "ratio": "16:9",
-    "generate_audio": True,
-})
-resp.raise_for_status()
-task_id = resp.json()["id"]
-print(task_id)
-```
-
-</Tab>
-<Tab value="Node.js">
-
-```js
-const BASE = "https://api.lmuai.com";
-const headers = {
-  Authorization: "Bearer YOUR_API_KEY",
-  "Content-Type": "application/json",
-};
-
-const resp = await fetch(`${BASE}/api/v3/contents/generations/tasks`, {
-  method: "POST",
-  headers,
-  body: JSON.stringify({
-    model: "seedance-2.5",
-    content: [{ type: "text", text: "Waves gently lapping the beach at dusk, slow motion" }],
-    resolution: "720p",
-    duration: 5,
-    ratio: "16:9",
-    generate_audio: true,
-  }),
-});
-const data = await resp.json();
-console.log(data.id);
-```
-
-</Tab>
-</Tabs>
-
-응답:
-
-```json
-{
-  "id": "cgt-20261022103211-ab12c"
-}
-```
-
-첫 프레임 참조 이미지를 사용하려면 `content`에 이미지 항목을 추가하세요:
-
-```json
-{
-  "model": "seedance-2.5",
-  "content": [
-    {"type": "text", "text": "The camera slowly pushes in as waves gently lap the beach"},
-    {"type": "image_url", "image_url": {"url": "https://example.com/first-frame.png"}, "role": "first_frame"}
-  ],
-  "resolution": "720p",
-  "duration": 5
-}
-```
-
-<Callout type="warn" title="참고 사항">
-
-- 첫 프레임 모드(`role`이 `first_frame`)에서는 **`ratio`를 보내지 마세요**. 화면 비율은 첫 프레임 이미지를 따르며, 이를 보내면 업스트림에서 `400`으로 요청을 거부합니다.
-- `callback_url`은 업스트림으로 전달되지 않으므로, 전달하더라도 콜백을 받을 수 없습니다. 대신 폴링을 사용하세요.
-
-</Callout>
-
-## 5. Seedance · 작업 조회
-
-### `GET /api/v3/contents/generations/tasks/{id}`
-
-`status` 값: `queued` → `running` → `succeeded` / `failed` / `cancelled`. 성공 시 동영상 URL은 `content.video_url`에 있습니다.
-
-```bash
-curl https://api.lmuai.com/api/v3/contents/generations/tasks/TASK_ID \
-  -H "Authorization: Bearer YOUR_API_KEY"
-```
-
-응답(성공):
-
-```json
-{
-  "id": "cgt-20261022103211-ab12c",
-  "model": "seedance-2.5",
-  "status": "succeeded",
-  "content": {
-    "video_url": "https://…/video.mp4"
-  },
-  "usage": {
-    "completion_tokens": 108900,
-    "total_tokens": 108900
-  },
-  "created_at": 1792629131,
-  "updated_at": 1792629262
-}
-```
-
-## 6. Seedance · 작업 목록
-
-### `GET /api/v3/contents/generations/tasks?limit=20&offset=0`
-
-현재 API 키로 생성한 작업을 반환합니다(`limit`는 1~100, 기본값 20). 응답 형식은 `{object, data[], has_more}`입니다. 동영상 링크가 만료된 후에도 작업 기록은 계속 조회할 수 있습니다.
-
-## 7. Seedance · 취소 / 삭제
-
-### `DELETE /api/v3/contents/generations/tasks/{id}`
-
-- 아직 대기열에 있는(`queued`) 작업은 비용 없이 취소할 수 있습니다.
-- 생성이 시작된(`running`) 작업은 취소할 수 없으며 `409`를 반환합니다.
-- 완료된 작업은 업스트림 기록을 삭제할 수 있으나 환불되지 않습니다.
-
-## 8. Wan · 작업 생성
-
-### `POST /api/v1/services/aigc/video-generation/video-synthesis`
-
-Alibaba Cloud Model Studio(DashScope)의 네이티브 프로토콜과 동일합니다. 비동기 헤더 `X-DashScope-Async: enable`은 선택 사항이며, 플랫폼이 자동으로 추가합니다.
-
-| 파라미터 | 타입 | 필수 | 설명 |
-|---|---|---|---|
-| `model` | string | 예 | 예: `wan3.0-video` |
-| `input.prompt` | string | 예 | 프롬프트 |
-| `input.media` | array | 아니요 | 참조 미디어. 예: `[{"type":"first_frame","url":"…"}]`; `type`은 `first_frame` 또는 `reference_image`일 수 있습니다 |
-| `parameters.resolution` | string | 아니요 | 해상도 등급: `480P` / `720P` / `1080P`, 기본값 `1080P` |
-| `parameters.duration` | integer | 아니요 | 길이(초), 기본값 5 |
-| `parameters.watermark` | boolean | 아니요 | 그룹 정책에 따라 플랫폼이 일괄 설정하며, 클라이언트가 전달한 값은 무시될 수 있습니다 |
-
-<Tabs items={['cURL', 'Python', 'Node.js']}>
-<Tab value="cURL">
-
-```bash
-curl https://api.lmuai.com/api/v1/services/aigc/video-generation/video-synthesis \
-  -H "Authorization: Bearer YOUR_API_KEY" \
-  -H "Content-Type: application/json" \
-  -d '{
-    "model": "wan3.0-video",
-    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
-    "parameters": {"resolution": "720P", "duration": 5}
-  }'
-```
-
-</Tab>
-<Tab value="Python">
-
-```python
-import requests
-
-BASE = "https://api.lmuai.com"
-HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
-
-resp = requests.post(f"{BASE}/api/v1/services/aigc/video-generation/video-synthesis", headers=HEADERS, json={
-    "model": "wan3.0-video",
-    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
-    "parameters": {"resolution": "720P", "duration": 5},
-})
-resp.raise_for_status()
-task_id = resp.json()["output"]["task_id"]
-print(task_id)
-```
-
-</Tab>
-<Tab value="Node.js">
-
-```js
-const BASE = "https://api.lmuai.com";
-const headers = {
-  Authorization: "Bearer YOUR_API_KEY",
-  "Content-Type": "application/json",
-};
-
-const resp = await fetch(`${BASE}/api/v1/services/aigc/video-generation/video-synthesis`, {
-  method: "POST",
-  headers,
-  body: JSON.stringify({
-    model: "wan3.0-video",
-    input: { prompt: "A Shiba Inu running across a sunny meadow" },
-    parameters: { resolution: "720P", duration: 5 },
-  }),
-});
-const data = await resp.json();
-console.log(data.output.task_id);
-```
-
-</Tab>
-</Tabs>
-
-응답:
-
-```json
-{
-  "request_id": "4909100c-…",
-  "output": {
-    "task_id": "c65c77fe-323b-4140-8de6-5a7241d9ec44",
-    "task_status": "PENDING"
-  }
-}
-```
-
-## 9. Wan · 작업 조회
-
-### `GET /api/v1/tasks/{task_id}`
-
-`output.task_status` 값: `PENDING` → `RUNNING` → `SUCCEEDED` / `FAILED` / `CANCELED`. 성공 시 동영상 URL은 `output.video_url`에, 과금된 초 수는 `usage.duration`에 있습니다. 취소 엔드포인트는 없으며, 한 번 제출된 작업은 항상 끝까지 실행됩니다.
-
-```bash
-curl https://api.lmuai.com/api/v1/tasks/TASK_ID \
-  -H "Authorization: Bearer YOUR_API_KEY"
-```
-
-응답(성공):
-
-```json
-{
-  "request_id": "…",
-  "output": {
-    "task_id": "c65c77fe-323b-4140-8de6-5a7241d9ec44",
-    "task_status": "SUCCEEDED",
-    "video_url": "https://…/output.mp4"
-  },
-  "usage": {
-    "duration": 2.0,
-    "video_count": 1
-  }
-}
-```
-
-## 10. 과금 및 워터마크
-
-- 작업 생성 시 예상 금액이 동결됩니다. 잔액이 부족하면 요청이 즉시 거부되며(`402`) 동영상은 생성되지 않습니다.
+- 작업 생성 시 예상 금액이 동결됩니다. 잔액이 부족하면 요청이 즉시 거부되며(`402`) 영상은 생성되지 않습니다.
 - 성공 시 실제 사용량에 따라 한 번 정산되며, 초과 동결된 금액은 자동으로 반환됩니다. 실패하거나 취소된 작업은 전액 환불되며 과금되지 않습니다.
-- Seedance는 출력 토큰 기준으로, Wan은 "실제 초 수 × 해상도 등급 단가" 기준으로 과금됩니다.
-- 완료된 동영상에는 플랫폼의 "AI 생성" 표시가 포함되며, 클라이언트에서 끌 수 없습니다.
+- Seedance는 출력 Token 기준으로, Wan은 "실제 초 수 × 해상도 등급 단가" 기준으로 과금됩니다.
+- 완성된 영상에는 플랫폼의 "AI 생성" 라벨이 표시되며, 클라이언트에서 끌 수 없습니다.
 
-## 11. 동시 실행 제한
+## 5. 동시 실행 제한 [#limits]
 
-각 사용자와 각 API 키는 동시에 최대 **5**개의 작업을 생성할 수 있습니다. 이를 초과하면 요청은 `Retry-After` 헤더(약 60초)와 함께 `429`를 반환하므로, 대기 후 다시 시도하세요.
+각 사용자와 각 API 키는 동시에 최대 **5**개의 작업을 생성할 수 있습니다. 이를 초과하면 요청에 `429`와 함께 `Retry-After` 헤더(약 60초)가 반환됩니다. 대기한 후 다시 시도하세요.
 
-## 12. 오류 코드
+## 6. 오류 코드 [#errors]
 
-| HTTP | 의미 | 조치 |
+| HTTP | 의미 | 조치 방법 |
 |---|---|---|
 | `401` | API 키가 유효하지 않거나 비활성화됨 | API 키를 확인하세요 |
 | `402` | 예상 금액을 동결하기에 잔액 또는 할당량이 부족함 | 충전 후 다시 시도하세요 |
-| `403` | 그룹에 동영상 생성이 활성화되어 있지 않거나, 그룹에서 해당 모델을 사용할 수 없음 | 동영상 생성을 지원하는 API 키를 사용하세요 |
+| `403` | 그룹에 영상 생성이 활성화되어 있지 않거나, 그룹에서 해당 모델을 사용할 수 없음 | 영상 생성을 지원하는 API 키를 사용하세요 |
 | `404 model_not_found` | 모델을 아직 사용할 수 없음(모델 이름 오타로도 발생) | `GET /v1/models`가 반환하는 정확한 이름을 사용하세요 |
-| `409` | 작업 생성이 이미 시작되어 취소할 수 없음 | 작업이 완료될 때까지 기다리세요 |
-| `429` | 진행 중인 작업 수가 한도에 도달함 | `Retry-After`에 따라 대기 후 다시 시도하세요 |
+| `409` | 작업이 이미 생성을 시작하여 취소할 수 없음(Seedance 취소 엔드포인트) | 작업이 완료될 때까지 기다리세요 |
+| `429` | 진행 중인 작업 수가 한도에 도달함 | `Retry-After`에 따라 대기한 후 다시 시도하세요 |
 
-일반 오류는 [오류 코드](/ko/docs/guide/errors)를 참조하세요.
+일반 오류는 [오류 코드](/ko/docs/guide/errors)를 참고하세요.
 
-## 13. 전체 예제: 생성 및 폴링
+## 7. 제공업체 페이지 [#providers]
 
-<Tabs items={['Seedance', 'Wan']}>
-<Tab value="Seedance">
-
-```python
-import time, requests
-
-BASE = "https://api.lmuai.com"
-HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
-
-# 1. Create the task
-resp = requests.post(f"{BASE}/api/v3/contents/generations/tasks", headers=HEADERS, json={
-    "model": "seedance-2.5",
-    "content": [{"type": "text", "text": "Waves gently lapping the beach at dusk, slow motion"}],
-    "resolution": "720p", "duration": 5, "ratio": "16:9",
-})
-resp.raise_for_status()
-task_id = resp.json()["id"]
-
-# 2. Poll until a final state (every 10 seconds)
-while True:
-    task = requests.get(f"{BASE}/api/v3/contents/generations/tasks/{task_id}", headers=HEADERS).json()
-    status = task["status"]
-    if status in ("succeeded", "failed", "cancelled", "canceled", "expired"):
-        break
-    time.sleep(10)
-
-# 3. Download (the link is valid for 24 hours)
-if status == "succeeded":
-    url = task["content"]["video_url"]
-    with open(f"{task_id}.mp4", "wb") as f:
-        f.write(requests.get(url).content)
-else:
-    print("Generation failed:", task)
-```
-
-</Tab>
-<Tab value="Wan">
-
-```python
-import time, requests
-
-BASE = "https://api.lmuai.com"
-HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
-
-# 1. Create the task
-resp = requests.post(f"{BASE}/api/v1/services/aigc/video-generation/video-synthesis", headers=HEADERS, json={
-    "model": "wan3.0-video",
-    "input": {"prompt": "A Shiba Inu running across a sunny meadow"},
-    "parameters": {"resolution": "720P", "duration": 5},
-})
-resp.raise_for_status()
-task_id = resp.json()["output"]["task_id"]
-
-# 2. Poll until a final state (every 10 seconds)
-while True:
-    task = requests.get(f"{BASE}/api/v1/tasks/{task_id}", headers=HEADERS).json()
-    status = task["output"]["task_status"]
-    if status in ("SUCCEEDED", "FAILED", "CANCELED", "CANCELLED", "UNKNOWN"):
-        break
-    time.sleep(10)
-
-# 3. Download (the link is valid for 24 hours)
-if status == "SUCCEEDED":
-    url = task["output"]["video_url"]
-    with open(f"{task_id}.mp4", "wb") as f:
-        f.write(requests.get(url).content)
-else:
-    print("Generation failed:", task)
-```
-
-</Tab>
-</Tabs>
+- [Seedance 영상 생성 API](/ko/docs/api/seedance-video): 작업 생성, 조회, 목록 조회 및 취소와 함께 파라미터, 첫 프레임 참조 이미지에 관한 참고 사항, 전체 폴링 예시를 제공합니다.
+- [Wan 영상 생성 API](/ko/docs/api/wan-video): 작업 생성 및 조회와 함께 파라미터와 전체 폴링 예시를 제공합니다.

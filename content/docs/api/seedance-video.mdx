@@ -1,0 +1,243 @@
+---
+title: Seedance 视频生成 API
+description: 使用灵眸调用 Seedance（火山方舟）视频生成：原厂原生异步协议，创建、查询、列出与取消任务，含参数说明、首帧参考图注意事项和完整轮询示例。
+ogDescription: 灵眸 Seedance 视频生成 API：POST /api/v3/contents/generations/tasks 创建任务并轮询结果，支持文生视频与首帧参考图，按输出 token 计费。
+keywords:
+  - Seedance API
+  - Seedance 视频生成
+  - 火山方舟视频生成 API
+  - seedance-2.5
+  - Seedance 首帧参考图
+  - 灵眸 Seedance
+alternateNames:
+  - Seedance 视频接口
+  - 火山方舟视频生成接口
+faq:
+  - q: Seedance 首帧模式可以传 ratio 吗？
+    a: 不可以。首帧模式（role 为 first_frame）下画面比例跟随首帧图，传了 ratio 会被上游以 400 拒绝。
+  - q: Seedance 的任务能取消吗？
+    a: 排队中（queued）的任务可以取消，不收费；已开始生成（running）的任务不能取消，会返回 409；已结束的任务可以删除上游记录，但不退款。
+  - q: 传了 callback_url 会收到回调吗？
+    a: 不会。callback_url 不会转发给上游，传了也收不到回调，请轮询查询任务状态。
+  - q: Seedance 怎么计费？
+    a: 按输出 token 计费。创建时冻结预估金额，成功后按实际用量结算，失败、取消的任务全额退回。
+---
+
+Seedance（火山方舟）视频生成使用原厂**原生异步协议**：把官方 SDK 或 curl 里的地址换成灵眸地址、密钥换成灵眸 API Key 即可调用，无需改写请求体。鉴权、计费与水印、并发上限和错误码等通用规则见[视频生成 API 总览](/docs/api/video-generation)。
+
+<Callout type="info" title="Base URL">
+
+```text
+https://api.lmuai.com
+```
+
+| 操作 | 端点 |
+|---|---|
+| 创建任务 | `POST /api/v3/contents/generations/tasks` |
+| 查询任务 | `GET /api/v3/contents/generations/tasks/{id}` |
+| 任务列表 | `GET /api/v3/contents/generations/tasks` |
+| 取消 / 删除 | `DELETE /api/v3/contents/generations/tasks/{id}` |
+
+</Callout>
+
+<Callout type="warn" title="需要分组开通视频生成">
+
+API Key 所属分组需开启「视频生成」才能调用，否则返回 `403`。模型名需与分组开放的名字**逐字一致**（区分大小写），可用 `GET /v1/models` 查询。
+
+</Callout>
+
+## 1. 创建任务 [#create-task]
+
+### `POST /api/v3/contents/generations/tasks`
+
+| 参数 | 类型 | 必填 | 说明 |
+|---|---|---|---|
+| `model` | string | 是 | 模型名，需与分组开放的名字逐字一致（区分大小写） |
+| `content` | array | 是 | 输入内容。文本 `{"type":"text","text":"…"}`；参考图 `{"type":"image_url","image_url":{"url":"…"},"role":"first_frame"}`，`role` 可选 `first_frame`（首帧）/ `reference_image`（参考图） |
+| `resolution` | string | 否 | 分辨率档位：`480p` / `720p` / `1080p` |
+| `duration` | integer | 否 | 视频秒数 |
+| `ratio` | string | 否 | 画面比例：`16:9` / `9:16` / `1:1` / `4:3` |
+| `generate_audio` | boolean | 否 | 是否同时生成音频 |
+
+<Tabs items={['cURL', 'Python', 'Node.js']}>
+<Tab value="cURL">
+
+```bash
+curl https://api.lmuai.com/api/v3/contents/generations/tasks \
+  -H "Authorization: Bearer YOUR_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "seedance-2.5",
+    "content": [
+      {"type": "text", "text": "海浪轻轻拍打沙滩，黄昏，慢镜头"}
+    ],
+    "resolution": "720p",
+    "duration": 5,
+    "ratio": "16:9",
+    "generate_audio": true
+  }'
+```
+
+</Tab>
+<Tab value="Python">
+
+```python
+import requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+resp = requests.post(f"{BASE}/api/v3/contents/generations/tasks", headers=HEADERS, json={
+    "model": "seedance-2.5",
+    "content": [{"type": "text", "text": "海浪轻轻拍打沙滩，黄昏，慢镜头"}],
+    "resolution": "720p",
+    "duration": 5,
+    "ratio": "16:9",
+    "generate_audio": True,
+})
+resp.raise_for_status()
+task_id = resp.json()["id"]
+print(task_id)
+```
+
+</Tab>
+<Tab value="Node.js">
+
+```js
+const BASE = "https://api.lmuai.com";
+const headers = {
+  Authorization: "Bearer YOUR_API_KEY",
+  "Content-Type": "application/json",
+};
+
+const resp = await fetch(`${BASE}/api/v3/contents/generations/tasks`, {
+  method: "POST",
+  headers,
+  body: JSON.stringify({
+    model: "seedance-2.5",
+    content: [{ type: "text", text: "海浪轻轻拍打沙滩，黄昏，慢镜头" }],
+    resolution: "720p",
+    duration: 5,
+    ratio: "16:9",
+    generate_audio: true,
+  }),
+});
+const data = await resp.json();
+console.log(data.id);
+```
+
+</Tab>
+</Tabs>
+
+响应：
+
+```json
+{
+  "id": "cgt-20261022103211-ab12c"
+}
+```
+
+带首帧参考图时，在 `content` 里追加一项图片：
+
+```json
+{
+  "model": "seedance-2.5",
+  "content": [
+    {"type": "text", "text": "镜头缓缓推进，海浪轻轻拍打沙滩"},
+    {"type": "image_url", "image_url": {"url": "https://example.com/first-frame.png"}, "role": "first_frame"}
+  ],
+  "resolution": "720p",
+  "duration": 5
+}
+```
+
+<Callout type="warn" title="注意">
+
+- 首帧模式（`role` 为 `first_frame`）下**不要传 `ratio`**：画面比例跟随首帧图，传了会被上游以 `400` 拒绝。
+- `callback_url` 不会转发给上游，传了也不会收到回调，请使用轮询。
+
+</Callout>
+
+## 2. 查询任务 [#query-task]
+
+### `GET /api/v3/contents/generations/tasks/{id}`
+
+`status` 取值：`queued` → `running` → `succeeded` / `failed` / `cancelled`。成功时视频地址在 `content.video_url`。
+
+```bash
+curl https://api.lmuai.com/api/v3/contents/generations/tasks/TASK_ID \
+  -H "Authorization: Bearer YOUR_API_KEY"
+```
+
+响应（成功）：
+
+```json
+{
+  "id": "cgt-20261022103211-ab12c",
+  "model": "seedance-2.5",
+  "status": "succeeded",
+  "content": {
+    "video_url": "https://…/video.mp4"
+  },
+  "usage": {
+    "completion_tokens": 108900,
+    "total_tokens": 108900
+  },
+  "created_at": 1792629131,
+  "updated_at": 1792629262
+}
+```
+
+## 3. 任务列表 [#list-tasks]
+
+### `GET /api/v3/contents/generations/tasks?limit=20&offset=0`
+
+返回当前 API Key 创建过的任务（`limit` 取 1–100，默认 20），响应为 `{object, data[], has_more}`。视频链接过期后仍能查到任务记录。
+
+## 4. 取消 / 删除 [#cancel-task]
+
+### `DELETE /api/v3/contents/generations/tasks/{id}`
+
+- 排队中（`queued`）的任务可取消，不收费。
+- 已开始生成（`running`）的任务不能取消，返回 `409`。
+- 已结束的任务可删除上游记录，不退款。
+
+## 5. 完整示例：创建并轮询 [#poll-example]
+
+```python
+import time, requests
+
+BASE = "https://api.lmuai.com"
+HEADERS = {"Authorization": "Bearer YOUR_API_KEY"}
+
+# 1. 创建任务
+resp = requests.post(f"{BASE}/api/v3/contents/generations/tasks", headers=HEADERS, json={
+    "model": "seedance-2.5",
+    "content": [{"type": "text", "text": "海浪轻轻拍打沙滩，黄昏，慢镜头"}],
+    "resolution": "720p", "duration": 5, "ratio": "16:9",
+})
+resp.raise_for_status()
+task_id = resp.json()["id"]
+
+# 2. 轮询到终态（每 10 秒）
+while True:
+    task = requests.get(f"{BASE}/api/v3/contents/generations/tasks/{task_id}", headers=HEADERS).json()
+    status = task["status"]
+    if status in ("succeeded", "failed", "cancelled", "canceled", "expired"):
+        break
+    time.sleep(10)
+
+# 3. 下载（链接 24 小时内有效）
+if status == "succeeded":
+    url = task["content"]["video_url"]
+    with open(f"{task_id}.mp4", "wb") as f:
+        f.write(requests.get(url).content)
+else:
+    print("生成失败:", task)
+```
+
+## 6. 计费与错误码 [#billing]
+
+Seedance 按输出 token 计费：创建时冻结预估金额，余额不足返回 `402`；成功后按实际用量结算，失败、取消的任务全额退回。同一用户、同一 API Key 各自最多同时有 5 个生成中的任务，超限返回 `429`。
+
+完整规则见总览的[计费与水印](/docs/api/video-generation#billing)、[并发上限](/docs/api/video-generation#limits)和[错误码](/docs/api/video-generation#errors)。另一家接口见[千问万相视频生成 API](/docs/api/wan-video)。
