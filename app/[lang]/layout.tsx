@@ -16,7 +16,7 @@ import {
   siteName,
 } from '@/lib/site';
 import { DIR, HTML_LANG, OG_LOCALE, i18n, localePrefix } from '@/lib/i18n';
-import { CLARITY_PROJECT_ID, GA_MEASUREMENT_ID } from '@/lib/variant';
+import { CLARITY_PROJECT_ID, GA_MEASUREMENT_ID, ORGANIZATION_ID } from '@/lib/variant';
 import { provider } from '@/lib/i18n-ui';
 import '../global.css';
 
@@ -123,6 +123,10 @@ export default async function Layout({
   const description = siteDescription(lang);
   const inLanguage = HTML_LANG[lang] ?? 'zh-CN';
 
+  // 机构实体由主站声明（api.lmuai.com / api.lmuai.ai 首页的 Organization，#68）：
+  // 文档站不再自己声明 Organization，只用 @id 引用，避免被当成几个不同的机构。
+  const organizationRef = { '@id': ORGANIZATION_ID };
+
   const websiteJsonLd = {
     '@context': 'https://schema.org',
     '@type': 'WebSite',
@@ -130,19 +134,7 @@ export default async function Layout({
     description,
     url: SITE_URL,
     inLanguage,
-    publisher: {
-      '@type': 'Organization',
-      name,
-      url: API_BASE_URL,
-    },
-  };
-
-  const organizationJsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Organization',
-    name,
-    url: API_BASE_URL,
-    sameAs: [SITE_URL, API_BASE_URL],
+    publisher: organizationRef,
   };
 
   // 产品实体：让生成式引擎/搜索明确「灵眸 AI 是什么」。仅忠实描述（名称、类别、
@@ -161,11 +153,7 @@ export default async function Layout({
     description: productDescription(lang),
     inLanguage,
     featureList: productFeatures(lang),
-    provider: {
-      '@type': 'Organization',
-      name: productName(lang),
-      url: API_BASE_URL,
-    },
+    provider: organizationRef,
   };
 
   return (
@@ -174,10 +162,6 @@ export default async function Layout({
         <script
           type="application/ld+json"
           dangerouslySetInnerHTML={{ __html: JSON.stringify(websiteJsonLd) }}
-        />
-        <script
-          type="application/ld+json"
-          dangerouslySetInnerHTML={{ __html: JSON.stringify(organizationJsonLd) }}
         />
         <script
           type="application/ld+json"
