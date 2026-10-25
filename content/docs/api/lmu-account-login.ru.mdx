@@ -1,0 +1,430 @@
+---
+title: Вход через LMU AI
+description: "Добавьте «Вход через LMU AI» на свой сайт или в приложение: перенаправьте пользователя на страницу авторизации, проверьте state в обратном вызове и на своём сервере обменяйте ticket на данные пользователя с помощью client_secret. В руководстве описаны схема работы, эндпоинты, поля пользователя, требования к безопасности, примеры кода и промпт, который можно сразу передать ИИ-ассистенту для программирования."
+ogDescription: "Руководство по интеграции входа через аккаунт LMU AI (единый вход, SSO): перенаправление через GET /sso/authorize, получение одноразового ticket в обратном вызове и его обмен на сервере через POST /api/v1/sso/exchange. Включает примеры на Node.js и Python, а также промпт для ИИ-ассистента."
+keywords:
+  - Вход через LMU AI
+  - Единый вход SSO
+  - Авторизованный вход
+  - Интеграция стороннего входа
+  - OAuth код авторизации
+  - Идентификация LMU AI
+alternateNames:
+  - Вход через аккаунт LMU AI
+  - LMU AI SSO
+faq:
+  - q: Что нужно для интеграции входа через аккаунт LMU AI?
+    a: "Запросите у LMU AI client_id и client_secret и зарегистрируйте URL обратного вызова. У вашего сайта должен быть сервер, на котором client_secret можно надёжно хранить."
+  - q: Может ли подключённый сайт получить API-ключи или баланс пользователя?
+    a: "Нет. Вход через аккаунт LMU AI передаёт только данные для идентификации (ID пользователя, имя пользователя, аватар и email, если это одобрено). API-ключи и баланс пользователя никогда не передаются."
+  - q: Сколько действует ticket?
+    a: "60 секунд, и его можно использовать только один раз. Обменяйте его на сервере сразу после получения в обратном вызове."
+  - q: Что произойдёт, если пользователь нажмёт «Отмена» на странице авторизации?
+    a: "LMU AI перенаправит пользователя на ваш URL обратного вызова с error=access_denied и исходным state. Ваш сайт должен вернуть пользователя на страницу входа и сообщить, что авторизация отменена."
+---
+
+«Вход через LMU AI» позволяет другим сайтам и приложениям (сообществам, творческим инструментам, внутренним проектам и т. д.) выполнять вход пользователей с помощью их аккаунтов LMU AI: пользователь один раз нажимает «Авторизовать и войти» на LMU AI — и вход выполнен. Те, у кого нет аккаунта, могут сразу зарегистрироваться на LMU AI, после чего будут автоматически возвращены на ваш сайт.
+
+Ваш сайт получает только **данные для идентификации** пользователя. **API-ключи и баланс пользователя он никогда не получает.**
+
+<Callout type="info" title="Кто может использовать">
+
+Вашему сайту или приложению нужен **сервер**: на последнем шаге ticket обменивается с использованием `client_secret`, а `client_secret` никогда не должен попадать в код браузера, мини-программы или фронтенда мобильного приложения. Проекты, состоящие только из фронтенда, должны выполнять обмен через собственный бэкенд.
+
+</Callout>
+
+## 1. Как это работает
+
+Схема представляет собой упрощённый поток OAuth с кодом авторизации: в адресной строке браузера передаётся только **одноразовый ticket, действующий 60 секунд**, а ваш **сервер** обменивает его на данные пользователя с помощью `client_secret`.
+
+<Mermaid chart={`sequenceDiagram
+    participant U as Браузер пользователя
+    participant S as Ваш сайт
+    participant L as LMU AI
+    U->>S: Нажатие «Вход через LMU AI»
+    S->>U: Генерация state, сохранение в cookie, перенаправление на страницу авторизации
+    U->>L: GET /sso/authorize?client_id&state
+    L->>U: Вход или регистрация при необходимости, затем страница авторизации
+    U->>L: Нажатие «Авторизовать и войти»
+    L->>U: Перенаправление на обратный вызов ?ticket&state
+    U->>S: GET /sso/callback?ticket&state
+    S->>S: Проверка совпадения state с cookie
+    S->>L: POST /api/v1/sso/exchange
+    L->>S: Возврат данных пользователя
+    S->>U: Создание аккаунта или вход, установка сессии
+`} />
+
+## 2. Перед началом: запрос доступа
+
+Зарегистрируйте в LMU AI следующее:
+
+| Параметр | Описание |
+|---|---|
+| Название проекта | Отображается на странице авторизации, например «立刻图 liketu.ai» |
+| URL обратного вызова | Должен использовать HTTPS и сверяется **по полному URL с точным совпадением**, например `https://your-app.example.com/sso/callback`; можно зарегистрировать второй URL для тестовой среды, а для локальной разработки — адреса, начинающиеся с `http://localhost` или `http://127.0.0.1` |
+| Логотип (необязательно) | Отображается на странице авторизации |
+| Нужен ли email | По умолчанию email не возвращается; если он вам нужен, объясните причину — он возвращается только после одобрения |
+
+После регистрации вы получите:
+
+- `client_id`: идентифицирует ваш проект и может быть публичным;
+- `client_secret`: секрет вашего проекта. Он **показывается только один раз** — храните его в серверных переменных окружения или в менеджере секретов.
+
+<Callout type="info" title="Как подать заявку">
+
+Внутренние проекты LMU AI создаются администратором в консоли администрирования; внешним партнёрам для подачи заявки следует обратиться в службу поддержки LMU AI.
+
+</Callout>
+
+## 3. Базовый URL
+
+```text
+https://api.lmuai.com
+```
+
+Аккаунты работают на обоих сайтах LMU AI — для материкового Китая и международном: у одного и того же пользователя один и тот же ID пользователя на обоих сайтах. В примерах на этой странице используется адрес текущего сайта.
+
+<Callout type="warn" title="Авторизация и обмен — на одном сайте">
+
+Ticket хранится на сайте, который его выдал. Обменивать ticket необходимо на том же сайте, на который вы отправляли пользователя для авторизации; в противном случае обмен завершится ошибкой (`401`).
+
+</Callout>
+
+## 4. Шаг 1: перенаправление на страницу авторизации
+
+### `GET /sso/authorize`
+
+Когда пользователь нажимает «Вход через LMU AI», ваш сервер генерирует случайный `state`, сохраняет его в cookie и выполняет 302-перенаправление браузера на страницу авторизации:
+
+```text
+https://api.lmuai.com/sso/authorize?client_id=YOUR_CLIENT_ID&state=RANDOM_STATE&redirect_uri=https%3A%2F%2Fyour-app.example.com%2Fsso%2Fcallback
+```
+
+| Параметр | Обязательный | Описание |
+|---|---|---|
+| `client_id` | Да | Идентификатор проекта, полученный при подаче заявки |
+| `state` | Да | Новая случайная строка для каждого входа, содержащая только символы `A-Z a-z 0-9 _ -`, длиной от 16 до 128 символов. Рекомендуем кодировку base64url от 32 случайных байт (43 символа) |
+| `redirect_uri` | Нет | URL обратного вызова; должен **точно** совпадать с одним из зарегистрированных URL. Если не указан, используется первый зарегистрированный URL |
+
+На стороне LMU AI пользователь:
+
+1. Сначала выполнит вход, если ещё не вошёл, — или сразу зарегистрируется, если аккаунта нет, — после чего автоматически вернётся на страницу авторизации;
+2. Увидит название вашего проекта на странице авторизации с пояснением «Используется только для входа. Ваши API-ключи и баланс не передаются.»;
+3. Нажмёт «Авторизовать и войти» или «Отмена».
+
+<Callout type="warn" title="Не встраивайте страницу авторизации в iframe">
+
+Страницу авторизации нельзя встроить (`X-Frame-Options: DENY`). Перенаправляйте всю страницу целиком или открывайте её в новом окне.
+
+</Callout>
+
+## 5. Шаг 2: обработка обратного вызова
+
+После того как пользователь даст авторизацию, браузер будет перенаправлен на ваш URL обратного вызова:
+
+```text
+https://your-app.example.com/sso/callback?ticket=TICKET&state=RANDOM_STATE
+```
+
+Если пользователь отменит авторизацию:
+
+```text
+https://your-app.example.com/sso/callback?error=access_denied&state=RANDOM_STATE
+```
+
+Обработчик обратного вызова должен выполнить следующее по порядку:
+
+1. **Проверить state**: `state` в URL должен точно совпадать с сохранённым в cookie; сразу после проверки удалите cookie. Если значения не совпадают, отклоните вход.
+2. **Обработать отмену**: при `error=access_denied` верните пользователя на страницу входа с сообщением «Вы отменили авторизацию».
+3. **Обменять ticket на данные пользователя**: вызовите на своём сервере эндпоинт обмена из шага 3, передав `ticket`.
+4. **Создать аккаунт или выполнить вход**: найдите или создайте локальный аккаунт по `id` пользователя и установите сессию вашего сайта.
+5. **Вернуть на исходную страницу**: разрешайте только относительные пути на вашем собственном сайте, чтобы перенаправление нельзя было использовать как открытый редирект.
+
+## 6. Шаг 3: обмен ticket на данные пользователя на вашем сервере
+
+### `POST /api/v1/sso/exchange`
+
+Этот шаг **должен вызываться только с вашего сервера**.
+
+```bash
+curl https://api.lmuai.com/api/v1/sso/exchange \
+  -H "Content-Type: application/json" \
+  -d '{
+    "client_id": "YOUR_CLIENT_ID",
+    "client_secret": "YOUR_CLIENT_SECRET",
+    "ticket": "TICKET"
+  }'
+```
+
+| Параметр | Обязательный | Описание |
+|---|---|---|
+| `client_id` | Да | Идентификатор проекта |
+| `client_secret` | Да | Секрет проекта |
+| `ticket` | Да | Ticket из URL обратного вызова |
+
+Успешный ответ (HTTP `200`):
+
+```json
+{
+  "code": 0,
+  "message": "success",
+  "data": {
+    "user": {
+      "id": 10086,
+      "username": "alice",
+      "email": "alice@example.com",
+      "avatar": "https://example.com/avatar.png"
+    }
+  }
+}
+```
+
+При ошибке:
+
+| HTTP | Причина | Что делать |
+|---|---|---|
+| `401` | Неверный `client_id` или `client_secret`; срок действия ticket истёк, он уже использован или выдан не этому проекту | Не повторяйте запрос с тем же ticket; попросите пользователя начать вход заново |
+| `404` | Вход через аккаунт LMU AI не включён на этом сайте | Убедитесь, что базовый URL соответствует сайту, на котором вы подавали заявку |
+| `429` | Слишком много запросов | Повторите попытку позже |
+| `5xx` | Сервис временно недоступен | Попросите пользователя повторить вход позже |
+
+Чтобы предотвратить подбор, при любой ошибке учётных данных или ticket возвращается один и тот же `401` без указания, какой именно параметр неверен.
+
+**Правила для ticket**: действует 60 секунд, может быть обменян только один раз, только проектом, которому он выдан, и только на том же сайте, который его выдал.
+
+## 7. Поля пользователя
+
+| Поле | Тип | Описание |
+|---|---|---|
+| `id` | integer | Уникальный ID пользователя. Никогда не меняется и одинаков на сайтах для материкового Китая и международном. **Используйте его как ключ для связывания аккаунтов на вашей стороне** |
+| `username` | string | Имя пользователя. Пользователь может его изменить, и оно может быть пустым; если пусто, показывайте значение по умолчанию, например «Пользователь LMU AI `{id}`» |
+| `email` | string | Возвращается только проектам, которым одобрено получение email; в остальных случаях пусто. Пользователь может его изменить, и **его подтверждённость не гарантируется** |
+| `avatar` | string | URL аватара; может быть пустым |
+
+<Callout type="warn" title="Не объединяйте аккаунты автоматически по email">
+
+Если на вашем сайте уже есть аккаунты, зарегистрированные по email, **не** выполняйте вход пользователя сразу в существующий аккаунт только потому, что email, возвращённый LMU AI, совпадает. Сначала отправьте на этот email код подтверждения и связывайте аккаунты только после подтверждения. Если ни один аккаунт не использует этот email, просто создайте новый.
+
+</Callout>
+
+## 8. Требования к безопасности
+
+Перед запуском проверьте каждый пункт:
+
+- [ ] `client_secret` существует только на вашем сервере: никогда не в коде фронтенда, логах, URL или репозитории кода.
+- [ ] Для каждого входа генерируйте новый `state` и храните его в cookie с флагами httpOnly, Secure, SameSite=Lax и сроком действия 5 минут; удаляйте его сразу после совпадения в обратном вызове.
+- [ ] URL обратного вызова использует HTTPS и точно совпадает с зарегистрированным URL.
+- [ ] Обменивайте `ticket` сразу после получения; не повторяйте запрос, не кэшируйте и не записывайте его в логи.
+- [ ] Связывайте аккаунты по `id`; не объединяйте существующие аккаунты автоматически по email.
+- [ ] После входа перенаправляйте только на относительные пути вашего собственного сайта.
+- [ ] Установите тайм-аут для вызова обмена (рекомендуется 10 секунд); при ошибке возвращайте пользователя на страницу входа с указанием причины, а не показывайте пустой экран.
+- [ ] Выход с вашего сайта очищает только вашу собственную сессию; вход пользователя в LMU AI при этом не затрагивается.
+
+## 9. Примеры кода
+
+Оба примера реализуют `/sso/login` (перенаправление на страницу авторизации) и `/sso/callback` (проверка state и обмен на данные пользователя). Используемые переменные окружения:
+
+| Переменная | Пример |
+|---|---|
+| `LMU_SSO_BASE_URL` | `https://api.lmuai.com` |
+| `LMU_SSO_CLIENT_ID` | Ваш `client_id` |
+| `LMU_SSO_CLIENT_SECRET` | Ваш `client_secret` |
+| `LMU_SSO_REDIRECT_URI` | `https://your-app.example.com/sso/callback` |
+
+<Tabs items={['Node.js (Express)', 'Python (FastAPI)']}>
+<Tab value="Node.js (Express)">
+
+```js
+import express from "express";
+import cookieParser from "cookie-parser";
+import crypto from "node:crypto";
+
+const BASE = process.env.LMU_SSO_BASE_URL;
+const CLIENT_ID = process.env.LMU_SSO_CLIENT_ID;
+const CLIENT_SECRET = process.env.LMU_SSO_CLIENT_SECRET;
+const REDIRECT_URI = process.env.LMU_SSO_REDIRECT_URI;
+const STATE_COOKIE = "lmu_sso_state";
+
+const app = express();
+app.use(cookieParser());
+
+// Step 1: generate state and redirect to the LMU AI authorization page
+app.get("/sso/login", (req, res) => {
+  const state = crypto.randomBytes(32).toString("base64url");
+  res.cookie(STATE_COOKIE, state, {
+    httpOnly: true, secure: true, sameSite: "lax", maxAge: 5 * 60 * 1000, path: "/",
+  });
+  const url = new URL("/sso/authorize", BASE);
+  url.searchParams.set("client_id", CLIENT_ID);
+  url.searchParams.set("state", state);
+  url.searchParams.set("redirect_uri", REDIRECT_URI);
+  res.redirect(url.toString());
+});
+
+// Steps 2 and 3: check state and exchange for identity on the server
+app.get("/sso/callback", async (req, res) => {
+  const { ticket, state, error } = req.query;
+  const expected = req.cookies[STATE_COOKIE];
+  res.clearCookie(STATE_COOKIE, { path: "/" });
+
+  const ok = typeof state === "string" && typeof expected === "string" &&
+    Buffer.byteLength(state) === Buffer.byteLength(expected) &&
+    crypto.timingSafeEqual(Buffer.from(state), Buffer.from(expected));
+  if (!ok) return res.redirect("/login?error=invalid_state");
+  if (error === "access_denied") return res.redirect("/login?error=cancelled");
+  if (typeof ticket !== "string" || !ticket) return res.redirect("/login?error=missing_ticket");
+
+  let user;
+  try {
+    const resp = await fetch(new URL("/api/v1/sso/exchange", BASE), {
+      method: "POST",
+      headers: { "Content-Type": "application/json" },
+      body: JSON.stringify({ client_id: CLIENT_ID, client_secret: CLIENT_SECRET, ticket }),
+      signal: AbortSignal.timeout(10_000),
+    });
+    if (!resp.ok) return res.redirect("/login?error=exchange_failed");
+    user = (await resp.json()).data.user; // { id, username, email, avatar }
+  } catch {
+    return res.redirect("/login?error=exchange_failed");
+  }
+
+  // Replace with your own logic: find or create the local account by user.id, then set your session
+  // const localUser = await upsertUserByLmuId(user);
+  // await createSession(res, localUser);
+
+  res.redirect("/");
+});
+
+app.listen(3000);
+```
+
+</Tab>
+<Tab value="Python (FastAPI)">
+
+```python
+import hmac
+import os
+import secrets
+from urllib.parse import urlencode
+
+import httpx
+from fastapi import FastAPI, Request
+from fastapi.responses import RedirectResponse
+
+BASE = os.environ["LMU_SSO_BASE_URL"]
+CLIENT_ID = os.environ["LMU_SSO_CLIENT_ID"]
+CLIENT_SECRET = os.environ["LMU_SSO_CLIENT_SECRET"]
+REDIRECT_URI = os.environ["LMU_SSO_REDIRECT_URI"]
+STATE_COOKIE = "lmu_sso_state"
+
+app = FastAPI()
+
+
+def back_to_login(reason: str) -> RedirectResponse:
+    resp = RedirectResponse(f"/login?error={reason}", status_code=302)
+    resp.delete_cookie(STATE_COOKIE)
+    return resp
+
+
+# Step 1: generate state and redirect to the LMU AI authorization page
+@app.get("/sso/login")
+def sso_login():
+    state = secrets.token_urlsafe(32)
+    query = urlencode({"client_id": CLIENT_ID, "state": state, "redirect_uri": REDIRECT_URI})
+    resp = RedirectResponse(f"{BASE}/sso/authorize?{query}", status_code=302)
+    resp.set_cookie(STATE_COOKIE, state, max_age=300, httponly=True, secure=True, samesite="lax")
+    return resp
+
+
+# Steps 2 and 3: check state and exchange for identity on the server
+@app.get("/sso/callback")
+async def sso_callback(request: Request, ticket: str | None = None,
+                       state: str | None = None, error: str | None = None):
+    expected = request.cookies.get(STATE_COOKIE)
+    if not state or not expected or not hmac.compare_digest(state.encode(), expected.encode()):
+        return back_to_login("invalid_state")
+    if error == "access_denied":
+        return back_to_login("cancelled")
+    if not ticket:
+        return back_to_login("missing_ticket")
+
+    try:
+        async with httpx.AsyncClient(timeout=10) as client:
+            resp = await client.post(f"{BASE}/api/v1/sso/exchange", json={
+                "client_id": CLIENT_ID,
+                "client_secret": CLIENT_SECRET,
+                "ticket": ticket,
+            })
+        resp.raise_for_status()
+        user = resp.json()["data"]["user"]  # {"id", "username", "email", "avatar"}
+    except (httpx.HTTPError, ValueError, KeyError, TypeError):
+        return back_to_login("exchange_failed")
+
+    # Replace with your own logic: find or create the local account by user["id"], then set your session
+    # local_user = upsert_user_by_lmu_id(user)
+
+    done = RedirectResponse("/", status_code=302)
+    done.delete_cookie(STATE_COOKIE)
+    # create_session(done, local_user)
+    return done
+```
+
+</Tab>
+</Tabs>
+
+## 10. Поручите интеграцию ИИ-ассистенту для программирования
+
+Передайте приведённый ниже промпт вместе с вашим проектом ИИ-ассистенту для программирования, например Claude Code, Codex или Cursor, и замените части в угловых скобках в соответствии с вашим проектом:
+
+```text
+Integrate "Sign in with LMU AI" into this project. Implement it exactly as specified below; do not change the endpoints, parameters, or security requirements.
+
+[Configuration] Add 4 server-side environment variables. They must never appear in front-end code, logs, or the code repository:
+- LMU_SSO_BASE_URL=https://api.lmuai.com
+- LMU_SSO_CLIENT_ID=<your client_id>
+- LMU_SSO_CLIENT_SECRET=<your client_secret>
+- LMU_SSO_REDIRECT_URI=https://<this project's domain>/sso/callback (must exactly match the callback URL registered with LMU AI)
+
+[Step 1] Add GET /sso/login:
+- Generate state as the base64url encoding of 32 random bytes;
+- Store it in the cookie lmu_sso_state: httpOnly, Secure, SameSite=Lax, expires in 5 minutes;
+- 302-redirect to {LMU_SSO_BASE_URL}/sso/authorize?client_id=…&state=…&redirect_uri=… (URL-encode the parameters).
+
+[Step 2] Add GET /sso/callback:
+- The state URL parameter must exactly match the cookie lmu_sso_state (use a constant-time comparison); delete the cookie right after comparing. If they do not match, return to the login page with "The sign-in link has expired. Please sign in again.";
+- If error=access_denied, return to the login page with "You cancelled authorization.";
+- If ticket is missing, return to the login page with the reason.
+
+[Step 3] Exchange the ticket for the identity on the server:
+- POST {LMU_SSO_BASE_URL}/api/v1/sso/exchange with Content-Type: application/json and body {"client_id","client_secret","ticket"}, timeout 10 seconds;
+- On success (HTTP 200) the user is in data.user of the response JSON: {id, username, email, avatar};
+- On failure (401/404/429/5xx or timeout), do not retry the same ticket; return to the login page with "Sign-in failed. Please try again.";
+- A ticket can be used only once and expires in 60 seconds; do not cache or log it.
+
+[Accounts]
+- Use data.user.id as the unique key for linking LMU AI accounts (add a field such as lmu_user_id with a unique index): update the username and avatar if it exists, otherwise create a new account;
+- Do not sign the user into an existing local account just because the email matches: send a verification code to that email first and link only after it is verified;
+- username may be empty — show "LMU AI user {id}" in that case; email may be empty.
+- After creating or signing in the account, set this project's session and redirect to the page the user came from (relative paths on this site only).
+
+[UI] Add a "Sign in with LMU AI" button to the login page that goes to /sso/login.
+
+[Tests] Add automated tests covering at least:
+1. Normal sign-in: account created on first sign-in, profile updated on the next sign-in;
+2. Missing, mismatched, or tampered state is rejected;
+3. error=access_denied returns to the login page with a cancellation notice;
+4. A 401 from exchange returns to the login page without retrying;
+5. Reusing the same ticket fails;
+6. An existing account with the same email can only be linked after email verification.
+
+When done, list the changed files, the new environment variables, and the test results.
+```
+
+## 11. Проверки перед запуском
+
+- [ ] Пользователь, уже вошедший в LMU AI: нажимает «Вход через LMU AI» → нажимает «Авторизовать и войти» на странице авторизации → возвращается на ваш сайт с выполненным входом.
+- [ ] Новый пользователь без аккаунта LMU AI: нажимает вход → регистрируется на LMU AI → даёт авторизацию → возвращается на ваш сайт с выполненным входом.
+- [ ] Нажатие «Отмена» на странице авторизации: возврат на вашу страницу входа с уведомлением об отмене авторизации.
+- [ ] Обновление страницы обратного вызова, повторное использование того же ticket, изменённый или отсутствующий state: во всех случаях вход завершается ошибкой и пользователь возвращается на страницу входа с указанием причины.
+- [ ] Один и тот же пользователь LMU AI при повторном входе попадает в тот же локальный аккаунт с обновлённым профилем.
+- [ ] `client_secret` никогда не появляется в коде фронтенда, сетевых запросах браузера или логах.
