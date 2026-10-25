@@ -7,10 +7,12 @@ import { Callout } from 'fumadocs-ui/components/callout';
 import type { Metadata } from 'next';
 import { CommunityHelp } from '@/components/community-help';
 import { CtaFooter } from '@/components/cta-footer';
+import { IcpFooter } from '@/components/icp-footer';
 import { ModelCard, ModelGrid } from '@/components/model-card';
 import { Mermaid } from '@/components/mermaid';
 import { getBreadcrumbItems } from 'fumadocs-core/breadcrumb';
 import { SITE_URL, siteName } from '@/lib/site';
+import { ORGANIZATION_ID } from '@/lib/variant';
 import { HTML_LANG, OG_LOCALE, i18n, localePrefix, docsPath } from '@/lib/i18n';
 import { PLAZA_MODELS } from '@/lib/models';
 import { lastModifiedOf } from '@/lib/last-modified';
@@ -81,8 +83,9 @@ export default async function Page({
       width: 1200,
       height: 630,
     },
-    author: { '@type': 'Organization', name: siteName(lang), url: SITE_URL },
-    publisher: { '@type': 'Organization', name: siteName(lang), url: SITE_URL },
+    // 作者 / 发布者都是主站声明的机构实体，只用 @id 引用（#68，见 lib/variant.ts）。
+    author: { '@id': ORGANIZATION_ID },
+    publisher: { '@id': ORGANIZATION_ID },
     ...(keywords.length > 0 ? { keywords: keywords.join(', ') } : {}),
     ...(alternateNames.length > 0 ? { alternateName: alternateNames } : {}),
   };
@@ -154,6 +157,7 @@ export default async function Page({
           <LastUpdated date={lastModifiedDate} locale={lang} />
           <CommunityHelp locale={lang} />
           <CtaFooter locale={lang} />
+          <IcpFooter />
         </DocsBody>
       </DocsPage>
       <script

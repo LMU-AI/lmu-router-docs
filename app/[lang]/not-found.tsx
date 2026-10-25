@@ -1,6 +1,7 @@
 import type { Metadata } from 'next';
 import Link from 'next/link';
 import { CtaFooter } from '@/components/cta-footer';
+import { IcpFooter } from '@/components/icp-footer';
 import { DEFAULT_LANGUAGE } from '@/lib/variant';
 
 // Next 的 not-found 组件拿不到 [lang] 参数，按站点默认语言渲染（.com 中文 /
@@ -58,6 +59,7 @@ export default function NotFound() {
       </ul>
 
       <CtaFooter locale={DEFAULT_LANGUAGE} />
+      <IcpFooter />
     </main>
   );
 }

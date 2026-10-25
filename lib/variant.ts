@@ -55,6 +55,18 @@ export const COMMUNITY_URL: string | null = IS_AI ? 'https://community.lmuai.ai'
 // 「使用求助」分类：新帖会先收到社区 AI 助手的回复，页尾的「还有问题？」直接链到这里。
 export const COMMUNITY_HELP_URL: string | null = COMMUNITY_URL && `${COMMUNITY_URL}/c/help/6`;
 
+// —— ICP 备案号（#68）——
+// 国内站部署在大陆服务器，页脚须展示备案号；*.lmuai.com 子站都归在 lmuai.com 这一条
+// 备案下（与 guide/compliance 页所列一致）。.ai 海外站不展示，故为 null、页脚不渲染。
+export const ICP_RECORD: string | null = IS_AI ? null : '京ICP备2020034311号-7';
+export const ICP_URL = 'https://beian.miit.gov.cn/';
+
+// —— 结构化数据的主体实体（#68）——
+// 文档站不再自己声明 Organization：JSON-LD 的 publisher / provider / author 一律用
+// @id 引用主站声明的实体（api.lmuai.com / api.lmuai.ai 首页的 Organization，名称
+// 「LMU AI · 灵眸」），让搜索与 AI 引擎把文档站、主站认成同一个机构。
+export const ORGANIZATION_ID = `${API_BASE_URL}/#organization`;
+
 // —— IndexNow（Bing / Yandex / Naver / Seznam / Yep 的即时收录推送）——
 // 内容一变就 POST 变更 URL，不必干等爬虫回访。协议要求域名下能取到一个「内容 == key」
 // 的文本文件；IndexNow 把每个 host 当独立 host，故两站各一把。

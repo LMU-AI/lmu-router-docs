@@ -663,8 +663,32 @@ async function main() {
   check('live', 'BreadcrumbList 中间层均有 item（Google 必填）', crumbMissingItem.length === 0,
     `${crumbMissingItem.length} 页缺失，中间层为「${[...new Set(crumbMissingItem.map((s) => s.split(': ')[1]))].join('、')}」` +
     `（这三个目录无 index 页，代码按"宁缺勿指向 404"省略了 item，但 Google 要求中间层必填 → 整条面包屑失去富媒体资格）`);
-  check('live', '存在 WebSite / Organization', !!typeCount.WebSite && !!typeCount.Organization,
-    `WebSite=${typeCount.WebSite ?? 0} Organization=${typeCount.Organization ?? 0}`);
+  check('live', '存在 WebSite', !!typeCount.WebSite, `WebSite=${typeCount.WebSite ?? 0}`);
+  // #68：文档站不再自己声明 Organization，publisher / provider / author 一律用 @id 引用
+  // 主站实体（api.lmuai.com|ai/#organization），免得被当成几个不同的机构。
+  // 断言两件事：没有任何页声明 Organization；所有机构引用都指向本变体的主站实体。
+  const ORG_ID = `${IS_AI ? 'https://api.lmuai.ai' : 'https://api.lmuai.com'}/#organization`;
+  const orgRefs = { ok: 0, bad: [] };
+  const walkOrg = (o, p) => {
+    if (Array.isArray(o)) return o.forEach((x) => walkOrg(x, p));
+    if (!o || typeof o !== 'object') return;
+    for (const k of ['publisher', 'provider', 'author']) {
+      const v = o[k];
+      if (!v) continue;
+      if (v['@id'] === ORG_ID && !v['@type']) orgRefs.ok++;
+      else orgRefs.bad.push(`${p}: ${k}=${JSON.stringify(v).slice(0, 60)}`);
+    }
+    Object.values(o).forEach((v) => walkOrg(v, p));
+  };
+  for (const [loc, html] of pageBodies) {
+    const p = new URL(loc).pathname;
+    for (const b of jsonLd(html)) if (!b.__parseError) walkOrg(b, p);
+  }
+  check('next', '不自行声明 Organization（#68）', !typeCount.Organization,
+    `Organization=${typeCount.Organization ?? 0}`);
+  check('next', `publisher / provider / author 均引用 ${ORG_ID}`,
+    orgRefs.ok > 0 && orgRefs.bad.length === 0,
+    orgRefs.bad.length ? `${orgRefs.bad.length} 处不符: ${orgRefs.bad.slice(0, 3).join('; ')}` : `${orgRefs.ok} 处`);
   // 产品实体（v0.1.28 起）：让引擎明确「灵眸 AI 是什么」。站点级注入，逐页都有。
   check('next', 'SoftwareApplication 描述产品实体', (typeCount.SoftwareApplication ?? 0) >= 1,
     `${typeCount.SoftwareApplication ?? 0} 页`);
@@ -890,6 +914,28 @@ async function main() {
   check('next', `404 页为${IS_AI ? '英文' : '中文'}（随默认语言）`, nf404Re.test(nf.body),
     nf404Re.test(nf.body) ? '语言正确' : '语言不符（或仍是框架默认页）');
   check('next', '404 页 noindex', /name="robots"[^>]*noindex/.test(nf.body), '');
+
+  // --- 12. ICP 备案号（#68）------------------------------------------------
+  // 国内站部署在大陆服务器，页脚须展示备案号并链到工信部备案系统；.ai 海外站不展示。
+  // 文档页（默认语言首页、深层页、另一语种首页）在 SSR HTML 里就有，按「链接」断言。
+  // 404 页的正文（含 CTA 与备案号）不进 SSR HTML、只在 RSC 数据里由浏览器渲染（线上一直
+  // 如此，与本断言无关），所以 404 只断言备案号出现在页面输出里。
+  group('12. ICP 备案号');
+  const ICP = '京ICP备2020034311号-7';
+  const icpPages = [
+    ['/docs', (await get('/docs')).body],
+    ['/docs/guide/faq', (await get('/docs/guide/faq')).body],
+    [`${OTHER_SEG}/docs`, (await get(`${OTHER_SEG}/docs`)).body],
+  ];
+  const icpLinked = (b) => new RegExp(`href="https://beian\\.miit\\.gov\\.cn/?"[^>]*>${ICP}<`).test(b);
+  if (IS_AI) {
+    const leak = [...icpPages, ['404', nf.body]].filter(([, b]) => b.includes('京ICP备')).map(([p]) => p);
+    check('next', '国际站不展示 ICP 备案号', leak.length === 0, leak.length ? `出现在: ${leak.join(', ')}` : '');
+  } else {
+    const miss = icpPages.filter(([, b]) => !icpLinked(b)).map(([p]) => p);
+    if (!nf.body.includes(ICP)) miss.push('404');
+    check('next', `页脚展示 ${ICP} 并链到工信部`, miss.length === 0, miss.length ? `缺失: ${miss.join(', ')}` : '');
+  }
 
   // ==== 汇总 ================================================================
   const liveR = results.filter((r) => r.since === 'live');
