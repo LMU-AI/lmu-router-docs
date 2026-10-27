@@ -23,10 +23,12 @@ export default function manifest(): MetadataRoute.Manifest {
     scope: '/',
     categories: ['developer', 'productivity', 'utilities'],
     // 192 / 512 两个尺寸是 PWA 可安装的硬性要求；maskable 供 Android 自适应图标裁切。
+    // logo 是透明底，不能拿 any 图兼作 maskable（会被裁切、透明处填黑）：maskable 单独
+    // 一张白底图，logo 缩在中心半径 40% 的安全区内。导出规则见 assets/README.md。
     icons: [
       { src: '/icon-192.png', sizes: '192x192', type: 'image/png', purpose: 'any' },
       { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'any' },
-      { src: '/icon-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
+      { src: '/icon-maskable-512.png', sizes: '512x512', type: 'image/png', purpose: 'maskable' },
     ],
   };
 }
