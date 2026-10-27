@@ -42,3 +42,27 @@ curl -s -o assets/NotoSansSC-Bold-subset.ttf "$URL"
 验证：**两个变体都要看**。`npm run build` 与 `SITE_VARIANT=ai npm run build` 后
 分别把 `.next/server/app/opengraph-image.body` 改名成 `.png` 打开，确认中英文
 均正常显示、没有 □ 方块。
+
+## Logo 与站点图标
+
+**矢量母版是 `app/icon.svg`**（viewBox `0 0 64 64`，两条 path：玫红 `#ED1C50`、
+橙 `#F97A00`）。其余位图都按同一份几何导出，换 logo 时一起换：
+
+| 文件 | 尺寸 | 背景 | 取景 |
+|---|---|---|---|
+| `app/icon.svg` | 矢量 | 透明 | logo 高度占 92%，以六边形环中心居中 |
+| `public/favicon.ico` | 16 / 32 / 48 / 64 / 128 / 256 | 透明 | 同上 |
+| `public/icon-192.png`、`public/icon-512.png` | 192、512 | 透明 | 同上（manifest `purpose: any`） |
+| `app/apple-icon.png` | 180 | **白底** | logo 高度占 70%（iOS 不支持透明，会自己加圆角） |
+| `public/icon-maskable-512.png` | 512 | **白底** | logo 整体落在中心半径 39% 的圆内（maskable 安全区是 40%，Android 会裁成圆或圆角方） |
+
+注意事项：
+
+- **logo 是透明底，所以 maskable 必须单独一张白底图**，不能拿 `icon-512.png` 兼作——
+  透明处会被系统填黑，边缘还会被裁掉。
+- 当前这套（2026-10）由设计稿 PNG（1024×1024，AI 生成）重建为矢量：几何上是一个
+  从正中断开的六边形环（斜边 tan≈0.6）加一根斜切平行四边形竖条，圆角是三次贝塞尔
+  平滑角。重建结果与原图逐像素比对，误差都在边缘 1.5px 以内（1024 尺度下）；原图里
+  的低透明度杂点和轻微的左右不对称没有带进来。
+- 用 SVG 母版导出位图时，任何 SVG 渲染器都可以（Chrome 无头截图、Inkscape 等），
+  按上表的尺寸、底色、取景来。
