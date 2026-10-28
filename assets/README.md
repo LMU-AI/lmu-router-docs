@@ -50,7 +50,7 @@ curl -s -o assets/NotoSansSC-Bold-subset.ttf "$URL"
 
 | 文件 | 尺寸 | 背景 | 取景 |
 |---|---|---|---|
-| `app/icon.svg` | 矢量 | 透明 | logo 高度占 92%，以六边形环中心居中 |
+| `app/icon.svg` | 矢量 | 透明 | logo 高度占 75%，以六边形环中心居中 |
 | `public/favicon.ico` | 16 / 32 / 48 / 64 / 128 / 256 | 透明 | 同上 |
 | `public/icon-192.png`、`public/icon-512.png` | 192、512 | 透明 | 同上（manifest `purpose: any`） |
 | `app/apple-icon.png` | 180 | **白底** | logo 高度占 70%（iOS 不支持透明，会自己加圆角） |
@@ -58,6 +58,9 @@ curl -s -o assets/NotoSansSC-Bold-subset.ttf "$URL"
 
 注意事项：
 
+- **透明底取景定为 75%，是为了和同品牌其他站点的页签图标一样大**：community.lmuai.ai
+  的 32×32 图标 logo 高 75%，api.lmuai.com 直接用设计原图（高 77%）。曾用过 92%，
+  和它们并排开着时明显大一圈。75% 在 16 / 32px 下正好是 12 / 24px 整像素，边缘更清楚。
 - **logo 是透明底，所以 maskable 必须单独一张白底图**，不能拿 `icon-512.png` 兼作——
   透明处会被系统填黑，边缘还会被裁掉。
 - 当前这套（2026-10）由设计稿 PNG（1024×1024，AI 生成）重建为矢量：几何上是一个
