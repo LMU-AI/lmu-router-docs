@@ -53,7 +53,7 @@ description: 发布上线灵眸文档站——同时更新国内 docs.lmuai.com 
 
 ## 3. 发布全流程（先合并 → 再在 main 打 tag）
 
-CI 出镜像约 3 分钟（#75 之前 12–21 分钟），两台机 `docker compose pull` 约 10 分钟，其余时间花在预检、合并和验证上。
+CI 出镜像约 3 分钟（#75 之前 12–21 分钟）。两台机 `docker compose pull` 视网络 2–10 分钟：v0.1.64 两台都在 2 分钟内拉完，走国内 mirror 慢的时候见过约 10 分钟。其余时间花在预检、合并和验证上。
 
 ### 步 0 — 预检
 
@@ -91,27 +91,41 @@ gh run list --workflow=docker-build.yml --limit 5 \
 # run 整体 success 也可能某个 job skipped/failed——逐 job 看（应有 guard、4 个 build、2 个 merge）
 gh run view <id> --json jobs --jq '.jobs[] | "\(.name): \(.conclusion)"'
 
-# 抄两个变体的多架构清单 digest（部署成功的判定基准；build job 日志里的 digest 是单架构的，别抄那个）
-gh run view <id> --log 2>/dev/null | grep -o 'MANIFEST_DIGEST .*'
+# 抄两个变体的多架构清单 digest（部署成功的判定基准），应恰好 2 行（com、ai 各一）。
+# 别用宽松的 'MANIFEST_DIGEST .*'：日志会回显脚本原文，会多匹配出 2 行 ${VARIANT} ${digest}。
+# build job 日志里的 digest 是单架构的，也别抄那个。
+gh run view <id> --log 2>/dev/null | grep -oE 'MANIFEST_DIGEST (com|ai) sha256:[0-9a-f]{64}'
 
-# 确认日期刷新那步真的跑了（决定 sitemap lastmod 与页面「最后更新」）
-gh run view <id> --log 2>/dev/null | grep "篇有 git 时间"
+# 确认日期刷新那步真的跑了（决定 sitemap lastmod 与页面「最后更新」），4 个 build job 各一行
+gh run view <id> --log 2>/dev/null | grep -o '[0-9]* 篇有 git 时间'
+
+# Release 已创建（只在 merge (com) 里建）
+gh release view v0.1.36 --json url,isDraft --jq '"\(.url) draft=\(.isDraft)"'
 ```
 
-想直接问 registry「某 tag 到底有没有」，**在目标机上 `docker pull`**（Mac/本地直连 Docker Hub API 常超时）：
+直接问 registry：本地用 `imagetools inspect` 只读清单、不拉镜像，几秒钟出结果（需要 docker buildx 和 jq）。
+预期 `latest` 与 `vX` 是同一个 digest，`latest-ai` 与 `vX-ai` 是同一个，且分别等于上面的 `MANIFEST_DIGEST`；平台都是 `linux/amd64,linux/arm64`：
 
 ```bash
-ssh work@47.92.165.32 'docker pull -q submit2mxh/lmu-router-docs:v0.1.36 2>&1 | head -3'      # com
-ssh work@8.222.155.17 'docker pull -q --platform linux/arm64 submit2mxh/lmu-router-docs:v0.1.36-ai 2>&1 | head -3'  # ai（海外是 arm64）
-# "manifest unknown" = 没产出；能拉 = 有
+for t in v0.1.36 latest v0.1.36-ai latest-ai; do
+  ref=submit2mxh/lmu-router-docs:$t
+  printf '%-11s %s  %s\n' "$t" \
+    "$(docker buildx imagetools inspect "$ref" --format '{{json .Manifest}}' | jq -r .digest)" \
+    "$(docker buildx imagetools inspect "$ref" --raw | jq -r '[.manifests[].platform | "\(.os)/\(.architecture)"] | sort | join(",")')"
+done
+# 报 not found = 没产出
 ```
+
+本地网络连不上 Docker Hub 时，再到目标机上 `docker pull -q <镜像:tag>` 确认（海外机要带 `--platform linux/arm64`）。
 
 - **build 是 `skipped`**：tag 打在了 PR 未合并时（commit 不在 main）→ guard 跳过。本流程「先合并再打 tag」不会遇到；万一遇到，`rebuild-on-merge` 会在合并后自动补，或手动 `gh workflow run docker-build.yml --ref v0.1.36 -f ref=v0.1.36`。
 - **某个 build 是 `failure`**：对应变体的 merge 会因为缺 digest 跟着失败，另一个变体照常发布。只重跑失败的部分即可：`gh run rerun <id> --failed`（依赖它的 merge 会一起重跑；另一个变体的 merge 若被带上，用的还是同一组 digest，tag 指向的内容不变）。`Check runner arch` 这一步红 = runner 标签对应的架构不对，不是代码问题。
 
 ### 步 4 — 两台机同时部署
 
-**`docker compose pull` 实测 ~10 分钟**（~258MB × 双平台走国内 mirror），必然超过前台 300s 超时。**用 `run_in_background: true` 跑，别用前台。** 生产站全程不中断（`up -d` 排在 `pull` 之后，老容器服务到新镜像落地）。
+**`docker compose pull` 耗时 2–10 分钟不等**（每次只拉本机架构那一份，慢的时候是国内 mirror 慢），慢起来会超过前台 300s 超时。**用 `run_in_background: true` 跑，两台并行，别用前台。** 生产站全程不中断（`up -d` 排在 `pull` 之后，老容器服务到新镜像落地）。
+
+脚本最后一段会打印容器的 `restarts` 和镜像架构：`compose ps` 里的 `Up Less than a second` 说明不了它会不会反复崩溃重启，**`restarts` 必须是 0**，镜像架构要与 `uname -m` 一致（北京 amd64 ↔ x86_64，海外 arm64 ↔ aarch64）。
 
 #### 4a — 北京 `.com`
 
@@ -130,18 +144,18 @@ docker compose ps
 echo "=== http 自检（sleep 等冷启，别急）==="
 sleep 8
 curl -sSI -m 8 http://127.0.0.1:3004/ | head -1
-curl -sSI -m 8 http://127.0.0.1:3004/docs/enterprise | head -1'
+curl -sSI -m 8 http://127.0.0.1:3004/docs/enterprise | head -1
+echo "=== 运行状态（restarts 应为 0，镜像架构应与本机一致）==="
+uname -m
+docker image inspect "$(docker inspect limao-docs --format "{{.Image}}")" --format "image arch={{.Architecture}}"
+docker inspect limao-docs --format "status={{.State.Status}} restarts={{.RestartCount}}"'
 ```
 
 预期：`/` → **308**（跳 /docs，正常），`/docs/enterprise` → **200**。
 
 #### 4b — 海外 `.ai`
 
-先确认 compose 文件名（机器上可能叫 `docker-compose.yml`，也可能保留 `docker-compose.ai.yml`；后者要 `-f`）：
-
-```bash
-ssh work@8.222.155.17 'ls -la /home/work/docs'
-```
+compose 文件名 2026-10-30 核实为默认的 `docker-compose.yml`，下面命令直接可用。若以后改回 `docker-compose.ai.yml`，`pull` / `up` 都要加 `-f`（`ls /home/work/docs` 可确认）。
 
 ```bash
 ssh work@8.222.155.17 'set -e; cd /home/work/docs
@@ -158,7 +172,11 @@ docker compose ps
 echo "=== http 自检 ==="
 sleep 8
 curl -sSI -m 8 http://127.0.0.1:3005/ | head -1
-curl -sSI -m 8 http://127.0.0.1:3005/docs | head -1'
+curl -sSI -m 8 http://127.0.0.1:3005/docs | head -1
+echo "=== 运行状态（restarts 应为 0，镜像架构应与本机一致）==="
+uname -m
+docker image inspect "$(docker inspect limao-docs-ai --format "{{.Image}}")" --format "image arch={{.Architecture}}"
+docker inspect limao-docs-ai --format "status={{.State.Status}} restarts={{.RestartCount}}"'
 ```
 
 预期：`/` → **308**（跳 /docs，海外站根路径是英文），`/docs` → **200**。
@@ -171,21 +189,30 @@ curl -sSI -m 8 http://127.0.0.1:3005/docs | head -1'
 curl -sSL https://docs.lmuai.com/docs/enterprise | grep -c "关键词"
 curl -sSL https://docs.lmuai.ai/docs             | grep -c "api.lmuai.ai"   # .ai 正文端点应是 .ai
 
-# ② 每次都查：最后更新逐页不同（全站同一天 = CI 日期步没生效）
-for p in enterprise guide/faq; do
-  printf '%-14s ' "$p"; curl -sSL "https://docs.lmuai.com/docs/$p" | grep -o '最后更新：<time[^>]*>[^<]*' | head -1
+# ② 每次都查：线上「最后更新」= 该页最后一次 git 提交日期（在步 2 已 pull 的 main 上跑）
+#    别拿「几页日期互不相同」当判据：页面本来就可能同一天改过（v0.1.64 时 enterprise 与
+#    guide/faq 都是 2026-10-19），那样会误报。线上与 git 对不上才是 CI 日期步失效；
+#    凌晨提交可能因时区差一天，差得更多才算问题。
+for p in index enterprise guide/faq guide/compliance; do
+  printf '%-18s 线上=%s  git=%s\n' "$p" \
+    "$(curl -sSL "https://docs.lmuai.com/docs/${p#index}" | grep -o '最后更新：<time[^>]*>[^<]*' | head -1 | sed 's/.*>//')" \
+    "$(git log -1 --format=%cs -- "content/docs/$p.mdx")"
 done
-# sitemap lastmod 种类数 > 1
-curl -sSL https://docs.lmuai.com/sitemap.xml | grep -o '<lastmod>[^<]*' | sort -u | wc -l
+# sitemap lastmod 种类数：两站都应远大于 1（v0.1.64：.com 22 种、.ai 21 种）
+for b in https://docs.lmuai.com https://docs.lmuai.ai; do
+  printf '%s %s\n' "$b" "$(curl -sSL "$b/sitemap.xml" | grep -o '<lastmod>[^<]*' | sort -u | wc -l)"
+done
 
 # ③ 全量回归（两个变体各一次，按 --base 域名推断变体断言）
+#    同样在已 pull 的 main 上跑：prodcheck 的断言会随仓库更新，旧检出跑出来的结论可能过时
 node scripts/prodcheck.mjs --base https://docs.lmuai.com --variant com
 node scripts/prodcheck.mjs --base https://docs.lmuai.ai  --variant ai
 ```
 
-基线（对照当前 `prodcheck` 输出，数字会随页数/规则微调）：
-- `.com`：live 唯一已知红 = **HSTS**（要在 Caddy 加，不在本仓库）。除它以外任何红都要查清。
-- `.ai`：若 Cloudflare 仍开着 AI 爬虫拦截，会有几条红（GPTBot/ClaudeBot 403 + robots 被 CF 覆写）——**这是代码外问题，需在 CF 面板关**（见 §7）。关掉后应满绿。
+基线（v0.1.64 实测；数字会随页数 / 规则微调）：
+- `.com`：live **52/53**，唯一已知红 = **HSTS**（要在 Caddy 加，不在本仓库）。除它以外任何 `✗` 都要查清。
+- `.ai`：live **52/52 全绿**。若再出现 GPTBot / ClaudeBot 403、robots 被覆写这几条红，说明 Cloudflare 的 AI 爬虫拦截又被打开了——**代码外问题，在 CF 面板关**（见 §7）。
+- `·` 开头的是 `[v0.1.8]` 软基线，不是回归（例：133 页 description 超长，两站相同）。只需跟上次发版比，数量有没有变多。
 
 ### 步 5.1 — IndexNow 即时收录推送（prodcheck 绿之后再跑）
 
