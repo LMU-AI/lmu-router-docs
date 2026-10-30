@@ -416,16 +416,37 @@ async function main() {
     authMd.body.split('\n')[0]);
   check('next', 'auth.md 不宣称 OAuth 元数据 / agent_auth（网关没有）',
     !/well-known\/oauth-authorization-server|agent_auth|register_uri|\/agent\/identity\b.*POST|POST \/agent\//.test(authMd.body), '');
-  // auth.md 写的注册链路前提要与网关公开设置一致：注册开放、邮箱验证开、captcha 全关。
-  // 任何一项翻转（如运维重新开 Turnstile），auth.md 就在教 agent 走一条走不通的路。
+  // auth.md 写的注册链路前提要与网关公开设置一致：注册开放、邮箱验证开。
   const pub = await get(`https://${API_HOST}/api/v1/settings/public`);
   const pubData = (() => { try { return JSON.parse(pub.body).data ?? {}; } catch { return {}; } })();
   check('next', 'auth.md 注册链路前提成立：registration_enabled + email_verify_enabled',
     pubData.registration_enabled === true && pubData.email_verify_enabled === true,
     JSON.stringify({ registration_enabled: pubData.registration_enabled, email_verify_enabled: pubData.email_verify_enabled }));
-  check('next', 'auth.md 注册链路前提成立：三家 captcha 全关（否则 agent 走不通）',
-    pubData.turnstile_enabled === false && pubData.tencent_captcha_enabled === false && pubData.aliyun_captcha_enabled === false,
-    JSON.stringify({ turnstile: pubData.turnstile_enabled, tencent: pubData.tencent_captcha_enabled, aliyun: pubData.aliyun_captcha_enabled }));
+  // 验证码：auth.md 写两条路径（A 用户在控制台建 key，始终可用；B agent 邮箱注册，仅三家
+  // captcha 全关时可用），正文与开关状态无关。2026-10-30 起 api 站开着阿里云验证码。
+  // 这里断言：① 文档不无条件承诺免验证码，写了三家开关与 Path A 兜底；② 开关开着时，
+  // 网关确实拒绝不带验证码的登录（用不存在的账号探测，无副作用），且拒绝原因写在 auth.md 里。
+  const CAPTCHA_FLAGS = ['turnstile_enabled', 'tencent_captcha_enabled', 'aliyun_captcha_enabled'];
+  check('next', 'auth.md 不无条件承诺免验证码，写明三家开关与 Path A 兜底',
+    !/no CAPTCHA is required/i.test(authMd.body) && /Path A/.test(authMd.body)
+      && CAPTCHA_FLAGS.every((k) => authMd.body.includes(k)), '');
+  const captchaOn = CAPTCHA_FLAGS.filter((k) => pubData[k] === true);
+  if (captchaOn.length) {
+    let status = 0, reason = '';
+    try {
+      const r = await fetch(`https://${API_HOST}/api/v1/auth/login`, {
+        method: 'POST',
+        headers: { 'content-type': 'application/json' },
+        body: JSON.stringify({ email: 'prodcheck-probe@example.com', password: 'not-a-real-password' }),
+        signal: AbortSignal.timeout(30000),
+      });
+      status = r.status;
+      reason = (await r.json().catch(() => ({}))).reason ?? '';
+    } catch { /* 网络错误：status 保持 0，断言失败 */ }
+    check('next', `验证码开着（${captchaOn.join('、')}）：网关拒绝不带验证码的登录，原因已写入 auth.md`,
+      status === 400 && /_CAPTCHA_VERIFICATION_FAILED$/.test(reason) && authMd.body.includes(reason),
+      `status=${status} reason=${reason || '-'}`);
+  }
   // auth.md 引用的账号 API 端点都真实存在（无 body / 无鉴权探测：400 或 401 = 端点在；404 = 不在）。
   const acct = [
     ['POST', '/api/v1/auth/send-verify-code', 400], ['POST', '/api/v1/auth/register', 400],
