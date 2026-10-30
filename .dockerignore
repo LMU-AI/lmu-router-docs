@@ -3,9 +3,10 @@ node_modules
 out
 .source
 # .git 绝不能进构建上下文：CI 的 actions/checkout 默认 persist-credentials=true，
-# 会把 GITHUB_TOKEN 以 http.extraheader 写进 .git/config；而 workflow 的
-# cache-to 是 mode=max，会把 builder 的每一层（含 COPY . .）导出到公开可读的
-# :buildcache tag —— 等于把带 contents:write 权限的 token 发到公网。
+# 会把 GITHUB_TOKEN 以 http.extraheader 写进 .git/config，进了上下文就留在 builder
+# 层里。workflow 曾用 cache-to mode=max 把 builder 的每一层（含 COPY . .）导出到
+# 公开可读的 :buildcache tag，等于把 token 发到公网。#75 起 CI 不再导出层缓存，
+# 但这条防线保留：以后任何人重新打开层缓存，也不会把凭据带出去。
 #
 # 日期数据不依赖构建上下文里的 .git：docker-build.yml 在 checkout 之后、
 # docker build 之前跑 scripts/build-content-dates.mjs，把 git 提交时间物化成

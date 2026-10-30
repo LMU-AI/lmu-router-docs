@@ -6,8 +6,8 @@ WORKDIR /app
 ARG SITE_VARIANT=com
 ENV SITE_VARIANT=${SITE_VARIANT}
 # 刻意不装 git、也不把 .git 放进构建上下文（见 .dockerignore）：
-# CI 的 cache-to 是 mode=max，会把 builder 的每一层导出到公开可读的 :buildcache，
-# 而 actions/checkout 默认把 GITHUB_TOKEN 写进 .git/config —— 那等于公网发凭据。
+# actions/checkout 默认把 GITHUB_TOKEN 写进 .git/config，.git 一旦进上下文，凭据就留在
+# builder 层里；CI 曾用 mode=max 把这些层导出到公开可读的 :buildcache（#75 起不再导出）。
 # sitemap 的 lastmod 改由随仓库提交的 content-dates.json 提供，不需要构建期读 git。
 COPY package*.json ./
 COPY patches ./patches
