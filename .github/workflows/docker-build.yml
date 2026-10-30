@@ -14,8 +14,8 @@
 #     区分的 sharp 原生包（@img/sharp-linuxmusl-*），builder 必须在目标架构上跑。
 #   - build 只按 digest 推送、不打 tag；merge 拿齐两个架构的 digest 后合成多架构清单再打 tag。
 #     某个变体少了任一架构，该变体不发布，不会推出缺架构的镜像。
-#   - 不用 registry 层缓存：每次发版内容都变，COPY . . 之后全部失效，只能命中 npm ci，
-#     而导入 + 导出要 55 s 左右，比原生直接 npm ci 还慢。
+#   - 不用 registry 层缓存：每次发版内容都变，COPY . . 之后全部失效，只能命中 npm ci。
+#     实测原生 runner 上不带缓存的 npm ci 只要 10–19 s，而缓存导入约 15 s、导出约 40 s，得不偿失。
 #
 # 手动触发 test_build=true：任意分支 / commit 试跑。build 照常按 digest 推送（不带 tag，
 # 不影响任何 pull），merge 只做 --dry-run：不动任何 tag，也不创建 Release。改 CI 先这样验。

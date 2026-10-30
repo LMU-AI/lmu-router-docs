@@ -38,20 +38,22 @@ description: 发布上线灵眸文档站——同时更新国内 docs.lmuai.com 
 | `latest` / `vX.Y.Z` | com | linux/amd64 **+** linux/arm64 | 北京机 |
 | `latest-ai` / `vX.Y.Z-ai` | ai | linux/amd64 **+** linux/arm64 | 海外机 |
 
-- `PLATFORMS: linux/amd64,linux/arm64` → 每个 tag 都是**多架构 manifest**，`docker pull` 会自动挑本机架构。**arm64 镜像一直都有**——海外偶发拉不动是那台机的 DNS/mirror 问题（见 §7 的中转 fallback），不是镜像缺 arm 架构。
-- 变体矩阵 `{com, suffix:''}` / `{ai, suffix:'-ai'}`，`fail-fast:false`（一条腿抖动不拖死另一条）。
-- 每变体独立 buildcache（`:buildcache` / `:buildcache-ai`），互不覆盖。
-- GitHub Release 只在 com 腿创建（一个 tag 一个 Release）。
+- 每个 tag 都是**多架构 manifest**，`docker pull` 会自动挑本机架构。**arm64 镜像一直都有**——海外偶发拉不动是那台机的 DNS/mirror 问题（见 §7 的中转 fallback），不是镜像缺 arm 架构。
+- 三段（#75）：`guard` → `build (变体, 架构)` 4 个 job → `merge (变体)` 2 个 job。
+  - `build`：每个架构在同架构的 GitHub 托管 runner 上**原生**构建（amd64 → `ubuntu-24.04`，arm64 → `ubuntu-24.04-arm`），没有 QEMU；只按 digest 推送，不打 tag。
+  - `merge`：拿齐该变体 amd64 + arm64 两个 digest 才合成多架构清单、打 tag，并核对清单平台恰为这两个。缺一个架构该变体就不发布，不会推出缺架构的镜像。
+  - 一个变体失败不影响另一个变体发布（`fail-fast:false`，merge 各变体独立）。
+- 不用层缓存：每次发版内容都变，缓存只能命中 `npm ci`，导入导出比直接装还慢。Docker Hub 上旧的 `:buildcache` / `:buildcache-ai` 已不再读写。
+- GitHub Release 只在 `merge (com)` 创建（一个 tag 一个 Release）。
 - `guard` job：**tag 指向的 commit 必须在 `main` 上**才构建——这就是下面流程「先合并、再打 tag」的原因。
-- `rebuild-on-merge.yml`：PR 合并后若 `vX` 或 `vX-ai` 任一缺失，自动补一次构建（矩阵一次补齐两变体）。
-
-> 可选后续优化（**不要顺手塞进一次发布**，会动 CI）：把 arm64 腿从 QEMU 模拟换成原生 arm64 runner（`ubuntu-24.04-arm`），根治 §7 的 SIGILL 抖动。要做单独开 PR、单独验证。
+- `rebuild-on-merge.yml`：PR 合并后若 `vX` 或 `vX-ai` 任一缺失，自动补一次构建（一次补齐两变体）。
+- 改了 CI 想先验证：`gh workflow run docker-build.yml --ref <分支> -f ref=<分支> -f test_build=true`。照常构建并按 digest 推送，但 merge 只 `--dry-run`，**不动任何 tag、不建 Release**。
 
 ---
 
 ## 3. 发布全流程（先合并 → 再在 main 打 tag）
 
-从「代码写完」到「双站验完」约 35 分钟，其中 ~20 分钟在等 CI 与 pull。
+CI 出镜像约 3 分钟（#75 之前 12–21 分钟），两台机 `docker compose pull` 约 10 分钟，其余时间花在预检、合并和验证上。
 
 ### 步 0 — 预检
 
@@ -79,18 +81,18 @@ git push origin v0.1.36                # 推 tag 触发 docker-build.yml
 
 > 破坏性/大改动才升 minor（v0.2.0）；日常内容与修复升 patch。
 
-### 步 3 — 等 CI 出镜像（~8–10 min），确认 4 个 tag 都推成
+### 步 3 — 等 CI 出镜像（~3 min），确认 4 个 tag 都推成
 
 ```bash
 gh run list --workflow=docker-build.yml --limit 5 \
   --json databaseId,headBranch,status,conclusion \
   --jq '.[] | "\(.databaseId) \(.headBranch) \(.status)/\(.conclusion)"'
 
-# run 整体 success 也可能某个 job skipped/failed——逐 job 看
+# run 整体 success 也可能某个 job skipped/failed——逐 job 看（应有 guard、4 个 build、2 个 merge）
 gh run view <id> --json jobs --jq '.jobs[] | "\(.name): \(.conclusion)"'
 
-# 抄两条腿的目标 digest（部署成功的判定基准）
-gh run view <id> --log 2>/dev/null | grep 'containerimage.digest'
+# 抄两个变体的多架构清单 digest（部署成功的判定基准；build job 日志里的 digest 是单架构的，别抄那个）
+gh run view <id> --log 2>/dev/null | grep -o 'MANIFEST_DIGEST .*'
 
 # 确认日期刷新那步真的跑了（决定 sitemap lastmod 与页面「最后更新」）
 gh run view <id> --log 2>/dev/null | grep "篇有 git 时间"
@@ -104,8 +106,8 @@ ssh work@8.222.155.17 'docker pull -q --platform linux/arm64 submit2mxh/lmu-rout
 # "manifest unknown" = 没产出；能拉 = 有
 ```
 
-- **build-and-push 是 `skipped`**：tag 打在了 PR 未合并时（commit 不在 main）→ guard 跳过。本流程「先合并再打 tag」不会遇到；万一遇到，`rebuild-on-merge` 会在合并后自动补，或手动 `gh workflow run docker-build.yml --ref v0.1.36 -f ref=v0.1.36`。
-- **build-and-push 是 `failure`**：多半是 arm64 QEMU SIGILL（见 §7），直接重跑同一条命令即可。
+- **build 是 `skipped`**：tag 打在了 PR 未合并时（commit 不在 main）→ guard 跳过。本流程「先合并再打 tag」不会遇到；万一遇到，`rebuild-on-merge` 会在合并后自动补，或手动 `gh workflow run docker-build.yml --ref v0.1.36 -f ref=v0.1.36`。
+- **某个 build 是 `failure`**：对应变体的 merge 会因为缺 digest 跟着失败，另一个变体照常发布。只重跑失败的部分即可：`gh run rerun <id> --failed`（依赖它的 merge 会一起重跑；另一个变体的 merge 若被带上，用的还是同一组 digest，tag 指向的内容不变）。`Check runner arch` 这一步红 = runner 标签对应的架构不对，不是代码问题。
 
 ### 步 4 — 两台机同时部署
 
@@ -244,8 +246,8 @@ docker tag submit2mxh/lmu-router-docs:v0.1.35-ai submit2mxh/lmu-router-docs:late
 
 ## 7. 坑 & fallback
 
-1. **arm64 QEMU SIGILL（间歇）**：`docker-build.yml` 的 arm64 腿偶发
-   `qemu: uncaught target signal 4 (Illegal instruction)` → `SIGILL`，出现在 `Generating static pages`。**不是代码问题**（同 commit 重跑即过，amd64 从不失败）。处理：`gh workflow run docker-build.yml --ref v0.1.36 -f ref=v0.1.36`。同 tag 连挂 2 次以上，再考虑临时把 `PLATFORMS` 收成 `linux/amd64`（仅当那次不急着更新海外机时）。
+1. **arm64 QEMU SIGILL（已根治，#75）**：以前 arm64 在 x64 上用 QEMU 模拟构建，偶发
+   `qemu: uncaught target signal 4 (Illegal instruction)`，出在 `Generating static pages`。#75 起 arm64 在原生 arm64 runner 上构建，不再经过 QEMU。若再见到这个报错，先看 `build (…, arm64)` 的 `Check runner arch` 是否通过。
 
 2. **海外机 pull 卡死（DNS/mirror）**：那台机 `systemd-resolved` 上游是阿里内网、`daemon.json` 首个 mirror 是腾讯内网，都可能不可达 → `docker compose pull` 挂住。**绕过 = 从能正常拉的机器中转**（北京机、或 Apple Silicon Mac 都能出 arm64）：
 
@@ -265,7 +267,7 @@ docker tag submit2mxh/lmu-router-docs:v0.1.35-ai submit2mxh/lmu-router-docs:late
 
 4. **别把 compose 的 image tag 固化成具体版本**（如 `:v0.1.36`）——那样以后 `latest`/`latest-ai` 更新后 `pull` 不再自动生效。除非明确要钉住某版。
 
-5. **`.dockerignore` 里的 `.git` 必须保留**：CI 用 `cache-to: mode=max` 导出所有层到**公开** buildcache，`.git` 一旦进构建上下文，`GITHUB_TOKEN` 会随缓存发到公网（已实际发生过）。别动它。
+5. **`.dockerignore` 里的 `.git` 必须保留**：CI 曾用 `cache-to: mode=max` 把所有层导出到**公开** buildcache，`.git` 进了构建上下文，`GITHUB_TOKEN` 就随缓存发到了公网（已实际发生过）。#75 起不再导出层缓存，但这条防线别动：以后谁重新打开层缓存，也不会再泄露。
 
 6. **`docker compose ps --format` 在目标机可能报错**（Compose v2.17.3 不支持该 template）——用不带 `--format` 的 `docker compose ps`。
 
@@ -275,7 +277,7 @@ docker tag submit2mxh/lmu-router-docs:v0.1.35-ai submit2mxh/lmu-router-docs:late
 
 ## 8. 相关
 
-- CI 主 workflow：`.github/workflows/docker-build.yml`（双架构 × 双变体矩阵 + guard + Release + 日期刷新步）
+- CI 主 workflow：`.github/workflows/docker-build.yml`（guard → 变体 × 架构原生构建 → 每变体合成多架构清单 + Release；日期刷新步在 build 里；`test_build` 试跑入口）
 - CI 补构建：`.github/workflows/rebuild-on-merge.yml`
 - compose 参考：`docker-compose.yml`（com）、`docker-compose.ai.yml`（ai，含海外 Caddy vhost 示例）
 - 变体机制单一事实源：`lib/variant.ts`；`.ai` 内容物化：`scripts/materialize-variant-content.mjs`
