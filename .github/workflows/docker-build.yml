@@ -6,6 +6,20 @@
 #   - 因此先用 guard job 校验该 tag 指向的 commit 是否在 TARGET_BRANCH 上，
 #     不在则跳过构建（避免在别的分支打 tag 也误触发发布）。
 #
+# 三段（#75）：guard → build（变体 × 架构 = 4 个 job）→ merge（每个变体 1 个）
+#   - build：每个架构在同架构的 GitHub 托管 runner 上原生构建（amd64 → ubuntu-24.04，
+#     arm64 → ubuntu-24.04-arm），不用 QEMU。以前 arm64 在 x64 上模拟，next build 慢
+#     7–8 倍（单变体 12–21 分钟），还偶发 SIGILL。
+#     也不能在 x64 上交叉构建后把产物拷进 arm64 镜像：standalone 里带着按架构 / libc
+#     区分的 sharp 原生包（@img/sharp-linuxmusl-*），builder 必须在目标架构上跑。
+#   - build 只按 digest 推送、不打 tag；merge 拿齐两个架构的 digest 后合成多架构清单再打 tag。
+#     某个变体少了任一架构，该变体不发布，不会推出缺架构的镜像。
+#   - 不用 registry 层缓存：每次发版内容都变，COPY . . 之后全部失效，只能命中 npm ci，
+#     而导入 + 导出要 55 s 左右，比原生直接 npm ci 还慢。
+#
+# 手动触发 test_build=true：任意分支 / commit 试跑。build 照常按 digest 推送（不带 tag，
+# 不影响任何 pull），merge 只做 --dry-run：不动任何 tag，也不创建 Release。改 CI 先这样验。
+#
 # 需要在仓库 Settings → Secrets and variables → Actions 配置：
 #   DOCKERHUB_USERNAME  能向 submit2mxh 命名空间推送的 Docker Hub 账号
 #   DOCKERHUB_TOKEN     该账号的 Access Token（Read/Write）
@@ -22,23 +36,37 @@ on:
         description: '要构建的 tag 或分支（手动触发时使用）'
         required: true
         type: string
+      test_build:
+        description: '试跑：不校验是否在 main 上；按 digest 推送，但不打任何 tag、不建 Release'
+        required: false
+        type: boolean
+        default: false
+
+# 同一个 tag 的多次运行（推 tag 与 rebuild-on-merge 补构建撞上时）排队执行，
+# 不并发、也不取消正在跑的那次：两次 merge 交错会让 tag 指向哪一次的构建变得不确定。
+concurrency:
+  group: docker-build-${{ github.event.inputs.ref || github.ref_name }}
+  cancel-in-progress: false
 
 env:
   IMAGE: submit2mxh/lmu-router-docs   # 目标镜像：https://hub.docker.com/r/submit2mxh/lmu-router-docs
   TARGET_BRANCH: main                 # 「指定分支」：只有该分支上的 commit 打 tag 才会发布
-  PLATFORMS: linux/amd64,linux/arm64
 
+# 只有 merge job 需要写权限（创建 GitHub Release），在那里单独提升。
 permissions:
-  contents: write   # 需要 write 才能自动创建 GitHub Release
+  contents: read
 
 jobs:
   # ---------------------------------------------------------------------------
-  # 1) 校验 tag 指向的 commit 是否在指定分支上
+  # 1) 校验 tag 指向的 commit 是否在指定分支上，并固定本次要构建的 commit
   # ---------------------------------------------------------------------------
   guard:
     runs-on: ubuntu-latest
+    timeout-minutes: 10
     outputs:
       proceed: ${{ steps.check.outputs.proceed }}
+      sha: ${{ steps.check.outputs.sha }}
+      test_build: ${{ steps.check.outputs.test_build }}
     steps:
       - name: Checkout (full history)
         uses: actions/checkout@v5
@@ -48,11 +76,23 @@ jobs:
 
       - name: Verify commit is on ${{ env.TARGET_BRANCH }}
         id: check
+        env:
+          TEST_BUILD: ${{ github.event_name == 'workflow_dispatch' && github.event.inputs.test_build == 'true' }}
         run: |
           set -euo pipefail
-          git fetch origin "${TARGET_BRANCH}" --depth=0 || git fetch origin "${TARGET_BRANCH}"
           SHA="$(git rev-parse HEAD)"
           echo "Tagged commit: ${SHA}"
+          # 后面的 job 都按这个 SHA checkout，构建期间 tag 被移动也不会混进别的 commit
+          echo "sha=${SHA}" >> "$GITHUB_OUTPUT"
+          echo "test_build=${TEST_BUILD}" >> "$GITHUB_OUTPUT"
+
+          if [ "${TEST_BUILD}" = "true" ]; then
+            echo "test_build：跳过「在 ${TARGET_BRANCH} 上」校验；merge 只做 dry-run，不动任何 tag"
+            echo "proceed=true" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          git fetch origin "${TARGET_BRANCH}" --depth=0 || git fetch origin "${TARGET_BRANCH}"
 
           if git merge-base --is-ancestor "${SHA}" "origin/${TARGET_BRANCH}"; then
             echo "commit 在 ${TARGET_BRANCH} 上，继续构建"
@@ -63,57 +103,68 @@ jobs:
           fi
 
   # ---------------------------------------------------------------------------
-  # 2) 构建并推送镜像（站点变体矩阵）
-  #    com → docs.lmuai.com：tag 名与历史完全一致（latest / vX.Y.Z），北京机在用
-  #    ai  → docs.lmuai.ai ：tag 加 -ai 后缀（latest-ai / vX.Y.Z-ai），海外机在用
-  #    fail-fast: false —— arm64 QEMU 偶发 SIGILL（见 deploy skill 坑 5），一条腿
-  #    抖动不应拖死另一条；单腿重跑用 workflow_dispatch 即可（矩阵会两腿都跑，
-  #    已成功的那腿仅是重复推同内容，无害）。
+  # 2) 按「站点变体 × 架构」原生构建，只按 digest 推送
+  #    com → docs.lmuai.com：tag 名与历史完全一致（latest / vX.Y.Z）
+  #    ai  → docs.lmuai.ai ：tag 加 -ai 后缀（latest-ai / vX.Y.Z-ai）
   # ---------------------------------------------------------------------------
-  build-and-push:
+  build:
+    name: build (${{ matrix.variant }}, ${{ matrix.arch }})
     needs: guard
     if: ${{ needs.guard.outputs.proceed == 'true' }}
-    runs-on: ubuntu-latest
+    runs-on: ${{ matrix.runner }}
+    timeout-minutes: 30
     strategy:
+      # 一个 job 失败不取消其余 job：一个变体出问题不拖住另一个变体发布。
+      # 同一变体缺了任一架构，由 merge 拒绝发布。
       fail-fast: false
       matrix:
+        variant: [com, ai]
+        arch: [amd64, arm64]
         include:
-          - variant: com
-            suffix: ''
-          - variant: ai
-            suffix: '-ai'
+          - arch: amd64
+            runner: ubuntu-24.04
+          - arch: arm64
+            runner: ubuntu-24.04-arm
     steps:
+      # 没装 QEMU，跑错架构的 runner 时 RUN 会直接失败；但 runner 镜像若自带 binfmt，就会静默退回
+      # 模拟构建（又慢又会 SIGILL）。这里先把「原生」钉死。
+      - name: Check runner arch
+        env:
+          WANT: ${{ matrix.arch == 'amd64' && 'X64' || 'ARM64' }}
+        run: |
+          [ "${RUNNER_ARCH}" = "${WANT}" ] || { echo "::error::runner 是 ${RUNNER_ARCH}，构建 linux/${{ matrix.arch }} 需要 ${WANT}"; exit 1; }
+          echo "runner ${RUNNER_ARCH}，原生构建 linux/${{ matrix.arch }}"
+
       - name: Checkout
         uses: actions/checkout@v5
         with:
           fetch-depth: 0
-          ref: ${{ github.event.inputs.ref || github.ref }}
-          # 默认 true 会把 GITHUB_TOKEN 以 http.extraheader 写进 .git/config。
-          # 本 job 之后只做 docker build，不再需要 git 凭据；而 cache-to 用了
-          # mode=max（导出所有中间层到公开可读的 :buildcache），一旦 .git 因任何
-          # 原因进了构建上下文，凭据就会随缓存发到公网。这里从源头不写入。
+          ref: ${{ needs.guard.outputs.sha }}
+          # 默认 true 会把 GITHUB_TOKEN 以 http.extraheader 写进 .git/config。本 job 之后
+          # 只做 docker build，不再需要 git 凭据，从源头不写入（.dockerignore 也排除了 .git）。
           persist-credentials: false
+
+      - name: Set up Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '22'
 
       # content-dates.json 记录每篇 MDX 的 git 最后提交时间，供 sitemap 的 lastmod、
       # TechArticle 的 dateModified 和页面底部的「最后更新」使用。
       #
       # 它必须在**这里**生成，不能只依赖仓库里已提交的那份：
-      #   - .dockerignore 屏蔽了 .git（CI 的 cache mode=max 会把含 GITHUB_TOKEN 的
-      #     构建层发到公开 registry，见该文件注释），所以镜像内的 build 步骤没有 git，
+      #   - .dockerignore 屏蔽了 .git，所以镜像内的 build 步骤没有 git，
       #     scripts/build-content-dates.mjs 会走「无 git → 沿用已提交的 JSON」分支；
       #   - 而那份 JSON 只有恰好本地跑过 npm run build 并顺手提交才会更新。实测它
       #     停在 2026-07-27，比真实内容落后一个月——sitemap 正告诉 Google「8 月改过
       #     的页面最后修改于 7 月」。
       # 这一步在 checkout 之后、docker build 之前跑，此时 .git 完整（fetch-depth: 0），
-      # 生成的 JSON 随构建上下文进镜像。.git 本身仍不进上下文，安全措施不变。
+      # 生成的 JSON 随构建上下文进镜像。四个 job 都从同一个 SHA 生成，结果一致。
       - name: Refresh content-dates.json from git history
         run: |
           node scripts/build-content-dates.mjs
           echo "--- 前 5 条 ---"
           head -6 content-dates.json
-
-      - name: Set up QEMU
-        uses: docker/setup-qemu-action@v4
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -124,7 +175,96 @@ jobs:
           username: ${{ secrets.DOCKERHUB_USERNAME }}
           password: ${{ secrets.DOCKERHUB_TOKEN }}
 
-      - name: Derive image tags & labels
+      - name: Derive image labels
+        id: meta
+        uses: docker/metadata-action@v6
+        with:
+          images: ${{ env.IMAGE }}
+
+      - name: Build & push by digest
+        id: build
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          file: ./Dockerfile
+          platforms: linux/${{ matrix.arch }}
+          labels: ${{ steps.meta.outputs.labels }}
+          # 只按 digest 推送，tag 由 merge 统一打
+          outputs: type=image,name=${{ env.IMAGE }},push-by-digest=true,name-canonical=true,push=true
+          provenance: false
+          # 站点变体（见 lib/variant.ts / Dockerfile ARG）。com 腿传 com = 现状不变。
+          build-args: |
+            SITE_VARIANT=${{ matrix.variant }}
+
+      - name: Export digest
+        env:
+          DIGEST: ${{ steps.build.outputs.digest }}
+        run: |
+          set -euo pipefail
+          case "${DIGEST}" in sha256:*) ;; *) echo "::error::unexpected digest '${DIGEST}'"; exit 1 ;; esac
+          mkdir -p "${RUNNER_TEMP}/digests"
+          touch "${RUNNER_TEMP}/digests/${DIGEST#sha256:}"
+          echo "${{ matrix.variant }} linux/${{ matrix.arch }}: ${DIGEST}"
+
+      - name: Upload digest
+        uses: actions/upload-artifact@v7
+        with:
+          name: digests-${{ matrix.variant }}-${{ matrix.arch }}
+          path: ${{ runner.temp }}/digests/*
+          if-no-files-found: error
+          retention-days: 1
+          # 只重跑失败的 job 时会再传同名 artifact，不覆盖会报已存在
+          overwrite: true
+
+  # ---------------------------------------------------------------------------
+  # 3) 每个变体把两个架构的 digest 合成多架构清单，打 tag；com 顺带创建 GitHub Release
+  # ---------------------------------------------------------------------------
+  merge:
+    name: merge (${{ matrix.variant }})
+    needs: [guard, build]
+    # build 里任一 job 失败时，needs 默认会跳过整个 merge。这里改成照常运行，
+    # 由各变体自己检查 digest 是否齐全：一个变体失败不影响另一个变体发布。
+    if: ${{ !cancelled() && needs.guard.outputs.proceed == 'true' }}
+    runs-on: ubuntu-latest
+    timeout-minutes: 10
+    permissions:
+      contents: write   # 创建 GitHub Release
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - variant: com
+            suffix: ''
+          - variant: ai
+            suffix: '-ai'
+    steps:
+      - name: Download digests
+        uses: actions/download-artifact@v8
+        with:
+          path: ${{ runner.temp }}/digests
+          pattern: digests-${{ matrix.variant }}-*
+          merge-multiple: true
+
+      # 少一个 digest 就会推出缺架构的镜像
+      - name: Check digests
+        run: |
+          set -euo pipefail
+          dir="${RUNNER_TEMP}/digests"
+          mkdir -p "${dir}"
+          ls -1 "${dir}"
+          n="$(find "${dir}" -type f | wc -l)"
+          [ "${n}" -eq 2 ] || { echo "::error::${{ matrix.variant }} 需要 amd64 + arm64 两个 digest，实际 ${n} 个（看哪个 build job 失败了）"; exit 1; }
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Login to Docker Hub
+        uses: docker/login-action@v4
+        with:
+          username: ${{ secrets.DOCKERHUB_USERNAME }}
+          password: ${{ secrets.DOCKERHUB_TOKEN }}
+
+      - name: Derive image tags
         id: meta
         uses: docker/metadata-action@v6
         with:
@@ -135,52 +275,86 @@ jobs:
             type=ref,event=tag
             type=raw,value=latest
           # latest 由上面的 raw 规则显式控制，禁用自动 latest。
-          # flavor.suffix 给两类 tag 统一追加变体后缀：com 腿为空（latest / vX.Y.Z
-          # 逐字不变），ai 腿为 -ai（latest-ai / vX.Y.Z-ai）。
+          # flavor.suffix 给两类 tag 统一追加变体后缀：com 为空（latest / vX.Y.Z
+          # 逐字不变），ai 为 -ai（latest-ai / vX.Y.Z-ai）。
+          # ⚠️ 注释别写在 flavor 值的行尾，metadata-action 会把它当成取值的一部分。
           flavor: |
             latest=false
             suffix=${{ matrix.suffix }}
 
-      - name: Build & push
-        uses: docker/build-push-action@v7
-        with:
-          context: .
-          file: ./Dockerfile
-          platforms: ${{ env.PLATFORMS }}
-          push: true
-          tags: ${{ steps.meta.outputs.tags }}
-          labels: ${{ steps.meta.outputs.labels }}
-          provenance: false
-          # 站点变体（见 lib/variant.ts / Dockerfile ARG）。com 腿传 com = 现状不变。
-          build-args: |
-            SITE_VARIANT=${{ matrix.variant }}
-          # Registry 缓存：存到 Docker Hub 同仓库的 buildcache tag，跨 run 稳定复用。
-          # 变体各自一个 cache tag（buildcache / buildcache-ai），互不覆盖 ——
-          # 两个变体的 build 产物层完全不同，共用一个 tag 会互相清洗。
-          cache-from: type=registry,ref=${{ env.IMAGE }}:buildcache${{ matrix.suffix }}
-          cache-to: type=registry,ref=${{ env.IMAGE }}:buildcache${{ matrix.suffix }},mode=max,image-manifest=true,oci-mediatypes=true
+      # 发布前后都核对清单里恰好是 linux/amd64 + linux/arm64。
+      # test_build 只 --dry-run：打印将要推送的清单，不写 registry。
+      - name: Create manifest list and push
+        id: push
+        env:
+          TAGS_JSON: ${{ steps.meta.outputs.json }}
+          TEST_BUILD: ${{ needs.guard.outputs.test_build }}
+          VARIANT: ${{ matrix.variant }}
+        run: |
+          set -euo pipefail
+          mapfile -t tags < <(jq -r '.tags[]' <<<"${TAGS_JSON}")
+          [ "${#tags[@]}" -gt 0 ] || { echo "::error::没有可打的 tag"; exit 1; }
+          args=()
+          for t in "${tags[@]}"; do args+=(-t "${t}"); done
+          for f in "${RUNNER_TEMP}"/digests/*; do args+=("${IMAGE}@sha256:$(basename "${f}")"); done
+
+          check_platforms() {
+            got="$(jq -r '[.manifests[].platform | "\(.os)/\(.architecture)"] | sort | join(",")' "$1")"
+            [ "${got}" = "linux/amd64,linux/arm64" ] || { echo "::error::清单平台是 ${got}，应为 linux/amd64,linux/arm64"; exit 1; }
+            echo "平台：${got}"
+          }
+
+          if [ "${TEST_BUILD}" = "true" ]; then
+            docker buildx imagetools create --dry-run "${args[@]}" > manifest.json
+            cat manifest.json
+            check_platforms manifest.json
+            echo "test_build：只做 dry-run，未推送 tag：${tags[*]}"
+            echo "digest=" >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+
+          docker buildx imagetools create "${args[@]}"
+          docker buildx imagetools inspect "${tags[0]}"
+          docker buildx imagetools inspect "${tags[0]}" --raw > manifest.json
+          check_platforms manifest.json
+          digest="$(docker buildx imagetools inspect "${tags[0]}" --format '{{json .Manifest}}' | jq -r .digest)"
+          # 发版核对用这一行：生产机 docker inspect 得到的 RepoDigests 应等于它
+          echo "MANIFEST_DIGEST ${VARIANT} ${digest}"
+          echo "digest=${digest}" >> "$GITHUB_OUTPUT"
 
       - name: Summary
+        env:
+          TAGS: ${{ steps.meta.outputs.tags }}
+          DIGEST: ${{ steps.push.outputs.digest }}
+          TEST_BUILD: ${{ needs.guard.outputs.test_build }}
         run: |
           {
-            echo "### Pushed to Docker Hub"
+            if [ "${TEST_BUILD}" = "true" ]; then
+              echo "### test_build（${{ matrix.variant }}）：只做了 dry-run，未推送以下 tag"
+            else
+              echo "### Pushed to Docker Hub（${{ matrix.variant }}）"
+            fi
             echo ""
             echo '```'
-            echo "${{ steps.meta.outputs.tags }}"
+            echo "${TAGS}"
             echo '```'
+            if [ -n "${DIGEST}" ]; then
+              echo ""
+              echo "manifest digest：\`${DIGEST}\`（linux/amd64 + linux/arm64）"
+            fi
           } >> "$GITHUB_STEP_SUMMARY"
 
       # -------------------------------------------------------------------------
-      # 3) 自动创建 GitHub Release
+      # 自动创建 GitHub Release
       #   条件只看 github.ref 是不是 tag——两种入口都覆盖：
       #   - push tag：github.ref = refs/tags/vX，恒真
       #   - workflow_dispatch --ref vX（含 rebuild-on-merge.yml 的自动补构建）：
       #     workflow 从该 tag ref 运行，github.ref 同样是 refs/tags/vX
-      #   若 dispatch 时 ref 传的是 branch（如 main），会跳过，不会误创。
-      #   矩阵下只在 com 腿创建（softprops 重复创建会失败/污染，一个 tag 一个 Release）。
+      #   若 dispatch 时 ref 传的是 branch（如 main），会跳过，不会误创；test_build 也跳过。
+      #   只在 com 变体创建（softprops 重复创建会失败/污染，一个 tag 一个 Release）。
       # -------------------------------------------------------------------------
       - name: Create GitHub Release
-        if: ${{ matrix.variant == 'com' && startsWith(github.ref, 'refs/tags/') }}
+        if: ${{ matrix.variant == 'com' && startsWith(github.ref, 'refs/tags/') && needs.guard.outputs.test_build != 'true' }}
         uses: softprops/action-gh-release@v3
         with:
           tag_name: ${{ github.ref_name }}
