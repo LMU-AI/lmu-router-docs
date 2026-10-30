@@ -202,8 +202,14 @@ export async function generateMetadata({
 
   // SEO-only 标题（#58）：有 seoTitle 时用 absolute 跳过 layout 的「 | 灵眸文档」后缀，
   // 让搜索结果里完整用上 50–60 的安全宽度。侧栏与 H1 仍用 page.data.title。
+  // 页面名与站名相同时（各语种首页，如 ja「LMU AI ドキュメント」）也用 absolute，
+  // 否则模板会输出「LMU AI ドキュメント | LMU AI ドキュメント」（#72）。
   const seoTitle = page.data.seoTitle;
-  const title = seoTitle ? { absolute: seoTitle } : page.data.title;
+  const title = seoTitle
+    ? { absolute: seoTitle }
+    : page.data.title === siteName(lang)
+      ? { absolute: page.data.title }
+      : page.data.title;
   const socialTitle = seoTitle ?? page.data.title;
 
   // Markdown for Agents：声明本页的 markdown 备用表述（/md/{lang}/docs/{slug}），
