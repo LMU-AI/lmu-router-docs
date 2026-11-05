@@ -174,22 +174,24 @@ curl -s https://api.lmuai.com/v1/user/balance \
 
 ## 6. Fehlerantworten
 
-Ein fehlender oder ungültiger Schlüssel liefert `401`:
+Die Saldoabfrage nutzt die standardmäßige API-Schlüssel-Authentifizierung des Gateways, daher kommen Fehler im selben Format wie bei anderen API-Aufrufen. Wenn die Anfrage keinen Schlüssel enthält:
 
 ```json
 {
-  "type": "error",
-  "error": {
-    "type": "authentication_error",
-    "message": "Invalid API key"
-  }
+  "code": "API_KEY_REQUIRED",
+  "message": "API key is required in Authorization header (Bearer scheme), x-api-key header, or x-goog-api-key header"
 }
 ```
 
-| Statuscode | Szenario |
-|---|---|
-| `200` | Normale Antwort; ein aufgebrauchtes Kontingent oder ein fehlendes Abonnement liefert ebenfalls `200` mit `is_active: false` |
-| `401` | Der Header `Authorization` fehlt, ist falsch formatiert oder der Schlüssel existiert nicht |
+| Statuscode | `code` | Szenario |
+|---|---|---|
+| `200` | — | Normale Antwort; ein aufgebrauchtes Kontingent, ein abgelaufener Schlüssel oder ein fehlendes Abonnement liefern ebenfalls `200`, mit `is_active: false` als Zeichen, dass der Schlüssel nicht nutzbar ist |
+| `401` | `API_KEY_REQUIRED` | Die Anfrage enthält keinen API-Schlüssel |
+| `401` | `INVALID_API_KEY` | Der Schlüssel existiert nicht oder ist falsch formatiert |
+| `401` | `API_KEY_DISABLED` | Der Schlüssel wurde deaktiviert |
+| `403` | `ACCESS_DENIED` | Für den Schlüssel ist eine IP-Zulassungs- / Sperrliste gesetzt und die aktuelle IP ist nicht zugelassen |
+
+Allgemeine Fehler finden Sie unter [Fehlercodes](/de/docs/guide/errors).
 
 ---
 

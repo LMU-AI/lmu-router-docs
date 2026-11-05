@@ -174,22 +174,24 @@ curl -s https://api.lmuai.com/v1/user/balance \
 
 ## 6. Respostas de erro
 
-Uma chave ausente ou inválida retorna `401`:
+A consulta de saldo usa a autenticação padrão por chave de API do gateway, então os erros vêm no mesmo formato das demais chamadas à API. Quando a requisição não traz chave:
 
 ```json
 {
-  "type": "error",
-  "error": {
-    "type": "authentication_error",
-    "message": "Invalid API key"
-  }
+  "code": "API_KEY_REQUIRED",
+  "message": "API key is required in Authorization header (Bearer scheme), x-api-key header, or x-goog-api-key header"
 }
 ```
 
-| Código de status | Cenário |
-|---|---|
-| `200` | Resposta normal; cota esgotada ou assinatura ausente também retornam `200` com `is_active: false` |
-| `401` | O cabeçalho `Authorization` está ausente, mal formatado, ou a chave não existe |
+| Código de status | `code` | Cenário |
+|---|---|---|
+| `200` | — | Resposta normal; cota esgotada, chave expirada ou assinatura inexistente também retornam `200`, com `is_active: false` indicando que a chave não pode ser usada |
+| `401` | `API_KEY_REQUIRED` | A requisição não traz chave de API |
+| `401` | `INVALID_API_KEY` | A chave não existe ou está em formato inválido |
+| `401` | `API_KEY_DISABLED` | A chave foi desativada |
+| `403` | `ACCESS_DENIED` | A chave tem lista de IPs permitidos / bloqueados e o IP atual não é permitido |
+
+Para erros gerais, consulte [Códigos de erro](/pt/docs/guide/errors).
 
 ---
 

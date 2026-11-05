@@ -174,22 +174,24 @@ curl -s https://api.lmuai.com/v1/user/balance \
 
 ## 6. Réponses d'erreur
 
-Une clé absente ou invalide renvoie `401` :
+La consultation du solde utilise l'authentification standard par clé API de la passerelle : les erreurs ont donc le même format que pour les autres appels à l'API. Lorsque la requête ne contient pas de clé :
 
 ```json
 {
-  "type": "error",
-  "error": {
-    "type": "authentication_error",
-    "message": "Invalid API key"
-  }
+  "code": "API_KEY_REQUIRED",
+  "message": "API key is required in Authorization header (Bearer scheme), x-api-key header, or x-goog-api-key header"
 }
 ```
 
-| Code de statut | Scénario |
-|---|---|
-| `200` | Réponse normale ; un quota épuisé ou un abonnement absent renvoie aussi `200` avec `is_active: false` |
-| `401` | L'en-tête `Authorization` est absent ou mal formé, ou la clé n'existe pas |
+| Code de statut | `code` | Scénario |
+|---|---|---|
+| `200` | — | Réponse normale ; un quota épuisé, une clé expirée ou un abonnement absent renvoient aussi `200`, avec `is_active: false` pour indiquer que la clé est inutilisable |
+| `401` | `API_KEY_REQUIRED` | La requête ne contient pas de clé API |
+| `401` | `INVALID_API_KEY` | La clé n'existe pas ou est mal formée |
+| `401` | `API_KEY_DISABLED` | La clé a été désactivée |
+| `403` | `ACCESS_DENIED` | La clé a une liste d'IP autorisées / bloquées et l'IP actuelle n'est pas autorisée |
+
+Pour les erreurs générales, consultez [Codes d'erreur](/fr/docs/guide/errors).
 
 ---
 

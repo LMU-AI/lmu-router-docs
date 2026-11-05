@@ -174,22 +174,24 @@ curl -s https://api.lmuai.com/v1/user/balance \
 
 ## 6. エラーレスポンス
 
-キーがない、または無効な場合は `401` を返します。
+残高照会はゲートウェイ共通の API キー認証を使うため、エラーは他の API 呼び出しと同じ形式で返ります。リクエストにキーがない場合：
 
 ```json
 {
-  "type": "error",
-  "error": {
-    "type": "authentication_error",
-    "message": "Invalid API key"
-  }
+  "code": "API_KEY_REQUIRED",
+  "message": "API key is required in Authorization header (Bearer scheme), x-api-key header, or x-goog-api-key header"
 }
 ```
 
-| ステータスコード | 状況 |
-|---|---|
-| `200` | 正常。クォータを使い切っている場合やサブスクリプションがない場合も `200` で、`is_active: false` で利用不可を表します |
-| `401` | `Authorization` ヘッダーがない、形式が不正、またはキーが存在しない |
+| ステータスコード | `code` | 状況 |
+|---|---|---|
+| `200` | — | 正常。クォータを使い切った場合、キーの有効期限切れ、サブスクリプションがない場合も `200` で、`is_active: false` で利用不可を表します |
+| `401` | `API_KEY_REQUIRED` | リクエストに API キーがない |
+| `401` | `INVALID_API_KEY` | キーが存在しない、または形式が不正 |
+| `401` | `API_KEY_DISABLED` | キーが無効化されている |
+| `403` | `ACCESS_DENIED` | キーに IP 許可リスト / 拒否リストが設定されており、現在の IP は許可されていない |
+
+一般的なエラーは[エラーコード](/ja/docs/guide/errors)を参照してください。
 
 ---
 
