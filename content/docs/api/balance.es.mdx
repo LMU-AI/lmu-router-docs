@@ -174,22 +174,24 @@ curl -s https://api.lmuai.com/v1/user/balance \
 
 ## 6. Respuestas de error
 
-Una clave ausente o no válida devuelve `401`:
+La consulta de saldo usa la autenticación estándar por clave API de la puerta de enlace, así que los errores tienen el mismo formato que en las demás llamadas a la API. Cuando la solicitud no incluye clave:
 
 ```json
 {
-  "type": "error",
-  "error": {
-    "type": "authentication_error",
-    "message": "Invalid API key"
-  }
+  "code": "API_KEY_REQUIRED",
+  "message": "API key is required in Authorization header (Bearer scheme), x-api-key header, or x-goog-api-key header"
 }
 ```
 
-| Código de estado | Escenario |
-|---|---|
-| `200` | Respuesta normal; una cuota agotada o una suscripción ausente también devuelven `200` con `is_active: false` |
-| `401` | Falta el encabezado `Authorization`, tiene un formato incorrecto o la clave no existe |
+| Código de estado | `code` | Escenario |
+|---|---|---|
+| `200` | — | Respuesta normal; una cuota agotada, una clave caducada o una suscripción inexistente también devuelven `200`, con `is_active: false` para indicar que la clave no se puede usar |
+| `401` | `API_KEY_REQUIRED` | La solicitud no incluye clave API |
+| `401` | `INVALID_API_KEY` | La clave no existe o tiene un formato incorrecto |
+| `401` | `API_KEY_DISABLED` | La clave está desactivada |
+| `403` | `ACCESS_DENIED` | La clave tiene una lista de IP permitidas / bloqueadas y la IP actual no está permitida |
+
+Para los errores generales, consulta [Códigos de error](/es/docs/guide/errors).
 
 ---
 

@@ -174,22 +174,24 @@ curl -s https://api.lmuai.com/v1/user/balance \
 
 ## 6. 错误响应
 
-Key 缺失或无效时返回 `401`：
+查询余额走网关统一的 API Key 鉴权，出错时返回与业务接口相同的错误格式。请求没带 Key 时：
 
 ```json
 {
-  "type": "error",
-  "error": {
-    "type": "authentication_error",
-    "message": "Invalid API key"
-  }
+  "code": "API_KEY_REQUIRED",
+  "message": "API key is required in Authorization header (Bearer scheme), x-api-key header, or x-goog-api-key header"
 }
 ```
 
-| 状态码 | 场景 |
-|---|---|
-| `200` | 正常返回；额度用尽 / 订阅缺失也走 `200`，用 `is_active: false` 表示不可用 |
-| `401` | `Authorization` 头缺失、格式不对，或 Key 不存在 |
+| 状态码 | `code` | 场景 |
+|---|---|---|
+| `200` | — | 正常返回；额度用尽、Key 已过期、订阅缺失也走 `200`，用 `is_active: false` 表示不可用 |
+| `401` | `API_KEY_REQUIRED` | 请求没带 API Key |
+| `401` | `INVALID_API_KEY` | Key 不存在或格式不对 |
+| `401` | `API_KEY_DISABLED` | Key 已被停用 |
+| `403` | `ACCESS_DENIED` | 这把 Key 设了 IP 白名单 / 黑名单，当前 IP 不允许 |
+
+更多通用错误见[错误码速查](/docs/guide/errors)。
 
 ---
 

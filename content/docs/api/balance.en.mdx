@@ -174,22 +174,24 @@ curl -s https://api.lmuai.com/v1/user/balance \
 
 ## 6. Error responses
 
-A missing or invalid key returns `401`:
+Balance queries use the gateway's standard API key authentication, so errors come back in the same format as other API calls. When the request has no key:
 
 ```json
 {
-  "type": "error",
-  "error": {
-    "type": "authentication_error",
-    "message": "Invalid API key"
-  }
+  "code": "API_KEY_REQUIRED",
+  "message": "API key is required in Authorization header (Bearer scheme), x-api-key header, or x-goog-api-key header"
 }
 ```
 
-| Status code | Scenario |
-|---|---|
-| `200` | Normal response; exhausted quota or a missing subscription also returns `200` with `is_active: false` |
-| `401` | The `Authorization` header is missing or malformed, or the key does not exist |
+| Status code | `code` | Scenario |
+|---|---|---|
+| `200` | — | Normal response; an exhausted quota, an expired key or a missing subscription also returns `200`, with `is_active: false` meaning the key cannot be used |
+| `401` | `API_KEY_REQUIRED` | The request has no API key |
+| `401` | `INVALID_API_KEY` | The key does not exist or is malformed |
+| `401` | `API_KEY_DISABLED` | The key has been disabled |
+| `403` | `ACCESS_DENIED` | The key has an IP allowlist / blocklist and the current IP is not allowed |
+
+For general errors, see [Error Codes](/en/docs/guide/errors).
 
 ---
 

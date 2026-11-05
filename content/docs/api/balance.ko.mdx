@@ -174,22 +174,24 @@ curl -s https://api.lmuai.com/v1/user/balance \
 
 ## 6. 오류 응답
 
-키가 없거나 유효하지 않으면 `401`을 반환합니다.
+잔액 조회는 게이트웨이 공통 API 키 인증을 사용하므로, 오류도 다른 API 호출과 같은 형식으로 반환됩니다. 요청에 키가 없을 때:
 
 ```json
 {
-  "type": "error",
-  "error": {
-    "type": "authentication_error",
-    "message": "Invalid API key"
-  }
+  "code": "API_KEY_REQUIRED",
+  "message": "API key is required in Authorization header (Bearer scheme), x-api-key header, or x-goog-api-key header"
 }
 ```
 
-| 상태 코드 | 상황 |
-|---|---|
-| `200` | 정상. 할당량을 모두 사용했거나 구독이 없어도 `200`이며, `is_active: false`로 사용 불가를 나타냅니다 |
-| `401` | `Authorization` 헤더가 없거나 형식이 잘못되었거나 키가 존재하지 않음 |
+| 상태 코드 | `code` | 상황 |
+|---|---|---|
+| `200` | — | 정상 응답입니다. 한도 소진, 키 만료, 구독 없음도 `200`을 반환하며 `is_active: false`로 사용할 수 없음을 나타냅니다 |
+| `401` | `API_KEY_REQUIRED` | 요청에 API 키가 없음 |
+| `401` | `INVALID_API_KEY` | 키가 존재하지 않거나 형식이 잘못됨 |
+| `401` | `API_KEY_DISABLED` | 키가 비활성화됨 |
+| `403` | `ACCESS_DENIED` | 키에 IP 허용 목록 / 차단 목록이 설정되어 있고 현재 IP가 허용되지 않음 |
+
+일반적인 오류는 [오류 코드](/ko/docs/guide/errors)를 참조하세요.
 
 ---
 
