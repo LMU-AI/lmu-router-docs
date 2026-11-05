@@ -1,0 +1,204 @@
+---
+title: Guthaben mit einem API-Schlüssel abfragen
+description: "Fragen Sie das verbleibende Kontingent des aktuellen Schlüssels mit einem sk- API-Schlüssel ab: GET /v1/user/balance liefert is_active / balance / unit, GET /v1/credits liefert total_credits / total_usage im OpenRouter-Stil. Kompatibel mit dem Abfragezyklus von Drittanbieter-Clients wie cc-switch."
+ogDescription: "Guthaben-API von LMU AI: Fragen Sie Ihr verbleibendes Kontingent und den Schlüsselstatus allein mit einem API-Schlüssel ab. Unterstützt die generische Guthaben-Vorlage von cc-switch (/v1/user/balance) und das Format im OpenRouter-Stil (/v1/credits). Nur lesend, verbraucht nie Kontingent und funktioniert auch bei einem Guthaben von null."
+keywords:
+  - Guthaben mit API-Schlüssel abfragen
+  - LMU AI Guthaben-Endpunkt
+  - cc-switch Guthaben
+  - OpenRouter credits kompatibel
+  - Claude API Guthaben abfragen
+  - API für verbleibendes Kontingent
+alternateNames:
+  - API zur Guthabenabfrage
+  - verbleibendes Kontingent abfragen
+  - Guthaben per API prüfen
+faq:
+  - q: Verbraucht eine Guthabenabfrage Kontingent?
+    a: "Nein. Guthabenabfragen sind nur lesend: Sie werden nicht abgerechnet, verbrauchen kein Kontingent und aktualisieren nicht den Zeitstempel der letzten Nutzung des Schlüssels."
+  - q: Warum weicht das zurückgegebene balance von meinem Wallet-Guthaben ab?
+    a: "Hat dieser Schlüssel ein eigenes Gesamtkontingent, gibt der Endpunkt das verbleibende Kontingent genau dieses Schlüssels zurück; bei einer Abonnementgruppe das verbleibende Kontingent des Abonnements. Nur Schlüssel ohne eigenes Kontingent und ohne Abonnementgruppe greifen auf das Wallet-Guthaben des Kontos zurück."
+  - q: Kann ich das Guthaben abfragen, wenn es null ist oder das Kontingent aufgebraucht ist?
+    a: "Ja. Die Guthaben-Endpunkte validieren nur den Schlüssel selbst und erzwingen kein Kontingent. Sie sehen also immer, wie viel übrig ist – auch wenn Geschäftsaufrufe bereits abgelehnt würden. In diesem Fall ist is_active false."
+  - q: Wird das /v1/dashboard/billing von OpenAI unterstützt?
+    a: "Nein. Verwenden Sie /v1/user/balance oder /v1/credits. Wiederholte Abfragen von /v1/dashboard/billing/subscription oder /v1/dashboard/billing/usage liefern 404."
+  - q: Brauche ich Konto und Passwort, um das Guthaben abzufragen?
+    a: "Nein. Ein API-Schlüssel, der mit sk- beginnt, genügt; weder Anmeldung noch JWT sind erforderlich. Für den Export von Details auf Kontoebene nutzen Sie die JWT-API unter „Nutzungsdetails exportieren“."
+---
+
+Mit einem API-Schlüssel, der mit `sk-` beginnt, fragen Sie direkt **das verbleibende Kontingent und die Verfügbarkeit dieses Schlüssels** ab. Gedacht für Drittanbieter-Clients, die ein Guthaben in der Oberfläche anzeigen, oder für Skripte, die das Guthaben überwachen.
+
+<Callout type="info">
+**Diese Endpunkte sind nur lesend**: Sie werden nicht abgerechnet und verbrauchen kein Kontingent. Die Authentifizierung prüft nur den Schlüssel selbst, daher können Sie das verbleibende Kontingent auch dann noch lesen, wenn es aufgebraucht ist und Geschäftsaufrufe abgelehnt würden (in diesem Fall ist `is_active` `false`).
+</Callout>
+
+---
+
+## 1. Endpunktübersicht
+
+| Endpunkt | Passendes Client-Format | Liefert |
+|---|---|---|
+| `GET /v1/user/balance` | Generische Guthaben-Vorlage von cc-switch | `is_active` / `balance` / `unit`, plus `used` / `total`, wenn der Schlüssel ein Gesamtkontingent hat |
+| `GET /user/balance` | Wie oben, für eine Base URL ohne `/v1` | Identisch mit der Zeile darüber |
+| `GET /v1/credits` | OpenRouter-Stil | `data.total_credits` / `data.total_usage` |
+
+| Element | Wert |
+|---|---|
+| Base URL | `https://api.lmuai.com` |
+| Authentifizierung | `Authorization: Bearer <sk-...>` |
+| Antwortformat | JSON |
+| Anmeldung erforderlich | Nein, der API-Schlüssel genügt |
+
+<Callout type="warn">
+`/user/balance` ist ein Alias von `/v1/user/balance` (wird verwendet, wenn die Base URL des Clients ohne `/v1` konfiguriert ist). `/v1/credits` hat **keinen** Alias im Wurzelpfad und muss `/v1` enthalten.
+</Callout>
+
+---
+
+## 2. Welches Guthaben zurückgegeben wird
+
+`balance` ist nicht zwangsläufig das Wallet-Guthaben des Kontos, sondern **das verbleibende Kontingent, das dem aktuellen Schlüssel tatsächlich zur Verfügung steht**, ermittelt in dieser Reihenfolge:
+
+| Reihenfolge | Situation des Schlüssels | Bedeutung von `balance` |
+|---|---|---|
+| 1 | Der Schlüssel hat ein eigenes Gesamtkontingent | Das verbleibende Kontingent dieses Schlüssels (`total - used`) |
+| 2 | Der Schlüssel gehört zu einer Abonnementgruppe | Das verbleibende Kontingent des Abonnements (`unit` ist `requests`, wenn pro Anfrage gezählt wird) |
+| 3 | Nichts davon zutreffend | Das Wallet-Guthaben des Kontos |
+
+Zusätzlich gibt `is_active` an, ob der Schlüssel **aktuell für Geschäftsaufrufe genutzt werden kann**: `true`, wenn der Schlüssel aktiv, nicht abgelaufen und sein Gesamtkontingent nicht aufgebraucht ist; ebenfalls `false`, wenn der Schlüssel zu einer Abonnementgruppe ohne aktives Abonnement gehört.
+
+---
+
+## 3. `GET /v1/user/balance`
+
+```http
+GET /v1/user/balance HTTP/1.1
+Host: api.lmuai.com
+Authorization: Bearer sk-xxxxxxxx
+```
+
+**Antwort — Modus Wallet-Guthaben** (der Schlüssel hat kein Kontingent und gehört keiner Abonnementgruppe an):
+
+```json
+{
+  "is_active": true,
+  "balance": 1575.13,
+  "unit": "USD"
+}
+```
+
+**Antwort — der Schlüssel hat ein Gesamtkontingent** (in diesem Fall werden zusätzlich `used` und `total` zurückgegeben):
+
+```json
+{
+  "is_active": true,
+  "balance": 6,
+  "unit": "USD",
+  "used": 4,
+  "total": 10
+}
+```
+
+**Antwort — Abonnementgruppe, pro Anfrage gezählt**:
+
+```json
+{
+  "is_active": true,
+  "balance": 842,
+  "unit": "requests"
+}
+```
+
+### Antwortfelder
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `is_active` | bool | Ob der Schlüssel aktuell für Geschäftsaufrufe genutzt werden kann |
+| `balance` | number | Verbleibendes Kontingent; Einheit siehe `unit` |
+| `unit` | string | `USD` (Standard) oder `requests` bei Abonnementgruppen, die pro Anfrage zählen |
+| `used` | number | **Nur vorhanden, wenn der Schlüssel ein Gesamtkontingent hat**: bereits verbrauchtes Kontingent dieses Schlüssels |
+| `total` | number | **Nur vorhanden, wenn der Schlüssel ein Gesamtkontingent hat**: Gesamtkontingent dieses Schlüssels |
+
+<Callout type="info">
+`used` / `total` haben nur im Modus „Kontingent pro Schlüssel“ aussagekräftige Werte. Die Modi Wallet-Guthaben und Abonnement geben diese Felder nicht zurück – verwenden Sie `balance` und leiten Sie es nicht aus `total - used` ab.
+</Callout>
+
+---
+
+## 4. `GET /v1/credits`
+
+Guthabenformat im OpenRouter-Stil; Clients zeigen das verbleibende Kontingent als `total_credits - total_usage` an.
+
+```http
+GET /v1/credits HTTP/1.1
+Host: api.lmuai.com
+Authorization: Bearer sk-xxxxxxxx
+```
+
+**Antwort:**
+
+```json
+{
+  "data": {
+    "total_credits": 20,
+    "total_usage": 4
+  }
+}
+```
+
+| Feld | Typ | Beschreibung |
+|---|---|---|
+| `data.total_credits` | number | **Verbraucht + verbleibend**, sodass `total_credits - total_usage` genau dem verbleibenden Kontingent entspricht |
+| `data.total_usage` | number | Bereits verbrauchtes Kontingent |
+
+<Callout type="warn">
+`total_credits` ist ein zusammengesetzter Wert aus „verbraucht + verbleibend“ und **nicht** der wörtliche Wert der Kontingent-Obergrenze. Im Modus Wallet-Guthaben ist `total_usage` `0` und `total_credits` entspricht dem Guthaben; ist das Kontingent aufgebraucht, wird das verbleibende Kontingent auf `0` begrenzt, sodass `total_credits` dann der verbrauchten Menge entspricht.
+</Callout>
+
+---
+
+## 5. Einrichtung in Drittanbieter-Clients
+
+| Client / Szenario | Einrichtung |
+|---|---|
+| Generische Guthaben-Vorlage von cc-switch | Base URL `https://api.lmuai.com` (ohne `/v1`) oder `https://api.lmuai.com/v1` (mit `/v1`) funktionieren beide |
+| OpenRouter-kompatible Clients (Kelivo, RikkaHub usw.) | Base URL `https://api.lmuai.com/v1`; der Client ruft `/v1/credits` auf |
+| Eigenes Skript | Rufen Sie direkt `/v1/user/balance` auf; die Felder sind leichter zu lesen |
+
+```bash
+curl -s https://api.lmuai.com/v1/user/balance \
+  -H "Authorization: Bearer sk-xxxxxxxx"
+```
+
+---
+
+## 6. Fehlerantworten
+
+Ein fehlender oder ungültiger Schlüssel liefert `401`:
+
+```json
+{
+  "type": "error",
+  "error": {
+    "type": "authentication_error",
+    "message": "Invalid API key"
+  }
+}
+```
+
+| Statuscode | Szenario |
+|---|---|
+| `200` | Normale Antwort; ein aufgebrauchtes Kontingent oder ein fehlendes Abonnement liefert ebenfalls `200` mit `is_active: false` |
+| `401` | Der Header `Authorization` fehlt, ist falsch formatiert oder der Schlüssel existiert nicht |
+
+---
+
+## 7. Unterschied zu „Nutzungsdetails exportieren“
+
+| | Die Guthaben-Endpunkte dieser Seite | [Nutzungsdetails exportieren](/de/docs/api/usage-export) |
+|---|---|---|
+| Authentifizierung | `sk-` API-Schlüssel | Konto und Passwort gegen ein JWT |
+| Granularität | Verbleibendes Kontingent des aktuellen Schlüssels | Details pro Anfrage auf Kontoebene |
+| Anwendungsfall | Guthaben in einem Client anzeigen, Guthabenüberwachung | Rechnungsexport, Abgleich, Laden in ein BI |
+
+`GET /v1/usage` liegt dazwischen: Es akzeptiert ebenfalls einen `sk-`-Schlüssel und liefert die heutigen und kumulierten Nutzungsstatistiken sowie die Kontingentinformationen des aktuellen Schlüssels – mit detaillierteren Feldern.

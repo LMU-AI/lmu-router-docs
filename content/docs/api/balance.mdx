@@ -1,0 +1,204 @@
+---
+title: 用 API Key 查询余额
+description: 用 sk- API Key 查询当前密钥的剩余额度：GET /v1/user/balance 返回 is_active / balance / unit，GET /v1/credits 返回 OpenRouter 风格的 total_credits / total_usage，兼容 cc-switch 等第三方客户端轮询。
+ogDescription: 灵眸 AI 余额查询接口：只需 API Key 即可查询剩余额度与可用状态，支持 cc-switch 通用余额模板（/v1/user/balance）与 OpenRouter 风格（/v1/credits）两种格式；只读、不扣额度，余额为 0 也能查。
+keywords:
+  - API Key 查询余额
+  - 灵眸余额接口
+  - cc-switch 余额
+  - OpenRouter credits 兼容
+  - Claude API 余额查询
+  - 剩余额度 API
+alternateNames:
+  - 余额查询接口
+  - 查询剩余额度
+  - API 查余额
+faq:
+  - q: 查询余额会扣额度吗？
+    a: 不会。余额查询是只读接口，不计费、不消耗额度，也不会刷新这把 Key 的「最近使用时间」。
+  - q: 为什么返回的 balance 和我钱包里的余额不一样？
+    a: 如果这把 Key 单独设了总额度，接口返回的是 Key 自己的剩余额度；订阅分组下返回的是订阅剩余额度。只有既没设 Key 总额度、也不属于订阅分组的 Key，才返回账户钱包余额。
+  - q: 余额为 0 或额度已用尽，还能查余额吗？
+    a: 能。余额接口只校验 Key 本身是否有效，不做额度拦截，所以即使在业务调用会被拒绝的状态下，也能查到自己剩余多少。
+  - q: 支持 OpenAI 的 /v1/dashboard/billing 接口吗？
+    a: 不支持。请改用 /v1/user/balance 或 /v1/credits。轮询 /v1/dashboard/billing/subscription 或 /v1/dashboard/billing/usage 会返回 404。
+  - q: 查询余额需要账号密码吗？
+    a: 不需要。用 sk- 开头的 API Key 即可，不需要登录换取 JWT。需要账号级明细导出时，请用「导出 Usage 使用明细」里的 JWT 接口。
+---
+
+用 `sk-` 开头的 API Key 直接查询**当前这把 Key 的剩余额度与可用状态**，适合第三方客户端在界面上显示余额，或用脚本做余额监控。
+
+<Callout type="info">
+**这是只读接口**：不计费、不消耗额度。鉴权只校验 Key 本身，所以即使在额度已用尽、业务请求会被拒绝的状态下，也能查到剩余额度（此时返回 `is_active: false`）。
+</Callout>
+
+---
+
+## 1. 接口总览
+
+| 端点 | 适配的客户端格式 | 返回 |
+|---|---|---|
+| `GET /v1/user/balance` | cc-switch 通用余额模板 | `is_active` / `balance` / `unit`，Key 设了总额度时另带 `used` / `total` |
+| `GET /user/balance` | 同上，Base URL 不带 `/v1` 时的写法 | 与上一行完全相同 |
+| `GET /v1/credits` | OpenRouter 风格 | `data.total_credits` / `data.total_usage` |
+
+| 项 | 值 |
+|---|---|
+| Base URL | `https://api.lmuai.com` |
+| 鉴权方式 | `Authorization: Bearer <sk-...>` |
+| 返回格式 | JSON |
+| 是否需要登录 | 不需要，API Key 即可 |
+
+<Callout type="warn">
+`/user/balance` 是 `/v1/user/balance` 的别名（客户端把 Base URL 填成不带 `/v1` 的形式时会用到）。`/v1/credits` **没有**根路径别名，必须带 `/v1`。
+</Callout>
+
+---
+
+## 2. 余额口径
+
+接口返回的 `balance` 不一定是账户钱包余额，而是**当前 Key 实际可用的剩余额度**，按以下顺序取第一项：
+
+| 顺序 | Key 的情况 | `balance` 表示 |
+|---|---|---|
+| 1 | Key 单独设了总额度 | 该 Key 的剩余额度（`total - used`） |
+| 2 | Key 属于订阅分组 | 订阅的剩余额度（`unit` 为 `requests` 时表示剩余次数） |
+| 3 | 以上都不是 | 账户钱包余额 |
+
+另外，`is_active` 表示这把 Key **当前是否可用于业务调用**：Key 状态为启用、未过期、总额度未用尽时为 `true`；订阅分组下没有生效中的订阅时也会是 `false`。
+
+---
+
+## 3. `GET /v1/user/balance`
+
+```http
+GET /v1/user/balance HTTP/1.1
+Host: api.lmuai.com
+Authorization: Bearer sk-xxxxxxxx
+```
+
+**响应 —— 钱包余额模式**（Key 没限额、也不是订阅分组）：
+
+```json
+{
+  "is_active": true,
+  "balance": 1575.13,
+  "unit": "USD"
+}
+```
+
+**响应 —— Key 设了总额度**（此时额外返回 `used` 与 `total`）：
+
+```json
+{
+  "is_active": true,
+  "balance": 6,
+  "unit": "USD",
+  "used": 4,
+  "total": 10
+}
+```
+
+**响应 —— 订阅分组（按次数计）**：
+
+```json
+{
+  "is_active": true,
+  "balance": 842,
+  "unit": "requests"
+}
+```
+
+### 响应字段
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `is_active` | bool | Key 当前是否可用于业务调用 |
+| `balance` | number | 剩余额度，单位见 `unit` |
+| `unit` | string | `USD`（默认），或 `requests`（按次数计费的订阅分组） |
+| `used` | number | **仅在 Key 设了总额度时出现**，该 Key 的已用额度 |
+| `total` | number | **仅在 Key 设了总额度时出现**，该 Key 的总额度 |
+
+<Callout type="info">
+`used` / `total` 只在 Key 总额度模式下有确切值。钱包余额与订阅模式下没有这两个字段，请以 `balance` 为准，不要用 `total - used` 反推。
+</Callout>
+
+---
+
+## 4. `GET /v1/credits`
+
+OpenRouter 风格的余额格式，客户端按 `total_credits - total_usage` 显示剩余额度。
+
+```http
+GET /v1/credits HTTP/1.1
+Host: api.lmuai.com
+Authorization: Bearer sk-xxxxxxxx
+```
+
+**响应：**
+
+```json
+{
+  "data": {
+    "total_credits": 20,
+    "total_usage": 4
+  }
+}
+```
+
+| 字段 | 类型 | 说明 |
+|---|---|---|
+| `data.total_credits` | number | **已用 + 剩余**，保证 `total_credits - total_usage` 恰好等于剩余额度 |
+| `data.total_usage` | number | 已用额度 |
+
+<Callout type="warn">
+`total_credits` 是「已用 + 剩余」的合成值，**不是**额度上限的字面值。钱包余额模式下 `total_usage` 为 `0`、`total_credits` 就等于余额；额度已用尽时剩余额度被钳到 `0`，此时 `total_credits` 等于已用量。
+</Callout>
+
+---
+
+## 5. 在第三方客户端里填写
+
+| 客户端 / 场景 | 填法 |
+|---|---|
+| cc-switch 通用余额模板 | Base URL 填 `https://api.lmuai.com`（不带 `/v1`）或 `https://api.lmuai.com/v1`（带 `/v1`）都可以，两种都能命中 |
+| OpenRouter 兼容客户端（Kelivo、RikkaHub 等） | Base URL 填 `https://api.lmuai.com/v1`，客户端会请求 `/v1/credits` |
+| 自写脚本 | 建议直接调 `/v1/user/balance`，字段更直观 |
+
+```bash
+curl -s https://api.lmuai.com/v1/user/balance \
+  -H "Authorization: Bearer sk-xxxxxxxx"
+```
+
+---
+
+## 6. 错误响应
+
+Key 缺失或无效时返回 `401`：
+
+```json
+{
+  "type": "error",
+  "error": {
+    "type": "authentication_error",
+    "message": "Invalid API key"
+  }
+}
+```
+
+| 状态码 | 场景 |
+|---|---|
+| `200` | 正常返回；额度用尽 / 订阅缺失也走 `200`，用 `is_active: false` 表示不可用 |
+| `401` | `Authorization` 头缺失、格式不对，或 Key 不存在 |
+
+---
+
+## 7. 与「导出 Usage 使用明细」的区别
+
+| | 本文的余额接口 | [导出 Usage 使用明细](/docs/api/usage-export) |
+|---|---|---|
+| 鉴权 | `sk-` API Key | 账号密码换 JWT |
+| 粒度 | 当前 Key 的剩余额度 | 账号级逐条请求明细 |
+| 用途 | 客户端显示余额、余额监控 | 账单导出、对账、入 BI |
+
+`GET /v1/usage` 是介于两者之间的接口：同样用 `sk-` Key，返回当前 Key 的今日 / 累计用量统计与额度信息，字段更详细。

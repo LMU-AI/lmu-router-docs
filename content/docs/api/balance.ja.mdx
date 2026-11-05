@@ -1,0 +1,204 @@
+---
+title: API キーで残高を照会する
+description: "sk- API キーで現在のキーの残りクォータを照会：GET /v1/user/balance は is_active / balance / unit を、GET /v1/credits は OpenRouter 形式の total_credits / total_usage を返します。cc-switch などのサードパーティクライアントによるポーリングに対応。"
+ogDescription: "LMU AI の残高照会 API：API キーだけで残りクォータと利用可否を取得できます。cc-switch 汎用残高テンプレート（/v1/user/balance）と OpenRouter 形式（/v1/credits）の 2 種類に対応。読み取り専用でクォータを消費せず、残高が 0 でも照会できます。"
+keywords:
+  - API キーで残高照会
+  - LMU AI 残高エンドポイント
+  - cc-switch 残高
+  - OpenRouter credits 互換
+  - Claude API 残高照会
+  - 残りクォータ API
+alternateNames:
+  - 残高照会 API
+  - 残りクォータの照会
+  - API での残高確認
+faq:
+  - q: 残高照会でクォータは消費されますか？
+    a: いいえ。残高照会は読み取り専用のエンドポイントで、課金もクォータ消費もなく、キーの「最終使用時刻」も更新しません。
+  - q: 返される balance がウォレット残高と一致しないのはなぜですか？
+    a: このキーに個別の総クォータが設定されている場合、そのキー自身の残りクォータが返ります。サブスクリプショングループの場合はサブスクリプションの残りクォータです。キー単位の総クォータがなく、サブスクリプショングループにも属さないキーのみ、アカウントのウォレット残高を返します。
+  - q: 残高が 0 でも、またはクォータを使い切っていても照会できますか？
+    a: できます。残高エンドポイントはキー自体の有効性だけを検証し、クォータによる遮断は行いません。業務リクエストが拒否される状態でも、残りがいくらかを照会できます。
+  - q: OpenAI の /v1/dashboard/billing には対応していますか？
+    a: していません。/v1/user/balance または /v1/credits をご利用ください。/v1/dashboard/billing/subscription や /v1/dashboard/billing/usage をポーリングすると 404 が返ります。
+  - q: 残高照会にアカウントとパスワードは必要ですか？
+    a: 不要です。sk- で始まる API キーだけでよく、ログインして JWT を取得する必要はありません。アカウント単位の明細エクスポートには「使用状況詳細のエクスポート」にある JWT エンドポイントをご利用ください。
+---
+
+`sk-` で始まる API キーを使って、**現在のキーの残りクォータと利用可否**を直接照会できます。サードパーティクライアントが UI に残高を表示したり、スクリプトで残高を監視したりする用途に向いています。
+
+<Callout type="info">
+**これは読み取り専用のエンドポイントです**：課金もクォータ消費もありません。認証はキー自体のみを検証するため、クォータを使い切って業務リクエストが拒否される状態でも残りクォータを照会できます（その場合 `is_active` は `false` になります）。
+</Callout>
+
+---
+
+## 1. エンドポイント一覧
+
+| エンドポイント | 対応するクライアント形式 | 返却内容 |
+|---|---|---|
+| `GET /v1/user/balance` | cc-switch 汎用残高テンプレート | `is_active` / `balance` / `unit`。キーに総クォータがある場合は `used` / `total` も付きます |
+| `GET /user/balance` | 同上。Base URL に `/v1` を付けない場合の形式 | 上の行と完全に同じ |
+| `GET /v1/credits` | OpenRouter 形式 | `data.total_credits` / `data.total_usage` |
+
+| 項目 | 値 |
+|---|---|
+| Base URL | `https://api.lmuai.com` |
+| 認証方式 | `Authorization: Bearer <sk-...>` |
+| レスポンス形式 | JSON |
+| ログインの要否 | 不要。API キーだけで利用できます |
+
+<Callout type="warn">
+`/user/balance` は `/v1/user/balance` の別名です（クライアントで Base URL を `/v1` なしで設定した場合に使用）。`/v1/credits` にはルートパスの別名が**ありません**。必ず `/v1` を付けてください。
+</Callout>
+
+---
+
+## 2. どの残高が返るか
+
+`balance` は必ずしもアカウントのウォレット残高ではなく、**現在のキーが実際に利用できる残りクォータ**です。次の順に最初に当てはまるものが採用されます。
+
+| 順序 | キーの状況 | `balance` の意味 |
+|---|---|---|
+| 1 | キーに個別の総クォータが設定されている | そのキーの残りクォータ（`total - used`） |
+| 2 | キーがサブスクリプショングループに属している | サブスクリプションの残りクォータ（`unit` が `requests` の場合は残り回数） |
+| 3 | いずれでもない | アカウントのウォレット残高 |
+
+また `is_active` は、このキーが**現在業務リクエストに使えるか**を示します。キーのステータスが有効で、期限切れでなく、総クォータを使い切っていない場合に `true` になります。サブスクリプショングループに属していて有効なサブスクリプションがない場合も `false` です。
+
+---
+
+## 3. `GET /v1/user/balance`
+
+```http
+GET /v1/user/balance HTTP/1.1
+Host: api.lmuai.com
+Authorization: Bearer sk-xxxxxxxx
+```
+
+**レスポンス — ウォレット残高モード**（キーにクォータがなく、サブスクリプショングループでもない）：
+
+```json
+{
+  "is_active": true,
+  "balance": 1575.13,
+  "unit": "USD"
+}
+```
+
+**レスポンス — キーに総クォータがある場合**（`used` と `total` が追加されます）：
+
+```json
+{
+  "is_active": true,
+  "balance": 6,
+  "unit": "USD",
+  "used": 4,
+  "total": 10
+}
+```
+
+**レスポンス — 回数制のサブスクリプショングループ**：
+
+```json
+{
+  "is_active": true,
+  "balance": 842,
+  "unit": "requests"
+}
+```
+
+### レスポンスフィールド
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `is_active` | bool | このキーが現在業務リクエストに使えるか |
+| `balance` | number | 残りクォータ。単位は `unit` を参照 |
+| `unit` | string | `USD`（既定）、または回数制サブスクリプショングループの場合 `requests` |
+| `used` | number | **キーに総クォータがある場合のみ**。このキーの使用済みクォータ |
+| `total` | number | **キーに総クォータがある場合のみ**。このキーの総クォータ |
+
+<Callout type="info">
+`used` / `total` はキー個別クォータモードでのみ確かな値を持ちます。ウォレット残高モードとサブスクリプションモードでは返されません。`balance` を基準にし、`total - used` から逆算しないでください。
+</Callout>
+
+---
+
+## 4. `GET /v1/credits`
+
+OpenRouter 形式の残高フォーマットです。クライアントは `total_credits - total_usage` で残りクォータを表示します。
+
+```http
+GET /v1/credits HTTP/1.1
+Host: api.lmuai.com
+Authorization: Bearer sk-xxxxxxxx
+```
+
+**レスポンス：**
+
+```json
+{
+  "data": {
+    "total_credits": 20,
+    "total_usage": 4
+  }
+}
+```
+
+| フィールド | 型 | 説明 |
+|---|---|---|
+| `data.total_credits` | number | **使用済み + 残り**。`total_credits - total_usage` がちょうど残りクォータになるようにしています |
+| `data.total_usage` | number | 使用済みクォータ |
+
+<Callout type="warn">
+`total_credits` は「使用済み + 残り」の合成値であり、クォータ上限の文字通りの値では**ありません**。ウォレット残高モードでは `total_usage` が `0` になり、`total_credits` は残高と等しくなります。クォータを使い切ると残りは `0` に切り詰められるため、その場合の `total_credits` は使用済み量と等しくなります。
+</Callout>
+
+---
+
+## 5. サードパーティクライアントでの設定
+
+| クライアント / 用途 | 設定方法 |
+|---|---|
+| cc-switch 汎用残高テンプレート | Base URL は `https://api.lmuai.com`（`/v1` なし）でも `https://api.lmuai.com/v1`（`/v1` あり）でも動作します |
+| OpenRouter 互換クライアント（Kelivo、RikkaHub など） | Base URL に `https://api.lmuai.com/v1` を設定します。クライアントは `/v1/credits` を呼び出します |
+| 独自スクリプト | `/v1/user/balance` を直接呼び出すのがおすすめです。フィールドがより分かりやすいです |
+
+```bash
+curl -s https://api.lmuai.com/v1/user/balance \
+  -H "Authorization: Bearer sk-xxxxxxxx"
+```
+
+---
+
+## 6. エラーレスポンス
+
+キーがない、または無効な場合は `401` を返します。
+
+```json
+{
+  "type": "error",
+  "error": {
+    "type": "authentication_error",
+    "message": "Invalid API key"
+  }
+}
+```
+
+| ステータスコード | 状況 |
+|---|---|
+| `200` | 正常。クォータを使い切っている場合やサブスクリプションがない場合も `200` で、`is_active: false` で利用不可を表します |
+| `401` | `Authorization` ヘッダーがない、形式が不正、またはキーが存在しない |
+
+---
+
+## 7. 「使用状況詳細のエクスポート」との違い
+
+| | 本ページの残高エンドポイント | [使用状況詳細のエクスポート](/ja/docs/api/usage-export) |
+|---|---|---|
+| 認証 | `sk-` API キー | アカウントとパスワードで JWT を取得 |
+| 粒度 | 現在のキーの残りクォータ | アカウント単位のリクエストごとの明細 |
+| 用途 | クライアントでの残高表示、残高監視 | 請求書のエクスポート、照合、BI への取り込み |
+
+`GET /v1/usage` はその中間にあたるエンドポイントです。同じく `sk-` キーを使い、現在のキーの当日・累計の使用状況統計とクォータ情報を返します。フィールドはより詳細です。
