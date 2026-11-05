@@ -1,0 +1,204 @@
+---
+title: Consultar seu saldo com uma chave de API
+description: "Consulte a cota restante da chave atual com uma chave de API sk-: GET /v1/user/balance retorna is_active / balance / unit, e GET /v1/credits retorna total_credits / total_usage no estilo OpenRouter. Compatível com a consulta periódica de clientes de terceiros, como o cc-switch."
+ogDescription: "API de saldo da LMU AI: consulte sua cota restante e o estado da chave apenas com uma chave de API. Compatível com o modelo genérico de saldo do cc-switch (/v1/user/balance) e com o formato estilo OpenRouter (/v1/credits). Somente leitura, nunca consome cota e funciona mesmo com saldo zero."
+keywords:
+  - consultar saldo com chave de API
+  - endpoint de saldo LMU AI
+  - saldo cc-switch
+  - compatível com OpenRouter credits
+  - consulta de saldo Claude API
+  - API de cota restante
+alternateNames:
+  - API de consulta de saldo
+  - consultar cota restante
+  - verificar saldo via API
+faq:
+  - q: Consultar o saldo consome cota?
+    a: "Não. As consultas de saldo são somente leitura: não são cobradas, não consomem cota e não atualizam o registro de último uso da chave."
+  - q: Por que o balance retornado não é igual ao saldo da minha carteira?
+    a: "Se esta chave tiver cota total própria, o endpoint retorna a cota restante dessa chave; para um grupo de assinatura, retorna a cota restante da assinatura. Somente chaves sem cota própria e sem grupo de assinatura recorrem ao saldo da carteira da conta."
+  - q: Posso consultar o saldo quando ele é zero ou a cota está esgotada?
+    a: "Sim. Os endpoints de saldo apenas validam a chave e não aplicam bloqueio por cota, então você sempre consegue ver quanto resta, mesmo quando as chamadas de negócio seriam rejeitadas. Nesse caso is_active é false."
+  - q: O /v1/dashboard/billing da OpenAI é suportado?
+    a: "Não. Use /v1/user/balance ou /v1/credits. Consultar repetidamente /v1/dashboard/billing/subscription ou /v1/dashboard/billing/usage retorna 404."
+  - q: Preciso de conta e senha para consultar o saldo?
+    a: "Não. Basta uma chave de API que comece com sk-; não é preciso fazer login nem obter um JWT. Para exportar detalhes no nível da conta, use a API com JWT descrita em Exportar detalhes de uso."
+---
+
+Com uma chave de API que começa com `sk-` você consulta diretamente **a cota restante e a disponibilidade dessa chave**. Indicado para clientes de terceiros que exibem o saldo na interface, ou para scripts que monitoram o saldo.
+
+<Callout type="info">
+**Estes endpoints são somente leitura**: não são cobrados e não consomem cota. A autenticação valida apenas a chave, então você ainda consegue ler a cota restante mesmo quando a cota estiver esgotada e as chamadas de negócio forem rejeitadas (nesse caso `is_active` é `false`).
+</Callout>
+
+---
+
+## 1. Visão geral dos endpoints
+
+| Endpoint | Formato de cliente compatível | Retorna |
+|---|---|---|
+| `GET /v1/user/balance` | Modelo genérico de saldo do cc-switch | `is_active` / `balance` / `unit`, mais `used` / `total` quando a chave tem cota total |
+| `GET /user/balance` | Igual ao anterior, para uma Base URL sem `/v1` | Idêntico à linha anterior |
+| `GET /v1/credits` | Estilo OpenRouter | `data.total_credits` / `data.total_usage` |
+
+| Item | Valor |
+|---|---|
+| Base URL | `https://api.lmuai.com` |
+| Autenticação | `Authorization: Bearer <sk-...>` |
+| Formato da resposta | JSON |
+| Exige login? | Não, basta a chave de API |
+
+<Callout type="warn">
+`/user/balance` é um alias de `/v1/user/balance` (usado quando a Base URL do cliente é configurada sem `/v1`). `/v1/credits` **não** tem alias no caminho raiz e deve incluir `/v1`.
+</Callout>
+
+---
+
+## 2. Qual saldo é retornado
+
+`balance` não é necessariamente o saldo da carteira da conta: é **a cota restante realmente disponível para a chave atual**, resolvida nesta ordem:
+
+| Ordem | Situação da chave | O que `balance` significa |
+|---|---|---|
+| 1 | A chave tem cota total própria | A cota restante dessa chave (`total - used`) |
+| 2 | A chave pertence a um grupo de assinatura | A cota restante da assinatura (`unit` é `requests` quando contada por requisição) |
+| 3 | Nenhum dos anteriores | O saldo da carteira da conta |
+
+Além disso, `is_active` indica se a chave **pode ser usada agora para chamadas de negócio**: é `true` quando a chave está ativa, não expirou e sua cota total não está esgotada; também é `false` quando a chave pertence a um grupo de assinatura sem assinatura ativa.
+
+---
+
+## 3. `GET /v1/user/balance`
+
+```http
+GET /v1/user/balance HTTP/1.1
+Host: api.lmuai.com
+Authorization: Bearer sk-xxxxxxxx
+```
+
+**Resposta — modo saldo da carteira** (a chave não tem cota e não está em grupo de assinatura):
+
+```json
+{
+  "is_active": true,
+  "balance": 1575.13,
+  "unit": "USD"
+}
+```
+
+**Resposta — a chave tem cota total** (nesse caso `used` e `total` também são retornados):
+
+```json
+{
+  "is_active": true,
+  "balance": 6,
+  "unit": "USD",
+  "used": 4,
+  "total": 10
+}
+```
+
+**Resposta — grupo de assinatura contado por requisição**:
+
+```json
+{
+  "is_active": true,
+  "balance": 842,
+  "unit": "requests"
+}
+```
+
+### Campos da resposta
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `is_active` | bool | Se a chave pode ser usada agora para chamadas de negócio |
+| `balance` | number | Cota restante; veja `unit` para a unidade |
+| `unit` | string | `USD` (padrão), ou `requests` em grupos de assinatura contados por requisição |
+| `used` | number | **Presente apenas quando a chave tem cota total**: cota já usada por esta chave |
+| `total` | number | **Presente apenas quando a chave tem cota total**: cota total desta chave |
+
+<Callout type="info">
+`used` / `total` só têm valores significativos no modo de cota por chave. Os modos saldo da carteira e assinatura não retornam esses campos — use `balance` e não o deduza de `total - used`.
+</Callout>
+
+---
+
+## 4. `GET /v1/credits`
+
+Formato de saldo estilo OpenRouter; os clientes exibem a cota restante como `total_credits - total_usage`.
+
+```http
+GET /v1/credits HTTP/1.1
+Host: api.lmuai.com
+Authorization: Bearer sk-xxxxxxxx
+```
+
+**Resposta:**
+
+```json
+{
+  "data": {
+    "total_credits": 20,
+    "total_usage": 4
+  }
+}
+```
+
+| Campo | Tipo | Descrição |
+|---|---|---|
+| `data.total_credits` | number | **Usado + restante**, de modo que `total_credits - total_usage` seja exatamente a cota restante |
+| `data.total_usage` | number | Cota já usada |
+
+<Callout type="warn">
+`total_credits` é um valor composto de "usado + restante" — **não** é o limite literal da cota. No modo saldo da carteira, `total_usage` é `0` e `total_credits` equivale ao saldo; quando a cota se esgota, a cota restante é limitada a `0`, portanto nesse caso `total_credits` equivale à quantidade usada.
+</Callout>
+
+---
+
+## 5. Configuração em clientes de terceiros
+
+| Cliente / cenário | Como configurar |
+|---|---|
+| Modelo genérico de saldo do cc-switch | A Base URL `https://api.lmuai.com` (sem `/v1`) ou `https://api.lmuai.com/v1` (com `/v1`) funcionam igualmente |
+| Clientes compatíveis com OpenRouter (Kelivo, RikkaHub etc.) | Base URL `https://api.lmuai.com/v1`; o cliente solicitará `/v1/credits` |
+| Script próprio | Chame diretamente `/v1/user/balance`; os campos são mais fáceis de ler |
+
+```bash
+curl -s https://api.lmuai.com/v1/user/balance \
+  -H "Authorization: Bearer sk-xxxxxxxx"
+```
+
+---
+
+## 6. Respostas de erro
+
+Uma chave ausente ou inválida retorna `401`:
+
+```json
+{
+  "type": "error",
+  "error": {
+    "type": "authentication_error",
+    "message": "Invalid API key"
+  }
+}
+```
+
+| Código de status | Cenário |
+|---|---|
+| `200` | Resposta normal; cota esgotada ou assinatura ausente também retornam `200` com `is_active: false` |
+| `401` | O cabeçalho `Authorization` está ausente, mal formatado, ou a chave não existe |
+
+---
+
+## 7. Diferença em relação a "Exportar detalhes de uso"
+
+| | Os endpoints de saldo desta página | [Exportar detalhes de uso](/pt/docs/api/usage-export) |
+|---|---|---|
+| Autenticação | Chave de API `sk-` | Conta e senha trocadas por um JWT |
+| Granularidade | Cota restante da chave atual | Detalhes por requisição no nível da conta |
+| Caso de uso | Exibir o saldo em um cliente, monitoramento de saldo | Exportação de faturas, conciliação, carga em BI |
+
+`GET /v1/usage` fica entre os dois: também aceita uma chave `sk-` e retorna as estatísticas de uso de hoje e acumuladas, junto com as informações de cota da chave atual, com campos mais detalhados.

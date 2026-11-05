@@ -1,0 +1,204 @@
+---
+title: Query Your Balance with an API Key
+description: "Query the remaining quota of the current key with an sk- API key: GET /v1/user/balance returns is_active / balance / unit, and GET /v1/credits returns OpenRouter-style total_credits / total_usage, compatible with third-party clients such as cc-switch."
+ogDescription: "LMU AI balance API: query your remaining quota and key status with just an API key. Supports the cc-switch generic balance template (/v1/user/balance) and the OpenRouter-style format (/v1/credits). Read-only, never consumes quota, and works even when the balance is zero."
+keywords:
+  - query balance with API key
+  - LMU AI balance endpoint
+  - cc-switch balance
+  - OpenRouter credits compatible
+  - Claude API balance query
+  - remaining quota API
+alternateNames:
+  - balance query API
+  - query remaining quota
+  - check balance via API
+faq:
+  - q: Does querying the balance consume quota?
+    a: "No. Balance queries are read-only: they are not billed, do not consume quota, and do not refresh the key's last-used timestamp."
+  - q: Why is the returned balance different from my wallet balance?
+    a: "If this key has its own total quota, the endpoint returns that key's remaining quota; for a subscription group it returns the subscription's remaining quota. Only keys with no key-level quota and no subscription group fall back to the account wallet balance."
+  - q: Can I still query the balance when it is zero or the quota is used up?
+    a: "Yes. The balance endpoints only validate the key itself and do not enforce quota, so you can always see how much is left, even when business calls would be rejected. In that case is_active is false."
+  - q: Is OpenAI's /v1/dashboard/billing supported?
+    a: "No. Use /v1/user/balance or /v1/credits instead. Polling /v1/dashboard/billing/subscription or /v1/dashboard/billing/usage returns 404."
+  - q: Do I need an account and password to query the balance?
+    a: "No. An sk- API key is enough; no login and no JWT are required. For account-level detail export, use the JWT API described in Export Usage Details."
+---
+
+Use an `sk-` API key to query **the remaining quota and availability of that key**. It is intended for third-party clients that display a balance in their UI, or for scripts that monitor the balance.
+
+<Callout type="info">
+**These endpoints are read-only**: they are not billed and do not consume quota. Authentication only validates the key itself, so you can still read the remaining quota even after the quota is used up and business requests would be rejected (in that case `is_active` is `false`).
+</Callout>
+
+---
+
+## 1. Endpoint overview
+
+| Endpoint | Client format it matches | Returns |
+|---|---|---|
+| `GET /v1/user/balance` | cc-switch generic balance template | `is_active` / `balance` / `unit`, plus `used` / `total` when the key has a total quota |
+| `GET /user/balance` | Same as above, for a Base URL without `/v1` | Identical to the row above |
+| `GET /v1/credits` | OpenRouter style | `data.total_credits` / `data.total_usage` |
+
+| Item | Value |
+|---|---|
+| Base URL | `https://api.lmuai.com` |
+| Authentication | `Authorization: Bearer <sk-...>` |
+| Response format | JSON |
+| Login required | No, the API key is enough |
+
+<Callout type="warn">
+`/user/balance` is an alias of `/v1/user/balance` (used when a client's Base URL is set without `/v1`). `/v1/credits` has **no** root-path alias and must include `/v1`.
+</Callout>
+
+---
+
+## 2. Which balance is returned
+
+`balance` is not necessarily the account wallet balance — it is **the remaining quota actually available to the current key**, resolved in this order:
+
+| Order | Key situation | What `balance` means |
+|---|---|---|
+| 1 | The key has its own total quota | That key's remaining quota (`total - used`) |
+| 2 | The key belongs to a subscription group | The subscription's remaining quota (`unit` is `requests` when counted by request) |
+| 3 | Neither of the above | The account wallet balance |
+
+`is_active` additionally indicates whether the key **can currently be used for business calls**: it is `true` when the key is active, not expired and its total quota is not used up; it is also `false` when the key belongs to a subscription group with no active subscription.
+
+---
+
+## 3. `GET /v1/user/balance`
+
+```http
+GET /v1/user/balance HTTP/1.1
+Host: api.lmuai.com
+Authorization: Bearer sk-xxxxxxxx
+```
+
+**Response — wallet balance mode** (key has no quota and is not in a subscription group):
+
+```json
+{
+  "is_active": true,
+  "balance": 1575.13,
+  "unit": "USD"
+}
+```
+
+**Response — the key has a total quota** (in this case `used` and `total` are also returned):
+
+```json
+{
+  "is_active": true,
+  "balance": 6,
+  "unit": "USD",
+  "used": 4,
+  "total": 10
+}
+```
+
+**Response — subscription group counted by request**:
+
+```json
+{
+  "is_active": true,
+  "balance": 842,
+  "unit": "requests"
+}
+```
+
+### Response fields
+
+| Field | Type | Description |
+|---|---|---|
+| `is_active` | bool | Whether the key can currently be used for business calls |
+| `balance` | number | Remaining quota; see `unit` for the unit |
+| `unit` | string | `USD` (default), or `requests` for subscription groups counted by request |
+| `used` | number | **Only present when the key has a total quota** — quota already used by this key |
+| `total` | number | **Only present when the key has a total quota** — this key's total quota |
+
+<Callout type="info">
+`used` / `total` only have meaningful values in key-quota mode. Wallet balance and subscription modes do not return these fields — use `balance` and do not derive it from `total - used`.
+</Callout>
+
+---
+
+## 4. `GET /v1/credits`
+
+OpenRouter-style balance format; clients display the remaining quota as `total_credits - total_usage`.
+
+```http
+GET /v1/credits HTTP/1.1
+Host: api.lmuai.com
+Authorization: Bearer sk-xxxxxxxx
+```
+
+**Response:**
+
+```json
+{
+  "data": {
+    "total_credits": 20,
+    "total_usage": 4
+  }
+}
+```
+
+| Field | Type | Description |
+|---|---|---|
+| `data.total_credits` | number | **Used + remaining**, so that `total_credits - total_usage` equals exactly the remaining quota |
+| `data.total_usage` | number | Quota already used |
+
+<Callout type="warn">
+`total_credits` is a composite value of "used + remaining" — it is **not** the literal quota limit. In wallet balance mode `total_usage` is `0` and `total_credits` equals the balance; when the quota is used up the remaining quota is clamped to `0`, so `total_credits` then equals the amount used.
+</Callout>
+
+---
+
+## 5. Configuring third-party clients
+
+| Client / scenario | How to configure |
+|---|---|
+| cc-switch generic balance template | Base URL `https://api.lmuai.com` (without `/v1`) or `https://api.lmuai.com/v1` (with `/v1`) — both work |
+| OpenRouter-compatible clients (Kelivo, RikkaHub, etc.) | Base URL `https://api.lmuai.com/v1`; the client will request `/v1/credits` |
+| Your own script | Call `/v1/user/balance` directly — its fields are easier to read |
+
+```bash
+curl -s https://api.lmuai.com/v1/user/balance \
+  -H "Authorization: Bearer sk-xxxxxxxx"
+```
+
+---
+
+## 6. Error responses
+
+A missing or invalid key returns `401`:
+
+```json
+{
+  "type": "error",
+  "error": {
+    "type": "authentication_error",
+    "message": "Invalid API key"
+  }
+}
+```
+
+| Status code | Scenario |
+|---|---|
+| `200` | Normal response; exhausted quota or a missing subscription also returns `200` with `is_active: false` |
+| `401` | The `Authorization` header is missing or malformed, or the key does not exist |
+
+---
+
+## 7. Difference from "Export Usage Details"
+
+| | The balance endpoints in this page | [Export Usage Details](/en/docs/api/usage-export) |
+|---|---|---|
+| Authentication | `sk-` API key | Account and password exchanged for a JWT |
+| Granularity | Remaining quota of the current key | Account-level, per-request details |
+| Use case | Displaying the balance in a client, balance monitoring | Billing export, reconciliation, feeding a BI system |
+
+`GET /v1/usage` sits between the two: it also takes an `sk-` key and returns today's / cumulative usage statistics and quota information for the current key, with more detailed fields.

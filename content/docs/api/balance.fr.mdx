@@ -1,0 +1,204 @@
+---
+title: Consulter son solde avec une clé API
+description: "Consultez le quota restant de la clé courante avec une clé API sk- : GET /v1/user/balance renvoie is_active / balance / unit, et GET /v1/credits renvoie total_credits / total_usage au format OpenRouter. Compatible avec l'interrogation périodique de clients tiers comme cc-switch."
+ogDescription: "API de solde LMU AI : consultez votre quota restant et l'état de la clé avec une simple clé API. Prend en charge le modèle générique de solde de cc-switch (/v1/user/balance) et le format de style OpenRouter (/v1/credits). Lecture seule, ne consomme jamais de quota et fonctionne même avec un solde nul."
+keywords:
+  - consulter son solde avec une clé API
+  - endpoint de solde LMU AI
+  - solde cc-switch
+  - compatible OpenRouter credits
+  - consultation du solde Claude API
+  - API de quota restant
+alternateNames:
+  - API de consultation de solde
+  - consulter le quota restant
+  - vérifier son solde via l'API
+faq:
+  - q: La consultation du solde consomme-t-elle du quota ?
+    a: "Non. Les consultations de solde sont en lecture seule : elles ne sont pas facturées, ne consomment pas de quota et ne mettent pas à jour l'horodatage de dernière utilisation de la clé."
+  - q: Pourquoi le balance renvoyé diffère-t-il du solde de mon portefeuille ?
+    a: "Si cette clé possède son propre quota total, l'endpoint renvoie le quota restant de cette clé ; pour un groupe d'abonnement, il renvoie le quota restant de l'abonnement. Seules les clés sans quota propre et sans groupe d'abonnement retombent sur le solde du portefeuille du compte."
+  - q: Puis-je consulter le solde lorsqu'il est nul ou que le quota est épuisé ?
+    a: "Oui. Les endpoints de solde ne valident que la clé et n'appliquent pas de blocage lié au quota : vous pouvez donc toujours voir ce qu'il reste, même lorsque les appels métier seraient rejetés. Dans ce cas, is_active vaut false."
+  - q: Le /v1/dashboard/billing d'OpenAI est-il pris en charge ?
+    a: "Non. Utilisez /v1/user/balance ou /v1/credits. Une interrogation répétée de /v1/dashboard/billing/subscription ou /v1/dashboard/billing/usage renvoie 404."
+  - q: Faut-il un compte et un mot de passe pour consulter le solde ?
+    a: "Non. Une clé API commençant par sk- suffit ; ni connexion ni JWT ne sont nécessaires. Pour exporter des détails au niveau du compte, utilisez l'API à JWT décrite dans « Exporter les détails d'utilisation »."
+---
+
+Avec une clé API commençant par `sk-`, consultez directement **le quota restant et la disponibilité de cette clé**. Conçu pour les clients tiers qui affichent un solde dans leur interface, ou pour les scripts qui surveillent le solde.
+
+<Callout type="info">
+**Ces endpoints sont en lecture seule** : ils ne sont pas facturés et ne consomment pas de quota. L'authentification ne valide que la clé elle-même : vous pouvez donc toujours lire le quota restant même lorsqu'il est épuisé et que les appels métier seraient rejetés (dans ce cas, `is_active` vaut `false`).
+</Callout>
+
+---
+
+## 1. Vue d'ensemble des endpoints
+
+| Endpoint | Format de client pris en charge | Renvoie |
+|---|---|---|
+| `GET /v1/user/balance` | Modèle générique de solde de cc-switch | `is_active` / `balance` / `unit`, plus `used` / `total` si la clé possède un quota total |
+| `GET /user/balance` | Identique ci-dessus, pour une Base URL sans `/v1` | Identique à la ligne précédente |
+| `GET /v1/credits` | Style OpenRouter | `data.total_credits` / `data.total_usage` |
+
+| Élément | Valeur |
+|---|---|
+| Base URL | `https://api.lmuai.com` |
+| Authentification | `Authorization: Bearer <sk-...>` |
+| Format de réponse | JSON |
+| Connexion requise | Non, la clé API suffit |
+
+<Callout type="warn">
+`/user/balance` est un alias de `/v1/user/balance` (utilisé lorsque la Base URL du client est configurée sans `/v1`). `/v1/credits` n'a **pas** d'alias à la racine et doit inclure `/v1`.
+</Callout>
+
+---
+
+## 2. Quel solde est renvoyé
+
+`balance` n'est pas forcément le solde du portefeuille du compte : c'est **le quota restant réellement disponible pour la clé courante**, résolu dans cet ordre :
+
+| Ordre | Situation de la clé | Signification de `balance` |
+|---|---|---|
+| 1 | La clé possède son propre quota total | Le quota restant de cette clé (`total - used`) |
+| 2 | La clé appartient à un groupe d'abonnement | Le quota restant de l'abonnement (`unit` vaut `requests` lorsque le décompte se fait par requête) |
+| 3 | Aucun des deux | Le solde du portefeuille du compte |
+
+De plus, `is_active` indique si la clé **peut actuellement être utilisée pour des appels métier** : `true` lorsque la clé est active, non expirée et que son quota total n'est pas épuisé ; `false` également lorsque la clé appartient à un groupe d'abonnement sans abonnement actif.
+
+---
+
+## 3. `GET /v1/user/balance`
+
+```http
+GET /v1/user/balance HTTP/1.1
+Host: api.lmuai.com
+Authorization: Bearer sk-xxxxxxxx
+```
+
+**Réponse — mode solde du portefeuille** (la clé n'a pas de quota et n'est pas dans un groupe d'abonnement) :
+
+```json
+{
+  "is_active": true,
+  "balance": 1575.13,
+  "unit": "USD"
+}
+```
+
+**Réponse — la clé possède un quota total** (dans ce cas, `used` et `total` sont également renvoyés) :
+
+```json
+{
+  "is_active": true,
+  "balance": 6,
+  "unit": "USD",
+  "used": 4,
+  "total": 10
+}
+```
+
+**Réponse — groupe d'abonnement décompté par requête** :
+
+```json
+{
+  "is_active": true,
+  "balance": 842,
+  "unit": "requests"
+}
+```
+
+### Champs de la réponse
+
+| Champ | Type | Description |
+|---|---|---|
+| `is_active` | bool | Si la clé peut actuellement être utilisée pour des appels métier |
+| `balance` | number | Quota restant ; voir `unit` pour l'unité |
+| `unit` | string | `USD` (par défaut), ou `requests` pour les groupes d'abonnement décomptés par requête |
+| `used` | number | **Présent uniquement lorsque la clé possède un quota total** : quota déjà utilisé par cette clé |
+| `total` | number | **Présent uniquement lorsque la clé possède un quota total** : quota total de cette clé |
+
+<Callout type="info">
+`used` / `total` n'ont de valeur significative qu'en mode quota par clé. Les modes solde du portefeuille et abonnement ne renvoient pas ces champs — utilisez `balance` et ne le déduisez pas de `total - used`.
+</Callout>
+
+---
+
+## 4. `GET /v1/credits`
+
+Format de solde de style OpenRouter ; les clients affichent le quota restant comme `total_credits - total_usage`.
+
+```http
+GET /v1/credits HTTP/1.1
+Host: api.lmuai.com
+Authorization: Bearer sk-xxxxxxxx
+```
+
+**Réponse :**
+
+```json
+{
+  "data": {
+    "total_credits": 20,
+    "total_usage": 4
+  }
+}
+```
+
+| Champ | Type | Description |
+|---|---|---|
+| `data.total_credits` | number | **Utilisé + restant**, de sorte que `total_credits - total_usage` soit exactement le quota restant |
+| `data.total_usage` | number | Quota déjà utilisé |
+
+<Callout type="warn">
+`total_credits` est une valeur composite « utilisé + restant » — ce n'est **pas** la valeur littérale de la limite de quota. En mode solde du portefeuille, `total_usage` vaut `0` et `total_credits` équivaut au solde ; lorsque le quota est épuisé, le quota restant est ramené à `0`, donc `total_credits` équivaut alors à la quantité utilisée.
+</Callout>
+
+---
+
+## 5. Configuration dans les clients tiers
+
+| Client / scénario | Configuration |
+|---|---|
+| Modèle générique de solde de cc-switch | La Base URL `https://api.lmuai.com` (sans `/v1`) ou `https://api.lmuai.com/v1` (avec `/v1`) fonctionnent toutes deux |
+| Clients compatibles OpenRouter (Kelivo, RikkaHub, etc.) | Base URL `https://api.lmuai.com/v1` ; le client demandera `/v1/credits` |
+| Script personnel | Appelez directement `/v1/user/balance` ; ses champs sont plus faciles à lire |
+
+```bash
+curl -s https://api.lmuai.com/v1/user/balance \
+  -H "Authorization: Bearer sk-xxxxxxxx"
+```
+
+---
+
+## 6. Réponses d'erreur
+
+Une clé absente ou invalide renvoie `401` :
+
+```json
+{
+  "type": "error",
+  "error": {
+    "type": "authentication_error",
+    "message": "Invalid API key"
+  }
+}
+```
+
+| Code de statut | Scénario |
+|---|---|
+| `200` | Réponse normale ; un quota épuisé ou un abonnement absent renvoie aussi `200` avec `is_active: false` |
+| `401` | L'en-tête `Authorization` est absent ou mal formé, ou la clé n'existe pas |
+
+---
+
+## 7. Différence avec « Exporter les détails d'utilisation »
+
+| | Les endpoints de solde de cette page | [Exporter les détails d'utilisation](/fr/docs/api/usage-export) |
+|---|---|---|
+| Authentification | Clé API `sk-` | Compte et mot de passe échangés contre un JWT |
+| Granularité | Quota restant de la clé courante | Détails par requête au niveau du compte |
+| Cas d'usage | Affichage du solde dans un client, surveillance du solde | Export de factures, rapprochement, alimentation d'un BI |
+
+`GET /v1/usage` se situe entre les deux : il accepte également une clé `sk-` et renvoie les statistiques d'utilisation du jour et cumulées ainsi que les informations de quota de la clé courante, avec des champs plus détaillés.
