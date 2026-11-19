@@ -33,6 +33,7 @@
 
 - **不编造事实**：定价 / 限流 / 延迟 / 在线率等必须已核实，没有就问用户、别写（详见 `release` skill 步 0）。
 - 走**分支 + PR**，不直接提交 `main`。`content-dates.json` 别手改 / 别 stage（CI 从 git 历史刷新）。
+- **只有中文、英文参与搜索收录**（`lib/i18n.ts` 的 `INDEXED_LANGUAGES`，两站相同，2026-11-19 起）。其余 8 个语种照常构建、可访问，但页面是 `noindex,follow`，不进 sitemap、不发 hreflang。放开某语种只改那一处（`scripts/prodcheck.mjs` 的 `INDEXED_LANGS` 同步）。
 
 ## 提交前自检（= CI 门禁跑的两件事，本地绿≈CI 绿）
 

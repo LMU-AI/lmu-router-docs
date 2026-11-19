@@ -15,7 +15,15 @@ import {
   siteDescription,
   siteName,
 } from '@/lib/site';
-import { DIR, HTML_LANG, OG_LOCALE, i18n, localePrefix } from '@/lib/i18n';
+import {
+  DIR,
+  HTML_LANG,
+  OG_LOCALE,
+  i18n,
+  indexedLanguages,
+  isIndexedLanguage,
+  localePrefix,
+} from '@/lib/i18n';
 import { CLARITY_PROJECT_ID, GA_MEASUREMENT_ID, ORGANIZATION_ID } from '@/lib/variant';
 import { provider } from '@/lib/i18n-ui';
 import '../global.css';
@@ -37,6 +45,9 @@ export async function generateMetadata({
   const name = siteName(lang);
   const description = siteDescription(lang);
   const prefix = localePrefix(lang);
+  // 不参与收录的语种（见 lib/i18n.ts 的 INDEXED_LANGUAGES）：noindex,follow，且不输出 hreflang。
+  // 文档页的 generateMetadata 不设 robots，继承这里的值。
+  const indexed = isIndexedLanguage(lang);
 
   return {
     metadataBase: new URL(SITE_URL),
@@ -53,15 +64,19 @@ export async function generateMetadata({
     alternates: {
       // `/`(或 /en) 是通往文档首页的跳转，canonical 指向跳转终点。
       canonical: `${prefix}/docs`,
-      // 语言路径由 localePrefix 派生（默认语言无前缀）；遍历所有语种，x-default 指默认
-      // 语言（.com 中文 / .ai 英文）。index 在每个语种都存在（对照门禁保证），故列全语种。
+      // 语言路径由 localePrefix 派生（默认语言无前缀）；只在参与收录的语种之间互挂，x-default
+      // 指默认语言（.com 中文 / .ai 英文）。index 在每个语种都存在（对照门禁保证）。
       // 仅站内互指，不做跨域 alternates —— 两个域名按既定决策各自独立收录。
-      languages: {
-        ...Object.fromEntries(
-          i18n.languages.map((l) => [HTML_LANG[l], `${localePrefix(l)}/docs`]),
-        ),
-        'x-default': `${localePrefix(i18n.defaultLanguage)}/docs`,
-      },
+      ...(indexed
+        ? {
+            languages: {
+              ...Object.fromEntries(
+                indexedLanguages().map((l) => [HTML_LANG[l], `${localePrefix(l)}/docs`]),
+              ),
+              'x-default': `${localePrefix(i18n.defaultLanguage)}/docs`,
+            },
+          }
+        : {}),
       // llmstxt.org 规范的发现方式：/llms.txt + <link rel="alternate">。初期仅 cn/en 出
       // llms.txt，故只在这两种语言页广告该备用链，新语种不指向不存在的 /{lang}/llms.txt。
       ...(lang === 'cn' || lang === 'en'
@@ -96,10 +111,10 @@ export async function generateMetadata({
       images: ['/opengraph-image'],
     },
     robots: {
-      index: true,
+      index: indexed,
       follow: true,
       googleBot: {
-        index: true,
+        index: indexed,
         follow: true,
         'max-image-preview': 'large',
         'max-snippet': -1,
