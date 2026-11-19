@@ -28,6 +28,24 @@ export const i18n = defineI18n({
 
 export type Locale = (typeof i18n.languages)[number];
 
+// 参与搜索引擎收录的语种（两站相同）。其余语种的页面照常可访问、照常出现在语言切换里，
+// 但页面输出 noindex,follow，且不进 sitemap、不进 hreflang。
+//
+// 为什么（2026-11-19 定）：GSC 上 docs.lmuai.ai 46 页 × 10 语种 = 460 个网址全部停在
+// 「已发现 - 尚未编入索引」、一次都没被抓过。新站抓取配额有限，8 个派生语种把配额摊薄，
+// 人工维护的中英页反而排不上队。先集中到中英，等中英收录稳定后再按语种逐个放开
+// （改这里即可：sitemap / hreflang / robots 都从这里派生）。
+export const INDEXED_LANGUAGES: readonly Locale[] = ['cn', 'en'];
+
+export function isIndexedLanguage(lang: string): boolean {
+  return (INDEXED_LANGUAGES as readonly string[]).includes(lang);
+}
+
+// 参与收录的语种，保持 i18n.languages 的顺序（hreflang / sitemap 输出顺序与旧版一致）。
+export function indexedLanguages(): Locale[] {
+  return i18n.languages.filter((l) => isIndexedLanguage(l));
+}
+
 // html lang / hreflang 用的 BCP-47 标签（pt→pt-BR 巴西葡语）；openGraph 用的 locale。
 export const HTML_LANG: Record<string, string> = {
   cn: 'zh-CN', en: 'en', ja: 'ja', ko: 'ko', es: 'es',

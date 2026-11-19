@@ -1,7 +1,7 @@
 import type { MetadataRoute } from 'next';
 import { source } from '@/lib/source';
 import { SITE_URL } from '@/lib/site';
-import { HTML_LANG, i18n, localePrefix } from '@/lib/i18n';
+import { HTML_LANG, i18n, indexedLanguages, localePrefix } from '@/lib/i18n';
 import { lastModifiedOf } from '@/lib/last-modified';
 
 export default function sitemap(): MetadataRoute.Sitemap {
@@ -61,8 +61,10 @@ export default function sitemap(): MetadataRoute.Sitemap {
               ? 0.75
               : 0.6;
 
-    // 该页真实存在的所有语种（默认语言恒在，因为正在遍历它），按 i18n.languages 顺序。
-    const present = i18n.languages.filter((lang) => pagesByLang.get(lang)!.has(primaryPath));
+    // 该页真实存在、且参与收录的语种（默认语言恒在：正在遍历它，且它必在 INDEXED_LANGUAGES
+    // 里），按 i18n.languages 顺序。不参与收录的语种页面输出 noindex，提交进 sitemap 会被
+    // GSC 报「已提交的网址被 noindex 排除」，hreflang 指向 noindex 页也会被忽略，故整体略过。
+    const present = indexedLanguages().filter((lang) => pagesByLang.get(lang)!.has(primaryPath));
 
     // hreflang：每个存在的语种一条（BCP-47 标签 → 带前缀 URL）+ x-default 指默认语言。
     // 单语种页不互挂（避免自指冗余）。hreflang key 与页面 <link hreflang> 一致。

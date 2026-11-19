@@ -13,7 +13,15 @@ import { Mermaid } from '@/components/mermaid';
 import { getBreadcrumbItems } from 'fumadocs-core/breadcrumb';
 import { SITE_URL, siteName } from '@/lib/site';
 import { ORGANIZATION_ID } from '@/lib/variant';
-import { HTML_LANG, OG_LOCALE, i18n, localePrefix, docsPath } from '@/lib/i18n';
+import {
+  HTML_LANG,
+  OG_LOCALE,
+  i18n,
+  indexedLanguages,
+  isIndexedLanguage,
+  localePrefix,
+  docsPath,
+} from '@/lib/i18n';
 import { PLAZA_MODELS } from '@/lib/models';
 import { lastModifiedOf } from '@/lib/last-modified';
 import { LastUpdated } from '@/components/last-updated';
@@ -219,9 +227,11 @@ export async function generateMetadata({
   // hreflang：遍历所有语种，仅在该页真实存在（fallbackLanguage:null，未翻译即无此页）
   // 时纳入，避免指向 404。x-default 指默认语言（.com 中文 / .ai 英文）；单语种页不互挂。
   // 仅站内互指，不做跨域 alternates。key 用 BCP-47 标签（HTML_LANG），与 sitemap 一致。
-  const present = i18n.languages.filter((l) => !!source.getPage(slug, l));
+  // 只在参与收录的语种（INDEXED_LANGUAGES）之间互挂：不参与收录的语种页面是 noindex，
+  // 既不被别人指，自己也不输出 hreflang（hreflang 组要求自指，noindex 页挂了也会被忽略）。
+  const present = indexedLanguages().filter((l) => !!source.getPage(slug, l));
   const languages =
-    present.length > 1
+    isIndexedLanguage(lang) && present.length > 1
       ? {
           ...Object.fromEntries(present.map((l) => [HTML_LANG[l], docsPath(l, slug)])),
           'x-default': docsPath(i18n.defaultLanguage, slug),

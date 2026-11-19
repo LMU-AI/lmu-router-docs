@@ -40,6 +40,9 @@ const isEnPath = (p) => (IS_AI ? !p.startsWith('/cn/') : p.startsWith('/en/'));
 const HTML_LANG = { cn: 'zh-CN', en: 'en', ja: 'ja', ko: 'ko', es: 'es', pt: 'pt-BR', de: 'de', fr: 'fr', ru: 'ru', ar: 'ar' };
 const ALL_LANGS = Object.keys(HTML_LANG);
 const ROOT_LANG = IS_AI ? 'en' : 'cn'; // 裸路径承载的语言码
+// 参与搜索收录的语种（镜像 lib/i18n.ts 的 INDEXED_LANGUAGES）。其余语种页面 noindex,follow、
+// 不进 sitemap、不发 hreflang。
+const INDEXED_LANGS = ['cn', 'en'];
 // CJK 表意/音节文字描述天然紧凑，其余（拉丁/西里尔/阿拉伯）更长 —— description 长度按此分档。
 const CJK_LANGS = new Set(['cn', 'ja', 'ko']);
 // 「最后更新」文案按语种（镜像 lib/i18n-ui.ts 的 lastUpdate 与 components/last-updated.tsx 的 LABELS）。
@@ -519,6 +522,32 @@ async function main() {
     locs.some((l) => l.endsWith('/docs/guide/errors')), '');
   check('next', 'sitemap 不含 guide/payment',
     !locs.some((l) => l.includes('payment')), '');
+
+  // 只有 INDEXED_LANGS 参与收录：其余语种页面 noindex，进 sitemap 会被 GSC 报
+  // 「已提交的网址被 noindex 排除」。反过来，sitemap 里的页面一个都不许带 noindex。
+  const offIndexLocs = locs.filter((l) => !INDEXED_LANGS.includes(langOf(new URL(l).pathname)));
+  check('next', `sitemap 只含参与收录的语种（${INDEXED_LANGS.join('/')}）`, offIndexLocs.length === 0,
+    offIndexLocs.length
+      ? `${offIndexLocs.length} 条越界，如 ${offIndexLocs.slice(0, 4).map((l) => new URL(l).pathname).join(', ')}`
+      : `${locs.length} 条全部属于 ${INDEXED_LANGS.join('/')}`);
+  const noindexInSitemap = [...pageBodies]
+    .filter(([, h]) => /<meta[^>]+name="robots"[^>]+noindex/i.test(h))
+    .map(([l]) => new URL(l).pathname);
+  check('next', 'sitemap 中的页面均未发 noindex', noindexInSitemap.length === 0,
+    noindexInSitemap.slice(0, 6).join(', ') || `${pageBodies.size} 页均可收录`);
+
+  // 不参与收录的语种：页面照常 200（给真人看、语言切换可达），但 noindex,follow 且不发 hreflang。
+  // 取一个默认语言的非首页文档页，换成 /ja 前缀即该页的 ja 版（ja 在两变体下都不在 INDEXED_LANGS）。
+  const sampleSlug = locs.map((l) => new URL(l).pathname)
+    .find((p) => langOf(p) === ROOT_LANG && p.startsWith('/docs/') && !p.includes('compliance'));
+  for (const p of ['/ja/docs', sampleSlug && `/ja${sampleSlug}`].filter(Boolean)) {
+    const r = await get(p);
+    const robotsMeta = (r.body.match(/<meta[^>]+name="robots"[^>]*>/i) ?? [''])[0];
+    check('next', `${p} 仍 200 且 noindex,follow、无 hreflang`,
+      r.status === 200 && /noindex/i.test(robotsMeta) && /(?<!no)follow/i.test(robotsMeta)
+        && !/<link\b[^>]*\bhreflang=/i.test(r.body),
+      `status=${r.status} robots=${robotsMeta || '缺失'}`);
+  }
 
   // --- 5. 敏感内容 ---------------------------------------------------------
   group('5. 敏感内容下线');
