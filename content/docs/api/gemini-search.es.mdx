@@ -1,0 +1,255 @@
+---
+title: API de búsqueda web de Gemini
+description: Activa el grounding con Google Search a través de la API nativa v1beta de Gemini en LMU AI para obtener respuestas basadas en páginas web en vivo, junto con las consultas de búsqueda, las fuentes citadas y las citas a nivel de oración.
+ogDescription: "Guía de búsqueda web de Gemini en LMU AI: agrega la herramienta google_search a una solicitud generateContent para conectarte a internet. El groundingMetadata de la respuesta devuelve las consultas de búsqueda, los enlaces a las fuentes y los segmentos citados, con soporte para streaming y varios modelos Gemini."
+keywords:
+  - búsqueda web de Gemini
+  - grounding de Gemini con Google Search
+  - API de búsqueda de Gemini
+  - herramienta google_search
+  - groundingMetadata
+  - citas de Gemini
+  - grounding con gemini-3.5-flash-lite
+  - grounding con gemini-3.8-flash
+  - relay de API de Gemini
+  - API de Gemini en LMU AI
+alternateNames:
+  - Referencia de la API de grounding de Gemini
+  - API de Gemini aumentada con búsqueda
+  - API de búsqueda web de Gemini en LMU AI
+faq:
+  - q: ¿Existe un modelo de búsqueda dedicado de Gemini?
+    a: No. La búsqueda web es una herramienta. Agrega google_search a los tools de la solicitud y el modelo decide por sí mismo si debe buscar y qué buscar. Los modelos comunes, como gemini-3.5-flash-lite y gemini-3.8-flash, la admiten.
+  - q: La solicitud fue exitosa, ¿por qué no hay groundingMetadata?
+    a: O bien el modelo decidió que la pregunta no necesitaba una búsqueda, o bien el upstream detrás del grupo de tu API Key no ejecuta búsquedas web. Para la búsqueda web, usa una API Key del grupo "Gemini-官方Vertex".
+  - q: ¿Puedo buscar en la web con el protocolo de OpenAI o de Anthropic?
+    a: La búsqueda se ejecuta, pero la respuesta no incluye fuentes estructuradas; los enlaces solo aparecen en el texto de la respuesta. Si necesitas la lista de fuentes y las citas a nivel de oración, usa el protocolo nativo de Gemini.
+  - q: ¿Dónde están las fuentes en una respuesta en streaming?
+    a: groundingMetadata solo aparece en el último evento del stream. Primero concatena el texto de todos los eventos y luego lee las fuentes del último evento.
+  - q: ¿Por qué los enlaces de las fuentes comienzan con vertexaisearch.cloud.google.com?
+    a: Son enlaces de redirección que devuelve Google y llevan a la página original al abrirlos. El dominio del sitio de origen está en el campo domain.
+---
+
+Agrega la herramienta `google_search` a una solicitud nativa `generateContent` de Gemini y el modelo buscará en la web cuando lo necesite, para luego responder con base en los resultados. La respuesta también devuelve **las consultas de búsqueda, las fuentes citadas y qué fuente respalda cada oración**. Úsala cuando necesites información actualizada o debas mostrar de dónde proviene una respuesta.
+
+<Callout type="warn" title='Usa una API Key del grupo "Gemini-官方Vertex"'>
+
+La búsqueda la ejecuta el upstream. En la consola, crea tu API Key en el grupo **Gemini-官方Vertex**.
+
+Es posible que los upstreams detrás de otros grupos de Gemini no ejecuten búsquedas: la solicitud igual devuelve 200, pero la respuesta no tiene `groundingMetadata` y la respuesta no se basa en resultados de búsqueda en vivo.
+
+</Callout>
+
+---
+
+## 1. Descripción general
+
+| Elemento | Valor |
+|---|---|
+| Base URL | `https://api.lmuai.com` |
+| Sin streaming | `POST /v1beta/models/{model}:generateContent` |
+| Streaming | `POST /v1beta/models/{model}:streamGenerateContent?alt=sse` |
+| Autenticación | `x-goog-api-key: <your sk- API Key>` |
+| Activar la búsqueda | Agrega `"tools": [{"google_search": {}}]` al cuerpo de la solicitud |
+| Fuentes | `candidates[0].groundingMetadata` en la respuesta |
+
+---
+
+## 2. Inicio rápido
+
+```bash
+curl -X POST \
+  'https://api.lmuai.com/v1beta/models/gemini-3.5-flash-lite:generateContent' \
+  -H 'x-goog-api-key: YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "contents": [{
+      "role": "user",
+      "parts": [{"text": "What is the website api.lmuai.com? Please cite sources."}]
+    }],
+    "tools": [{"google_search": {}}],
+    "generationConfig": {"maxOutputTokens": 2048}
+  }'
+```
+
+Ejemplo de respuesta (se omiten algunos campos):
+
+```json
+{
+  "candidates": [{
+    "content": {
+      "role": "model",
+      "parts": [{"text": "api.lmuai.com is the LLM API platform of LMU AI..."}]
+    },
+    "finishReason": "STOP",
+    "groundingMetadata": {
+      "webSearchQueries": ["api lmuai com", "lmuai com"],
+      "groundingChunks": [
+        {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/...", "title": "lmuai.com", "domain": "lmuai.com"}},
+        {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/...", "title": "lmuai.ai", "domain": "lmuai.ai"}}
+      ],
+      "groundingSupports": [{
+        "segment": {"endIndex": 52, "text": "api.lmuai.com is the LLM API platform of LMU AI"},
+        "groundingChunkIndices": [0, 1]
+      }],
+      "searchEntryPoint": {"renderedContent": "<style>...</style><div>...</div>"}
+    }
+  }],
+  "usageMetadata": {"promptTokenCount": 43, "candidatesTokenCount": 288}
+}
+```
+
+---
+
+## 3. Parámetros de la solicitud
+
+En comparación con una solicitud normal de Gemini, lo único que se agrega es `tools`:
+
+| Campo | Obligatorio | Descripción |
+|---|---|---|
+| `contents` | Sí | La conversación, escrita igual que en una solicitud normal de Gemini |
+| `tools` | Sí | Siempre `[{"google_search": {}}]`. El modelo decide si busca y cuántas veces |
+| `generationConfig.maxOutputTokens` | Recomendado | Al menos `2048`. Los modelos de razonamiento (como `gemini-4-hydrogen`) necesitan más; de lo contrario, la respuesta puede cortarse con `MAX_TOKENS` y no obtendrás ni la respuesta ni las fuentes |
+
+<Callout type="info" title="Una solicitud puede ejecutar varias búsquedas">
+
+El modelo puede dividir una pregunta en varias consultas de búsqueda. Las búsquedas que realmente ejecutó aparecen en `webSearchQueries` en la respuesta.
+
+</Callout>
+
+---
+
+## 4. Campos de la respuesta: groundingMetadata
+
+| Campo | Descripción |
+|---|---|
+| `webSearchQueries` | Las consultas de búsqueda que realmente se ejecutaron para esta solicitud |
+| `groundingChunks[].web.uri` | Enlace a la fuente. Es un enlace de redirección de Google (`vertexaisearch.cloud.google.com/...`) que lleva a la página original |
+| `groundingChunks[].web.title` | Título de la fuente, normalmente el dominio del sitio |
+| `groundingChunks[].web.domain` | El dominio del sitio de origen, como `lmuai.com` |
+| `groundingSupports[].segment` | Un fragmento de la respuesta: `text` es el contenido, `startIndex` / `endIndex` indican su posición (`startIndex` se omite cuando el fragmento comienza al principio) |
+| `groundingSupports[].groundingChunkIndices` | Qué fuentes cita este fragmento, como índices de `groundingChunks` |
+| `searchEntryPoint.renderedContent` | Fragmento HTML con las sugerencias de búsqueda de Google |
+
+<Callout type="warn" title="Cuando muestres respuestas a usuarios finales">
+
+Si muestras respuestas con búsqueda web a usuarios finales, Google exige que también muestres las sugerencias de búsqueda de `searchEntryPoint.renderedContent`. Consulta la [documentación de Google](https://ai.google.dev/gemini-api/docs/google-search).
+
+</Callout>
+
+---
+
+## 5. Ejemplo en Python: leer las fuentes y las citas a nivel de oración
+
+```python
+import requests
+
+API_KEY = "YOUR_API_KEY"
+url = "https://api.lmuai.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
+
+resp = requests.post(
+    url,
+    headers={"x-goog-api-key": API_KEY},
+    json={
+        "contents": [{"role": "user", "parts": [{"text": "Which LLM API platforms are available in China? Please cite sources."}]}],
+        "tools": [{"google_search": {}}],
+        "generationConfig": {"maxOutputTokens": 2048},
+    },
+    timeout=180,
+)
+resp.raise_for_status()
+cand = resp.json()["candidates"][0]
+
+answer = "".join(p.get("text", "") for p in cand["content"]["parts"])
+meta = cand.get("groundingMetadata", {})
+chunks = meta.get("groundingChunks", [])
+
+print("Answer:", answer)
+print("Queries:", meta.get("webSearchQueries", []))
+
+for i, c in enumerate(chunks):
+    print(f"[{i}] {c['web'].get('domain')}  {c['web'].get('uri')}")
+
+for s in meta.get("groundingSupports", []):
+    refs = [chunks[i]["web"].get("domain") for i in s.get("groundingChunkIndices", [])]
+    print(s["segment"].get("text"), "->", refs)
+
+if not meta:
+    print("No web search this time: the model saw no need to search, or this group does not support web search.")
+```
+
+---
+
+## 6. Streaming
+
+Cambia el endpoint a `streamGenerateContent?alt=sse` y conserva el cuerpo de la solicitud:
+
+```bash
+curl -N -X POST \
+  'https://api.lmuai.com/v1beta/models/gemini-3.5-flash-lite:streamGenerateContent?alt=sse' \
+  -H 'x-goog-api-key: YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "contents": [{"role": "user", "parts": [{"text": "What is in the AI industry news today?"}]}],
+    "tools": [{"google_search": {}}],
+    "generationConfig": {"maxOutputTokens": 2048}
+  }'
+```
+
+Cada evento `data:` lleva un fragmento de texto. **`groundingMetadata` solo aparece en el último evento**: concatena el texto de todos los eventos y luego lee las fuentes del último evento.
+
+---
+
+## 7. Modelos compatibles
+
+Los siguientes modelos se han probado con búsqueda web:
+
+| Modelo | Notas |
+|---|---|
+| `gemini-3.5-flash-lite` | El más rápido y económico, ideal para llamadas por lotes |
+| `gemini-3.8-flash` | Suele citar más fuentes, ideal cuando las citas son importantes |
+| `gemini-3.6-flash` / `gemini-3.7-flash` | Similares a 3.8 Flash |
+| `gemini-3-flash-preview` | Funciona |
+| `gemini-4-hydrogen` | Ejecuta muchas búsquedas y tarda más; configura un `maxOutputTokens` alto |
+
+Los modelos disponibles en tu grupo aparecen en la página "Modelos disponibles" de la consola.
+
+---
+
+## 8. Llamadas con el protocolo de OpenAI o de Anthropic
+
+Los modelos Gemini también se pueden llamar con el [protocolo de OpenAI o de Anthropic](/es/docs/guide/api-protocols), y la herramienta de búsqueda de cada protocolo activa una búsqueda web:
+
+| Protocolo | Herramienta de búsqueda | Busca en la web | Fuentes estructuradas |
+|---|---|---|---|
+| Gemini nativo | `{"google_search": {}}` | ✅ | ✅ `groundingMetadata` |
+| OpenAI Chat Completions | `{"type": "web_search"}` | ✅ | ❌ enlaces solo en el texto de la respuesta |
+| OpenAI Responses | `{"type": "web_search"}` | ✅ | ❌ enlaces solo en el texto de la respuesta |
+| Anthropic Messages | `{"type": "web_search_20250305", "name": "web_search"}` | ✅ | ❌ enlaces solo en el texto de la respuesta |
+
+**Si necesitas la lista de fuentes o las citas a nivel de oración, usa el protocolo nativo de Gemini.**
+
+<Callout type="info">
+
+Una herramienta de función común llamada `google_search` (`"type": "function"`) no activa una búsqueda web. Sigue siendo una función que ejecuta tu propio programa.
+
+</Callout>
+
+---
+
+## 9. Costo
+
+Las solicitudes con búsqueda web se cobran según el modelo utilizado. Puedes ver el costo de cada solicitud en la página "Uso" de la consola. Una solicitud puede ejecutar varias búsquedas, y la salida suele ser más larga que la de una solicitud normal.
+
+---
+
+## 10. Solución de problemas
+
+| Síntoma | Causa | Solución |
+|---|---|---|
+| 200 pero sin `groundingMetadata` | El modelo no consideró necesario buscar, o el upstream del grupo no ejecuta búsquedas | Usa una Key del grupo "Gemini-官方Vertex"; pide explícitamente búsqueda web o fuentes en el prompt |
+| `finishReason` es `MAX_TOKENS` y la respuesta está vacía | El razonamiento consumió el presupuesto de salida | Aumenta `maxOutputTokens` |
+| `404 Not Found` | Ruta incorrecta, o el modelo no está en tu grupo | Verifica que la ruta sea `/v1beta/models/{model}:generateContent` y confirma el nombre del modelo en la página "Modelos disponibles" |
+| `401 Unauthorized` | Key incorrecta, o la Key no está en el encabezado `x-goog-api-key` | Revisa el encabezado de la solicitud |
+
+Para los detalles del protocolo, consulta [Protocolos de API](/es/docs/guide/api-protocols); para los errores comunes, consulta [Códigos de error](/es/docs/guide/errors).

@@ -1,0 +1,255 @@
+---
+title: Gemini Web検索 API
+description: LMU AI の Gemini ネイティブ v1beta API で Google Search グラウンディングを有効にすると、ライブの Web ページに基づく回答に加えて、検索クエリ、引用元、文単位の引用を取得できます。
+ogDescription: "LMU AI Gemini Web検索ガイド：generateContent リクエストに google_search ツールを追加するだけでオンライン検索が可能になります。レスポンスの groundingMetadata には検索クエリ、参照元リンク、引用されたセグメントが含まれ、ストリーミングや複数の Gemini モデルにも対応しています。"
+keywords:
+  - Gemini Web検索
+  - Gemini Google Search グラウンディング
+  - Gemini 検索 API
+  - google_search ツール
+  - groundingMetadata
+  - Gemini 引用
+  - gemini-3.5-flash-lite グラウンディング
+  - gemini-3.8-flash グラウンディング
+  - Gemini API 中継
+  - LMU AI Gemini API
+alternateNames:
+  - Gemini グラウンディング API リファレンス
+  - Gemini 検索拡張 API
+  - LMU AI Gemini Web検索 API
+faq:
+  - q: Gemini には検索専用のモデルがありますか？
+    a: いいえ。Web検索はツールとして提供されます。リクエストの tools に google_search を追加すると、検索するかどうか、何を検索するかはモデルが自動で判断します。gemini-3.5-flash-lite や gemini-3.8-flash などの一般的なモデルが対応しています。
+  - q: リクエストは成功したのに、groundingMetadata がないのはなぜですか？
+    a: モデルが検索不要と判断したか、API Key が属するグループの上流が Web検索を実行しないかのどちらかです。Web検索には「Gemini-官方Vertex」グループの API Key を使用してください。
+  - q: OpenAI や Anthropic のプロトコルで Web検索はできますか？
+    a: 検索は実行されますが、レスポンスに構造化された参照元は含まれず、リンクは回答テキスト内にのみ表示されます。参照元リストや文単位の引用が必要な場合は、Gemini ネイティブプロトコルを使用してください。
+  - q: ストリーミングレスポンスでは参照元はどこにありますか？
+    a: groundingMetadata はストリームの最後のイベントにのみ含まれます。まずすべてのイベントのテキストを連結し、その後最後のイベントから参照元を読み取ってください。
+  - q: 参照元リンクが vertexaisearch.cloud.google.com で始まるのはなぜですか？
+    a: これらは Google が返すリダイレクトリンクで、開くと元のページに移動します。参照元サイトのドメインは domain フィールドに含まれています。
+---
+
+Gemini ネイティブの `generateContent` リクエストに `google_search` ツールを追加すると、モデルは必要に応じて Web を検索し、その結果に基づいて回答します。レスポンスには **検索クエリ、引用された参照元、各文の根拠となる参照元** も含まれます。最新の情報が必要な場合や、回答の出典を示す必要がある場合に使用してください。
+
+<Callout type="warn" title='「Gemini-官方Vertex」グループの API Key を使用してください'>
+
+検索は上流で実行されます。コンソールで、**Gemini-官方Vertex** グループに API Key を作成してください。
+
+他の Gemini グループの上流では検索が実行されない場合があります。その場合もリクエストは 200 を返しますが、レスポンスに `groundingMetadata` は含まれず、回答はライブ検索結果に基づいたものになりません。
+
+</Callout>
+
+---
+
+## 1. 概要
+
+| 項目 | 値 |
+|---|---|
+| Base URL | `https://api.lmuai.com` |
+| 非ストリーミング | `POST /v1beta/models/{model}:generateContent` |
+| ストリーミング | `POST /v1beta/models/{model}:streamGenerateContent?alt=sse` |
+| 認証 | `x-goog-api-key: <your sk- API Key>` |
+| 検索の有効化 | リクエストボディに `"tools": [{"google_search": {}}]` を追加 |
+| 参照元 | レスポンスの `candidates[0].groundingMetadata` |
+
+---
+
+## 2. クイックスタート
+
+```bash
+curl -X POST \
+  'https://api.lmuai.com/v1beta/models/gemini-3.5-flash-lite:generateContent' \
+  -H 'x-goog-api-key: YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "contents": [{
+      "role": "user",
+      "parts": [{"text": "What is the website api.lmuai.com? Please cite sources."}]
+    }],
+    "tools": [{"google_search": {}}],
+    "generationConfig": {"maxOutputTokens": 2048}
+  }'
+```
+
+レスポンス例（一部フィールドを省略）：
+
+```json
+{
+  "candidates": [{
+    "content": {
+      "role": "model",
+      "parts": [{"text": "api.lmuai.com is the LLM API platform of LMU AI..."}]
+    },
+    "finishReason": "STOP",
+    "groundingMetadata": {
+      "webSearchQueries": ["api lmuai com", "lmuai com"],
+      "groundingChunks": [
+        {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/...", "title": "lmuai.com", "domain": "lmuai.com"}},
+        {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/...", "title": "lmuai.ai", "domain": "lmuai.ai"}}
+      ],
+      "groundingSupports": [{
+        "segment": {"endIndex": 52, "text": "api.lmuai.com is the LLM API platform of LMU AI"},
+        "groundingChunkIndices": [0, 1]
+      }],
+      "searchEntryPoint": {"renderedContent": "<style>...</style><div>...</div>"}
+    }
+  }],
+  "usageMetadata": {"promptTokenCount": 43, "candidatesTokenCount": 288}
+}
+```
+
+---
+
+## 3. リクエストパラメータ
+
+通常の Gemini リクエストとの違いは `tools` の追加のみです：
+
+| フィールド | 必須 | 説明 |
+|---|---|---|
+| `contents` | はい | 会話内容。通常の Gemini リクエストと同じ書き方です |
+| `tools` | はい | 常に `[{"google_search": {}}]`。検索するかどうか、何回検索するかはモデルが判断します |
+| `generationConfig.maxOutputTokens` | 推奨 | `2048` 以上。思考モデル（`gemini-4-hydrogen` など）ではさらに多く必要です。不足すると `MAX_TOKENS` でレスポンスが打ち切られ、回答も参照元も得られないことがあります |
+
+<Callout type="info" title="1 回のリクエストで複数回検索することがあります">
+
+モデルは 1 つの質問を複数の検索クエリに分割することがあります。実際に実行された検索は、レスポンスの `webSearchQueries` に一覧表示されます。
+
+</Callout>
+
+---
+
+## 4. レスポンスフィールド：groundingMetadata
+
+| フィールド | 説明 |
+|---|---|
+| `webSearchQueries` | このリクエストで実際に実行された検索クエリ |
+| `groundingChunks[].web.uri` | 参照元リンク。Google のリダイレクトリンク（`vertexaisearch.cloud.google.com/...`）で、元のページに移動します |
+| `groundingChunks[].web.title` | 参照元のタイトル。通常はサイトのドメインです |
+| `groundingChunks[].web.domain` | 参照元サイトのドメイン（例：`lmuai.com`） |
+| `groundingSupports[].segment` | 回答の一部分。`text` が内容、`startIndex` / `endIndex` が位置を示します（その部分が先頭から始まる場合、`startIndex` は省略されます） |
+| `groundingSupports[].groundingChunkIndices` | この部分が引用している参照元。`groundingChunks` のインデックスで示されます |
+| `searchEntryPoint.renderedContent` | Google 検索候補の HTML スニペット |
+
+<Callout type="warn" title="エンドユーザーに回答を表示する場合">
+
+Web検索による回答をエンドユーザーに表示する場合、Google は `searchEntryPoint.renderedContent` の検索候補もあわせて表示することを求めています。詳しくは [Google のドキュメント](https://ai.google.dev/gemini-api/docs/google-search) を参照してください。
+
+</Callout>
+
+---
+
+## 5. Python の例：参照元と文単位の引用を読み取る
+
+```python
+import requests
+
+API_KEY = "YOUR_API_KEY"
+url = "https://api.lmuai.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
+
+resp = requests.post(
+    url,
+    headers={"x-goog-api-key": API_KEY},
+    json={
+        "contents": [{"role": "user", "parts": [{"text": "Which LLM API platforms are available in China? Please cite sources."}]}],
+        "tools": [{"google_search": {}}],
+        "generationConfig": {"maxOutputTokens": 2048},
+    },
+    timeout=180,
+)
+resp.raise_for_status()
+cand = resp.json()["candidates"][0]
+
+answer = "".join(p.get("text", "") for p in cand["content"]["parts"])
+meta = cand.get("groundingMetadata", {})
+chunks = meta.get("groundingChunks", [])
+
+print("Answer:", answer)
+print("Queries:", meta.get("webSearchQueries", []))
+
+for i, c in enumerate(chunks):
+    print(f"[{i}] {c['web'].get('domain')}  {c['web'].get('uri')}")
+
+for s in meta.get("groundingSupports", []):
+    refs = [chunks[i]["web"].get("domain") for i in s.get("groundingChunkIndices", [])]
+    print(s["segment"].get("text"), "->", refs)
+
+if not meta:
+    print("No web search this time: the model saw no need to search, or this group does not support web search.")
+```
+
+---
+
+## 6. ストリーミング
+
+エンドポイントを `streamGenerateContent?alt=sse` に変更し、リクエストボディはそのまま使います：
+
+```bash
+curl -N -X POST \
+  'https://api.lmuai.com/v1beta/models/gemini-3.5-flash-lite:streamGenerateContent?alt=sse' \
+  -H 'x-goog-api-key: YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "contents": [{"role": "user", "parts": [{"text": "What is in the AI industry news today?"}]}],
+    "tools": [{"google_search": {}}],
+    "generationConfig": {"maxOutputTokens": 2048}
+  }'
+```
+
+各 `data:` イベントにはテキストの一部が含まれます。**`groundingMetadata` は最後のイベントにのみ含まれます**。すべてのイベントのテキストを連結し、その後最後のイベントから参照元を読み取ってください。
+
+---
+
+## 7. 対応モデル
+
+以下のモデルで Web検索の動作を確認済みです：
+
+| モデル | 備考 |
+|---|---|
+| `gemini-3.5-flash-lite` | 最も高速かつ低コストで、バッチ呼び出しに適しています |
+| `gemini-3.8-flash` | 通常より多くの参照元を引用するため、引用が重要な場合に適しています |
+| `gemini-3.6-flash` / `gemini-3.7-flash` | 3.8 Flash と同様です |
+| `gemini-3-flash-preview` | 動作します |
+| `gemini-4-hydrogen` | 多くの検索を実行するため時間がかかります。`maxOutputTokens` を大きく設定してください |
+
+ご利用のグループで実際に使用できるモデルは、コンソールの「利用可能なモデル」ページに一覧表示されます。
+
+---
+
+## 8. OpenAI または Anthropic プロトコルでの呼び出し
+
+Gemini モデルは [OpenAI または Anthropic プロトコル](/ja/docs/guide/api-protocols) でも呼び出すことができ、各プロトコルの検索ツールで Web検索が実行されます：
+
+| プロトコル | 検索ツール | Web検索 | 構造化された参照元 |
+|---|---|---|---|
+| Gemini ネイティブ | `{"google_search": {}}` | ✅ | ✅ `groundingMetadata` |
+| OpenAI Chat Completions | `{"type": "web_search"}` | ✅ | ❌ リンクは回答テキスト内のみ |
+| OpenAI Responses | `{"type": "web_search"}` | ✅ | ❌ リンクは回答テキスト内のみ |
+| Anthropic Messages | `{"type": "web_search_20250305", "name": "web_search"}` | ✅ | ❌ リンクは回答テキスト内のみ |
+
+**参照元リストや文単位の引用が必要な場合は、Gemini ネイティブプロトコルを使用してください。**
+
+<Callout type="info">
+
+`google_search` という名前の通常の関数ツール（`"type": "function"`）では Web検索は実行されません。これはあくまで、ご自身のプログラムが実行する関数です。
+
+</Callout>
+
+---
+
+## 9. 料金
+
+Web検索リクエストは、使用したモデルに応じて課金されます。各リクエストの料金は、コンソールの「利用状況」ページで確認できます。1 回のリクエストで複数回検索することがあり、出力も通常のリクエストより長くなる傾向があります。
+
+---
+
+## 10. トラブルシューティング
+
+| 症状 | 原因 | 対処 |
+|---|---|---|
+| 200 だが `groundingMetadata` がない | モデルが検索不要と判断した、またはグループの上流が検索を実行しない | 「Gemini-官方Vertex」グループの Key を使用する。プロンプトで Web検索や参照元を明示的に求める |
+| `finishReason` が `MAX_TOKENS` で回答が空 | 思考処理が出力上限を使い切った | `maxOutputTokens` を増やす |
+| `404 Not Found` | パスが誤っている、またはモデルがグループに含まれていない | パスが `/v1beta/models/{model}:generateContent` であることを確認し、「利用可能なモデル」ページでモデル名を確認する |
+| `401 Unauthorized` | Key が誤っている、または Key が `x-goog-api-key` ヘッダーにない | リクエストヘッダーを確認する |
+
+プロトコルの詳細は [API プロトコル](/ja/docs/guide/api-protocols)、よくあるエラーは [エラーコード](/ja/docs/guide/errors) を参照してください。

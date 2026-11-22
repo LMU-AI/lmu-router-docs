@@ -1,0 +1,255 @@
+---
+title: Gemini 联网搜索 API
+description: 用灵眸 Gemini 原生 v1beta 接口开启 Google Search 联网搜索（Grounding），获取基于实时网页的回答，以及搜索词、引用来源和逐句引用关系。
+ogDescription: 灵眸 Gemini 联网搜索接入指南：在 generateContent 请求中加入 google_search 工具即可联网，响应的 groundingMetadata 返回搜索词、来源链接与引用片段，支持流式与多款 Gemini 模型。
+keywords:
+  - Gemini 联网搜索
+  - Gemini Google Search Grounding
+  - Gemini 搜索 API
+  - google_search 工具
+  - groundingMetadata
+  - Gemini 引用来源
+  - gemini-3.5-flash-lite 联网
+  - gemini-3.8-flash 联网
+  - Gemini API 国内中转
+  - 灵眸 Gemini API
+alternateNames:
+  - Gemini Grounding 接口文档
+  - Gemini 搜索增强 API
+  - 灵眸 Gemini 联网 API
+faq:
+  - q: Gemini 有专门的搜索模型吗？
+    a: 没有。联网搜索是一个工具：在请求的 tools 里加入 google_search，模型会自己判断要不要搜索、搜什么。gemini-3.5-flash-lite、gemini-3.8-flash 等常用模型都支持。
+  - q: 为什么请求成功了，却没有 groundingMetadata？
+    a: 有两种情况。一是模型判断这个问题不需要搜索；二是 API Key 所在分组的上游不执行联网搜索。联网搜索请使用「Gemini-官方Vertex」分组的 API Key。
+  - q: 用 OpenAI 或 Anthropic 协议能联网吗？
+    a: 能触发搜索，但响应里没有结构化的引用来源，链接只会出现在正文中。需要拿到来源列表和逐句引用时，请使用 Gemini 原生协议。
+  - q: 流式调用时引用来源在哪里？
+    a: groundingMetadata 只出现在流的最后一个事件里。请先拼接全部文本，再从最后一个事件读取来源。
+  - q: 来源链接为什么是 vertexaisearch.cloud.google.com 开头？
+    a: 这是 Google 返回的跳转链接，打开后会跳到原网页。来源网站的域名在 domain 字段里。
+---
+
+在 Gemini 原生 `generateContent` 请求里加入 `google_search` 工具，模型就会按需联网搜索，并基于搜索结果作答。响应会额外返回**搜索词、引用来源和每句话对应的来源**，适合需要实时信息或需要展示出处的场景。
+
+<Callout type="warn" title="请使用「Gemini-官方Vertex」分组的 API Key">
+
+联网搜索要由上游执行。请在控制台用 **Gemini-官方Vertex** 分组创建 API Key。
+
+其他 Gemini 分组的上游可能不执行搜索：请求照常返回 200，但响应里没有 `groundingMetadata`，回答也不是基于实时搜索结果。
+
+</Callout>
+
+---
+
+## 1. 接口总览
+
+| 项 | 值 |
+|---|---|
+| Base URL | `https://api.lmuai.com` |
+| 非流式 | `POST /v1beta/models/{model}:generateContent` |
+| 流式 | `POST /v1beta/models/{model}:streamGenerateContent?alt=sse` |
+| 鉴权 | `x-goog-api-key: <你的 sk- API Key>` |
+| 开启搜索 | 请求体加 `"tools": [{"google_search": {}}]` |
+| 引用来源 | 响应 `candidates[0].groundingMetadata` |
+
+---
+
+## 2. 快速开始
+
+```bash
+curl -X POST \
+  'https://api.lmuai.com/v1beta/models/gemini-3.5-flash-lite:generateContent' \
+  -H 'x-goog-api-key: YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "contents": [{
+      "role": "user",
+      "parts": [{"text": "api.lmuai.com 是什么网站？请给出来源。"}]
+    }],
+    "tools": [{"google_search": {}}],
+    "generationConfig": {"maxOutputTokens": 2048}
+  }'
+```
+
+响应示例（已省略部分字段）：
+
+```json
+{
+  "candidates": [{
+    "content": {
+      "role": "model",
+      "parts": [{"text": "api.lmuai.com 是灵眸 AI 的大模型 API 接入平台……"}]
+    },
+    "finishReason": "STOP",
+    "groundingMetadata": {
+      "webSearchQueries": ["api lmuai com", "lmuai com"],
+      "groundingChunks": [
+        {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/...", "title": "lmuai.com", "domain": "lmuai.com"}},
+        {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/...", "title": "lmuai.ai", "domain": "lmuai.ai"}}
+      ],
+      "groundingSupports": [{
+        "segment": {"endIndex": 42, "text": "api.lmuai.com 是灵眸 AI 的大模型 API 接入平台"},
+        "groundingChunkIndices": [0, 1]
+      }],
+      "searchEntryPoint": {"renderedContent": "<style>...</style><div>...</div>"}
+    }
+  }],
+  "usageMetadata": {"promptTokenCount": 43, "candidatesTokenCount": 288}
+}
+```
+
+---
+
+## 3. 请求参数
+
+在普通 Gemini 请求的基础上，只需要加 `tools`：
+
+| 字段 | 必填 | 说明 |
+|---|---|---|
+| `contents` | 是 | 对话内容，写法与普通 Gemini 请求相同 |
+| `tools` | 是 | 固定写 `[{"google_search": {}}]`。模型会自己决定是否搜索、搜几次 |
+| `generationConfig.maxOutputTokens` | 建议 | 建议不少于 `2048`。带思考的模型（如 `gemini-4-hydrogen`）需要更大，否则可能因 `MAX_TOKENS` 截断，正文和来源都拿不到 |
+
+<Callout type="info" title="一次请求可能搜索多次">
+
+模型会根据问题拆出多个搜索词。实际执行了哪些搜索，以响应里的 `webSearchQueries` 为准。
+
+</Callout>
+
+---
+
+## 4. 响应字段：groundingMetadata
+
+| 字段 | 说明 |
+|---|---|
+| `webSearchQueries` | 本次实际执行的搜索词列表 |
+| `groundingChunks[].web.uri` | 来源链接。是 Google 的跳转链接（`vertexaisearch.cloud.google.com/...`），打开后跳到原网页 |
+| `groundingChunks[].web.title` | 来源标题，通常就是网站域名 |
+| `groundingChunks[].web.domain` | 来源网站的域名，如 `lmuai.com` |
+| `groundingSupports[].segment` | 回答中的一段文字：`text` 为内容，`startIndex` / `endIndex` 为位置（从开头算起时 `startIndex` 会省略） |
+| `groundingSupports[].groundingChunkIndices` | 这段文字引用了哪些来源，值是 `groundingChunks` 的下标 |
+| `searchEntryPoint.renderedContent` | Google 搜索建议的 HTML 片段 |
+
+<Callout type="warn" title="展示给终端用户时">
+
+如果你把联网搜索的回答展示给终端用户，Google 要求同时展示 `searchEntryPoint.renderedContent` 中的搜索建议。详见 [Google 官方说明](https://ai.google.dev/gemini-api/docs/google-search)。
+
+</Callout>
+
+---
+
+## 5. Python 示例：读取来源和逐句引用
+
+```python
+import requests
+
+API_KEY = "YOUR_API_KEY"
+url = "https://api.lmuai.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
+
+resp = requests.post(
+    url,
+    headers={"x-goog-api-key": API_KEY},
+    json={
+        "contents": [{"role": "user", "parts": [{"text": "国内有哪些大模型 API 平台？请给出来源。"}]}],
+        "tools": [{"google_search": {}}],
+        "generationConfig": {"maxOutputTokens": 2048},
+    },
+    timeout=180,
+)
+resp.raise_for_status()
+cand = resp.json()["candidates"][0]
+
+answer = "".join(p.get("text", "") for p in cand["content"]["parts"])
+meta = cand.get("groundingMetadata", {})
+chunks = meta.get("groundingChunks", [])
+
+print("回答：", answer)
+print("搜索词：", meta.get("webSearchQueries", []))
+
+for i, c in enumerate(chunks):
+    print(f"[{i}] {c['web'].get('domain')}  {c['web'].get('uri')}")
+
+for s in meta.get("groundingSupports", []):
+    refs = [chunks[i]["web"].get("domain") for i in s.get("groundingChunkIndices", [])]
+    print(s["segment"].get("text"), "->", refs)
+
+if not meta:
+    print("本次没有联网：模型判断无需搜索，或当前分组不支持联网搜索。")
+```
+
+---
+
+## 6. 流式调用
+
+把端点换成 `streamGenerateContent?alt=sse`，请求体不变：
+
+```bash
+curl -N -X POST \
+  'https://api.lmuai.com/v1beta/models/gemini-3.5-flash-lite:streamGenerateContent?alt=sse' \
+  -H 'x-goog-api-key: YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "contents": [{"role": "user", "parts": [{"text": "今天有哪些 AI 行业新闻？"}]}],
+    "tools": [{"google_search": {}}],
+    "generationConfig": {"maxOutputTokens": 2048}
+  }'
+```
+
+每个 `data:` 事件带一段文本。**`groundingMetadata` 只出现在最后一个事件里**：先拼接所有事件的文本，再从最后一个事件读取来源。
+
+---
+
+## 7. 支持的模型
+
+以下模型已实测可联网：
+
+| 模型 | 特点 |
+|---|---|
+| `gemini-3.5-flash-lite` | 速度最快、价格最低，适合批量调用 |
+| `gemini-3.8-flash` | 引用来源通常更多，适合对出处要求高的场景 |
+| `gemini-3.6-flash` / `gemini-3.7-flash` | 与 3.8 Flash 接近 |
+| `gemini-3-flash-preview` | 可用 |
+| `gemini-4-hydrogen` | 搜索次数多、耗时长，`maxOutputTokens` 需要设大 |
+
+当前分组实际可用的模型，以控制台「可用模型」页面为准。
+
+---
+
+## 8. 用 OpenAI 或 Anthropic 协议调用
+
+Gemini 模型也可以用 [OpenAI 或 Anthropic 协议](/docs/guide/api-protocols) 调用，并通过各协议的搜索工具触发联网：
+
+| 协议 | 搜索工具写法 | 能否联网 | 结构化引用来源 |
+|---|---|---|---|
+| Gemini 原生 | `{"google_search": {}}` | ✅ | ✅ `groundingMetadata` |
+| OpenAI Chat Completions | `{"type": "web_search"}` | ✅ | ❌ 链接只在正文中 |
+| OpenAI Responses | `{"type": "web_search"}` | ✅ | ❌ 链接只在正文中 |
+| Anthropic Messages | `{"type": "web_search_20250305", "name": "web_search"}` | ✅ | ❌ 链接只在正文中 |
+
+**需要来源列表或逐句引用时，请使用 Gemini 原生协议。**
+
+<Callout type="info">
+
+名字叫 `google_search` 的普通 function 工具（`"type": "function"`）不会触发联网，它仍然是一个由你的程序执行的函数。
+
+</Callout>
+
+---
+
+## 9. 费用
+
+联网搜索请求按所用模型计费，每次请求的费用可在控制台「使用记录」中查看。一次请求可能执行多次搜索，输出也会比普通请求长。
+
+---
+
+## 10. 排错速查
+
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| 200 但没有 `groundingMetadata` | 模型判断无需搜索，或分组上游不执行搜索 | 换用「Gemini-官方Vertex」分组的 Key；在提问里明确要求联网或给出来源 |
+| `finishReason` 为 `MAX_TOKENS`，正文为空 | 思考占满了输出额度 | 调大 `maxOutputTokens` |
+| `404 Not Found` | 路径写错，或模型不在当前分组 | 检查是否为 `/v1beta/models/{model}:generateContent`，并在「可用模型」页确认模型名 |
+| `401 Unauthorized` | Key 写错或未放在 `x-goog-api-key` 请求头 | 检查请求头 |
+
+更多协议说明见 [接入协议](/docs/guide/api-protocols)，常见错误见 [错误码说明](/docs/guide/errors)。

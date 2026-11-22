@@ -1,0 +1,255 @@
+---
+title: Gemini Web Search API
+description: Turn on Google Search grounding through the LMU AI Gemini native v1beta API to get answers based on live web pages, plus the search queries, cited sources and sentence-level citations.
+ogDescription: "LMU AI Gemini web search guide: add the google_search tool to a generateContent request to go online. The groundingMetadata in the response returns search queries, source links and cited segments, with streaming and several Gemini models supported."
+keywords:
+  - Gemini web search
+  - Gemini Google Search grounding
+  - Gemini search API
+  - google_search tool
+  - groundingMetadata
+  - Gemini citations
+  - gemini-3.5-flash-lite grounding
+  - gemini-3.8-flash grounding
+  - Gemini API relay
+  - LMU AI Gemini API
+alternateNames:
+  - Gemini grounding API reference
+  - Gemini search-augmented API
+  - LMU AI Gemini web search API
+faq:
+  - q: Is there a dedicated Gemini search model?
+    a: No. Web search is a tool. Add google_search to the request's tools and the model decides on its own whether to search and what to search for. Common models such as gemini-3.5-flash-lite and gemini-3.8-flash support it.
+  - q: The request succeeded, so why is there no groundingMetadata?
+    a: Either the model decided the question did not need a search, or the upstream behind your API Key's group does not run web searches. For web search, use an API Key in the "Gemini-官方Vertex" group.
+  - q: Can I search the web with the OpenAI or Anthropic protocol?
+    a: The search runs, but the response carries no structured sources; links only appear in the answer text. If you need the source list and sentence-level citations, use the Gemini native protocol.
+  - q: Where are the sources in a streaming response?
+    a: groundingMetadata only appears in the last event of the stream. Concatenate the text from all events first, then read the sources from the last event.
+  - q: Why do source links start with vertexaisearch.cloud.google.com?
+    a: They are redirect links returned by Google and lead to the original page when opened. The source site's domain is in the domain field.
+---
+
+Add the `google_search` tool to a Gemini native `generateContent` request and the model searches the web when it needs to, then answers based on the results. The response also returns **the search queries, the cited sources, and which source backs each sentence**. Use it when you need up-to-date information or need to show where an answer came from.
+
+<Callout type="warn" title='Use an API Key in the "Gemini-官方Vertex" group'>
+
+The search is run by the upstream. In the console, create your API Key in the **Gemini-官方Vertex** group.
+
+Upstreams behind other Gemini groups may not run searches: the request still returns 200, but the response has no `groundingMetadata` and the answer is not based on live search results.
+
+</Callout>
+
+---
+
+## 1. Overview
+
+| Item | Value |
+|---|---|
+| Base URL | `https://api.lmuai.com` |
+| Non-streaming | `POST /v1beta/models/{model}:generateContent` |
+| Streaming | `POST /v1beta/models/{model}:streamGenerateContent?alt=sse` |
+| Authentication | `x-goog-api-key: <your sk- API Key>` |
+| Turn on search | Add `"tools": [{"google_search": {}}]` to the request body |
+| Sources | `candidates[0].groundingMetadata` in the response |
+
+---
+
+## 2. Quick start
+
+```bash
+curl -X POST \
+  'https://api.lmuai.com/v1beta/models/gemini-3.5-flash-lite:generateContent' \
+  -H 'x-goog-api-key: YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "contents": [{
+      "role": "user",
+      "parts": [{"text": "What is the website api.lmuai.com? Please cite sources."}]
+    }],
+    "tools": [{"google_search": {}}],
+    "generationConfig": {"maxOutputTokens": 2048}
+  }'
+```
+
+Example response (some fields omitted):
+
+```json
+{
+  "candidates": [{
+    "content": {
+      "role": "model",
+      "parts": [{"text": "api.lmuai.com is the LLM API platform of LMU AI..."}]
+    },
+    "finishReason": "STOP",
+    "groundingMetadata": {
+      "webSearchQueries": ["api lmuai com", "lmuai com"],
+      "groundingChunks": [
+        {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/...", "title": "lmuai.com", "domain": "lmuai.com"}},
+        {"web": {"uri": "https://vertexaisearch.cloud.google.com/grounding-api-redirect/...", "title": "lmuai.ai", "domain": "lmuai.ai"}}
+      ],
+      "groundingSupports": [{
+        "segment": {"endIndex": 52, "text": "api.lmuai.com is the LLM API platform of LMU AI"},
+        "groundingChunkIndices": [0, 1]
+      }],
+      "searchEntryPoint": {"renderedContent": "<style>...</style><div>...</div>"}
+    }
+  }],
+  "usageMetadata": {"promptTokenCount": 43, "candidatesTokenCount": 288}
+}
+```
+
+---
+
+## 3. Request parameters
+
+Compared with a normal Gemini request, the only addition is `tools`:
+
+| Field | Required | Description |
+|---|---|---|
+| `contents` | Yes | The conversation, written the same way as in a normal Gemini request |
+| `tools` | Yes | Always `[{"google_search": {}}]`. The model decides whether to search and how many times |
+| `generationConfig.maxOutputTokens` | Recommended | At least `2048`. Thinking models (such as `gemini-4-hydrogen`) need more, otherwise the response may be cut off with `MAX_TOKENS` and you get neither the answer nor the sources |
+
+<Callout type="info" title="One request may run several searches">
+
+The model may split a question into several search queries. The searches it actually ran are listed in `webSearchQueries` in the response.
+
+</Callout>
+
+---
+
+## 4. Response fields: groundingMetadata
+
+| Field | Description |
+|---|---|
+| `webSearchQueries` | The search queries actually run for this request |
+| `groundingChunks[].web.uri` | Source link. It is a Google redirect link (`vertexaisearch.cloud.google.com/...`) that leads to the original page |
+| `groundingChunks[].web.title` | Source title, usually the site's domain |
+| `groundingChunks[].web.domain` | The source site's domain, such as `lmuai.com` |
+| `groundingSupports[].segment` | A piece of the answer: `text` is the content, `startIndex` / `endIndex` give its position (`startIndex` is omitted when the piece starts at the beginning) |
+| `groundingSupports[].groundingChunkIndices` | Which sources this piece cites, as indexes into `groundingChunks` |
+| `searchEntryPoint.renderedContent` | HTML snippet of Google search suggestions |
+
+<Callout type="warn" title="When you show answers to end users">
+
+If you show web-search answers to end users, Google requires you to also display the search suggestions in `searchEntryPoint.renderedContent`. See [Google's documentation](https://ai.google.dev/gemini-api/docs/google-search).
+
+</Callout>
+
+---
+
+## 5. Python example: read sources and sentence-level citations
+
+```python
+import requests
+
+API_KEY = "YOUR_API_KEY"
+url = "https://api.lmuai.com/v1beta/models/gemini-3.5-flash-lite:generateContent"
+
+resp = requests.post(
+    url,
+    headers={"x-goog-api-key": API_KEY},
+    json={
+        "contents": [{"role": "user", "parts": [{"text": "Which LLM API platforms are available in China? Please cite sources."}]}],
+        "tools": [{"google_search": {}}],
+        "generationConfig": {"maxOutputTokens": 2048},
+    },
+    timeout=180,
+)
+resp.raise_for_status()
+cand = resp.json()["candidates"][0]
+
+answer = "".join(p.get("text", "") for p in cand["content"]["parts"])
+meta = cand.get("groundingMetadata", {})
+chunks = meta.get("groundingChunks", [])
+
+print("Answer:", answer)
+print("Queries:", meta.get("webSearchQueries", []))
+
+for i, c in enumerate(chunks):
+    print(f"[{i}] {c['web'].get('domain')}  {c['web'].get('uri')}")
+
+for s in meta.get("groundingSupports", []):
+    refs = [chunks[i]["web"].get("domain") for i in s.get("groundingChunkIndices", [])]
+    print(s["segment"].get("text"), "->", refs)
+
+if not meta:
+    print("No web search this time: the model saw no need to search, or this group does not support web search.")
+```
+
+---
+
+## 6. Streaming
+
+Switch the endpoint to `streamGenerateContent?alt=sse` and keep the request body:
+
+```bash
+curl -N -X POST \
+  'https://api.lmuai.com/v1beta/models/gemini-3.5-flash-lite:streamGenerateContent?alt=sse' \
+  -H 'x-goog-api-key: YOUR_API_KEY' \
+  -H 'Content-Type: application/json' \
+  -d '{
+    "contents": [{"role": "user", "parts": [{"text": "What is in the AI industry news today?"}]}],
+    "tools": [{"google_search": {}}],
+    "generationConfig": {"maxOutputTokens": 2048}
+  }'
+```
+
+Each `data:` event carries a piece of text. **`groundingMetadata` only appears in the last event**: concatenate the text from all events, then read the sources from the last event.
+
+---
+
+## 7. Supported models
+
+The following models have been tested with web search:
+
+| Model | Notes |
+|---|---|
+| `gemini-3.5-flash-lite` | Fastest and cheapest, good for batch calls |
+| `gemini-3.8-flash` | Usually cites more sources, good when citations matter |
+| `gemini-3.6-flash` / `gemini-3.7-flash` | Similar to 3.8 Flash |
+| `gemini-3-flash-preview` | Works |
+| `gemini-4-hydrogen` | Runs many searches and takes longer; set a large `maxOutputTokens` |
+
+The models actually available in your group are listed on the "Available Models" page in the console.
+
+---
+
+## 8. Calling with the OpenAI or Anthropic protocol
+
+Gemini models can also be called with the [OpenAI or Anthropic protocol](/en/docs/guide/api-protocols), and each protocol's search tool triggers a web search:
+
+| Protocol | Search tool | Searches the web | Structured sources |
+|---|---|---|---|
+| Gemini native | `{"google_search": {}}` | ✅ | ✅ `groundingMetadata` |
+| OpenAI Chat Completions | `{"type": "web_search"}` | ✅ | ❌ links only in the answer text |
+| OpenAI Responses | `{"type": "web_search"}` | ✅ | ❌ links only in the answer text |
+| Anthropic Messages | `{"type": "web_search_20250305", "name": "web_search"}` | ✅ | ❌ links only in the answer text |
+
+**If you need the source list or sentence-level citations, use the Gemini native protocol.**
+
+<Callout type="info">
+
+An ordinary function tool named `google_search` (`"type": "function"`) does not trigger a web search. It is still a function that your own program runs.
+
+</Callout>
+
+---
+
+## 9. Cost
+
+Web-search requests are billed by the model used. You can see the cost of each request on the "Usage" page in the console. One request may run several searches, and the output is usually longer than a normal request.
+
+---
+
+## 10. Troubleshooting
+
+| Symptom | Cause | Fix |
+|---|---|---|
+| 200 but no `groundingMetadata` | The model saw no need to search, or the group's upstream does not run searches | Use a Key in the "Gemini-官方Vertex" group; ask explicitly for web search or sources in the prompt |
+| `finishReason` is `MAX_TOKENS` and the answer is empty | Thinking used up the output budget | Increase `maxOutputTokens` |
+| `404 Not Found` | Wrong path, or the model is not in your group | Check the path is `/v1beta/models/{model}:generateContent` and confirm the model name on the "Available Models" page |
+| `401 Unauthorized` | Wrong Key, or the Key is not in the `x-goog-api-key` header | Check the request header |
+
+For protocol details see [API protocols](/en/docs/guide/api-protocols); for common errors see [Error codes](/en/docs/guide/errors).

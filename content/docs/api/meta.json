@@ -5,6 +5,7 @@
     "gpt-image",
     "grok-image",
     "gemini-image-batch",
+    "gemini-search",
     "video-generation",
     "seedance-video",
     "wan-video",
