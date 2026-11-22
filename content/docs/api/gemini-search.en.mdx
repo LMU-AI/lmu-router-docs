@@ -22,6 +22,8 @@ faq:
     a: No. Web search is a tool. Add google_search to the request's tools and the model decides on its own whether to search and what to search for. Common models such as gemini-3.5-flash-lite and gemini-3.8-flash support it.
   - q: The request succeeded, so why is there no groundingMetadata?
     a: Either the model decided the question did not need a search, or the upstream behind your API Key's group does not run web searches. For web search, use an API Key in the "Gemini-官方Vertex" group.
+  - q: Can a unified key use web search?
+    a: Yes, after a settings change. The default tier of a unified key's Gemini family does not run searches. In the "API Keys" list, click the unified key's badge to open "Billing", then change the pay-as-you-go tier of the Gemini family to "Gemini-官方Vertex". After that, all Gemini calls made with this key are billed under that group. If you only want web search to use that group, create a separate group key in the "Gemini-官方Vertex" group.
   - q: Can I search the web with the OpenAI or Anthropic protocol?
     a: The search runs, but the response carries no structured sources; links only appear in the answer text. If you need the source list and sentence-level citations, use the Gemini native protocol.
   - q: Where are the sources in a streaming response?
@@ -32,11 +34,12 @@ faq:
 
 Add the `google_search` tool to a Gemini native `generateContent` request and the model searches the web when it needs to, then answers based on the results. The response also returns **the search queries, the cited sources, and which source backs each sentence**. Use it when you need up-to-date information or need to show where an answer came from.
 
-<Callout type="warn" title='Use an API Key in the "Gemini-官方Vertex" group'>
+<Callout type="warn" title='Requests must land in the "Gemini-官方Vertex" group'>
 
-The search is run by the upstream. In the console, create your API Key in the **Gemini-官方Vertex** group.
+The search is run by the upstream, and only the **Gemini-官方Vertex** group runs it. Upstreams behind other Gemini groups may not run searches: the request still returns 200, but the response has no `groundingMetadata` and the answer is not based on live search results.
 
-Upstreams behind other Gemini groups may not run searches: the request still returns 200, but the response has no `groundingMetadata` and the answer is not based on live search results.
+- **Group key (recommended)**: under "API Keys" in the console, create a new key in the "Gemini-官方Vertex" group and use it only for web search.
+- **Unified key**: it does not land in this group by default. In the "API Keys" list, click the unified key's badge to open "Billing", then change the pay-as-you-go tier of the "Gemini family" to "Gemini-官方Vertex". After that, **all** Gemini calls made with this key go to that group and are billed at its rate multiplier.
 
 </Callout>
 
@@ -248,6 +251,7 @@ Web-search requests are billed by the model used. You can see the cost of each r
 | Symptom | Cause | Fix |
 |---|---|---|
 | 200 but no `groundingMetadata` | The model saw no need to search, or the group's upstream does not run searches | Use a Key in the "Gemini-官方Vertex" group; ask explicitly for web search or sources in the prompt |
+| Unified key never returns `groundingMetadata` | The unified key's Gemini family is still on its default tier and does not land in "Gemini-官方Vertex" | Change "Billing" as described at the top of this page, or create a separate group key |
 | `finishReason` is `MAX_TOKENS` and the answer is empty | Thinking used up the output budget | Increase `maxOutputTokens` |
 | `404 Not Found` | Wrong path, or the model is not in your group | Check the path is `/v1beta/models/{model}:generateContent` and confirm the model name on the "Available Models" page |
 | `401 Unauthorized` | Wrong Key, or the Key is not in the `x-goog-api-key` header | Check the request header |
