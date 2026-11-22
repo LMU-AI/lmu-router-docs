@@ -22,6 +22,8 @@ faq:
     a: 没有。联网搜索是一个工具：在请求的 tools 里加入 google_search，模型会自己判断要不要搜索、搜什么。gemini-3.5-flash-lite、gemini-3.8-flash 等常用模型都支持。
   - q: 为什么请求成功了，却没有 groundingMetadata？
     a: 有两种情况。一是模型判断这个问题不需要搜索；二是 API Key 所在分组的上游不执行联网搜索。联网搜索请使用「Gemini-官方Vertex」分组的 API Key。
+  - q: 通用密钥能用联网搜索吗？
+    a: 能，但要先改设置。通用密钥的 Gemini 系列默认档位不执行搜索。请在「API 密钥」列表点这把通用密钥的徽标进入「扣费方式」，把 Gemini 系列的按量档位改成「Gemini-官方Vertex」。改完后，这把密钥的所有 Gemini 调用都会按该分组计费。只想给搜索单独用时，建议新建一把「Gemini-官方Vertex」分组的分组密钥。
   - q: 用 OpenAI 或 Anthropic 协议能联网吗？
     a: 能触发搜索，但响应里没有结构化的引用来源，链接只会出现在正文中。需要拿到来源列表和逐句引用时，请使用 Gemini 原生协议。
   - q: 流式调用时引用来源在哪里？
@@ -32,11 +34,12 @@ faq:
 
 在 Gemini 原生 `generateContent` 请求里加入 `google_search` 工具，模型就会按需联网搜索，并基于搜索结果作答。响应会额外返回**搜索词、引用来源和每句话对应的来源**，适合需要实时信息或需要展示出处的场景。
 
-<Callout type="warn" title="请使用「Gemini-官方Vertex」分组的 API Key">
+<Callout type="warn" title="请求必须落到「Gemini-官方Vertex」分组">
 
-联网搜索要由上游执行。请在控制台用 **Gemini-官方Vertex** 分组创建 API Key。
+联网搜索要由上游执行，只有 **Gemini-官方Vertex** 分组会执行。其他 Gemini 分组的上游可能不执行搜索：请求照常返回 200，但响应里没有 `groundingMetadata`，回答也不是基于实时搜索结果。
 
-其他 Gemini 分组的上游可能不执行搜索：请求照常返回 200，但响应里没有 `groundingMetadata`，回答也不是基于实时搜索结果。
+- **分组密钥（推荐）**：在控制台「API 密钥」新建一把密钥，分组选「Gemini-官方Vertex」，专门用于联网搜索。
+- **通用密钥**：默认不会落到这个分组。需要在「API 密钥」列表点这把通用密钥的徽标，进入「扣费方式」，把「Gemini 系列」的按量档位改成「Gemini-官方Vertex」。改完后，这把密钥的**所有** Gemini 调用都会走该分组、按该分组倍率计费。
 
 </Callout>
 
@@ -248,6 +251,7 @@ Gemini 模型也可以用 [OpenAI 或 Anthropic 协议](/docs/guide/api-protocol
 | 现象 | 原因 | 处理 |
 |---|---|---|
 | 200 但没有 `groundingMetadata` | 模型判断无需搜索，或分组上游不执行搜索 | 换用「Gemini-官方Vertex」分组的 Key；在提问里明确要求联网或给出来源 |
+| 用通用密钥，始终没有 `groundingMetadata` | 通用密钥的 Gemini 系列还在默认档位，没有落到「Gemini-官方Vertex」 | 按本页开头的说明改「扣费方式」，或新建一把分组密钥 |
 | `finishReason` 为 `MAX_TOKENS`，正文为空 | 思考占满了输出额度 | 调大 `maxOutputTokens` |
 | `404 Not Found` | 路径写错，或模型不在当前分组 | 检查是否为 `/v1beta/models/{model}:generateContent`，并在「可用模型」页确认模型名 |
 | `401 Unauthorized` | Key 写错或未放在 `x-goog-api-key` 请求头 | 检查请求头 |

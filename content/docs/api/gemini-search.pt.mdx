@@ -1,42 +1,45 @@
 ---
 title: API de pesquisa na web do Gemini
-description: Ative o grounding com Google Search pela API nativa v1beta do Gemini na LMU AI para obter respostas baseadas em páginas da web atuais, junto com as consultas de pesquisa, as fontes citadas e as citações por frase.
+description: Ative o grounding com a Pesquisa Google pela API nativa v1beta do Gemini na LMU AI para obter respostas baseadas em páginas da web em tempo real, além das consultas de pesquisa, das fontes citadas e das citações por frase.
 ogDescription: "Guia de pesquisa na web do Gemini na LMU AI: adicione a ferramenta google_search a uma requisição generateContent para acessar a internet. O groundingMetadata na resposta retorna as consultas de pesquisa, os links das fontes e os trechos citados, com suporte a streaming e a vários modelos Gemini."
 keywords:
   - pesquisa na web Gemini
-  - Gemini Google Search grounding
+  - grounding Gemini Pesquisa Google
   - API de pesquisa Gemini
   - ferramenta google_search
   - groundingMetadata
   - citações Gemini
-  - gemini-3.5-flash-lite grounding
-  - gemini-3.8-flash grounding
+  - grounding gemini-3.5-flash-lite
+  - grounding gemini-3.8-flash
   - relay de API Gemini
   - LMU AI Gemini API
 alternateNames:
-  - referência da API de grounding do Gemini
+  - Referência da API de grounding do Gemini
   - API do Gemini com pesquisa aumentada
-  - API de pesquisa na web do Gemini na LMU AI
+  - API de pesquisa na web do Gemini da LMU AI
 faq:
   - q: Existe um modelo Gemini dedicado à pesquisa?
-    a: Não. A pesquisa na web é uma ferramenta. Adicione google_search às tools da requisição e o modelo decide sozinho se vai pesquisar e o que pesquisar. Modelos comuns como gemini-3.5-flash-lite e gemini-3.8-flash têm suporte.
-  - q: A requisição deu certo, então por que não há groundingMetadata?
+    a: Não. A pesquisa na web é uma ferramenta. Adicione google_search às tools da requisição e o modelo decide sozinho se vai pesquisar e o que pesquisar. Modelos comuns como gemini-3.5-flash-lite e gemini-3.8-flash têm suporte a ela.
+  - q: A requisição foi bem-sucedida, então por que não há groundingMetadata?
     a: Ou o modelo decidiu que a pergunta não precisava de pesquisa, ou o upstream por trás do grupo da sua API Key não executa pesquisas na web. Para pesquisa na web, use uma API Key do grupo "Gemini-官方Vertex".
-  - q: Posso pesquisar na web usando o protocolo da OpenAI ou da Anthropic?
+  - q: Uma chave unificada pode usar a pesquisa na web?
+    a: Sim, depois de uma alteração nas configurações. O nível padrão da família Gemini de uma chave unificada não executa pesquisas. Na lista "API Keys", clique no selo da chave unificada para abrir "Billing" e altere o nível pré-pago da família Gemini para "Gemini-官方Vertex". Depois disso, todas as chamadas Gemini feitas com essa chave são cobradas nesse grupo. Se você quiser que apenas a pesquisa na web use esse grupo, crie uma chave de grupo separada no grupo "Gemini-官方Vertex".
+  - q: Posso pesquisar na web com o protocolo OpenAI ou Anthropic?
     a: A pesquisa é executada, mas a resposta não traz fontes estruturadas; os links aparecem apenas no texto da resposta. Se você precisa da lista de fontes e das citações por frase, use o protocolo nativo do Gemini.
   - q: Onde ficam as fontes em uma resposta em streaming?
     a: O groundingMetadata aparece apenas no último evento do stream. Primeiro concatene o texto de todos os eventos e depois leia as fontes no último evento.
   - q: Por que os links das fontes começam com vertexaisearch.cloud.google.com?
-    a: São links de redirecionamento retornados pelo Google e levam à página original quando abertos. O domínio do site de origem fica no campo domain.
+    a: São links de redirecionamento retornados pelo Google que levam à página original quando abertos. O domínio do site de origem fica no campo domain.
 ---
 
-Adicione a ferramenta `google_search` a uma requisição nativa `generateContent` do Gemini e o modelo pesquisa na web quando precisar e responde com base nos resultados. A resposta também retorna **as consultas de pesquisa, as fontes citadas e qual fonte sustenta cada frase**. Use quando precisar de informações atualizadas ou quiser mostrar de onde veio uma resposta.
+Adicione a ferramenta `google_search` a uma requisição nativa `generateContent` do Gemini e o modelo pesquisa na web quando precisar, respondendo com base nos resultados. A resposta também retorna **as consultas de pesquisa, as fontes citadas e qual fonte sustenta cada frase**. Use quando precisar de informações atualizadas ou quiser mostrar de onde veio uma resposta.
 
-<Callout type="warn" title='Use uma API Key do grupo "Gemini-官方Vertex"'>
+<Callout type="warn" title='As requisições precisam cair no grupo "Gemini-官方Vertex"'>
 
-A pesquisa é executada pelo upstream. No console, crie sua API Key no grupo **Gemini-官方Vertex**.
+A pesquisa é executada pelo upstream, e apenas o grupo **Gemini-官方Vertex** a executa. Os upstreams por trás de outros grupos Gemini podem não executar pesquisas: a requisição ainda retorna 200, mas a resposta não tem `groundingMetadata` e a resposta não se baseia em resultados de pesquisa em tempo real.
 
-Os upstreams de outros grupos Gemini podem não executar pesquisas: a requisição ainda retorna 200, mas a resposta não tem `groundingMetadata` e a resposta não se baseia em resultados de pesquisa atuais.
+- **Chave de grupo (recomendado)**: em "API Keys" no console, crie uma nova chave no grupo "Gemini-官方Vertex" e use-a apenas para pesquisa na web.
+- **Chave unificada**: por padrão, ela não cai nesse grupo. Na lista "API Keys", clique no selo da chave unificada para abrir "Billing" e altere o nível pré-pago da "família Gemini" para "Gemini-官方Vertex". Depois disso, **todas** as chamadas Gemini feitas com essa chave vão para esse grupo e são cobradas pelo multiplicador de preço dele.
 
 </Callout>
 
@@ -103,17 +106,17 @@ Exemplo de resposta (alguns campos omitidos):
 
 ## 3. Parâmetros da requisição
 
-Em comparação com uma requisição Gemini comum, a única adição é `tools`:
+Em comparação com uma requisição Gemini normal, a única adição é `tools`:
 
 | Campo | Obrigatório | Descrição |
 |---|---|---|
-| `contents` | Sim | A conversa, escrita da mesma forma que em uma requisição Gemini comum |
+| `contents` | Sim | A conversa, escrita da mesma forma que em uma requisição Gemini normal |
 | `tools` | Sim | Sempre `[{"google_search": {}}]`. O modelo decide se vai pesquisar e quantas vezes |
 | `generationConfig.maxOutputTokens` | Recomendado | No mínimo `2048`. Modelos de raciocínio (como `gemini-4-hydrogen`) precisam de mais; caso contrário, a resposta pode ser cortada com `MAX_TOKENS` e você não recebe nem a resposta nem as fontes |
 
 <Callout type="info" title="Uma requisição pode executar várias pesquisas">
 
-O modelo pode dividir uma pergunta em várias consultas de pesquisa. As pesquisas efetivamente executadas aparecem em `webSearchQueries` na resposta.
+O modelo pode dividir uma pergunta em várias consultas de pesquisa. As pesquisas realmente executadas são listadas em `webSearchQueries` na resposta.
 
 </Callout>
 
@@ -123,23 +126,23 @@ O modelo pode dividir uma pergunta em várias consultas de pesquisa. As pesquisa
 
 | Campo | Descrição |
 |---|---|
-| `webSearchQueries` | As consultas de pesquisa efetivamente executadas nesta requisição |
+| `webSearchQueries` | As consultas de pesquisa realmente executadas nesta requisição |
 | `groundingChunks[].web.uri` | Link da fonte. É um link de redirecionamento do Google (`vertexaisearch.cloud.google.com/...`) que leva à página original |
 | `groundingChunks[].web.title` | Título da fonte, geralmente o domínio do site |
 | `groundingChunks[].web.domain` | O domínio do site de origem, como `lmuai.com` |
-| `groundingSupports[].segment` | Um trecho da resposta: `text` é o conteúdo, `startIndex` / `endIndex` indicam a posição (`startIndex` é omitido quando o trecho começa no início) |
+| `groundingSupports[].segment` | Um trecho da resposta: `text` é o conteúdo, `startIndex` / `endIndex` indicam sua posição (`startIndex` é omitido quando o trecho começa no início) |
 | `groundingSupports[].groundingChunkIndices` | Quais fontes este trecho cita, como índices em `groundingChunks` |
 | `searchEntryPoint.renderedContent` | Trecho HTML com as sugestões de pesquisa do Google |
 
 <Callout type="warn" title="Ao mostrar respostas para usuários finais">
 
-Se você mostrar respostas com pesquisa na web para usuários finais, o Google exige que também sejam exibidas as sugestões de pesquisa de `searchEntryPoint.renderedContent`. Consulte a [documentação do Google](https://ai.google.dev/gemini-api/docs/google-search).
+Se você mostrar respostas com pesquisa na web para usuários finais, o Google exige que você também exiba as sugestões de pesquisa de `searchEntryPoint.renderedContent`. Veja a [documentação do Google](https://ai.google.dev/gemini-api/docs/google-search).
 
 </Callout>
 
 ---
 
-## 5. Exemplo em Python: ler fontes e citações por frase
+## 5. Exemplo em Python: ler as fontes e as citações por frase
 
 ```python
 import requests
@@ -196,7 +199,7 @@ curl -N -X POST \
   }'
 ```
 
-Cada evento `data:` traz um trecho de texto. **O `groundingMetadata` aparece apenas no último evento**: concatene o texto de todos os eventos e depois leia as fontes no último evento.
+Cada evento `data:` traz um pedaço do texto. **O `groundingMetadata` aparece apenas no último evento**: concatene o texto de todos os eventos e depois leia as fontes no último evento.
 
 ---
 
@@ -212,13 +215,13 @@ Os seguintes modelos foram testados com pesquisa na web:
 | `gemini-3-flash-preview` | Funciona |
 | `gemini-4-hydrogen` | Executa muitas pesquisas e demora mais; defina um `maxOutputTokens` alto |
 
-Os modelos efetivamente disponíveis no seu grupo estão listados na página "Modelos disponíveis" do console.
+Os modelos realmente disponíveis no seu grupo estão listados na página "Available Models" do console.
 
 ---
 
-## 8. Chamadas com o protocolo da OpenAI ou da Anthropic
+## 8. Chamadas com o protocolo OpenAI ou Anthropic
 
-Os modelos Gemini também podem ser chamados com o [protocolo da OpenAI ou da Anthropic](/pt/docs/guide/api-protocols), e a ferramenta de pesquisa de cada protocolo aciona uma pesquisa na web:
+Os modelos Gemini também podem ser chamados com o [protocolo OpenAI ou Anthropic](/pt/docs/guide/api-protocols), e a ferramenta de pesquisa de cada protocolo aciona uma pesquisa na web:
 
 | Protocolo | Ferramenta de pesquisa | Pesquisa na web | Fontes estruturadas |
 |---|---|---|---|
@@ -239,7 +242,7 @@ Uma ferramenta de função comum chamada `google_search` (`"type": "function"`) 
 
 ## 9. Custo
 
-As requisições com pesquisa na web são cobradas de acordo com o modelo usado. Você pode ver o custo de cada requisição na página "Uso" do console. Uma requisição pode executar várias pesquisas, e a saída costuma ser mais longa que a de uma requisição comum.
+As requisições com pesquisa na web são cobradas de acordo com o modelo usado. Você pode ver o custo de cada requisição na página "Usage" do console. Uma requisição pode executar várias pesquisas, e a saída costuma ser mais longa que a de uma requisição normal.
 
 ---
 
@@ -247,9 +250,10 @@ As requisições com pesquisa na web são cobradas de acordo com o modelo usado.
 
 | Sintoma | Causa | Solução |
 |---|---|---|
-| 200, mas sem `groundingMetadata` | O modelo não viu necessidade de pesquisar, ou o upstream do grupo não executa pesquisas | Use uma Key do grupo "Gemini-官方Vertex"; peça explicitamente pesquisa na web ou fontes no prompt |
-| `finishReason` é `MAX_TOKENS` e a resposta está vazia | O raciocínio consumiu o limite de saída | Aumente `maxOutputTokens` |
-| `404 Not Found` | Caminho errado, ou o modelo não está no seu grupo | Verifique se o caminho é `/v1beta/models/{model}:generateContent` e confirme o nome do modelo na página "Modelos disponíveis" |
-| `401 Unauthorized` | Key errada, ou a Key não está no cabeçalho `x-goog-api-key` | Verifique o cabeçalho da requisição |
+| 200, mas sem `groundingMetadata` | O modelo não viu necessidade de pesquisar, ou o upstream do grupo não executa pesquisas | Use uma Key do grupo "Gemini-官方Vertex"; peça explicitamente no prompt uma pesquisa na web ou as fontes |
+| A chave unificada nunca retorna `groundingMetadata` | A família Gemini da chave unificada ainda está no nível padrão e não cai em "Gemini-官方Vertex" | Altere o "Billing" conforme descrito no início desta página ou crie uma chave de grupo separada |
+| `finishReason` é `MAX_TOKENS` e a resposta está vazia | O raciocínio consumiu o orçamento de saída | Aumente `maxOutputTokens` |
+| `404 Not Found` | Caminho incorreto, ou o modelo não está no seu grupo | Verifique se o caminho é `/v1beta/models/{model}:generateContent` e confirme o nome do modelo na página "Available Models" |
+| `401 Unauthorized` | Key incorreta, ou a Key não está no cabeçalho `x-goog-api-key` | Verifique o cabeçalho da requisição |
 
-Para detalhes dos protocolos, consulte [Protocolos de API](/pt/docs/guide/api-protocols); para erros comuns, consulte [Códigos de erro](/pt/docs/guide/errors).
+Para detalhes dos protocolos, veja [Protocolos de API](/pt/docs/guide/api-protocols); para erros comuns, veja [Códigos de erro](/pt/docs/guide/errors).
