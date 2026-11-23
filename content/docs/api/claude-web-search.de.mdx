@@ -1,0 +1,380 @@
+---
+title: Claude Web Search API
+description: "Claude-Websuche (das Server-Tool web_search) über LMU AI aufrufen: Eine einzige Anthropic-Messages-Anfrage liefert eine Antwort, die auf aktuellen Webseiten basiert und Quellenangaben auf Satzebene enthält. Mit Beispielen für curl, Python, Streaming und mehrstufige Konversationen."
+ogDescription: "LMU AI Leitfaden zur Claude-Websuche: Fügen Sie web_search_20250305 zu den tools einer /v1/messages-Anfrage hinzu. Claude sucht dann selbstständig und liefert Suchanfragen, Quellen und Quellenangaben auf Satzebene in derselben Antwort. Unterstützt Streaming und mehrstufige Konversationen."
+keywords:
+  - Claude Websuche
+  - Claude Websuche API
+  - web_search_20250305
+  - Claude Suchtool
+  - Claude Quellenangaben
+  - claude-sonnet-5-5 Websuche
+  - LMU AI Claude API
+alternateNames:
+  - Claude web_search API-Referenz
+  - Claude Online-Suche API
+faq:
+  - q: Den API-Schlüssel welcher Gruppe sollte ich verwenden?
+    a: "Verwenden Sie einen API-Schlüssel der Gruppe \"Claude-MAX-高倍率分组（不限制）\". Diese wurde getestet: Die Suche funktioniert normal und liefert Quellenangaben auf Satzebene. Die Gruppe \"Claude-Pro 超值版\" liefert derzeit nur eine rohe Liste von Suchergebnissen ohne Antwort des Modells. Verwenden Sie sie daher nicht für die Websuche."
+  - q: Muss ich die Suche selbst ausführen oder eine Tool-Call-Schleife schreiben?
+    a: "Nein. web_search ist ein Server-Tool: Die Suche läuft auf dem Server, und die endgültige Antwort samt Quellenangaben kommt in derselben Antwort zurück."
+  - q: Warum enthält die Antwort kein server_tool_use?
+    a: "Claude sucht nicht, wenn es entscheidet, dass die Frage keine Websuche erfordert, zum Beispiel bei einer Allgemeinwissensfrage. Wenn Sie eine Suche benötigen, fordern Sie sie im Prompt ausdrücklich an, etwa mit \"Durchsuche das Web und nenne deine Quellen\"."
+  - q: Kann ich die Websuche über das OpenAI-Protokoll nutzen?
+    a: "Ja. Tragen Sie {\"type\":\"web_search\"} in die tools von /v1/chat/completions oder /v1/responses ein, dann sucht das Modell. Die Antwort enthält jedoch keine strukturierten Quellenangaben; Quellenlinks erscheinen nur im Text. Verwenden Sie /v1/messages, wenn Sie Quellenangaben benötigen."
+---
+
+Fügen Sie das Tool `web_search` zu den `tools` einer Anthropic-Messages-Anfrage hinzu, und Claude durchsucht das Web, wenn es nötig ist: Claude entscheidet, ob gesucht wird, wonach und wie oft, und die Suchen laufen auf dem Server. **Die endgültige Antwort und die Quellenangaben auf Satzebene mit Quellenlinks kommen in derselben Antwort zurück**, sodass Sie weder die Suchen selbst ausführen noch eine Tool-Call-Schleife schreiben müssen.
+
+<Callout type="warn" title="Verwenden Sie einen API-Schlüssel der Gruppe Claude-MAX-高倍率分组（不限制）">
+
+Verwenden Sie für die Websuche einen API-Schlüssel der Gruppe **Claude-MAX-高倍率分组（不限制）**. Diese wurde getestet: Die Suche funktioniert normal und liefert Quellenangaben auf Satzebene.
+
+Die Gruppe **Claude-Pro 超值版** liefert derzeit nur rohe Suchergebnisse, die mit `Search results for "..."` beginnen, ohne Antwort des Modells und ohne Quellenangaben. Verwenden Sie sie nicht für die Websuche.
+
+</Callout>
+
+<CN>
+
+<Callout type="info" title="Sie finden diese Gruppe auf der China-Seite nicht?">
+
+Der Modellmarkt auf der China-Seite listet keine Claude-Modelle. Wenn Sie diese Gruppe beim Erstellen eines API-Schlüssels nicht finden, erstellen Sie den Schlüssel auf der internationalen Seite: Konto und Guthaben werden zwischen beiden Seiten geteilt, und der Schlüssel funktioniert auch mit `api.lmuai.com`.
+
+</Callout>
+
+</CN>
+
+---
+
+## 1. Überblick [#overview]
+
+| Punkt | Wert |
+|---|---|
+| Base URL | `https://api.lmuai.com` |
+| Endpunkt | `POST /v1/messages` (Anthropic-Messages-Protokoll) |
+| Authentifizierung | `x-api-key: <your sk- API key>` oder `Authorization: Bearer <your sk- API key>` |
+| Erforderliche Header | `anthropic-version: 2023-06-01`, `content-type: application/json` |
+| Suche aktivieren | `"tools": [{"type": "web_search_20250305", "name": "web_search"}]` zum Request-Body hinzufügen |
+| Getestete Modelle | `claude-sonnet-5-5`, `claude-opus-5-5` |
+
+---
+
+## 2. Schnellstart [#quick-start]
+
+```bash
+curl https://api.lmuai.com/v1/messages \
+  -H "x-api-key: $LMU_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "content-type: application/json" \
+  -d '{
+    "model": "claude-sonnet-5-5",
+    "max_tokens": 4096,
+    "messages": [
+      {"role": "user", "content": "What is the weather in Beijing today? Search the web and cite your sources."}
+    ],
+    "tools": [
+      {"type": "web_search_20250305", "name": "web_search", "max_uses": 3}
+    ]
+  }'
+```
+
+Beispielantwort (von jeder Blockart ist einer erhalten; lange Felder sind gekürzt):
+
+```json
+{
+  "id": "msg_011Ch0...",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-sonnet-5-5",
+  "content": [
+    {
+      "type": "server_tool_use",
+      "id": "srvtoolu_01o0S...",
+      "name": "web_search",
+      "input": {"query": "Beijing weather today"}
+    },
+    {
+      "type": "web_search_tool_result",
+      "tool_use_id": "srvtoolu_01o0S...",
+      "caller": {"type": "direct"},
+      "content": [
+        {
+          "type": "web_search_result",
+          "title": "Beijing (China) weather",
+          "url": "https://weather.metoffice.gov.uk/forecast/wx4g092se?new-design=false",
+          "encrypted_content": "Er0PhyyKvd...",
+          "page_age": null
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "text": "- **Metric view:** Yr's forecast shows clear skies through the day, a high of 7°C and a low of -1°C, with no precipitation and wind around 6 m/s.",
+      "citations": [
+        {
+          "type": "web_search_result_location",
+          "url": "https://www.yr.no/en/forecast/hourly-table/2-1816670/China/Beijing%20Municipality/Beijing/Beijing?i=0",
+          "title": "Yr - Beijing - Hourly weather forecast",
+          "cited_text": "- **Metric view:** Yr's forecast shows clear skies through the day, a high of 7°C and a low of -1°C, with no precipitation and wind around 6 m/s.",
+          "encrypted_index": "EpMB7DK38R..."
+        }
+      ]
+    }
+  ],
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 34457,
+    "output_tokens": 510,
+    "server_tool_use": {"web_search_requests": 2, "web_fetch_requests": 0}
+  }
+}
+```
+
+Bei dieser Anfrage hat Claude zweimal gesucht und dabei 20 bzw. 9 Ergebnisse erhalten.
+
+---
+
+## 3. Tool-Parameter [#tool-parameters]
+
+```json
+{
+  "type": "web_search_20250305",
+  "name": "web_search",
+  "max_uses": 3,
+  "allowed_domains": ["weather.com.cn"]
+}
+```
+
+| Feld | Erforderlich | Beschreibung |
+|---|---|---|
+| `type` | Ja | Tool-Version. Empfohlen wird `web_search_20250305`; siehe Hinweis unten |
+| `name` | Ja | Immer `web_search` |
+| `max_uses` | Nein | Maximale Anzahl von Suchen in dieser Anfrage. Wird sie überschritten, liefert die zusätzliche Suche einen `max_uses_exceeded`-Fehler (siehe Abschnitt 8), und Claude antwortet auf Basis der bereits vorliegenden Ergebnisse |
+| `allowed_domains` | Nein | Nur Ergebnisse von diesen Websites übernehmen. Verwenden Sie reine Domains ohne `https://`, zum Beispiel `["weather.com.cn"]`. Im Test stammten alle Ergebnisse von dieser Domain oder ihren Subdomains |
+| `blocked_domains` | Nein | Diese Websites ausschließen. Im Test erschienen diese Domains nicht mehr in den Ergebnissen |
+| `user_location` | Nein | Standortinformationen. `type` muss `approximate` sein; `city`, `region`, `country` und `timezone` sind optional. Im Test wurde der Parameter ohne Fehler akzeptiert, die Ergebnisse waren jedoch nicht erkennbar an den Standort angepasst. Wenn Sie lokale Informationen benötigen, ist es zuverlässiger, die Stadt im Prompt zu nennen |
+
+<Callout type="warn" title="Verwenden Sie allowed_domains oder blocked_domains, nicht beides">
+
+Wenn Sie beide senden, kann die Anfrage mit 400 fehlschlagen oder 200 mit leeren Suchergebnissen liefern (Letzteres haben wir in wiederholten Tests beobachtet). Behalten Sie nur einen der beiden Parameter.
+
+</Callout>
+
+**Zu den Tool-Versionen**: Anthropic bietet außerdem zwei neuere Versionen an, `web_search_20260209` und `web_search_20260318`. Laut Anthropic fügen sie „dynamisches Filtern“ hinzu (Code filtert die Suchergebnisse vor, bevor Claude sie liest). Auf LMU AI lieferten beide Versionen im Test normale Antworten, diese enthielten jedoch keine Inhalte zum dynamischen Filtern (Codeausführung), und der `caller` jedes Suchblocks war `{"type": "direct"}`. Sie verhielten sich also genauso wie `web_search_20250305`. **Wir empfehlen `web_search_20250305`.**
+
+---
+
+## 4. Antwortstruktur [#response]
+
+Der `content` einer Websuche-Antwort enthält die folgenden Blöcke in dieser Reihenfolge. Wenn Claude mehrmals sucht, wiederholen sich die ersten beiden Arten:
+
+| Block / Feld | Beschreibung |
+|---|---|
+| `server_tool_use` | Eine von Claude gestartete Suche. `input.query` ist die tatsächlich verwendete Suchanfrage |
+| `web_search_tool_result` | Die Ergebnisse dieser Suche; `tool_use_id` entspricht der obigen `id`. Normalerweise ist `content` eine Liste von Ergebnissen |
+| `web_search_tool_result.content[]` | Jedes Ergebnis hat `title`, `url`, `page_age` (das Datum der Seite; kann `null` sein) und `encrypted_content` (der verschlüsselte Seiteninhalt, der in mehrstufigen Konversationen unverändert zurückgesendet werden muss) |
+| `text` | Die Antwort. Sie ist auf mehrere `text`-Blöcke verteilt; Abschnitte mit Quellenangaben enthalten `citations` |
+| `text.citations[]` | Quellenangaben auf Satzebene vom Typ `web_search_result_location`: `url` und `title` sind die Quelle des Abschnitts, `cited_text` ist der zitierte Text, und `encrypted_index` muss in mehrstufigen Konversationen unverändert zurückgesendet werden |
+| `stop_reason` | `end_turn`, wenn die Antwort normal endet |
+| `usage.server_tool_use.web_search_requests` | Die Anzahl der Suchen in dieser Anfrage. **Manche Antworten enthalten dieses Feld nicht**; zählen Sie die `server_tool_use`-Blöcke, um die tatsächliche Anzahl der Suchen zu ermitteln |
+
+<Callout type="info" title="HTTP 200 bedeutet nicht, dass jede Suche erfolgreich war">
+
+Wenn eine Suche fehlschlägt, ist der HTTP-Status trotzdem 200, und der Fehler steht im zugehörigen `web_search_tool_result`; siehe Abschnitt 8.
+
+</Callout>
+
+Bei Modellen, die zuerst nachdenken, etwa `claude-opus-5-5`, enthält die Antwort zusätzlich einen `thinking`-Block. Geben Sie `max_tokens` genügend Spielraum (zum Beispiel `8000`); andernfalls kann die Antwort während des Nachdenkens abgeschnitten werden, und Sie erhalten keinen Antworttext.
+
+---
+
+## 5. Python-Beispiel: Suchanfragen, Quellen und Quellenangaben auslesen [#python]
+
+Installieren Sie zuerst das offizielle Anthropic SDK:
+
+```bash
+pip install anthropic
+```
+
+```python
+import os
+
+import anthropic
+
+client = anthropic.Anthropic(
+    base_url="https://api.lmuai.com",
+    api_key=os.environ["LMU_API_KEY"],
+)
+
+response = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=4096,
+    messages=[{"role": "user", "content": "What's the weather in Beijing today? Search the web and cite your sources."}],
+    tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
+)
+
+for block in response.content:
+    if block.type == "server_tool_use":
+        print("Search query:", block.input["query"])
+    elif block.type == "web_search_tool_result":
+        if isinstance(block.content, list):
+            for r in block.content:
+                print("  Result:", r.title, r.url)
+        else:
+            print("  Search error:", block.content.error_code)
+    elif block.type == "text":
+        print("Answer:", block.text)
+        for c in block.citations or []:
+            print("    Citation:", c.title, c.url, "|", c.cited_text[:40])
+
+print("stop_reason:", response.stop_reason)
+print("Searches:", sum(b.type == "server_tool_use" for b in response.content))
+```
+
+<Callout type="warn" title="Entfernen Sie zuerst die Claude Code-Umgebungsvariablen">
+
+Wenn `ANTHROPIC_AUTH_TOKEN` oder `ANTHROPIC_BASE_URL` in Ihrer Umgebung gesetzt ist (zum Beispiel weil Claude Code auf diesem Rechner eingerichtet ist), liest das SDK diese automatisch aus und sendet entweder einen zusätzlichen Authentifizierungs-Header oder schickt die Anfrage an ein anderes Ziel. Selbst wenn Sie `api_key` im Code übergeben, kann dies zu `401 INVALID_API_KEY` führen. Führen Sie zuerst Folgendes aus:
+
+```bash
+unset ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL
+```
+
+</Callout>
+
+---
+
+## 6. Streaming [#streaming]
+
+Fügen Sie `"stream": true` zum Request-Body hinzu und lassen Sie alles andere unverändert. Die Events treffen in dieser Reihenfolge ein:
+
+1. `message_start`.
+2. `content_block_start` mit einem `server_tool_use`-Block, gefolgt von `input_json_delta`-Events, die die Suchanfrage streamen.
+3. Der Server führt die Suche aus; währenddessen treffen keine neuen Content-Blöcke ein.
+4. `content_block_start` mit einem `web_search_tool_result`-Block, der die vollständige Ergebnisliste auf einmal enthält.
+5. Wenn Claude mehrmals sucht, wiederholen sich die Schritte 2–4.
+6. Die Antwort: `text`-Blöcke streamen den Text als `text_delta`-Events, und Abschnitte mit Quellenangaben erhalten zusätzlich `citations_delta`-Events, die jeweils eine Quellenangabe hinzufügen.
+7. Zum Schluss `message_delta` (mit `stop_reason` und `usage`) und `message_stop`.
+
+<Callout type="info" title="Rechnen Sie mit spürbaren Pausen im Stream">
+
+Bei einer getesteten Streaming-Anfrage mit 2 Suchen traf das erste Event etwa 16 Sekunden nach dem Senden der Anfrage ein; jede Suche dauerte von der Anfrage bis zu den Ergebnissen etwa 2 Sekunden; zwischen dem letzten Suchergebnis und dem Beginn der Antwort lag eine weitere Pause von etwa 7 Sekunden; die gesamte Anfrage dauerte etwa 27 Sekunden. Setzen Sie in Ihrem Client ein ausreichend langes Lese-Timeout (zum Beispiel 300 Sekunden) und werten Sie eine Pause nicht als Verbindungsabbruch.
+
+</Callout>
+
+---
+
+## 7. Mehrstufige Konversationen [#multi-turn]
+
+Um eine Folgefrage zu stellen, senden Sie den `content` der vorherigen Antwort **unverändert** als `assistant`-Nachricht zurück und fügen dann die neue `user`-Nachricht hinzu. Dazu gehören die Blöcke `server_tool_use`, `web_search_tool_result` und `text` mit Quellenangaben. Behalten Sie nicht nur den Text, und verändern Sie `encrypted_content` oder `encrypted_index` nicht.
+
+Im folgenden Beispiel streamt die erste Runde ihre Ausgabe, und die zweite Runde sendet den vorherigen Inhalt zurück, um eine Folgefrage zu stellen. Es wurde auf LMU AI getestet:
+
+```python
+import os
+
+import anthropic
+
+client = anthropic.Anthropic(
+    base_url="https://api.lmuai.com",
+    api_key=os.environ["LMU_API_KEY"],
+)
+tools = [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}]
+
+# Turn 1: streaming
+question = "What is the most recent Claude model Anthropic has released? Search the web and cite your sources."
+with client.messages.stream(
+    model="claude-sonnet-5-5",
+    max_tokens=4096,
+    messages=[{"role": "user", "content": question}],
+    tools=tools,
+) as stream:
+    for text in stream.text_stream:
+        print(text, end="", flush=True)
+    message = stream.get_final_message()
+
+print("\n\nTurn 1 block types:", [b.type for b in message.content])
+print("Turn 1 citations:", sum(len(b.citations or []) for b in message.content if b.type == "text"))
+
+# Turn 2: send the previous content back unchanged
+messages = [
+    {"role": "user", "content": question},
+    {"role": "assistant", "content": message.content},
+    {"role": "user", "content": "How large is its context window?"},
+]
+followup = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=4096,
+    messages=messages,
+    tools=tools,
+)
+print("Turn 2 stop_reason:", followup.stop_reason)
+print("Turn 2 block types:", [b.type for b in followup.content])
+print("Turn 2 answer:", "".join(b.text for b in followup.content if b.type == "text")[:300])
+```
+
+Die vollständige Antwort, die `stream.get_final_message()` zurückgibt, hat dieselbe Struktur wie in Abschnitt 4 und kann in der nächsten Runde direkt zurückgesendet werden.
+
+**Wenn `stop_reason` den Wert `pause_turn` hat**: Laut Anthropic pausiert der Server eine serverseitige Suchschleife, die zu lange läuft, und gibt `pause_turn` zurück. Senden Sie den `content` dieser Antwort unverändert als `assistant`-Nachricht zurück und stellen Sie dieselbe Anfrage erneut, um fortzufahren; fügen Sie keine zusätzliche Benutzernachricht wie „weiter“ hinzu. Auf LMU AI endete eine getestete Anfrage mit 12 Suchen dennoch normal mit `end_turn`, und `pause_turn` trat bei uns nicht auf.
+
+---
+
+## 8. Suchfehler [#errors]
+
+Wenn eine Suche fehlschlägt, ist der HTTP-Status **trotzdem 200**, und der zugehörige `web_search_tool_result.content` ist ein Fehlerobjekt statt einer Ergebnisliste:
+
+```json
+{
+  "type": "web_search_tool_result",
+  "tool_use_id": "srvtoolu_...",
+  "content": {"type": "web_search_tool_result_error", "error_code": "max_uses_exceeded"}
+}
+```
+
+Mögliche Werte für `error_code` (aus der Dokumentation von Anthropic; `max_uses_exceeded` wurde im Test auf LMU AI beobachtet):
+
+| `error_code` | Bedeutung |
+|---|---|
+| `max_uses_exceeded` | Die Anzahl der Suchen hat `max_uses` überschritten |
+| `too_many_requests` | Die Suche wurde durch ein Rate-Limit begrenzt; später erneut versuchen |
+| `invalid_tool_input` | Ungültige Suchparameter |
+| `query_too_long` | Die Suchanfrage ist zu lang |
+| `request_too_large` | Die Anfrage ist zu groß, meist weil die Domainliste zu lang ist |
+| `unavailable` | Interner Fehler im Suchdienst; später erneut versuchen |
+
+Wenn eine Suche ausgeführt wird, aber nichts findet, ist `content` eine leere Liste `[]` und kein Fehler.
+
+---
+
+## 9. Aufruf über das OpenAI-Protokoll [#openai-protocol]
+
+Claude-Modelle lassen sich auch über das [OpenAI-Protokoll](/de/docs/guide/api-protocols) aufrufen. Tragen Sie `{"type": "web_search"}` in `tools` ein, dann durchsucht das Modell das Web; die Antworten sind in Ordnung:
+
+| Protokoll | Endpunkt | Suchtool | Durchsucht das Web | Strukturierte Quellenangaben |
+|---|---|---|---|---|
+| Anthropic Messages | `/v1/messages` | `{"type": "web_search_20250305", "name": "web_search"}` | ✅ | ✅ `citations` |
+| OpenAI Chat Completions | `/v1/chat/completions` | `{"type": "web_search"}` | ✅ | ❌ keine `annotations`; Links erscheinen nur im Text |
+| OpenAI Responses | `/v1/responses` | `{"type": "web_search"}` | ✅ | ❌ `annotations` ist leer; Links erscheinen nur im Text |
+
+**Wenn Sie eine Quellenliste oder Quellenangaben auf Satzebene benötigen, verwenden Sie das Anthropic-Messages-Protokoll (`/v1/messages`).**
+
+---
+
+## 10. Kosten [#billing]
+
+Websuche-Anfragen werden nach dem verwendeten Modell abgerechnet, und die Kosten jeder Anfrage sehen Sie auf der Seite „Nutzung“ in der Konsole. Suchergebnisse zählen als Input-Tokens: Die Beispielanfrage auf dieser Seite hat zweimal gesucht und etwa 34.000 Input-Tokens verbraucht, weit mehr als eine normale Anfrage ohne Suche. Da eine Anfrage mehrere Suchen ausführen kann, können Sie die Anzahl der Suchen mit `max_uses` begrenzen, um die Kosten zu steuern.
+
+---
+
+## 11. Fehlerbehebung [#troubleshooting]
+
+| Symptom | Ursache | Lösung |
+|---|---|---|
+| Die Antwort ist eine Ergebnisliste, die mit `Search results for "..."` beginnt, ohne Antwort und ohne `citations` | Die verwendete Gruppe unterstützt die vollständige Websuche noch nicht | Verwenden Sie einen Schlüssel der Gruppe **Claude-MAX-高倍率分组（不限制）** |
+| Kein `server_tool_use` in der Antwort | Claude hat entschieden, dass die Frage keine Suche erfordert | Fordern Sie die Suche im Prompt ausdrücklich an, etwa mit „Durchsuche das Web und nenne deine Quellen“ |
+| Die Ergebnisse in `web_search_tool_result` sind eine leere Liste `[]` | Keine passenden Ergebnisse; oder es wurden sowohl `allowed_domains` als auch `blocked_domains` gesendet | Lockern Sie die Domain-Einschränkung und behalten Sie nur eine der beiden Listen |
+| `502` mit der Meldung `Upstream access forbidden` | Der `User-Agent`-Header ist der Standardwert der Python-Standardbibliothek `urllib`, `Python-urllib/3.x`, der vom Upstream blockiert wird | Verwenden Sie das offizielle SDK oder eine gängige Bibliothek wie `requests`, oder setzen Sie einen anderen `User-Agent` |
+| Das SDK liefert `401 INVALID_API_KEY`, während curl funktioniert | Das SDK liest automatisch die Umgebungsvariable `ANTHROPIC_AUTH_TOKEN` | Führen Sie zuerst `unset ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL` aus |
+| Es gibt einen `thinking`-Block, aber keine Antwort, und `stop_reason` ist `max_tokens` | Das Nachdenken hat `max_tokens` aufgebraucht | Erhöhen Sie `max_tokens`; für `claude-opus-5-5` werden `8000` oder mehr empfohlen |
+| `usage` enthält kein `server_tool_use` | Manche Antworten liefern die Anzahl der Suchen nicht | Zählen Sie stattdessen die `server_tool_use`-Blöcke |
+
+Mehr zu den Protokollen finden Sie unter [API-Protokolle](/de/docs/guide/api-protocols); zu häufigen Fehlern siehe [Fehlercodes](/de/docs/guide/errors). Die Dokumentation von Anthropic selbst finden Sie unter [Web search tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool).
