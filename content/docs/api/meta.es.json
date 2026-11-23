@@ -6,6 +6,7 @@
     "grok-image",
     "gemini-image-batch",
     "gemini-search",
+    "claude-web-search",
     "video-generation",
     "seedance-video",
     "wan-video",

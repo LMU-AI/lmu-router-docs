@@ -1,0 +1,380 @@
+---
+title: Claude Web 検索 API
+description: "LMU AI 経由で Claude の Web 検索（web_search サーバーツール）を呼び出します。Anthropic Messages のリクエスト 1 回で、リアルタイムの Web ページに基づく回答と文単位の引用が返されます。curl、Python、ストリーミング、マルチターンの例を掲載しています。"
+ogDescription: "LMU AI の Claude Web 検索ガイド：/v1/messages リクエストの tools に web_search_20250305 を追加すると、Claude が自ら検索を行い、検索クエリ、情報源、文単位の引用を同じレスポンスで返します。ストリーミングとマルチターン会話に対応しています。"
+keywords:
+  - Claude Web 検索
+  - Claude Web 検索 API
+  - web_search_20250305
+  - Claude 検索ツール
+  - Claude 引用
+  - claude-sonnet-5-5 Web 検索
+  - LMU AI Claude API
+alternateNames:
+  - Claude web_search API リファレンス
+  - Claude オンライン検索 API
+faq:
+  - q: どのグループの API キーを使えばよいですか？
+    a: "「Claude-MAX-高倍率分组（不限制）」グループの API キーを使用してください。このグループは正常に検索でき、文単位の引用が返されることをテストで確認しています。「Claude-Pro 超值版」グループは現在、モデルの回答がない生の検索結果リストのみを返すため、Web 検索には使用しないでください。"
+  - q: 検索の実行やツール呼び出しループを自分で書く必要はありますか？
+    a: "いいえ。web_search はサーバーツールです。検索はサーバー側で実行され、最終的な回答と引用は同じレスポンスで返されます。"
+  - q: レスポンスに server_tool_use が含まれないのはなぜですか？
+    a: "一般知識に関する質問など、Web 検索が不要だと Claude が判断した場合は検索しません。検索が必要な場合は、「Web を検索して情報源を引用してください」のように、プロンプトで明示的に指示してください。"
+  - q: OpenAI プロトコル経由で Web 検索を使えますか？
+    a: "はい。/v1/chat/completions または /v1/responses の tools に {\"type\":\"web_search\"} を指定するとモデルが検索しますが、レスポンスには構造化された引用が含まれず、情報源のリンクはテキスト内にのみ表示されます。引用が必要な場合は /v1/messages を使用してください。"
+---
+
+Anthropic Messages リクエストの `tools` に `web_search` ツールを追加すると、Claude は必要に応じて Web を検索します。検索するかどうか、何を検索するか、何回検索するかは Claude が判断し、検索はサーバー側で実行されます。**最終的な回答と、情報源リンク付きの文単位の引用は同じレスポンスで返される**ため、検索を自分で実行したり、ツール呼び出しループを書いたりする必要はありません。
+
+<Callout type="warn" title="Claude-MAX-高倍率分组（不限制） グループの API キーを使用してください">
+
+Web 検索には **Claude-MAX-高倍率分组（不限制）** グループの API キーを使用してください。このグループは正常に検索でき、文単位の引用が返されることをテストで確認しています。
+
+**Claude-Pro 超值版** グループは現在、`Search results for "..."` で始まる生の検索結果のみを返し、モデルの回答も引用も含まれません。Web 検索には使用しないでください。
+
+</Callout>
+
+<CN>
+
+<Callout type="info" title="中国サイトでこのグループが見つからない場合">
+
+中国サイトのモデルプラザには Claude モデルが掲載されていません。API キーの作成時にこのグループが見つからない場合は、国際サイトでキーを作成してください。アカウントと残高は両サイトで共有されており、そのキーは `api.lmuai.com` でも使用できます。
+
+</Callout>
+
+</CN>
+
+---
+
+## 1. 概要 [#overview]
+
+| 項目 | 値 |
+|---|---|
+| Base URL | `https://api.lmuai.com` |
+| エンドポイント | `POST /v1/messages`（Anthropic Messages プロトコル） |
+| 認証 | `x-api-key: <your sk- API key>` または `Authorization: Bearer <your sk- API key>` |
+| 必須ヘッダー | `anthropic-version: 2023-06-01`、`content-type: application/json` |
+| 検索の有効化 | リクエストボディに `"tools": [{"type": "web_search_20250305", "name": "web_search"}]` を追加 |
+| テスト済みモデル | `claude-sonnet-5-5`、`claude-opus-5-5` |
+
+---
+
+## 2. クイックスタート [#quick-start]
+
+```bash
+curl https://api.lmuai.com/v1/messages \
+  -H "x-api-key: $LMU_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "content-type: application/json" \
+  -d '{
+    "model": "claude-sonnet-5-5",
+    "max_tokens": 4096,
+    "messages": [
+      {"role": "user", "content": "What is the weather in Beijing today? Search the web and cite your sources."}
+    ],
+    "tools": [
+      {"type": "web_search_20250305", "name": "web_search", "max_uses": 3}
+    ]
+  }'
+```
+
+レスポンス例（各種類のブロックを 1 つずつ残し、長いフィールドは省略しています）：
+
+```json
+{
+  "id": "msg_011Ch0...",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-sonnet-5-5",
+  "content": [
+    {
+      "type": "server_tool_use",
+      "id": "srvtoolu_01o0S...",
+      "name": "web_search",
+      "input": {"query": "Beijing weather today"}
+    },
+    {
+      "type": "web_search_tool_result",
+      "tool_use_id": "srvtoolu_01o0S...",
+      "caller": {"type": "direct"},
+      "content": [
+        {
+          "type": "web_search_result",
+          "title": "Beijing (China) weather",
+          "url": "https://weather.metoffice.gov.uk/forecast/wx4g092se?new-design=false",
+          "encrypted_content": "Er0PhyyKvd...",
+          "page_age": null
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "text": "- **Metric view:** Yr's forecast shows clear skies through the day, a high of 7°C and a low of -1°C, with no precipitation and wind around 6 m/s.",
+      "citations": [
+        {
+          "type": "web_search_result_location",
+          "url": "https://www.yr.no/en/forecast/hourly-table/2-1816670/China/Beijing%20Municipality/Beijing/Beijing?i=0",
+          "title": "Yr - Beijing - Hourly weather forecast",
+          "cited_text": "- **Metric view:** Yr's forecast shows clear skies through the day, a high of 7°C and a low of -1°C, with no precipitation and wind around 6 m/s.",
+          "encrypted_index": "EpMB7DK38R..."
+        }
+      ]
+    }
+  ],
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 34457,
+    "output_tokens": 510,
+    "server_tool_use": {"web_search_requests": 2, "web_fetch_requests": 0}
+  }
+}
+```
+
+このリクエストでは Claude が 2 回検索し、それぞれ 20 件と 9 件の結果を取得しました。
+
+---
+
+## 3. ツールパラメーター [#tool-parameters]
+
+```json
+{
+  "type": "web_search_20250305",
+  "name": "web_search",
+  "max_uses": 3,
+  "allowed_domains": ["weather.com.cn"]
+}
+```
+
+| フィールド | 必須 | 説明 |
+|---|---|---|
+| `type` | はい | ツールのバージョン。`web_search_20250305` を推奨します。下記の注記を参照してください |
+| `name` | はい | 常に `web_search` |
+| `max_uses` | いいえ | このリクエストでの最大検索回数。上限を超えると、超過分の検索は `max_uses_exceeded` エラーを返し（セクション 8 を参照）、Claude は取得済みの結果から回答します |
+| `allowed_domains` | いいえ | 指定したサイトの結果のみを取得します。`https://` を付けないドメインのみを指定します（例：`["weather.com.cn"]`）。テストでは、すべての結果がそのドメインまたはサブドメインからのものでした |
+| `blocked_domains` | いいえ | 指定したサイトを除外します。テストでは、それらのドメインは結果に表示されなくなりました |
+| `user_location` | いいえ | 位置情報。`type` は `approximate` である必要があり、`city`、`region`、`country`、`timezone` は任意です。テストではエラーなく受け付けられましたが、結果が位置に応じて目に見えて調整されることはありませんでした。地域の情報が必要な場合は、プロンプトで都市名を指定するほうが確実です |
+
+<Callout type="warn" title="allowed_domains と blocked_domains は併用しないでください">
+
+両方を送信すると、リクエストが 400 で失敗するか、200 が返っても検索結果が空になる可能性があります（繰り返しのテストでは後者が発生しました）。どちらか一方のみを指定してください。
+
+</Callout>
+
+**ツールのバージョンについて**：Anthropic は新しいバージョンとして `web_search_20260209` と `web_search_20260318` も提供しています。Anthropic によると、これらは「動的フィルタリング」（Claude が読む前にコードで検索結果を絞り込む機能）を追加したものです。LMU AI では、テストでどちらのバージョンも正常に応答しましたが、レスポンスに動的フィルタリング（コード実行）の内容は含まれず、すべての検索ブロックの `caller` は `{"type": "direct"}` で、`web_search_20250305` と同じ動作でした。**`web_search_20250305` の使用を推奨します。**
+
+---
+
+## 4. レスポンス構造 [#response]
+
+Web 検索レスポンスの `content` には、以下のブロックが順に含まれます。Claude が複数回検索した場合、最初の 2 種類が繰り返されます：
+
+| ブロック / フィールド | 説明 |
+|---|---|
+| `server_tool_use` | Claude が開始した 1 回の検索。`input.query` が実際に使用された検索クエリです |
+| `web_search_tool_result` | その検索の結果。`tool_use_id` は上記の `id` と一致します。通常、`content` は結果のリストです |
+| `web_search_tool_result.content[]` | 各結果には `title`、`url`、`page_age`（ページの日付。`null` の場合あり）、`encrypted_content`（暗号化されたページ内容。マルチターン会話では変更せずに送り返す必要があります）が含まれます |
+| `text` | 回答。複数の `text` ブロックに分割され、引用のある箇所には `citations` が付きます |
+| `text.citations[]` | `web_search_result_location` 型の文単位の引用。`url` と `title` はその箇所の情報源、`cited_text` は引用されたテキスト、`encrypted_index` はマルチターン会話で変更せずに送り返す必要があります |
+| `stop_reason` | レスポンスが正常に終了した場合は `end_turn` |
+| `usage.server_tool_use.web_search_requests` | このリクエストでの検索回数。**このフィールドを含まないレスポンスもあります**。実際の検索回数は `server_tool_use` ブロックの数を数えて確認してください |
+
+<Callout type="info" title="HTTP 200 はすべての検索が成功したことを意味しません">
+
+検索が失敗しても HTTP ステータスは 200 のままで、エラーは対応する `web_search_tool_result` に格納されます。セクション 8 を参照してください。
+
+</Callout>
+
+`claude-opus-5-5` のように先に思考するモデルでは、レスポンスに `thinking` ブロックも含まれます。`max_tokens` には十分な余裕（例：`8000`）を持たせてください。不足すると思考の途中でレスポンスが打ち切られ、回答テキストが得られない場合があります。
+
+---
+
+## 5. Python の例：クエリ、情報源、引用を読み取る [#python]
+
+まず Anthropic の公式 SDK をインストールします：
+
+```bash
+pip install anthropic
+```
+
+```python
+import os
+
+import anthropic
+
+client = anthropic.Anthropic(
+    base_url="https://api.lmuai.com",
+    api_key=os.environ["LMU_API_KEY"],
+)
+
+response = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=4096,
+    messages=[{"role": "user", "content": "What's the weather in Beijing today? Search the web and cite your sources."}],
+    tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
+)
+
+for block in response.content:
+    if block.type == "server_tool_use":
+        print("Search query:", block.input["query"])
+    elif block.type == "web_search_tool_result":
+        if isinstance(block.content, list):
+            for r in block.content:
+                print("  Result:", r.title, r.url)
+        else:
+            print("  Search error:", block.content.error_code)
+    elif block.type == "text":
+        print("Answer:", block.text)
+        for c in block.citations or []:
+            print("    Citation:", c.title, c.url, "|", c.cited_text[:40])
+
+print("stop_reason:", response.stop_reason)
+print("Searches:", sum(b.type == "server_tool_use" for b in response.content))
+```
+
+<Callout type="warn" title="先に Claude Code の環境変数をクリアしてください">
+
+環境に `ANTHROPIC_AUTH_TOKEN` または `ANTHROPIC_BASE_URL` が設定されている場合（たとえばこのマシンで Claude Code を設定している場合）、SDK はそれを自動的に読み込み、余分な認証ヘッダーを送信したり、リクエストを別の宛先に送信したりします。コードで `api_key` を渡していても、`401 INVALID_API_KEY` が発生することがあります。先に次のコマンドを実行してください：
+
+```bash
+unset ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL
+```
+
+</Callout>
+
+---
+
+## 6. ストリーミング [#streaming]
+
+リクエストボディに `"stream": true` を追加し、その他はそのままにします。イベントは次の順序で届きます：
+
+1. `message_start`。
+2. `server_tool_use` ブロックを含む `content_block_start`。続いて検索クエリをストリーミングする `input_json_delta` イベント。
+3. サーバーが検索を実行します。この間、新しいコンテンツブロックは届きません。
+4. `web_search_tool_result` ブロックを含む `content_block_start`。結果の完全なリストが一度に届きます。
+5. Claude が複数回検索する場合、手順 2〜4 が繰り返されます。
+6. 回答：`text` ブロックが `text_delta` イベントとして文字をストリーミングし、引用のある箇所では `citations_delta` イベントも届き、それぞれ引用を 1 つ追加します。
+7. 最後に `message_delta`（`stop_reason` と `usage` を含む）と `message_stop`。
+
+<Callout type="info" title="ストリームには目立った間が生じます">
+
+2 回検索するストリーミングリクエストのテストでは、リクエスト送信から最初のイベントまで約 16 秒かかりました。各検索はクエリから結果まで約 2 秒、最後の検索結果から回答の開始までさらに約 7 秒の間があり、リクエスト全体で約 27 秒かかりました。クライアントには十分な読み取りタイムアウト（例：300 秒）を設定し、間を接続切断と見なさないでください。
+
+</Callout>
+
+---
+
+## 7. マルチターン会話 [#multi-turn]
+
+追加の質問をするには、前のレスポンスの `content` を **変更せずに** `assistant` メッセージとして送り返し、そのあとに新しい `user` メッセージを追加します。これには `server_tool_use`、`web_search_tool_result`、引用付きの `text` ブロックが含まれます。テキストだけを残したり、`encrypted_content` や `encrypted_index` を変更したりしないでください。
+
+以下の例では、1 ターン目で出力をストリーミングし、2 ターン目で前の内容を送り返して追加の質問をします。LMU AI でテスト済みです：
+
+```python
+import os
+
+import anthropic
+
+client = anthropic.Anthropic(
+    base_url="https://api.lmuai.com",
+    api_key=os.environ["LMU_API_KEY"],
+)
+tools = [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}]
+
+# Turn 1: streaming
+question = "What is the most recent Claude model Anthropic has released? Search the web and cite your sources."
+with client.messages.stream(
+    model="claude-sonnet-5-5",
+    max_tokens=4096,
+    messages=[{"role": "user", "content": question}],
+    tools=tools,
+) as stream:
+    for text in stream.text_stream:
+        print(text, end="", flush=True)
+    message = stream.get_final_message()
+
+print("\n\nTurn 1 block types:", [b.type for b in message.content])
+print("Turn 1 citations:", sum(len(b.citations or []) for b in message.content if b.type == "text"))
+
+# Turn 2: send the previous content back unchanged
+messages = [
+    {"role": "user", "content": question},
+    {"role": "assistant", "content": message.content},
+    {"role": "user", "content": "How large is its context window?"},
+]
+followup = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=4096,
+    messages=messages,
+    tools=tools,
+)
+print("Turn 2 stop_reason:", followup.stop_reason)
+print("Turn 2 block types:", [b.type for b in followup.content])
+print("Turn 2 answer:", "".join(b.text for b in followup.content if b.type == "text")[:300])
+```
+
+`stream.get_final_message()` が返す完全なレスポンスはセクション 4 と同じ構造で、そのまま次のターンで送り返せます。
+
+**`stop_reason` が `pause_turn` の場合**：Anthropic によると、サーバー側の検索ループが長く続きすぎると、サーバーはそれを一時停止して `pause_turn` を返します。そのレスポンスの `content` を変更せずに `assistant` メッセージとして送り返し、同じリクエストを再度送信すると続行できます。「続けて」のような追加のユーザーメッセージは加えないでください。LMU AI では、12 回検索するリクエストのテストでも `end_turn` で正常に終了し、`pause_turn` は発生しませんでした。
+
+---
+
+## 8. 検索エラー [#errors]
+
+検索が失敗しても HTTP ステータスは **200 のまま** で、対応する `web_search_tool_result.content` は結果のリストではなくエラーオブジェクトになります：
+
+```json
+{
+  "type": "web_search_tool_result",
+  "tool_use_id": "srvtoolu_...",
+  "content": {"type": "web_search_tool_result_error", "error_code": "max_uses_exceeded"}
+}
+```
+
+考えられる `error_code` の値（Anthropic のドキュメントより。`max_uses_exceeded` は LMU AI でのテストで確認済み）：
+
+| `error_code` | 意味 |
+|---|---|
+| `max_uses_exceeded` | 検索回数が `max_uses` を超えました |
+| `too_many_requests` | 検索がレート制限されました。しばらくしてから再試行してください |
+| `invalid_tool_input` | 検索パラメーターが無効です |
+| `query_too_long` | 検索クエリが長すぎます |
+| `request_too_large` | リクエストが大きすぎます。通常はドメインリストが長すぎることが原因です |
+| `unavailable` | 検索サービスの内部エラーです。しばらくしてから再試行してください |
+
+検索は実行されたが何も見つからなかった場合、`content` はエラーではなく空のリスト `[]` になります。
+
+---
+
+## 9. OpenAI プロトコル経由での呼び出し [#openai-protocol]
+
+Claude モデルは [OpenAI プロトコル](/ja/docs/guide/api-protocols) 経由でも呼び出せます。`tools` に `{"type": "web_search"}` を指定するとモデルが Web を検索し、回答にも問題はありません：
+
+| プロトコル | エンドポイント | 検索ツール | Web 検索 | 構造化された引用 |
+|---|---|---|---|---|
+| Anthropic Messages | `/v1/messages` | `{"type": "web_search_20250305", "name": "web_search"}` | ✅ | ✅ `citations` |
+| OpenAI Chat Completions | `/v1/chat/completions` | `{"type": "web_search"}` | ✅ | ❌ `annotations` なし。リンクはテキスト内にのみ表示 |
+| OpenAI Responses | `/v1/responses` | `{"type": "web_search"}` | ✅ | ❌ `annotations` は空。リンクはテキスト内にのみ表示 |
+
+**情報源のリストや文単位の引用が必要な場合は、Anthropic Messages プロトコル（`/v1/messages`）を使用してください。**
+
+---
+
+## 10. 料金 [#billing]
+
+Web 検索リクエストは使用したモデルに応じて課金され、各リクエストの費用はコンソールの「使用状況」ページで確認できます。検索結果は入力 Token としてカウントされます。このページの例のリクエストは 2 回検索し、約 34,000 の入力 Token を使用しました。これは検索なしの通常のリクエストよりはるかに多い量です。1 回のリクエストで複数回検索することがあるため、`max_uses` で検索回数に上限を設けて費用を抑えられます。
+
+---
+
+## 11. トラブルシューティング [#troubleshooting]
+
+| 症状 | 原因 | 対処法 |
+|---|---|---|
+| レスポンスが `Search results for "..."` で始まる結果のリストで、回答も `citations` もない | 使用しているグループが完全な Web 検索にまだ対応していない | **Claude-MAX-高倍率分组（不限制）** グループのキーを使用する |
+| レスポンスに `server_tool_use` がない | Claude が質問に検索は不要と判断した | 「Web を検索して情報源を引用してください」のように、プロンプトで明示的に指示する |
+| `web_search_tool_result` の結果が空のリスト `[]` | 一致する結果がない、または `allowed_domains` と `blocked_domains` の両方を送信した | ドメインの制限を緩め、2 つのリストのうち一方のみを指定する |
+| `502` でメッセージが `Upstream access forbidden` | `User-Agent` ヘッダーが Python 標準ライブラリ `urllib` のデフォルト値 `Python-urllib/3.x` で、上流でブロックされている | 公式 SDK や `requests` などの一般的なライブラリを使用するか、別の `User-Agent` を設定する |
+| curl では動作するが、SDK が `401 INVALID_API_KEY` を返す | SDK が環境変数 `ANTHROPIC_AUTH_TOKEN` を自動的に読み込んでいる | 先に `unset ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL` を実行する |
+| `thinking` ブロックはあるが回答がなく、`stop_reason` が `max_tokens` | 思考で `max_tokens` を使い切った | `max_tokens` を増やす。`claude-opus-5-5` では `8000` 以上を推奨 |
+| `usage` に `server_tool_use` がない | 検索回数を返さないレスポンスがある | 代わりに `server_tool_use` ブロックの数を数える |
+
+プロトコルの詳細は [API プロトコル](/ja/docs/guide/api-protocols)、よくあるエラーは [エラーコード](/ja/docs/guide/errors) を参照してください。Anthropic 公式のドキュメントは [Web 検索ツール](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool) を参照してください。

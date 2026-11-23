@@ -1,0 +1,380 @@
+---
+title: Claude 联网搜索 API
+description: 用灵眸 API 调用 Claude 联网搜索（web_search 服务端工具）：Anthropic Messages 协议一个请求就能拿到基于实时网页的回答和逐句引用，含 curl、Python、流式与多轮示例。
+ogDescription: 灵眸 Claude 联网搜索接入指南：在 /v1/messages 请求的 tools 里加入 web_search_20250305，Claude 会自己搜索并在同一个响应里返回搜索词、来源和逐句引用，支持流式与多轮对话。
+keywords:
+  - Claude 联网搜索
+  - Claude web search API
+  - web_search_20250305
+  - Claude 搜索工具
+  - Claude 引用来源
+  - claude-sonnet-5-5 联网
+  - 灵眸 Claude API
+alternateNames:
+  - Claude web_search 接口文档
+  - Claude 联网 API
+faq:
+  - q: 用哪个分组的 API Key？
+    a: 请用「Claude-MAX-高倍率分组（不限制）」分组的 Key，已实测可以正常搜索并返回逐句引用。「Claude-Pro 超值版」分组暂时只返回原始搜索结果列表，没有模型的回答，不要用于联网搜索。
+  - q: 需要自己执行搜索、写工具调用循环吗？
+    a: 不需要。web_search 是服务端工具，搜索由服务端执行，最终回答和引用在同一个响应里返回。
+  - q: 为什么响应里没有 server_tool_use？
+    a: Claude 判断这个问题不需要联网时不会搜索，例如问一个常识性问题。需要联网时，请在提问里明确要求「联网搜索并给出来源」。
+  - q: 用 OpenAI 协议能联网搜索吗？
+    a: 能。在 /v1/chat/completions 或 /v1/responses 的 tools 里写 {"type":"web_search"} 就会搜索，但响应里没有结构化的引用，来源链接只出现在正文中。需要引用时请用 /v1/messages。
+---
+
+在 Anthropic Messages 请求的 `tools` 里加入 `web_search` 工具，Claude 就会按需联网搜索：自己决定要不要搜、搜什么、搜几次，搜索在服务端执行。**最终回答和带来源链接的逐句引用在同一个响应里返回**，你不需要自己执行搜索，也不需要写工具调用循环。
+
+<Callout type="warn" title="请使用「Claude-MAX-高倍率分组（不限制）」的 API Key">
+
+联网搜索请使用 **Claude-MAX-高倍率分组（不限制）** 分组的 API Key，已实测可以正常搜索并返回逐句引用。
+
+**Claude-Pro 超值版** 分组暂时只返回一段以 `Search results for "..."` 开头的原始搜索结果，没有模型的回答，也没有引用，请不要用于联网搜索。
+
+</Callout>
+
+<CN>
+
+<Callout type="info" title="国内站找不到这个分组？">
+
+国内站的模型广场不展示 Claude 模型。如果创建 API Key 时找不到这个分组，请在国际站创建：账号和余额两站通用，创建好的 Key 调用 `api.lmuai.com` 同样可以。
+
+</Callout>
+
+</CN>
+
+---
+
+## 1. 接口总览 [#overview]
+
+| 项 | 值 |
+|---|---|
+| Base URL | `https://api.lmuai.com` |
+| 端点 | `POST /v1/messages`（Anthropic Messages 协议） |
+| 鉴权 | `x-api-key: <你的 sk- API Key>`，或 `Authorization: Bearer <你的 sk- API Key>` |
+| 必需请求头 | `anthropic-version: 2023-06-01`、`content-type: application/json` |
+| 开启搜索 | 请求体加 `"tools": [{"type": "web_search_20250305", "name": "web_search"}]` |
+| 已实测模型 | `claude-sonnet-5-5`、`claude-opus-5-5` |
+
+---
+
+## 2. 快速开始 [#quick-start]
+
+```bash
+curl https://api.lmuai.com/v1/messages \
+  -H "x-api-key: $LMU_API_KEY" \
+  -H "anthropic-version: 2023-06-01" \
+  -H "content-type: application/json" \
+  -d '{
+    "model": "claude-sonnet-5-5",
+    "max_tokens": 4096,
+    "messages": [
+      {"role": "user", "content": "今天北京天气怎么样？请联网搜索并给出来源。"}
+    ],
+    "tools": [
+      {"type": "web_search_20250305", "name": "web_search", "max_uses": 3}
+    ]
+  }'
+```
+
+响应示例（每类块只保留一个，长字段已截断）：
+
+```json
+{
+  "id": "msg_011Ch0...",
+  "type": "message",
+  "role": "assistant",
+  "model": "claude-sonnet-5-5",
+  "content": [
+    {
+      "type": "server_tool_use",
+      "id": "srvtoolu_01OFz...",
+      "name": "web_search",
+      "input": {"query": "北京天气 今天 2026年11月23日"}
+    },
+    {
+      "type": "web_search_tool_result",
+      "tool_use_id": "srvtoolu_01OFz...",
+      "caller": {"type": "direct"},
+      "content": [
+        {
+          "type": "web_search_result",
+          "title": "北京今天有雾昼夜温差大 明后天扩散条件逐渐转差能见度下降",
+          "url": "https://m.gmw.cn/2026-11/12/content_1304585241.htm",
+          "encrypted_content": "Er4JNdB/9i...",
+          "page_age": null
+        }
+      ]
+    },
+    {
+      "type": "text",
+      "text": "夜间晴，偏北风2级左右，最低气温-4℃。",
+      "citations": [
+        {
+          "type": "web_search_result_location",
+          "url": "https://m.gmw.cn/2026-11/23/content_1304588533.htm",
+          "title": "北京今天风寒效应明显 最高气温8℃ 阵风可达6至7级",
+          "cited_text": "夜间晴，偏北风2级左右，最低气温-4℃。",
+          "encrypted_index": "EpMBnXZNxy..."
+        }
+      ]
+    }
+  ],
+  "stop_reason": "end_turn",
+  "usage": {
+    "input_tokens": 20339,
+    "output_tokens": 615,
+    "server_tool_use": {"web_search_requests": 2, "web_fetch_requests": 0}
+  }
+}
+```
+
+这次请求 Claude 搜索了 2 次，每次返回 10 条结果。
+
+---
+
+## 3. 工具参数 [#tool-parameters]
+
+```json
+{
+  "type": "web_search_20250305",
+  "name": "web_search",
+  "max_uses": 3,
+  "allowed_domains": ["weather.com.cn"]
+}
+```
+
+| 字段 | 必填 | 说明 |
+|---|---|---|
+| `type` | 是 | 工具版本，推荐 `web_search_20250305`，见下方说明 |
+| `name` | 是 | 固定为 `web_search` |
+| `max_uses` | 否 | 本次请求最多搜索几次。超过后，多出的那次搜索返回 `max_uses_exceeded` 错误（见第 8 节），Claude 会基于已有结果作答 |
+| `allowed_domains` | 否 | 只从这些网站取结果，写裸域名，不带 `https://`，例如 `["weather.com.cn"]`。实测结果全部来自该域名及其子域名 |
+| `blocked_domains` | 否 | 排除这些网站。实测结果里不再出现这些域名 |
+| `user_location` | 否 | 位置信息，`type` 固定为 `approximate`，可选 `city`、`region`、`country`、`timezone`。实测传入不报错，但没有观察到结果按地区调整。需要本地信息时，直接在提问里写明城市更可靠 |
+
+<Callout type="warn" title="allowed_domains 和 blocked_domains 只能二选一">
+
+两个同时传时，可能直接返回 400；也可能返回 200，但搜索结果为空（实测多次都是这种情况）。只保留其中一个。
+
+</Callout>
+
+**关于工具版本**：Anthropic 还提供 `web_search_20260209`、`web_search_20260318` 两个新版本，官方说明是增加了「动态过滤」（先用代码筛选搜索结果，再交给 Claude 阅读）。在本平台实测这两个版本都能正常返回，但响应里没有出现动态过滤（代码执行）的内容，搜索块的 `caller` 都是 `{"type": "direct"}`，效果与 `web_search_20250305` 相同。**建议直接用 `web_search_20250305`。**
+
+---
+
+## 4. 响应结构 [#response]
+
+联网搜索的响应 `content` 里依次出现以下几类块，搜索多次时前两类会重复出现：
+
+| 块 / 字段 | 说明 |
+|---|---|
+| `server_tool_use` | Claude 发起的一次搜索。`input.query` 是实际使用的搜索词 |
+| `web_search_tool_result` | 这次搜索的结果，`tool_use_id` 对应上面的 `id`。`content` 正常时是结果列表 |
+| `web_search_tool_result.content[]` | 每条结果包含 `title`、`url`、`page_age`（网页时间，可能为 `null`）、`encrypted_content`（加密的网页内容，多轮对话时要原样带回） |
+| `text` | 回答正文。正文会被拆成多个 `text` 块，带引用的片段有 `citations` |
+| `text.citations[]` | 逐句引用，类型为 `web_search_result_location`：`url`、`title` 是这段文字的来源，`cited_text` 是被引用的文字片段，`encrypted_index` 多轮对话时要原样带回 |
+| `stop_reason` | 正常结束为 `end_turn` |
+| `usage.server_tool_use.web_search_requests` | 本次搜索次数。**部分响应里没有这个字段**，实际搜了几次，以 `server_tool_use` 块的数量为准 |
+
+<Callout type="info" title="HTTP 200 不代表每次搜索都成功">
+
+搜索出错时 HTTP 状态码仍是 200，错误放在对应的 `web_search_tool_result` 里，见第 8 节。
+
+</Callout>
+
+使用 `claude-opus-5-5` 等会先思考的模型时，响应里还会有 `thinking` 块，`max_tokens` 请给足（例如 `8000`），否则可能在思考阶段就被截断，拿不到正文。
+
+---
+
+## 5. Python 示例：读取搜索词、来源和逐句引用 [#python]
+
+先安装 Anthropic 官方 SDK：
+
+```bash
+pip install anthropic
+```
+
+```python
+import os
+
+import anthropic
+
+client = anthropic.Anthropic(
+    base_url="https://api.lmuai.com",
+    api_key=os.environ["LMU_API_KEY"],
+)
+
+response = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=4096,
+    messages=[{"role": "user", "content": "今天北京天气怎么样？请联网搜索并给出来源。"}],
+    tools=[{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}],
+)
+
+for block in response.content:
+    if block.type == "server_tool_use":
+        print("搜索词:", block.input["query"])
+    elif block.type == "web_search_tool_result":
+        if isinstance(block.content, list):
+            for r in block.content:
+                print("  结果:", r.title, r.url)
+        else:
+            print("  搜索出错:", block.content.error_code)
+    elif block.type == "text":
+        print("回答:", block.text)
+        for c in block.citations or []:
+            print("    引用:", c.title, c.url, "|", c.cited_text[:40])
+
+print("stop_reason:", response.stop_reason)
+print("搜索次数:", sum(b.type == "server_tool_use" for b in response.content))
+```
+
+<Callout type="warn" title="运行前清掉 Claude Code 的环境变量">
+
+如果环境里设置了 `ANTHROPIC_AUTH_TOKEN` 或 `ANTHROPIC_BASE_URL`（例如本机配置过 Claude Code），SDK 会自动读取：多带一个鉴权头，或者把请求发到别的地址。即使代码里已经传了 `api_key`，也可能因此返回 `401 INVALID_API_KEY`。运行前先执行：
+
+```bash
+unset ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL
+```
+
+</Callout>
+
+---
+
+## 6. 流式调用 [#streaming]
+
+请求体加 `"stream": true`，其余不变。事件按下面的顺序出现：
+
+1. `message_start`。
+2. `content_block_start`，块类型为 `server_tool_use`，随后用 `input_json_delta` 流出搜索词。
+3. 服务端执行搜索，这段时间流里没有新的内容块。
+4. `content_block_start`，块类型为 `web_search_tool_result`，一次性带上完整的结果列表。
+5. 搜索多次时，第 2～4 步会重复出现。
+6. 回答正文：`text` 块用 `text_delta` 流出文字，带引用的片段会另外收到 `citations_delta`，每个事件追加一条引用。
+7. 最后是 `message_delta`（含 `stop_reason` 和 `usage`）和 `message_stop`。
+
+<Callout type="info" title="流里会有明显的停顿">
+
+实测一次搜索 2 次的流式请求：发出请求约 16 秒后才收到第一个事件；每次从搜索词到搜索结果约 2 秒；最后一个搜索结果到正文开始之间又停顿约 7 秒；全程约 27 秒。请把客户端的读取超时设得足够长（例如 300 秒），不要把停顿当成连接断开。
+
+</Callout>
+
+---
+
+## 7. 多轮对话 [#multi-turn]
+
+继续追问时，把上一轮响应的 `content` **原样**作为 `assistant` 消息带回，再追加新的 `user` 消息。里面包括 `server_tool_use`、`web_search_tool_result` 和带引用的 `text` 块，不要只保存文字部分，也不要修改 `encrypted_content`、`encrypted_index`。
+
+下面的示例第一轮用流式输出，第二轮带回上一轮的内容继续追问，已在本平台实测跑通：
+
+```python
+import os
+
+import anthropic
+
+client = anthropic.Anthropic(
+    base_url="https://api.lmuai.com",
+    api_key=os.environ["LMU_API_KEY"],
+)
+tools = [{"type": "web_search_20250305", "name": "web_search", "max_uses": 3}]
+
+# 第一轮：流式
+question = "Anthropic 最近一次发布的 Claude 模型是哪个？请联网搜索并给出来源。"
+with client.messages.stream(
+    model="claude-sonnet-5-5",
+    max_tokens=4096,
+    messages=[{"role": "user", "content": question}],
+    tools=tools,
+) as stream:
+    for text in stream.text_stream:
+        print(text, end="", flush=True)
+    message = stream.get_final_message()
+
+print("\n\n第一轮块类型:", [b.type for b in message.content])
+print("第一轮引用数:", sum(len(b.citations or []) for b in message.content if b.type == "text"))
+
+# 第二轮：把上一轮的 content 原样带回
+messages = [
+    {"role": "user", "content": question},
+    {"role": "assistant", "content": message.content},
+    {"role": "user", "content": "它的上下文窗口有多大？"},
+]
+followup = client.messages.create(
+    model="claude-sonnet-5-5",
+    max_tokens=4096,
+    messages=messages,
+    tools=tools,
+)
+print("第二轮 stop_reason:", followup.stop_reason)
+print("第二轮块类型:", [b.type for b in followup.content])
+print("第二轮回答:", "".join(b.text for b in followup.content if b.type == "text")[:300])
+```
+
+`stream.get_final_message()` 返回的完整响应与第 4 节的结构相同，可以直接带回下一轮。
+
+**`stop_reason` 为 `pause_turn` 时**：按 Anthropic 官方说明，服务端搜索循环运行过久时会暂停并返回 `pause_turn`。这时把这次响应的 `content` 原样作为 `assistant` 消息带回，用同样的参数再请求一次即可继续，不要额外追加「继续」之类的 user 消息。本平台实测一次请求搜索 12 次也正常以 `end_turn` 结束，没有遇到 `pause_turn`。
+
+---
+
+## 8. 搜索出错时的返回 [#errors]
+
+搜索出错时，HTTP 状态码**仍然是 200**，对应的 `web_search_tool_result.content` 是一个错误对象，而不是结果列表：
+
+```json
+{
+  "type": "web_search_tool_result",
+  "tool_use_id": "srvtoolu_...",
+  "content": {"type": "web_search_tool_result_error", "error_code": "max_uses_exceeded"}
+}
+```
+
+`error_code` 的取值（来自 Anthropic 官方文档；本平台实测遇到过 `max_uses_exceeded`）：
+
+| `error_code` | 含义 |
+|---|---|
+| `max_uses_exceeded` | 搜索次数超过了 `max_uses` |
+| `too_many_requests` | 搜索被限流，稍后重试 |
+| `invalid_tool_input` | 搜索参数不合法 |
+| `query_too_long` | 搜索词过长 |
+| `request_too_large` | 请求过大，通常是域名列表太长 |
+| `unavailable` | 搜索服务内部错误，稍后重试 |
+
+搜索执行了但没有匹配结果时，`content` 是空列表 `[]`，不是错误。
+
+---
+
+## 9. 用 OpenAI 协议调用 [#openai-protocol]
+
+Claude 模型也可以用 [OpenAI 协议](/docs/guide/api-protocols) 调用，在 `tools` 里写 `{"type": "web_search"}` 就会联网搜索，回答内容正常：
+
+| 协议 | 端点 | 搜索工具写法 | 能否联网 | 结构化引用来源 |
+|---|---|---|---|---|
+| Anthropic Messages | `/v1/messages` | `{"type": "web_search_20250305", "name": "web_search"}` | ✅ | ✅ `citations` |
+| OpenAI Chat Completions | `/v1/chat/completions` | `{"type": "web_search"}` | ✅ | ❌ 没有 `annotations`，链接只在正文中 |
+| OpenAI Responses | `/v1/responses` | `{"type": "web_search"}` | ✅ | ❌ `annotations` 为空，链接只在正文中 |
+
+**需要来源列表或逐句引用时，请使用 Anthropic Messages 协议（`/v1/messages`）。**
+
+---
+
+## 10. 费用 [#billing]
+
+联网搜索请求按所用模型计费，每次请求的费用可以在控制台「使用记录」中查看。搜索结果会计入输入 token：本页的示例请求搜索了 2 次，输入 token 约 2 万，比不搜索的普通请求高很多。一次请求可能执行多次搜索，可以用 `max_uses` 限制搜索次数来控制成本。
+
+---
+
+## 11. 排错速查 [#troubleshooting]
+
+| 现象 | 原因 | 处理 |
+|---|---|---|
+| 返回一段以 `Search results for "..."` 开头的结果列表，没有回答，也没有 `citations` | 所用分组暂不支持完整的联网搜索 | 换用 **Claude-MAX-高倍率分组（不限制）** 的 Key |
+| 响应里没有 `server_tool_use` | Claude 判断这个问题不需要搜索 | 在提问里明确要求「联网搜索并给出来源」 |
+| `web_search_tool_result` 的结果为空 `[]` | 没有匹配的结果；或同时传了 `allowed_domains` 和 `blocked_domains` | 放宽域名限制，两个名单只保留一个 |
+| `502`，错误信息为 `Upstream access forbidden` | 请求头 `User-Agent` 是 Python 标准库 `urllib` 的默认值 `Python-urllib/3.x`，被上游拦截 | 使用官方 SDK、`requests` 等常用库，或手动设置一个其他的 `User-Agent` |
+| 用 SDK 调用返回 `401 INVALID_API_KEY`，用 curl 却正常 | 环境变量 `ANTHROPIC_AUTH_TOKEN` 被 SDK 自动读取 | 运行前 `unset ANTHROPIC_AUTH_TOKEN ANTHROPIC_BASE_URL` |
+| 有 `thinking` 块但没有正文，`stop_reason` 为 `max_tokens` | 思考用完了 `max_tokens` | 调大 `max_tokens`，`claude-opus-5-5` 建议 `8000` 以上 |
+| `usage` 里没有 `server_tool_use` | 部分响应不返回搜索次数 | 以 `server_tool_use` 块的数量为准 |
+
+更多协议说明见[接入协议](/docs/guide/api-protocols)，常见错误见[错误码速查](/docs/guide/errors)。Anthropic 官方说明见 [Web search tool](https://platform.claude.com/docs/en/agents-and-tools/tool-use/web-search-tool)。
