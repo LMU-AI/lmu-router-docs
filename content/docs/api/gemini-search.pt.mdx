@@ -252,7 +252,9 @@ Uma ferramenta de função comum chamada `google_search` (`"type": "function"`) 
 
 ## 9. Custo
 
-As requisições com pesquisa na web são cobradas de acordo com o modelo usado. Você pode ver o custo de cada requisição na página "Usage" do console. Uma requisição pode executar várias pesquisas, e a saída costuma ser mais longa que a de uma requisição normal.
+Além do custo de tokens do modelo, as requisições com pesquisa na web **têm uma cobrança de pesquisa à parte para cada pesquisa realmente executada**. O número de pesquisas vem de `groundingMetadata.webSearchQueries` retornado pelo Gemini, e um termo repetido nessa lista conta uma única vez; se o modelo não executar nenhuma pesquisa, não há cobrança de pesquisa.
+
+Uma requisição pode executar várias pesquisas, e a saída costuma ser mais longa que a de uma requisição normal. Na página "Usage" do console, os registros que executaram pesquisas mostram "Search N" ao lado do custo, em que N é o número de pesquisas; a cobrança de pesquisa já está incluída no custo desse registro.
 
 ---
 
