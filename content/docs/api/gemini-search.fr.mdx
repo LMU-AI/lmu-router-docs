@@ -252,7 +252,9 @@ Un outil de fonction ordinaire nommé `google_search` (`"type": "function"`) ne 
 
 ## 9. Coût
 
-Les requêtes avec recherche web sont facturées selon le modèle utilisé. Vous pouvez consulter le coût de chaque requête sur la page "Utilisation" de la console. Une requête peut effectuer plusieurs recherches, et la sortie est généralement plus longue que pour une requête normale.
+En plus du coût des tokens du modèle, les requêtes avec recherche web **font l'objet de frais de recherche distincts pour chaque recherche réellement effectuée**. Le nombre de recherches est tiré de `groundingMetadata.webSearchQueries` renvoyé par Gemini, et un terme répété dans cette liste ne compte qu'une fois ; si le modèle n'effectue aucune recherche, il n'y a pas de frais de recherche.
+
+Une requête peut effectuer plusieurs recherches, et la sortie est généralement plus longue que pour une requête normale. Sur la page "Utilisation" de la console, les enregistrements ayant effectué des recherches affichent "Search N" à côté du coût, N étant le nombre de recherches ; les frais de recherche sont déjà inclus dans le coût de cet enregistrement.
 
 ---
 

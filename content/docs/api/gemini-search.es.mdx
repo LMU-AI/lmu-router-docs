@@ -252,7 +252,9 @@ Una herramienta de función común llamada `google_search` (`"type": "function"`
 
 ## 9. Costo
 
-Las solicitudes con búsqueda web se facturan según el modelo utilizado. Puedes ver el costo de cada solicitud en la página "Uso" de la consola. Una solicitud puede ejecutar varias búsquedas, y la salida suele ser más larga que la de una solicitud normal.
+Además del costo de tokens del modelo, las solicitudes con búsqueda web **tienen un cargo de búsqueda aparte por cada búsqueda que se ejecuta realmente**. El número de búsquedas se toma de `groundingMetadata.webSearchQueries` que devuelve Gemini, y un término repetido en esa lista cuenta una sola vez; si el modelo no ejecuta ninguna búsqueda, no hay cargo de búsqueda.
+
+Una solicitud puede ejecutar varias búsquedas, y la salida suele ser más larga que la de una solicitud normal. En la página "Uso" de la consola, los registros que ejecutaron búsquedas muestran "Search N" junto al costo, donde N es el número de búsquedas; el cargo de búsqueda ya está incluido en el costo de ese registro.
 
 ---
 

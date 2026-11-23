@@ -252,7 +252,9 @@ Ein gewöhnliches Function-Tool namens `google_search` (`"type": "function"`) l�
 
 ## 9. Kosten
 
-Anfragen mit Websuche werden nach dem verwendeten Modell abgerechnet. Die Kosten jeder Anfrage sehen Sie in der Konsole auf der Seite „Nutzung“. Eine Anfrage kann mehrere Suchen ausführen, und die Ausgabe ist meist länger als bei einer normalen Anfrage.
+Zusätzlich zu den Token-Kosten des Modells wird bei Anfragen mit Websuche **für jede tatsächlich ausgeführte Suche eine separate Suchgebühr berechnet**. Die Anzahl der Suchen ergibt sich aus `groundingMetadata.webSearchQueries`, das Gemini zurückgibt; ein in dieser Liste wiederholter Suchbegriff zählt nur einmal. Führt das Modell keine Suche aus, fällt keine Suchgebühr an.
+
+Eine Anfrage kann mehrere Suchen ausführen, und die Ausgabe ist meist länger als bei einer normalen Anfrage. Auf der Seite „Nutzung“ in der Konsole zeigen Einträge mit Suchen neben den Kosten „Search N“ an, wobei N die Anzahl der Suchen ist; die Suchgebühr ist in den Kosten dieses Eintrags bereits enthalten.
 
 ---
 

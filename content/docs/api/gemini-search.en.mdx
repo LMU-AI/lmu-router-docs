@@ -252,7 +252,9 @@ An ordinary function tool named `google_search` (`"type": "function"`) does not 
 
 ## 9. Cost
 
-Web-search requests are billed by the model used. You can see the cost of each request on the "Usage" page in the console. One request may run several searches, and the output is usually longer than a normal request.
+Besides the model's token cost, web-search requests are **charged a separate search fee for each search actually run**. The number of searches comes from `groundingMetadata.webSearchQueries` returned by Gemini, and a search term repeated in that list counts once; if the model runs no search, there is no search fee.
+
+One request may run several searches, and the output is usually longer than a normal request. On the "Usage" page in the console, records that ran searches show "Search N" next to the cost, where N is the number of searches; the search fee is already included in that record's cost.
 
 ---
 
