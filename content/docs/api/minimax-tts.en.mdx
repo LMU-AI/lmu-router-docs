@@ -1,0 +1,319 @@
+---
+title: MiniMax Text-to-Speech API
+description: "Call MiniMax text-to-speech (speech-2.8-hd / speech-2.8-turbo) through LMU AI: use the OpenAI /v1/audio/speech protocol with the OpenAI SDK, plus MiniMax extension parameters such as language boost, pronunciation dictionary, emotion and timbre mixing. Use the native /v1/t2a_v2 endpoint when you need subtitles or audio URLs."
+ogDescription: "LMU AI MiniMax text-to-speech guide: /v1/audio/speech is compatible with the OpenAI SDK, and MiniMax extension parameters such as language_boost, pronunciation_dict and voice_setting go in extra_body. The native /v1/t2a_v2 endpoint forwards the request body as-is and supports subtitles, audio URLs and native streaming."
+keywords:
+  - MiniMax text to speech
+  - MiniMax TTS API
+  - speech-2.8-hd
+  - speech-2.8-turbo
+  - t2a_v2
+  - OpenAI audio speech
+  - text-to-speech API
+  - LMU AI MiniMax API
+alternateNames:
+  - MiniMax t2a_v2 API reference
+  - MiniMax TTS endpoint
+faq:
+  - q: Which group's API key should I use?
+    a: "Use an API key in the \"MiniMax(Openai协议)\" or \"国产旗舰大模型甄选(Openai协议)-自由切换\" group. Both groups serve speech-2.8-hd and speech-2.8-turbo."
+  - q: Can I set voice to an OpenAI voice name such as alloy?
+    a: "The request succeeds, but you get the MiniMax default voice male-qn-qingse, not the OpenAI voice. To choose a voice, use a MiniMax voice_id."
+  - q: Which output formats are supported?
+    a: "mp3 (default), wav, pcm and flac. Other formats such as opus or aac return 400 immediately."
+  - q: How do I pass MiniMax extension parameters with the OpenAI SDK?
+    a: "Put them in extra_body, for example extra_body={\"language_boost\":\"Russian\",\"voice_setting\":{\"emotion\":\"happy\"}}. The gateway forwards them to MiniMax as-is."
+  - q: What if I need subtitles or an audio download URL?
+    a: "/v1/audio/speech returns only the audio itself and cannot carry subtitles or URLs. Use the native /v1/t2a_v2 endpoint with subtitle_enable or output_format:\"url\" instead."
+  - q: How is it billed?
+    a: "By the number of characters in the input text, with each Chinese character counted as 2. See the Model Gallery for unit prices. Failed requests are not billed."
+---
+
+The MiniMax text-to-speech models `speech-2.8-hd` and `speech-2.8-turbo` can be called through two endpoints:
+
+- **`POST /v1/audio/speech`**: the OpenAI speech protocol, so you can use the OpenAI SDK directly. MiniMax-specific features (language boost, pronunciation dictionary, emotion, timbre mixing and more) go in the request body as extension parameters, and the gateway forwards them to MiniMax as-is.
+- **`POST /v1/t2a_v2`**: the MiniMax native endpoint. The request body is forwarded and the response returned as-is. Use it when you need subtitles, audio URLs or the MiniMax native streaming format.
+
+<Callout type="info" title="Use an API key in a MiniMax speech group">
+
+Use an API key in the **MiniMax(Openai协议)** or **国产旗舰大模型甄选(Openai协议)-自由切换** group. Keys in other groups cannot reach these two models.
+
+</Callout>
+
+---
+
+## 1. Endpoint overview [#overview]
+
+| Item | Value |
+|---|---|
+| Base URL | `https://api.lmuai.com` |
+| OpenAI protocol endpoint | `POST /v1/audio/speech` |
+| MiniMax native endpoint | `POST /v1/t2a_v2` |
+| Authentication | `Authorization: Bearer <your sk- API key>` |
+| Request format | `Content-Type: application/json` |
+| Models | `speech-2.8-hd`, `speech-2.8-turbo` |
+| Billing | By character count, each Chinese character counted as 2; unit prices in the [Model Gallery](/en/docs/guide/models) |
+
+---
+
+## 2. Quick start [#quick-start]
+
+### curl [#quick-start-curl]
+
+```bash
+curl https://api.lmuai.com/v1/audio/speech \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-hd",
+    "input": "Hello, welcome to LMU AI.",
+    "voice": "male-qn-qingse",
+    "response_format": "mp3"
+  }' \
+  --output out.mp3
+```
+
+On success the response body is the audio file itself (`Content-Type: audio/mpeg`), not JSON.
+
+### Python (OpenAI SDK) [#quick-start-python]
+
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="sk-your-key", base_url="https://api.lmuai.com/v1")
+
+resp = client.audio.speech.create(
+    model="speech-2.8-hd",
+    voice="male-qn-qingse",
+    input="Hello, welcome to LMU AI.",
+    response_format="mp3",
+)
+resp.write_to_file("out.mp3")
+```
+
+---
+
+## 3. Standard parameters [#standard-params]
+
+| Parameter | Required | Description |
+|---|---|---|
+| `model` | Yes | `speech-2.8-hd` or `speech-2.8-turbo` |
+| `input` | Yes | The text to synthesize; must not be empty |
+| `voice` | No | A MiniMax voice ID (voice_id), such as `male-qn-qingse` or `female-shaonv`. If omitted or set to an OpenAI voice name (`alloy` and so on), the default voice `male-qn-qingse` is used |
+| `response_format` | No | `mp3` (default), `wav`, `pcm`, `flac`; any other value returns 400 |
+| `speed` | No | Speaking rate. MiniMax supports 0.5 to 2.0; values outside the range are clamped to the nearest bound (for example, 3.0 is synthesized as 2.0) |
+| `stream_format` | No | Set to `"sse"` to stream the output; see [section 5](#streaming) |
+
+A wrong voice ID returns 400 with error code `minimax_2054` (`voice id not exist`). For the list of system voices, see the [MiniMax official documentation](https://platform.minimax.io/docs/api-reference/speech-t2a-intro).
+
+---
+
+## 4. MiniMax extension parameters [#extension-params]
+
+The MiniMax native parameters below can be written at the **top level** of a `/v1/audio/speech` request body, and the gateway forwards them to MiniMax as-is. MiniMax validates the values: an invalid value returns 400 with an error code like `minimax_2013`, and the `message` names the parameter at fault.
+
+### 4.1 Top-level parameters [#top-level-params]
+
+| Parameter | Type | Description |
+|---|---|---|
+| `language_boost` | string | Improves recognition and pronunciation for a given language, such as `"Russian"` or `"Chinese"`; `"auto"` detects the language automatically |
+| `text_normalization_mode` | string | How text is normalized (how numbers, symbols and so on are read): `"basic"` or `"quality"` |
+| `pronunciation_dict` | object | Custom pronunciations, such as `{"tone": ["处理/(chu3)(li3)"]}` |
+| `voice_modify` | object | Voice effects: `pitch`, `intensity` and `timbre`, each from -100 to 100 |
+| `timbre_weights` | array | Mixes several voices by weight, such as `[{"voice_id": "male-qn-qingse", "weight": 60}, {"voice_id": "female-shaonv", "weight": 40}]`. When mixing, set `voice` to an OpenAI voice name (such as `alloy`) or leave it empty |
+
+### 4.2 Nested parameters voice_setting / audio_setting [#nested-params]
+
+You can also pass MiniMax `voice_setting` (such as `emotion`, `vol` for volume, `pitch`) and `audio_setting` (such as `sample_rate`, `bitrate`, `channel` for channel count). The gateway merges them into the objects of the same name that it builds, and your keys override the defaults.
+
+Three keys are determined by the OpenAI standard parameters and are ignored if written in the nested objects:
+
+| Nested key | Taken from |
+|---|---|
+| `voice_setting.voice_id` | `voice` |
+| `voice_setting.speed` | `speed` |
+| `audio_setting.format` | `response_format` |
+
+Without `audio_setting`, the defaults are a 32000 sample rate, mono, and a 128000 bitrate for mp3.
+
+### 4.3 Parameters not supported on /v1/audio/speech [#unsupported-params]
+
+`stream`, `stream_options`, `output_format`, `subtitle_enable` and `subtitle_type` are ignored on `/v1/audio/speech`: this endpoint returns only the audio itself and cannot carry subtitles or audio URLs. For those features, use the [native /v1/t2a_v2 endpoint](#t2a-v2).
+
+### 4.4 Examples [#extension-examples]
+
+curl: Russian language boost, happy emotion, 16 kHz WAV:
+
+```bash
+curl https://api.lmuai.com/v1/audio/speech \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-hd",
+    "input": "Привет! Сегодня хорошая погода.",
+    "voice": "male-qn-qingse",
+    "response_format": "wav",
+    "language_boost": "Russian",
+    "voice_setting": {"emotion": "happy"},
+    "audio_setting": {"sample_rate": 16000}
+  }' \
+  --output out.wav
+```
+
+Python (OpenAI SDK): put the extension parameters in `extra_body`:
+
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="sk-your-key", base_url="https://api.lmuai.com/v1")
+
+resp = client.audio.speech.create(
+    model="speech-2.8-hd",
+    voice="male-qn-qingse",
+    input="这个问题我来处理。",
+    response_format="mp3",
+    extra_body={
+        "pronunciation_dict": {"tone": ["处理/(chu3)(li3)"]},
+        "voice_setting": {"emotion": "happy"},
+    },
+)
+resp.write_to_file("out.mp3")
+```
+
+When an extension parameter value is invalid, the SDK raises `openai.BadRequestError` (HTTP 400).
+
+---
+
+## 5. Streaming output [#streaming]
+
+Add `"stream_format": "sse"` to the request body. The response becomes `text/event-stream` and delivers the audio in chunks in the OpenAI speech streaming format:
+
+```text
+data: {"audio":"<base64 audio chunk>","type":"speech.audio.delta"}
+
+data: {"audio":"<base64 audio chunk>","type":"speech.audio.delta"}
+
+data: {"type":"speech.audio.done"}
+```
+
+Base64-decode the `audio` of each `speech.audio.delta` and concatenate them in order to get the full audio; `speech.audio.done` marks the end. If the connection closes before `speech.audio.done`, the audio is incomplete.
+
+```bash
+curl -N https://api.lmuai.com/v1/audio/speech \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-turbo",
+    "input": "Hello, welcome to LMU AI.",
+    "voice": "male-qn-qingse",
+    "stream_format": "sse"
+  }'
+```
+
+---
+
+## 6. Native endpoint /v1/t2a_v2 [#t2a-v2]
+
+The request body of `POST /v1/t2a_v2` matches the MiniMax official t2a_v2 API. The gateway forwards it as-is and returns the response as-is. For parameter details, see the [MiniMax official documentation](https://platform.minimax.io/docs/api-reference/speech-t2a-intro).
+
+Key points:
+
+- `model` and `text` are required, and each field may appear only once.
+- **`voice_setting.voice_id` is required**; without it MiniMax returns 400 `minimax_2013` (`invalid params, empty field`). When mixing voices with `timbre_weights`, set `voice_id` to an empty string `""`.
+- Only MiniMax speech models are supported; calling it with any other model returns 400.
+
+### 6.1 Non-streaming [#t2a-v2-sync]
+
+```bash
+curl https://api.lmuai.com/v1/t2a_v2 \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-hd",
+    "text": "Hello, welcome to LMU AI.",
+    "voice_setting": {"voice_id": "male-qn-qingse", "speed": 1.0},
+    "audio_setting": {"format": "mp3", "sample_rate": 32000}
+  }'
+```
+
+The response is JSON, and the audio is in `data.audio`, **hex-encoded**:
+
+| Field | Description |
+|---|---|
+| `data.audio` | Hex-encoded audio; with `"output_format": "url"` it is an audio download URL instead |
+| `data.status` | Synthesis status; 2 when complete |
+| `data.subtitle_file` | Subtitle file URL, returned when `"subtitle_enable": true` is set |
+| `extra_info` | Audio information, including `audio_length`, `audio_sample_rate`, `audio_size`, `bitrate`, `audio_format`, `audio_channel`, `word_count` and `usage_characters` (billed characters) |
+| `trace_id` | Request trace ID; include it when reporting a problem |
+| `base_resp` | `{"status_code": 0, "status_msg": "success"}` on success |
+
+Saving the audio in Python:
+
+```python
+import requests
+
+resp = requests.post(
+    "https://api.lmuai.com/v1/t2a_v2",
+    headers={"Authorization": "Bearer sk-your-key"},
+    json={
+        "model": "speech-2.8-hd",
+        "text": "Hello, welcome to LMU AI.",
+        "voice_setting": {"voice_id": "male-qn-qingse"},
+        "audio_setting": {"format": "mp3"},
+    },
+    timeout=120,
+)
+resp.raise_for_status()
+with open("out.mp3", "wb") as f:
+    f.write(bytes.fromhex(resp.json()["data"]["audio"]))
+```
+
+### 6.2 Streaming [#t2a-v2-stream]
+
+With `"stream": true`, the response is MiniMax native SSE: each frame is `data:` followed by a JSON object. Frames with `data.status` 1 carry hex-encoded audio chunks; the last frame has `data.status` 2 and carries `extra_info`.
+
+By default MiniMax sends the full audio again in the last frame. To receive only the chunks, add `"stream_options": {"exclude_aggregated_audio": true}`:
+
+```bash
+curl -N https://api.lmuai.com/v1/t2a_v2 \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-turbo",
+    "text": "Hello, welcome to LMU AI.",
+    "stream": true,
+    "stream_options": {"exclude_aggregated_audio": true},
+    "voice_setting": {"voice_id": "male-qn-qingse"},
+    "audio_setting": {"format": "mp3"}
+  }'
+```
+
+### 6.3 Error format [#t2a-v2-errors]
+
+The MiniMax official API returns HTTP 200 on errors and puts the error in `base_resp`. Through the gateway, errors come back with the corresponding HTTP error status and a uniform body like the one below, where `code` is `minimax_` followed by the MiniMax error code:
+
+```json
+{"error": {"code": "minimax_2013", "message": "invalid params, empty field", "type": "invalid_request_error"}}
+```
+
+---
+
+## 7. Common errors [#errors]
+
+Both endpoints share the following errors:
+
+| HTTP status | `code` / `message` | Cause and fix |
+|---|---|---|
+| 400 | `minimax_2013` | Invalid parameter; the `message` names it, for example `voice_setting emotion` or `text_normalization_mode must be basic or quality` |
+| 400 | `minimax_2054` | The voice ID does not exist; check that `voice` (or `voice_setting.voice_id`) is a MiniMax voice_id |
+| 400 | `response_format "opus" is not supported ...` | `/v1/audio/speech` supports only mp3, wav, pcm and flac |
+| 400 | `input is required` | `input` is empty on `/v1/audio/speech` |
+| 400 | `model is required` | The request body has no `model` |
+
+---
+
+## 8. Billing [#billing]
+
+- Billed by the number of characters in the input text, with each Chinese character counted as 2, based on the `usage_characters` returned by MiniMax.
+- Both endpoints are billed the same way; failed requests are not billed.
+- See the [Model Gallery](/en/docs/guide/models) for unit prices.

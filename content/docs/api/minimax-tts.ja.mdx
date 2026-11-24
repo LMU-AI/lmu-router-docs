@@ -1,0 +1,319 @@
+---
+title: MiniMax 音声合成 API
+description: "LMU AI 経由で MiniMax のテキスト読み上げ（speech-2.8-hd / speech-2.8-turbo）を呼び出します。OpenAI SDK で OpenAI の /v1/audio/speech プロトコルを使えるほか、言語ブースト、発音辞書、感情、音色ミックスといった MiniMax 拡張パラメータも利用できます。字幕や音声 URL が必要な場合はネイティブの /v1/t2a_v2 エンドポイントを使います。"
+ogDescription: "LMU AI MiniMax テキスト読み上げガイド：/v1/audio/speech は OpenAI SDK と互換性があり、language_boost、pronunciation_dict、voice_setting といった MiniMax 拡張パラメータは extra_body に入れます。ネイティブの /v1/t2a_v2 エンドポイントはリクエストボディをそのまま転送し、字幕、音声 URL、ネイティブストリーミングに対応します。"
+keywords:
+  - MiniMax テキスト読み上げ
+  - MiniMax TTS API
+  - speech-2.8-hd
+  - speech-2.8-turbo
+  - t2a_v2
+  - OpenAI audio speech
+  - text-to-speech API
+  - LMU AI MiniMax API
+alternateNames:
+  - MiniMax t2a_v2 API リファレンス
+  - MiniMax TTS エンドポイント
+faq:
+  - q: どのグループの API キーを使えばよいですか？
+    a: "\"MiniMax(Openai协议)\" または \"国产旗舰大模型甄选(Openai协议)-自由切换\" グループの API キーを使ってください。どちらのグループも speech-2.8-hd と speech-2.8-turbo を提供しています。"
+  - q: voice に alloy のような OpenAI のボイス名を設定できますか？
+    a: "リクエストは成功しますが、取得できるのは OpenAI のボイスではなく MiniMax のデフォルトボイス male-qn-qingse です。ボイスを選ぶには MiniMax の voice_id を使ってください。"
+  - q: どの出力フォーマットがサポートされていますか？
+    a: "mp3（デフォルト）、wav、pcm、flac です。opus や aac などその他のフォーマットはただちに 400 を返します。"
+  - q: OpenAI SDK で MiniMax 拡張パラメータを渡すにはどうすればよいですか？
+    a: "extra_body に入れてください。例えば extra_body={\"language_boost\":\"Russian\",\"voice_setting\":{\"emotion\":\"happy\"}} のようにします。ゲートウェイがそれらをそのまま MiniMax に転送します。"
+  - q: 字幕や音声のダウンロード URL が必要な場合はどうすればよいですか？
+    a: "/v1/audio/speech は音声そのものだけを返すため、字幕や URL を伝えることはできません。代わりにネイティブの /v1/t2a_v2 エンドポイントで subtitle_enable または output_format:\"url\" を使ってください。"
+  - q: 課金はどのように行われますか？
+    a: "入力テキストの文字数に基づいて課金され、中国語の文字は 1 文字につき 2 文字として数えられます。単価はモデルギャラリーをご覧ください。失敗したリクエストは課金されません。"
+---
+
+MiniMax のテキスト読み上げモデル `speech-2.8-hd` と `speech-2.8-turbo` は、2 つのエンドポイントから呼び出せます。
+
+- **`POST /v1/audio/speech`**：OpenAI の speech プロトコルなので、OpenAI SDK を直接使えます。MiniMax 固有の機能（言語ブースト、発音辞書、感情、音色ミックスなど）は拡張パラメータとしてリクエストボディに入れ、ゲートウェイがそれらをそのまま MiniMax に転送します。
+- **`POST /v1/t2a_v2`**：MiniMax のネイティブエンドポイントです。リクエストボディはそのまま転送され、レスポンスもそのまま返されます。字幕、音声 URL、または MiniMax ネイティブのストリーミング形式が必要な場合に使ってください。
+
+<Callout type="info" title="MiniMax speech グループの API キーを使う">
+
+**MiniMax(Openai协议)** または **国产旗舰大模型甄选(Openai协议)-自由切换** グループの API キーを使ってください。その他のグループのキーではこれら 2 つのモデルにアクセスできません。
+
+</Callout>
+
+---
+
+## 1. エンドポイント概要 [#overview]
+
+| 項目 | 値 |
+|---|---|
+| ベース URL | `https://api.lmuai.com` |
+| OpenAI プロトコルエンドポイント | `POST /v1/audio/speech` |
+| MiniMax ネイティブエンドポイント | `POST /v1/t2a_v2` |
+| 認証 | `Authorization: Bearer <your sk- API key>` |
+| リクエスト形式 | `Content-Type: application/json` |
+| モデル | `speech-2.8-hd`、`speech-2.8-turbo` |
+| 課金 | 文字数に基づき、中国語の文字は 1 文字につき 2 文字として数えます。単価は[モデルギャラリー](/ja/docs/guide/models)を参照 |
+
+---
+
+## 2. クイックスタート [#quick-start]
+
+### curl [#quick-start-curl]
+
+```bash
+curl https://api.lmuai.com/v1/audio/speech \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-hd",
+    "input": "Hello, welcome to LMU AI.",
+    "voice": "male-qn-qingse",
+    "response_format": "mp3"
+  }' \
+  --output out.mp3
+```
+
+成功すると、レスポンスボディは JSON ではなく音声ファイルそのもの（`Content-Type: audio/mpeg`）になります。
+
+### Python（OpenAI SDK） [#quick-start-python]
+
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="sk-your-key", base_url="https://api.lmuai.com/v1")
+
+resp = client.audio.speech.create(
+    model="speech-2.8-hd",
+    voice="male-qn-qingse",
+    input="Hello, welcome to LMU AI.",
+    response_format="mp3",
+)
+resp.write_to_file("out.mp3")
+```
+
+---
+
+## 3. 標準パラメータ [#standard-params]
+
+| パラメータ | 必須 | 説明 |
+|---|---|---|
+| `model` | はい | `speech-2.8-hd` または `speech-2.8-turbo` |
+| `input` | はい | 合成するテキスト。空にはできません |
+| `voice` | いいえ | MiniMax のボイス ID（voice_id）。例えば `male-qn-qingse` や `female-shaonv`。省略するか OpenAI のボイス名（`alloy` など）を設定した場合は、デフォルトボイス `male-qn-qingse` が使われます |
+| `response_format` | いいえ | `mp3`（デフォルト）、`wav`、`pcm`、`flac`。それ以外の値は 400 を返します |
+| `speed` | いいえ | 話速。MiniMax は 0.5 から 2.0 をサポートし、範囲外の値は最も近い境界値に丸められます（例えば 3.0 は 2.0 として合成されます） |
+| `stream_format` | いいえ | `"sse"` に設定すると出力をストリーミングします。[セクション 5](#streaming) を参照 |
+
+誤ったボイス ID はエラーコード `minimax_2054`（`voice id not exist`）とともに 400 を返します。システムボイスの一覧は [MiniMax 公式ドキュメント](https://platform.minimax.io/docs/api-reference/speech-t2a-intro)を参照してください。
+
+---
+
+## 4. MiniMax 拡張パラメータ [#extension-params]
+
+以下の MiniMax ネイティブパラメータは `/v1/audio/speech` リクエストボディの**トップレベル**に書くことができ、ゲートウェイがそれらをそのまま MiniMax に転送します。MiniMax は値を検証します。無効な値は `minimax_2013` のようなエラーコードとともに 400 を返し、`message` に問題のあるパラメータ名が示されます。
+
+### 4.1 トップレベルパラメータ [#top-level-params]
+
+| パラメータ | 型 | 説明 |
+|---|---|---|
+| `language_boost` | string | 指定した言語の認識と発音を向上させます。例えば `"Russian"` や `"Chinese"`。`"auto"` は言語を自動検出します |
+| `text_normalization_mode` | string | テキストの正規化方法（数字や記号などの読み方）：`"basic"` または `"quality"` |
+| `pronunciation_dict` | object | カスタム発音。例えば `{"tone": ["处理/(chu3)(li3)"]}` |
+| `voice_modify` | object | 音声エフェクト：`pitch`、`intensity`、`timbre`。それぞれ -100 から 100 |
+| `timbre_weights` | array | 複数のボイスを重みでミックスします。例えば `[{"voice_id": "male-qn-qingse", "weight": 60}, {"voice_id": "female-shaonv", "weight": 40}]`。ミックス時は `voice` を OpenAI のボイス名（`alloy` など）に設定するか空にしてください |
+
+### 4.2 ネストパラメータ voice_setting / audio_setting [#nested-params]
+
+MiniMax の `voice_setting`（`emotion`、音量の `vol`、`pitch` など）や `audio_setting`（`sample_rate`、`bitrate`、チャンネル数の `channel` など）も渡せます。ゲートウェイはそれらを自身が構築する同名のオブジェクトにマージし、あなたのキーがデフォルトを上書きします。
+
+3 つのキーは OpenAI の標準パラメータによって決まり、ネストオブジェクトに書いても無視されます。
+
+| ネストキー | 取得元 |
+|---|---|
+| `voice_setting.voice_id` | `voice` |
+| `voice_setting.speed` | `speed` |
+| `audio_setting.format` | `response_format` |
+
+`audio_setting` がない場合、デフォルトはサンプルレート 32000、モノラル、mp3 では 128000 のビットレートです。
+
+### 4.3 /v1/audio/speech でサポートされないパラメータ [#unsupported-params]
+
+`stream`、`stream_options`、`output_format`、`subtitle_enable`、`subtitle_type` は `/v1/audio/speech` では無視されます。このエンドポイントは音声そのものだけを返し、字幕や音声 URL を伝えることはできません。それらの機能には[ネイティブの /v1/t2a_v2 エンドポイント](#t2a-v2)を使ってください。
+
+### 4.4 例 [#extension-examples]
+
+curl：ロシア語の言語ブースト、happy の感情、16 kHz WAV：
+
+```bash
+curl https://api.lmuai.com/v1/audio/speech \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-hd",
+    "input": "Привет! Сегодня хорошая погода.",
+    "voice": "male-qn-qingse",
+    "response_format": "wav",
+    "language_boost": "Russian",
+    "voice_setting": {"emotion": "happy"},
+    "audio_setting": {"sample_rate": 16000}
+  }' \
+  --output out.wav
+```
+
+Python（OpenAI SDK）：拡張パラメータを `extra_body` に入れます。
+
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="sk-your-key", base_url="https://api.lmuai.com/v1")
+
+resp = client.audio.speech.create(
+    model="speech-2.8-hd",
+    voice="male-qn-qingse",
+    input="这个问题我来处理。",
+    response_format="mp3",
+    extra_body={
+        "pronunciation_dict": {"tone": ["处理/(chu3)(li3)"]},
+        "voice_setting": {"emotion": "happy"},
+    },
+)
+resp.write_to_file("out.mp3")
+```
+
+拡張パラメータの値が無効な場合、SDK は `openai.BadRequestError`（HTTP 400）を発生させます。
+
+---
+
+## 5. ストリーミング出力 [#streaming]
+
+リクエストボディに `"stream_format": "sse"` を追加します。レスポンスは `text/event-stream` になり、OpenAI の speech ストリーミング形式で音声をチャンク単位で配信します。
+
+```text
+data: {"audio":"<base64 audio chunk>","type":"speech.audio.delta"}
+
+data: {"audio":"<base64 audio chunk>","type":"speech.audio.delta"}
+
+data: {"type":"speech.audio.done"}
+```
+
+各 `speech.audio.delta` の `audio` を Base64 デコードし、順番に連結すると完全な音声が得られます。`speech.audio.done` が終了を示します。`speech.audio.done` の前に接続が閉じた場合、音声は不完全です。
+
+```bash
+curl -N https://api.lmuai.com/v1/audio/speech \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-turbo",
+    "input": "Hello, welcome to LMU AI.",
+    "voice": "male-qn-qingse",
+    "stream_format": "sse"
+  }'
+```
+
+---
+
+## 6. ネイティブエンドポイント /v1/t2a_v2 [#t2a-v2]
+
+`POST /v1/t2a_v2` のリクエストボディは MiniMax 公式の t2a_v2 API と一致します。ゲートウェイはそれをそのまま転送し、レスポンスもそのまま返します。パラメータの詳細は [MiniMax 公式ドキュメント](https://platform.minimax.io/docs/api-reference/speech-t2a-intro)を参照してください。
+
+要点：
+
+- `model` と `text` は必須で、各フィールドは 1 回のみ出現できます。
+- **`voice_setting.voice_id` は必須です**。これがないと MiniMax は 400 `minimax_2013`（`invalid params, empty field`）を返します。`timbre_weights` でボイスをミックスする場合は、`voice_id` を空文字列 `""` に設定してください。
+- サポートされるのは MiniMax の speech モデルのみです。それ以外のモデルで呼び出すと 400 を返します。
+
+### 6.1 非ストリーミング [#t2a-v2-sync]
+
+```bash
+curl https://api.lmuai.com/v1/t2a_v2 \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-hd",
+    "text": "Hello, welcome to LMU AI.",
+    "voice_setting": {"voice_id": "male-qn-qingse", "speed": 1.0},
+    "audio_setting": {"format": "mp3", "sample_rate": 32000}
+  }'
+```
+
+レスポンスは JSON で、音声は `data.audio` に **16 進エンコード**されて入っています。
+
+| フィールド | 説明 |
+|---|---|
+| `data.audio` | 16 進エンコードされた音声。`"output_format": "url"` の場合は代わりに音声のダウンロード URL になります |
+| `data.status` | 合成ステータス。完了時は 2 |
+| `data.subtitle_file` | 字幕ファイルの URL。`"subtitle_enable": true` を設定したときに返されます |
+| `extra_info` | 音声情報。`audio_length`、`audio_sample_rate`、`audio_size`、`bitrate`、`audio_format`、`audio_channel`、`word_count`、`usage_characters`（課金文字数）を含みます |
+| `trace_id` | リクエストのトレース ID。問題を報告する際に添えてください |
+| `base_resp` | 成功時は `{"status_code": 0, "status_msg": "success"}` |
+
+Python で音声を保存する：
+
+```python
+import requests
+
+resp = requests.post(
+    "https://api.lmuai.com/v1/t2a_v2",
+    headers={"Authorization": "Bearer sk-your-key"},
+    json={
+        "model": "speech-2.8-hd",
+        "text": "Hello, welcome to LMU AI.",
+        "voice_setting": {"voice_id": "male-qn-qingse"},
+        "audio_setting": {"format": "mp3"},
+    },
+    timeout=120,
+)
+resp.raise_for_status()
+with open("out.mp3", "wb") as f:
+    f.write(bytes.fromhex(resp.json()["data"]["audio"]))
+```
+
+### 6.2 ストリーミング [#t2a-v2-stream]
+
+`"stream": true` の場合、レスポンスは MiniMax ネイティブの SSE です。各フレームは `data:` に続く JSON オブジェクトです。`data.status` が 1 のフレームは 16 進エンコードされた音声チャンクを運び、最後のフレームは `data.status` が 2 で `extra_info` を運びます。
+
+デフォルトでは MiniMax は最後のフレームで完全な音声を再度送信します。チャンクだけを受け取るには `"stream_options": {"exclude_aggregated_audio": true}` を追加します。
+
+```bash
+curl -N https://api.lmuai.com/v1/t2a_v2 \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-turbo",
+    "text": "Hello, welcome to LMU AI.",
+    "stream": true,
+    "stream_options": {"exclude_aggregated_audio": true},
+    "voice_setting": {"voice_id": "male-qn-qingse"},
+    "audio_setting": {"format": "mp3"}
+  }'
+```
+
+### 6.3 エラー形式 [#t2a-v2-errors]
+
+MiniMax 公式 API はエラー時に HTTP 200 を返し、エラーを `base_resp` に入れます。ゲートウェイ経由では、エラーは対応する HTTP エラーステータスとともに、以下のような統一ボディで返されます。ここで `code` は `minimax_` に続けて MiniMax のエラーコードが付きます。
+
+```json
+{"error": {"code": "minimax_2013", "message": "invalid params, empty field", "type": "invalid_request_error"}}
+```
+
+---
+
+## 7. よくあるエラー [#errors]
+
+両方のエンドポイントで以下のエラーが共通します。
+
+| HTTP ステータス | `code` / `message` | 原因と対処 |
+|---|---|---|
+| 400 | `minimax_2013` | 無効なパラメータ。`message` にその名前が示されます。例えば `voice_setting emotion` や `text_normalization_mode must be basic or quality` |
+| 400 | `minimax_2054` | ボイス ID が存在しません。`voice`（または `voice_setting.voice_id`）が MiniMax の voice_id であることを確認してください |
+| 400 | `response_format "opus" is not supported ...` | `/v1/audio/speech` は mp3、wav、pcm、flac のみサポートします |
+| 400 | `input is required` | `/v1/audio/speech` で `input` が空です |
+| 400 | `model is required` | リクエストボディに `model` がありません |
+
+---
+
+## 8. 課金 [#billing]
+
+- 入力テキストの文字数に基づいて課金され、中国語の文字は 1 文字につき 2 文字として数えます。これは MiniMax が返す `usage_characters` に基づきます。
+- 両方のエンドポイントは同じ方法で課金され、失敗したリクエストは課金されません。
+- 単価は[モデルギャラリー](/ja/docs/guide/models)を参照してください。
