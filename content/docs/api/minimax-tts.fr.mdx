@@ -1,0 +1,319 @@
+---
+title: API de synthèse vocale MiniMax
+description: "Appelez la synthèse vocale MiniMax (speech-2.8-hd / speech-2.8-turbo) via LMU AI : utilisez le protocole OpenAI /v1/audio/speech avec le SDK OpenAI, ainsi que les paramètres d'extension MiniMax comme l'amélioration linguistique, le dictionnaire de prononciation, l'émotion et le mélange de timbres. Utilisez le point de terminaison natif /v1/t2a_v2 lorsque vous avez besoin de sous-titres ou d'URL audio."
+ogDescription: "Guide de synthèse vocale MiniMax de LMU AI : /v1/audio/speech est compatible avec le SDK OpenAI, et les paramètres d'extension MiniMax comme language_boost, pronunciation_dict et voice_setting se placent dans extra_body. Le point de terminaison natif /v1/t2a_v2 transmet le corps de la requête tel quel et prend en charge les sous-titres, les URL audio et le streaming natif."
+keywords:
+  - synthèse vocale MiniMax
+  - API TTS MiniMax
+  - speech-2.8-hd
+  - speech-2.8-turbo
+  - t2a_v2
+  - OpenAI audio speech
+  - API de synthèse vocale
+  - API MiniMax LMU AI
+alternateNames:
+  - référence de l'API MiniMax t2a_v2
+  - point de terminaison TTS MiniMax
+faq:
+  - q: Quelle clé API de groupe dois-je utiliser ?
+    a: "Utilisez une clé API du groupe \"MiniMax(Openai协议)\" ou \"国产旗舰大模型甄选(Openai协议)-自由切换\". Les deux groupes desservent speech-2.8-hd et speech-2.8-turbo."
+  - q: Puis-je définir voice sur un nom de voix OpenAI comme alloy ?
+    a: "La requête réussit, mais vous obtenez la voix MiniMax par défaut male-qn-qingse, et non la voix OpenAI. Pour choisir une voix, utilisez un voice_id MiniMax."
+  - q: Quels formats de sortie sont pris en charge ?
+    a: "mp3 (par défaut), wav, pcm et flac. D'autres formats comme opus ou aac renvoient immédiatement 400."
+  - q: Comment transmettre les paramètres d'extension MiniMax avec le SDK OpenAI ?
+    a: "Placez-les dans extra_body, par exemple extra_body={\"language_boost\":\"Russian\",\"voice_setting\":{\"emotion\":\"happy\"}}. La passerelle les transmet à MiniMax tels quels."
+  - q: Que faire si j'ai besoin de sous-titres ou d'une URL de téléchargement audio ?
+    a: "/v1/audio/speech renvoie uniquement l'audio lui-même et ne peut pas porter de sous-titres ni d'URL. Utilisez plutôt le point de terminaison natif /v1/t2a_v2 avec subtitle_enable ou output_format:\"url\"."
+  - q: Comment est-ce facturé ?
+    a: "Selon le nombre de caractères dans le texte d'entrée, chaque caractère chinois comptant pour 2. Consultez la Galerie de modèles pour les prix unitaires. Les requêtes échouées ne sont pas facturées."
+---
+
+Les modèles de synthèse vocale MiniMax `speech-2.8-hd` et `speech-2.8-turbo` peuvent être appelés via deux points de terminaison :
+
+- **`POST /v1/audio/speech`** : le protocole speech d'OpenAI, pour que vous puissiez utiliser directement le SDK OpenAI. Les fonctionnalités propres à MiniMax (amélioration linguistique, dictionnaire de prononciation, émotion, mélange de timbres et plus) se placent dans le corps de la requête en tant que paramètres d'extension, et la passerelle les transmet à MiniMax tels quels.
+- **`POST /v1/t2a_v2`** : le point de terminaison natif de MiniMax. Le corps de la requête est transmis et la réponse renvoyée telle quelle. Utilisez-le lorsque vous avez besoin de sous-titres, d'URL audio ou du format de streaming natif de MiniMax.
+
+<Callout type="info" title="Utilisez une clé API d'un groupe de synthèse vocale MiniMax">
+
+Utilisez une clé API du groupe **MiniMax(Openai协议)** ou **国产旗舰大模型甄选(Openai协议)-自由切换**. Les clés d'autres groupes ne peuvent pas atteindre ces deux modèles.
+
+</Callout>
+
+---
+
+## 1. Aperçu des points de terminaison [#overview]
+
+| Élément | Valeur |
+|---|---|
+| URL de base | `https://api.lmuai.com` |
+| Point de terminaison du protocole OpenAI | `POST /v1/audio/speech` |
+| Point de terminaison natif MiniMax | `POST /v1/t2a_v2` |
+| Authentification | `Authorization: Bearer <your sk- API key>` |
+| Format de requête | `Content-Type: application/json` |
+| Modèles | `speech-2.8-hd`, `speech-2.8-turbo` |
+| Facturation | Selon le nombre de caractères, chaque caractère chinois comptant pour 2 ; prix unitaires dans la [Galerie de modèles](/fr/docs/guide/models) |
+
+---
+
+## 2. Démarrage rapide [#quick-start]
+
+### curl [#quick-start-curl]
+
+```bash
+curl https://api.lmuai.com/v1/audio/speech \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-hd",
+    "input": "Hello, welcome to LMU AI.",
+    "voice": "male-qn-qingse",
+    "response_format": "mp3"
+  }' \
+  --output out.mp3
+```
+
+En cas de succès, le corps de la réponse est le fichier audio lui-même (`Content-Type: audio/mpeg`), et non du JSON.
+
+### Python (SDK OpenAI) [#quick-start-python]
+
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="sk-your-key", base_url="https://api.lmuai.com/v1")
+
+resp = client.audio.speech.create(
+    model="speech-2.8-hd",
+    voice="male-qn-qingse",
+    input="Hello, welcome to LMU AI.",
+    response_format="mp3",
+)
+resp.write_to_file("out.mp3")
+```
+
+---
+
+## 3. Paramètres standard [#standard-params]
+
+| Paramètre | Requis | Description |
+|---|---|---|
+| `model` | Oui | `speech-2.8-hd` ou `speech-2.8-turbo` |
+| `input` | Oui | Le texte à synthétiser ; ne doit pas être vide |
+| `voice` | Non | Un identifiant de voix MiniMax (voice_id), comme `male-qn-qingse` ou `female-shaonv`. S'il est omis ou défini sur un nom de voix OpenAI (`alloy` et ainsi de suite), la voix par défaut `male-qn-qingse` est utilisée |
+| `response_format` | Non | `mp3` (par défaut), `wav`, `pcm`, `flac` ; toute autre valeur renvoie 400 |
+| `speed` | Non | Vitesse d'élocution. MiniMax prend en charge 0.5 à 2.0 ; les valeurs hors plage sont ramenées à la borne la plus proche (par exemple, 3.0 est synthétisé comme 2.0) |
+| `stream_format` | Non | Définissez-le sur `"sse"` pour streamer la sortie ; voir la [section 5](#streaming) |
+
+Un identifiant de voix erroné renvoie 400 avec le code d'erreur `minimax_2054` (`voice id not exist`). Pour la liste des voix système, consultez la [documentation officielle de MiniMax](https://platform.minimax.io/docs/api-reference/speech-t2a-intro).
+
+---
+
+## 4. Paramètres d'extension MiniMax [#extension-params]
+
+Les paramètres natifs MiniMax ci-dessous peuvent être écrits au **niveau supérieur** d'un corps de requête `/v1/audio/speech`, et la passerelle les transmet à MiniMax tels quels. MiniMax valide les valeurs : une valeur invalide renvoie 400 avec un code d'erreur comme `minimax_2013`, et le `message` nomme le paramètre en cause.
+
+### 4.1 Paramètres de niveau supérieur [#top-level-params]
+
+| Paramètre | Type | Description |
+|---|---|---|
+| `language_boost` | string | Améliore la reconnaissance et la prononciation d'une langue donnée, comme `"Russian"` ou `"Chinese"` ; `"auto"` détecte la langue automatiquement |
+| `text_normalization_mode` | string | Comment le texte est normalisé (comment les nombres, symboles et ainsi de suite sont lus) : `"basic"` ou `"quality"` |
+| `pronunciation_dict` | object | Prononciations personnalisées, comme `{"tone": ["处理/(chu3)(li3)"]}` |
+| `voice_modify` | object | Effets de voix : `pitch`, `intensity` et `timbre`, chacun de -100 à 100 |
+| `timbre_weights` | array | Mélange plusieurs voix selon leur poids, comme `[{"voice_id": "male-qn-qingse", "weight": 60}, {"voice_id": "female-shaonv", "weight": 40}]`. Lors d'un mélange, définissez `voice` sur un nom de voix OpenAI (comme `alloy`) ou laissez-le vide |
+
+### 4.2 Paramètres imbriqués voice_setting / audio_setting [#nested-params]
+
+Vous pouvez aussi transmettre les paramètres MiniMax `voice_setting` (comme `emotion`, `vol` pour le volume, `pitch`) et `audio_setting` (comme `sample_rate`, `bitrate`, `channel` pour le nombre de canaux). La passerelle les fusionne dans les objets du même nom qu'elle construit, et vos clés remplacent les valeurs par défaut.
+
+Trois clés sont déterminées par les paramètres standard OpenAI et sont ignorées si elles sont écrites dans les objets imbriqués :
+
+| Clé imbriquée | Reprise de |
+|---|---|
+| `voice_setting.voice_id` | `voice` |
+| `voice_setting.speed` | `speed` |
+| `audio_setting.format` | `response_format` |
+
+Sans `audio_setting`, les valeurs par défaut sont un échantillonnage de 32000, mono, et un débit de 128000 pour le mp3.
+
+### 4.3 Paramètres non pris en charge sur /v1/audio/speech [#unsupported-params]
+
+`stream`, `stream_options`, `output_format`, `subtitle_enable` et `subtitle_type` sont ignorés sur `/v1/audio/speech` : ce point de terminaison renvoie uniquement l'audio lui-même et ne peut pas porter de sous-titres ni d'URL audio. Pour ces fonctionnalités, utilisez le [point de terminaison natif /v1/t2a_v2](#t2a-v2).
+
+### 4.4 Exemples [#extension-examples]
+
+curl : amélioration linguistique en russe, émotion joyeuse, WAV 16 kHz :
+
+```bash
+curl https://api.lmuai.com/v1/audio/speech \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-hd",
+    "input": "Привет! Сегодня хорошая погода.",
+    "voice": "male-qn-qingse",
+    "response_format": "wav",
+    "language_boost": "Russian",
+    "voice_setting": {"emotion": "happy"},
+    "audio_setting": {"sample_rate": 16000}
+  }' \
+  --output out.wav
+```
+
+Python (SDK OpenAI) : placez les paramètres d'extension dans `extra_body` :
+
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="sk-your-key", base_url="https://api.lmuai.com/v1")
+
+resp = client.audio.speech.create(
+    model="speech-2.8-hd",
+    voice="male-qn-qingse",
+    input="这个问题我来处理。",
+    response_format="mp3",
+    extra_body={
+        "pronunciation_dict": {"tone": ["处理/(chu3)(li3)"]},
+        "voice_setting": {"emotion": "happy"},
+    },
+)
+resp.write_to_file("out.mp3")
+```
+
+Lorsqu'une valeur de paramètre d'extension est invalide, le SDK lève `openai.BadRequestError` (HTTP 400).
+
+---
+
+## 5. Sortie en streaming [#streaming]
+
+Ajoutez `"stream_format": "sse"` au corps de la requête. La réponse devient `text/event-stream` et délivre l'audio par fragments au format de streaming speech d'OpenAI :
+
+```text
+data: {"audio":"<base64 audio chunk>","type":"speech.audio.delta"}
+
+data: {"audio":"<base64 audio chunk>","type":"speech.audio.delta"}
+
+data: {"type":"speech.audio.done"}
+```
+
+Décodez en base64 le champ `audio` de chaque `speech.audio.delta` et concaténez-les dans l'ordre pour obtenir l'audio complet ; `speech.audio.done` marque la fin. Si la connexion se ferme avant `speech.audio.done`, l'audio est incomplet.
+
+```bash
+curl -N https://api.lmuai.com/v1/audio/speech \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-turbo",
+    "input": "Hello, welcome to LMU AI.",
+    "voice": "male-qn-qingse",
+    "stream_format": "sse"
+  }'
+```
+
+---
+
+## 6. Point de terminaison natif /v1/t2a_v2 [#t2a-v2]
+
+Le corps de la requête de `POST /v1/t2a_v2` correspond à l'API officielle t2a_v2 de MiniMax. La passerelle le transmet tel quel et renvoie la réponse telle quelle. Pour les détails des paramètres, consultez la [documentation officielle de MiniMax](https://platform.minimax.io/docs/api-reference/speech-t2a-intro).
+
+Points clés :
+
+- `model` et `text` sont requis, et chaque champ ne peut apparaître qu'une seule fois.
+- **`voice_setting.voice_id` est requis** ; sans lui, MiniMax renvoie 400 `minimax_2013` (`invalid params, empty field`). Lors du mélange de voix avec `timbre_weights`, définissez `voice_id` sur une chaîne vide `""`.
+- Seuls les modèles speech MiniMax sont pris en charge ; l'appeler avec tout autre modèle renvoie 400.
+
+### 6.1 Sans streaming [#t2a-v2-sync]
+
+```bash
+curl https://api.lmuai.com/v1/t2a_v2 \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-hd",
+    "text": "Hello, welcome to LMU AI.",
+    "voice_setting": {"voice_id": "male-qn-qingse", "speed": 1.0},
+    "audio_setting": {"format": "mp3", "sample_rate": 32000}
+  }'
+```
+
+La réponse est du JSON, et l'audio se trouve dans `data.audio`, **encodé en hexadécimal** :
+
+| Champ | Description |
+|---|---|
+| `data.audio` | Audio encodé en hexadécimal ; avec `"output_format": "url"`, il s'agit à la place d'une URL de téléchargement audio |
+| `data.status` | Statut de la synthèse ; 2 lorsqu'elle est terminée |
+| `data.subtitle_file` | URL du fichier de sous-titres, renvoyée lorsque `"subtitle_enable": true` est défini |
+| `extra_info` | Informations audio, incluant `audio_length`, `audio_sample_rate`, `audio_size`, `bitrate`, `audio_format`, `audio_channel`, `word_count` et `usage_characters` (caractères facturés) |
+| `trace_id` | Identifiant de trace de la requête ; incluez-le lorsque vous signalez un problème |
+| `base_resp` | `{"status_code": 0, "status_msg": "success"}` en cas de succès |
+
+Enregistrement de l'audio en Python :
+
+```python
+import requests
+
+resp = requests.post(
+    "https://api.lmuai.com/v1/t2a_v2",
+    headers={"Authorization": "Bearer sk-your-key"},
+    json={
+        "model": "speech-2.8-hd",
+        "text": "Hello, welcome to LMU AI.",
+        "voice_setting": {"voice_id": "male-qn-qingse"},
+        "audio_setting": {"format": "mp3"},
+    },
+    timeout=120,
+)
+resp.raise_for_status()
+with open("out.mp3", "wb") as f:
+    f.write(bytes.fromhex(resp.json()["data"]["audio"]))
+```
+
+### 6.2 Streaming [#t2a-v2-stream]
+
+Avec `"stream": true`, la réponse est du SSE natif MiniMax : chaque trame est `data:` suivi d'un objet JSON. Les trames avec `data.status` 1 portent des fragments audio encodés en hexadécimal ; la dernière trame a `data.status` 2 et porte `extra_info`.
+
+Par défaut, MiniMax renvoie à nouveau l'audio complet dans la dernière trame. Pour ne recevoir que les fragments, ajoutez `"stream_options": {"exclude_aggregated_audio": true}` :
+
+```bash
+curl -N https://api.lmuai.com/v1/t2a_v2 \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-turbo",
+    "text": "Hello, welcome to LMU AI.",
+    "stream": true,
+    "stream_options": {"exclude_aggregated_audio": true},
+    "voice_setting": {"voice_id": "male-qn-qingse"},
+    "audio_setting": {"format": "mp3"}
+  }'
+```
+
+### 6.3 Format d'erreur [#t2a-v2-errors]
+
+L'API officielle de MiniMax renvoie HTTP 200 en cas d'erreur et place l'erreur dans `base_resp`. Via la passerelle, les erreurs reviennent avec le statut d'erreur HTTP correspondant et un corps uniforme comme celui ci-dessous, où `code` est `minimax_` suivi du code d'erreur MiniMax :
+
+```json
+{"error": {"code": "minimax_2013", "message": "invalid params, empty field", "type": "invalid_request_error"}}
+```
+
+---
+
+## 7. Erreurs courantes [#errors]
+
+Les deux points de terminaison partagent les erreurs suivantes :
+
+| Statut HTTP | `code` / `message` | Cause et solution |
+|---|---|---|
+| 400 | `minimax_2013` | Paramètre invalide ; le `message` le nomme, par exemple `voice_setting emotion` ou `text_normalization_mode must be basic or quality` |
+| 400 | `minimax_2054` | L'identifiant de voix n'existe pas ; vérifiez que `voice` (ou `voice_setting.voice_id`) est un voice_id MiniMax |
+| 400 | `response_format "opus" is not supported ...` | `/v1/audio/speech` ne prend en charge que mp3, wav, pcm et flac |
+| 400 | `input is required` | `input` est vide sur `/v1/audio/speech` |
+| 400 | `model is required` | Le corps de la requête n'a pas de `model` |
+
+---
+
+## 8. Facturation [#billing]
+
+- Facturée selon le nombre de caractères dans le texte d'entrée, chaque caractère chinois comptant pour 2, d'après le `usage_characters` renvoyé par MiniMax.
+- Les deux points de terminaison sont facturés de la même manière ; les requêtes échouées ne sont pas facturées.
+- Consultez la [Galerie de modèles](/fr/docs/guide/models) pour les prix unitaires.

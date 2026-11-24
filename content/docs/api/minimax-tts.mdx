@@ -1,0 +1,319 @@
+---
+title: MiniMax 语音合成 API
+description: 用灵眸 API 调用 MiniMax 语音合成（speech-2.8-hd / speech-2.8-turbo）：走 OpenAI /v1/audio/speech 协议，可直接用 OpenAI SDK，并支持语种增强、发音词典、情绪、音色混合等 MiniMax 扩展参数；需要字幕或音频链接时可用原生 /v1/t2a_v2 接口。
+ogDescription: 灵眸 MiniMax 语音合成接入指南：/v1/audio/speech 兼容 OpenAI SDK，用 extra_body 传 language_boost、pronunciation_dict、voice_setting 等 MiniMax 扩展参数；原生 /v1/t2a_v2 请求体原样转发，支持字幕、音频链接和原生流式。
+keywords:
+  - MiniMax 语音合成
+  - MiniMax TTS API
+  - speech-2.8-hd
+  - speech-2.8-turbo
+  - t2a_v2
+  - OpenAI audio speech
+  - 文本转语音 API
+  - 灵眸 MiniMax API
+alternateNames:
+  - MiniMax t2a_v2 接口文档
+  - MiniMax 文本转语音接口
+faq:
+  - q: 用哪个分组的 API Key？
+    a: 请用「MiniMax(Openai协议)」或「国产旗舰大模型甄选(Openai协议)-自由切换」分组的 Key，两个分组都提供 speech-2.8-hd 和 speech-2.8-turbo。
+  - q: voice 能填 alloy 这类 OpenAI 音色名吗？
+    a: 能调用成功，但得到的不是对应的 OpenAI 音色，而是 MiniMax 默认音色 male-qn-qingse。要指定音色，请填 MiniMax 的 voice_id。
+  - q: 支持哪些输出格式？
+    a: mp3（默认）、wav、pcm、flac。opus、aac 等其他格式会直接返回 400。
+  - q: 用 OpenAI SDK 怎么传 MiniMax 扩展参数？
+    a: 放进 extra_body，例如 extra_body={"language_boost":"Russian","voice_setting":{"emotion":"happy"}}。网关会把它们原样转给 MiniMax。
+  - q: 需要字幕或音频下载链接怎么办？
+    a: /v1/audio/speech 只返回音频本身，带不出字幕和链接。请改用原生接口 /v1/t2a_v2，传 subtitle_enable 或 output_format:"url"。
+  - q: 怎么计费？
+    a: 按合成文本的字符数计费，一个汉字按 2 个字符计。单价请在模型广场查看。请求失败不计费。
+---
+
+MiniMax 语音合成模型 `speech-2.8-hd`、`speech-2.8-turbo` 可以通过两个接口调用：
+
+- **`POST /v1/audio/speech`**：OpenAI 语音合成协议，可以直接用 OpenAI SDK。MiniMax 特有的能力（语种增强、发音词典、情绪、音色混合等）作为扩展参数写在请求体里，网关原样转给 MiniMax。
+- **`POST /v1/t2a_v2`**：MiniMax 原生接口，请求体原样转发、响应原样返回。需要字幕、音频链接或 MiniMax 原生流式格式时用它。
+
+<Callout type="info" title="请使用 MiniMax 语音分组的 API Key">
+
+请使用 **MiniMax(Openai协议)** 或 **国产旗舰大模型甄选(Openai协议)-自由切换** 分组的 API Key。其他分组调用不到这两个模型。
+
+</Callout>
+
+---
+
+## 1. 接口总览 [#overview]
+
+| 项 | 值 |
+|---|---|
+| Base URL | `https://api.lmuai.com` |
+| OpenAI 协议端点 | `POST /v1/audio/speech` |
+| MiniMax 原生端点 | `POST /v1/t2a_v2` |
+| 鉴权 | `Authorization: Bearer <你的 sk- API Key>` |
+| 请求格式 | `Content-Type: application/json` |
+| 模型 | `speech-2.8-hd`、`speech-2.8-turbo` |
+| 计费 | 按字符数，一个汉字按 2 个字符计，单价见[模型广场](/docs/guide/models) |
+
+---
+
+## 2. 快速开始 [#quick-start]
+
+### curl [#quick-start-curl]
+
+```bash
+curl https://api.lmuai.com/v1/audio/speech \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-hd",
+    "input": "你好，欢迎使用灵眸。",
+    "voice": "male-qn-qingse",
+    "response_format": "mp3"
+  }' \
+  --output out.mp3
+```
+
+成功时响应体就是音频文件本身（`Content-Type: audio/mpeg`），不是 JSON。
+
+### Python（OpenAI SDK） [#quick-start-python]
+
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="sk-你的Key", base_url="https://api.lmuai.com/v1")
+
+resp = client.audio.speech.create(
+    model="speech-2.8-hd",
+    voice="male-qn-qingse",
+    input="你好，欢迎使用灵眸。",
+    response_format="mp3",
+)
+resp.write_to_file("out.mp3")
+```
+
+---
+
+## 3. 标准参数 [#standard-params]
+
+| 参数 | 必填 | 说明 |
+|---|---|---|
+| `model` | 是 | `speech-2.8-hd` 或 `speech-2.8-turbo` |
+| `input` | 是 | 要合成的文本，不能为空 |
+| `voice` | 否 | MiniMax 的音色 ID（voice_id），如 `male-qn-qingse`、`female-shaonv`。不填或填 OpenAI 音色名（`alloy` 等）时使用默认音色 `male-qn-qingse` |
+| `response_format` | 否 | `mp3`（默认）、`wav`、`pcm`、`flac`，其他取值返回 400 |
+| `speed` | 否 | 语速。MiniMax 支持 0.5～2.0，超出范围会按边界值处理（例如传 3.0 按 2.0 合成） |
+| `stream_format` | 否 | 传 `"sse"` 开启流式输出，见[第 5 节](#streaming) |
+
+音色 ID 填错时返回 400，错误码 `minimax_2054`（`voice id not exist`）。可用的系统音色列表见 [MiniMax 官方文档](https://platform.minimax.io/docs/api-reference/speech-t2a-intro)。
+
+---
+
+## 4. MiniMax 扩展参数 [#extension-params]
+
+下面这些 MiniMax 原生参数可以直接写在 `/v1/audio/speech` 的请求体**顶层**，网关原样转给 MiniMax。取值由 MiniMax 校验：传错时返回 400，错误码形如 `minimax_2013`，`message` 里写明是哪个参数出错。
+
+### 4.1 顶层参数 [#top-level-params]
+
+| 参数 | 类型 | 说明 |
+|---|---|---|
+| `language_boost` | 字符串 | 增强指定语种的识别与发音，如 `"Russian"`、`"Chinese"`；`"auto"` 为自动判断 |
+| `text_normalization_mode` | 字符串 | 文本规范化方式（数字、符号等的读法），取值 `"basic"` 或 `"quality"` |
+| `pronunciation_dict` | 对象 | 自定义读音，如 `{"tone": ["处理/(chu3)(li3)"]}` |
+| `voice_modify` | 对象 | 声音效果调节：`pitch`（音高）、`intensity`（强度）、`timbre`（音色），取值均为 -100～100 |
+| `timbre_weights` | 数组 | 多个音色按权重混合，如 `[{"voice_id": "male-qn-qingse", "weight": 60}, {"voice_id": "female-shaonv", "weight": 40}]`。混合时 `voice` 填 OpenAI 音色名（如 `alloy`）或留空 |
+
+### 4.2 嵌套参数 voice_setting / audio_setting [#nested-params]
+
+MiniMax 的 `voice_setting`（如 `emotion` 情绪、`vol` 音量、`pitch` 音调）和 `audio_setting`（如 `sample_rate` 采样率、`bitrate` 码率、`channel` 声道数）也可以传，网关会合并进它生成的同名对象，你传的键覆盖默认值。
+
+有三个键由 OpenAI 标准参数决定，写在嵌套对象里会被忽略：
+
+| 嵌套键 | 以哪个参数为准 |
+|---|---|
+| `voice_setting.voice_id` | `voice` |
+| `voice_setting.speed` | `speed` |
+| `audio_setting.format` | `response_format` |
+
+不传 `audio_setting` 时，默认采样率 32000、单声道，mp3 码率 128000。
+
+### 4.3 /v1/audio/speech 不支持的参数 [#unsupported-params]
+
+`stream`、`stream_options`、`output_format`、`subtitle_enable`、`subtitle_type` 在 `/v1/audio/speech` 上会被忽略：这个接口只返回音频本身，带不出字幕和音频链接。需要这些能力请用[原生接口 /v1/t2a_v2](#t2a-v2)。
+
+### 4.4 示例 [#extension-examples]
+
+curl：俄语增强 + 高兴情绪 + 16kHz WAV：
+
+```bash
+curl https://api.lmuai.com/v1/audio/speech \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-hd",
+    "input": "Привет! Сегодня хорошая погода.",
+    "voice": "male-qn-qingse",
+    "response_format": "wav",
+    "language_boost": "Russian",
+    "voice_setting": {"emotion": "happy"},
+    "audio_setting": {"sample_rate": 16000}
+  }' \
+  --output out.wav
+```
+
+Python（OpenAI SDK）：扩展参数放进 `extra_body`：
+
+```python
+from openai import OpenAI
+
+client = OpenAI(api_key="sk-你的Key", base_url="https://api.lmuai.com/v1")
+
+resp = client.audio.speech.create(
+    model="speech-2.8-hd",
+    voice="male-qn-qingse",
+    input="这个问题我来处理。",
+    response_format="mp3",
+    extra_body={
+        "pronunciation_dict": {"tone": ["处理/(chu3)(li3)"]},
+        "voice_setting": {"emotion": "happy"},
+    },
+)
+resp.write_to_file("out.mp3")
+```
+
+扩展参数取值不合法时，SDK 抛出 `openai.BadRequestError`（HTTP 400）。
+
+---
+
+## 5. 流式输出 [#streaming]
+
+请求体加 `"stream_format": "sse"`，响应改为 `text/event-stream`，按 OpenAI 语音流式格式逐段下发音频：
+
+```text
+data: {"audio":"<base64 音频分片>","type":"speech.audio.delta"}
+
+data: {"audio":"<base64 音频分片>","type":"speech.audio.delta"}
+
+data: {"type":"speech.audio.done"}
+```
+
+把每个 `speech.audio.delta` 的 `audio` 做 base64 解码后按顺序拼接，就是完整音频；收到 `speech.audio.done` 表示结束。没收到 `speech.audio.done` 就断开，说明音频不完整。
+
+```bash
+curl -N https://api.lmuai.com/v1/audio/speech \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-turbo",
+    "input": "你好，欢迎使用灵眸。",
+    "voice": "male-qn-qingse",
+    "stream_format": "sse"
+  }'
+```
+
+---
+
+## 6. 原生接口 /v1/t2a_v2 [#t2a-v2]
+
+`POST /v1/t2a_v2` 的请求体与 MiniMax 官方 t2a_v2 接口一致，网关原样转发，响应也原样返回。参数说明见 [MiniMax 官方文档](https://platform.minimax.io/docs/api-reference/speech-t2a-intro)。
+
+使用要点：
+
+- 必填 `model`、`text`，且每个字段只能出现一次。
+- **必须带 `voice_setting.voice_id`**，否则 MiniMax 返回 400 `minimax_2013`（`invalid params, empty field`）。用 `timbre_weights` 混合音色时，把 `voice_id` 写成空字符串 `""`。
+- 只支持 MiniMax 语音模型，用其他模型调用会返回 400。
+
+### 6.1 非流式 [#t2a-v2-sync]
+
+```bash
+curl https://api.lmuai.com/v1/t2a_v2 \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-hd",
+    "text": "你好，欢迎使用灵眸。",
+    "voice_setting": {"voice_id": "male-qn-qingse", "speed": 1.0},
+    "audio_setting": {"format": "mp3", "sample_rate": 32000}
+  }'
+```
+
+响应是 JSON，音频在 `data.audio`，**hex 编码**：
+
+| 字段 | 说明 |
+|---|---|
+| `data.audio` | hex 编码的音频；传了 `"output_format": "url"` 时是音频下载链接 |
+| `data.status` | 合成状态，完成时为 2 |
+| `data.subtitle_file` | 传了 `"subtitle_enable": true` 时返回的字幕文件链接 |
+| `extra_info` | 音频信息，包括 `audio_length`、`audio_sample_rate`、`audio_size`、`bitrate`、`audio_format`、`audio_channel`、`word_count`、`usage_characters`（计费字符数）等 |
+| `trace_id` | 请求追踪 ID，反馈问题时请附上 |
+| `base_resp` | 成功时为 `{"status_code": 0, "status_msg": "success"}` |
+
+Python 保存音频：
+
+```python
+import requests
+
+resp = requests.post(
+    "https://api.lmuai.com/v1/t2a_v2",
+    headers={"Authorization": "Bearer sk-你的Key"},
+    json={
+        "model": "speech-2.8-hd",
+        "text": "你好，欢迎使用灵眸。",
+        "voice_setting": {"voice_id": "male-qn-qingse"},
+        "audio_setting": {"format": "mp3"},
+    },
+    timeout=120,
+)
+resp.raise_for_status()
+with open("out.mp3", "wb") as f:
+    f.write(bytes.fromhex(resp.json()["data"]["audio"]))
+```
+
+### 6.2 流式 [#t2a-v2-stream]
+
+传 `"stream": true` 时响应是 MiniMax 原生 SSE：每帧 `data:` 后面是一个 JSON，`data.status` 为 1 的帧带 hex 编码的音频分片；最后一帧 `data.status` 为 2，带 `extra_info`。
+
+MiniMax 默认会在最后一帧把完整音频再发一遍。只想要分片时，加上 `"stream_options": {"exclude_aggregated_audio": true}`：
+
+```bash
+curl -N https://api.lmuai.com/v1/t2a_v2 \
+  -H "Authorization: Bearer $LMU_API_KEY" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "model": "speech-2.8-turbo",
+    "text": "你好，欢迎使用灵眸。",
+    "stream": true,
+    "stream_options": {"exclude_aggregated_audio": true},
+    "voice_setting": {"voice_id": "male-qn-qingse"},
+    "audio_setting": {"format": "mp3"}
+  }'
+```
+
+### 6.3 错误格式 [#t2a-v2-errors]
+
+MiniMax 官方接口出错时返回 HTTP 200，错误放在 `base_resp` 里。经过网关后改为对应的 HTTP 错误状态码，错误体统一成下面的格式，`code` 为 `minimax_` 加 MiniMax 错误码：
+
+```json
+{"error": {"code": "minimax_2013", "message": "invalid params, empty field", "type": "invalid_request_error"}}
+```
+
+---
+
+## 7. 常见错误 [#errors]
+
+两个接口共用以下错误：
+
+| HTTP 状态 | `code` / `message` | 原因与处理 |
+|---|---|---|
+| 400 | `minimax_2013` | 参数不合法，`message` 里写明是哪个参数，例如 `voice_setting emotion`、`text_normalization_mode must be basic or quality` |
+| 400 | `minimax_2054` | 音色 ID 不存在，请检查 `voice`（或 `voice_setting.voice_id`）填的是 MiniMax 的 voice_id |
+| 400 | `response_format "opus" is not supported ...` | `/v1/audio/speech` 只支持 mp3、wav、pcm、flac |
+| 400 | `input is required` | `/v1/audio/speech` 的 `input` 为空 |
+| 400 | `model is required` | 请求体没有 `model` |
+
+---
+
+## 8. 计费 [#billing]
+
+- 按合成文本的字符数计费，一个汉字按 2 个字符计，以 MiniMax 返回的 `usage_characters` 为准。
+- 两个接口计费方式相同；请求失败不计费。
+- 单价请在[模型广场](/docs/guide/models)查看。
